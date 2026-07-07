@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
+.DS_Store
+pgdata/
+data/local/
+*.tgz
+eval/external/
+
+# Node / build output
+node_modules/
+air-server/dist/
+dist/
+
+# Agent runtime state (build provenance lives in docs/report.md)
+.gjc/
+.pytest_cache/
+
+# Keep evidence logs even though *.log is ignored
+!eval/results/replica-spike.log

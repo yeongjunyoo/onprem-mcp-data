@@ -1,0 +1,290 @@
+[
+  {
+    "id": 5,
+    "db": "california_schools",
+    "diff": "simple",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT COUNT(*) FROM satscores WHERE AvgScrMath > 400 AND Virtual = 'F'"
+  },
+  {
+    "id": 40,
+    "db": "california_schools",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT \"Phone\" FROM schools WHERE District = 'Fresno Unified' AND \"Phone\" IS NOT NULL ORDER BY (SELECT AvgScrRead FROM satscores WHERE cds = schools.CDSCode) LIMIT 1"
+  },
+  {
+    "id": 89,
+    "db": "financial",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT COUNT(*) FROM account AS a JOIN disp AS d ON a.account_id = d.account_id JOIN client AS c ON d.client_id = c.client_id JOIN district AS dis ON c.district_id = dis.district_id WHERE dis.A3 = 'Východní Čechy' AND a.frequency LIKE '%POPLATEK PO OBRATU%'\""
+  },
+  {
+    "id": 129,
+    "db": "financial",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT d.A2, SUM(t.amount) AS total_withdrawal\nFROM trans t\nJOIN account a ON t.account_id = a.account_id\nJOIN disp d ON a.account_id = d.account_id\nJOIN client c ON d.client_id = c.client_id\nWHERE t.type = 'VYDAJ' AND t.date LIKE '1996-01%'\nGROUP BY d.A2\nORDER BY total_withdrawal DESC\nLIMIT 10"
+  },
+  {
+    "id": 192,
+    "db": "financial",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT AVG(T2.amount) \nFROM trans AS T1 \nJOIN loan AS T2 ON T1.account_id = T2.account_id \nWHERE T2.status = 'C' AND T1.type = 'POPLATEK PO OBRATU'"
+  },
+  {
+    "id": 220,
+    "db": "toxicology",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": false,
+    "goldOk": false,
+    "pred": "(no SQL)"
+  },
+  {
+    "id": 247,
+    "db": "toxicology",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT element FROM \"atom\" WHERE \"atom_id\" NOT IN (SELECT \"atom_id\" FROM \"connected\") UNION SELECT element FROM \"atom\" WHERE \"atom_id\" NOT IN (SELECT \"atom_id2\" FROM \"connected\")"
+  },
+  {
+    "id": 345,
+    "db": "card_games",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT l.status \nFROM legalities l \nJOIN cards c ON l.uuid = c.uuid \nWHERE c.types LIKE '%Artifact%' AND c.side IS NULL AND l.format = 'vintage'"
+  },
+  {
+    "id": 402,
+    "db": "card_games",
+    "diff": "moderate",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT CAST(SUM(CASE WHEN isStorySpotlight = 1 AND isTextless = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM cards"
+  },
+  {
+    "id": 465,
+    "db": "card_games",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT COUNT(*) FROM cards AS c JOIN foreign_data AS fd ON c.uuid = fd.uuid WHERE c.name = 'Ancestor''s Chosen' AND fd.language = 'Korean'"
+  },
+  {
+    "id": 522,
+    "db": "card_games",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT c.\"name\", l.format \nFROM cards c \nJOIN legalities l ON c.uuid = l.uuid \nWHERE c.edhrecRank = 1 AND l.status = 'Banned'"
+  },
+  {
+    "id": 565,
+    "db": "codebase_community",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT CASE WHEN p.ClosedDate IS NULL THEN 'No' ELSE 'Yes' END AS WasWellFinished \nFROM comments c \nJOIN posts p ON c.PostId = p.Id \nJOIN users u ON c.UserId = u.Id \nWHERE u.Id = 23853 AND c.CreationDate = '2013-07-12 09:08:18'"
+  },
+  {
+    "id": 604,
+    "db": "codebase_community",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT AVG(\"UpVotes\"), AVG(Age) FROM users WHERE Id IN (SELECT UserId FROM posts GROUP BY UserId HAVING COUNT(UserId) > 10)"
+  },
+  {
+    "id": 687,
+    "db": "codebase_community",
+    "diff": "simple",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT COUNT(*) FROM comments WHERE PostId = (SELECT Id FROM posts ORDER BY Score DESC LIMIT 1)"
+  },
+  {
+    "id": 732,
+    "db": "superhero",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT T2.publisher_name FROM hero_attribute AS T1 JOIN publisher AS T2 ON T1.hero_id = T2.id WHERE T1.attribute_id = (SELECT id FROM attribute WHERE attribute_name = 'Speed') ORDER BY T1.attribute_value LIMIT 1"
+  },
+  {
+    "id": 760,
+    "db": "superhero",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT CAST(SUM(CASE WHEN T3.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN publisher AS T3 ON T1.publisher_id = T3.id WHERE T1.height_cm BETWEEN 150 AND 180"
+  },
+  {
+    "id": 790,
+    "db": "superhero",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT SUBTRACT((SUM(weight_kg) WHERE full_name = 'Emil Blonsky'), (SUM(weight_kg) WHERE full_name = 'Charles Chandler'))"
+  },
+  {
+    "id": 846,
+    "db": "formula_1",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT driverRef FROM qualifying WHERE q1 IS NOT NULL AND raceId = 20"
+  },
+  {
+    "id": 879,
+    "db": "formula_1",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT T2.nationality FROM results AS T1 JOIN drivers AS T2 ON T1.driverId = T2.driverId WHERE T1.fastestLapSpeed = ( SELECT MAX(T3.fastestLapSpeed) FROM results AS T3 )\""
+  },
+  {
+    "id": 910,
+    "db": "formula_1",
+    "diff": "simple",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT lat, lng FROM circuits WHERE name = 'Silverstone Circuit'"
+  },
+  {
+    "id": 955,
+    "db": "formula_1",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT T3.year , CAST(SUM(REPLACE(T1.time , ':','') AS INTEGER) / COUNT(*) AS REAL) FROM results AS T1 JOIN races AS T2 ON T1.raceId = T2.raceId JOIN seasons AS T3 ON T2.year = T3.year WHERE T1.position = 1 AND T3.year < 1975 GROUP BY T3.year"
+  },
+  {
+    "id": 994,
+    "db": "formula_1",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT T3.points, T3.name, T3.nationality \nFROM races AS T1 \nJOIN constructorResults AS T2 ON T1.raceId = T2.raceId \nJOIN constructors AS T3 ON T2.constructorId = T3.constructorId \nWHERE T1.name = 'Monaco Grand Prix' AND T1.year BETWEEN 1980 AND 2010 \nORDER BY T3.points DESC LIMIT 1"
+  },
+  {
+    "id": 1039,
+    "db": "european_football_2",
+    "diff": "simple",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT AVG(\"long_shots\") FROM \"Player_Attributes\" WHERE \"player_name\" = 'Ahmed Samir Farag'"
+  },
+  {
+    "id": 1092,
+    "db": "european_football_2",
+    "diff": "simple",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT T1.name FROM League AS T1 JOIN Match AS T2 ON T1.id = T2.league_id WHERE T2.season = '2008/2009' GROUP BY T1.name ORDER BY COUNT(T2.id) DESC LIMIT 1"
+  },
+  {
+    "id": 1130,
+    "db": "european_football_2",
+    "diff": "moderate",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT DISTINCT t.team_short_name FROM Team t JOIN Team_Attributes ta ON t.team_api_id = ta.team_api_id WHERE ta.chanceCreationPassingClass = 'Safe'"
+  },
+  {
+    "id": 1153,
+    "db": "thrombosis_prediction",
+    "diff": "simple",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT T2.Diagnosis, T1.Date FROM Laboratory AS T1 JOIN Patient AS T2 ON T1.ID  =  T2.ID WHERE T2.ID  =  '30609'"
+  },
+  {
+    "id": 1192,
+    "db": "thrombosis_prediction",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT DISTINCT P.ID, P.SEX, P.Birthday, P.`First Date`, P.Admission, P.Diagnosis \nFROM Patient P \nJOIN Laboratory L ON P.ID = L.ID \nWHERE P.Admission = '-' AND L.Date LIKE '1991-10%' AND L.`T-BIL` < 2.0"
+  },
+  {
+    "id": 1239,
+    "db": "thrombosis_prediction",
+    "diff": "challenging",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT P.ID, AGE(YEAR(CURRENT_TIMESTAMP), YEAR(P.Birthday)) AS age FROM Patient P JOIN Laboratory L ON P.ID = L.ID WHERE COUNT(L.ID) > 2 AND L.HCT >= 52"
+  },
+  {
+    "id": 1281,
+    "db": "thrombosis_prediction",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT Birthday FROM Patient WHERE ID IN (SELECT ID FROM Laboratory WHERE GOT >= 60 ORDER BY Birthday DESC LIMIT 1)"
+  },
+  {
+    "id": 1352,
+    "db": "student_club",
+    "diff": "moderate",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT COUNT(*) FROM member WHERE t_shirt_size = 'Medium' AND link_to_major IN (SELECT major_id FROM major WHERE major_name = 'Business')"
+  },
+  {
+    "id": 1390,
+    "db": "student_club",
+    "diff": "moderate",
+    "ok": false,
+    "predOk": false,
+    "goldOk": true,
+    "pred": "SELECT CAST(SUM(CASE WHEN T2.event_name = 'Yearly Kickoff' THEN T1.cost ELSE 0 END) AS REAL) * 100 / SUM(T1.cost) FROM expense AS T1 LEFT JOIN attendance AS T3 ON T1.link_to_member = T3.member_id LEFT JOIN event AS T2 ON T3.link_to_event = T2.event_id"
+  },
+  {
+    "id": 1432,
+    "db": "student_club",
+    "diff": "moderate",
+    "ok": true,
+    "predOk": true,
+    "goldOk": true,
+    "pred": "SELECT CAST(SUM(IIF(amount = 50, 1, 0)) AS REAL) * 100 / COUNT(*) FROM member JOIN income ON member.member_id = income.link_to_member WHERE t_shirt_size = 'Medium' AND position = 'Member'"
+  }
+]

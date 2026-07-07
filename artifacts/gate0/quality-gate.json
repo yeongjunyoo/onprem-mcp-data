@@ -1,0 +1,106 @@
+{
+  "architectReview": {
+    "architectureStatus": "CLEAR",
+    "productStatus": "CLEAR",
+    "codeStatus": "CLEAR",
+    "recommendation": "APPROVE",
+    "evidence": "Gate0 baseline-freeze architect review (agent 6-Gate0Architect, artifacts/gate0/architect-review.md): regression suite 140/140 green, eval label honest (README:40 smoke-harness, 64.0% contextual-only, not a beat claim), current code is a sound regression baseline for Gate1-8 increments, and no Gate0 product code change was introduced (verification-only story). Submission-wide gaps (KG unimplemented, benchmark expansion) are Gate1-8 scope, not Gate0 blockers.",
+    "commands": [
+      "architect agent 6-Gate0Architect",
+      "artifacts/gate0/architect-review.md"
+    ],
+    "blockers": []
+  },
+  "executorQa": {
+    "status": "passed",
+    "e2eStatus": "passed",
+    "redTeamStatus": "passed",
+    "evidence": "Gate0 is verification-only (no code change). The full air-server regression suite is the e2e+red-team evidence: 140/140 across 8 suites (artifacts/gate0/npm-test-report.txt). Red-team is covered by the suite's existing adversarial tests: sql.query write-block, mcp_ro privilege boundary (pg_read_file rejected), and strict eval reversed ordered top-k failure. Deterministic CLI marker replayed (artifacts/gate0/cli-replay.json).",
+    "e2eCommands": [
+      "cd air-server && npm test"
+    ],
+    "redTeamCommands": [
+      "db.test.ts: write-block + pg_read_file privilege boundary",
+      "evalmatch.test.ts: ordered reversed-sequence fails",
+      "sql.ts guard: INSERT/UPDATE/DROP/chaining rejected"
+    ],
+    "artifactRefs": [
+      {
+        "id": "npm-test-report",
+        "kind": "test-report",
+        "path": "/Users/cigro/projects/onprem-mcp-data/artifacts/gate0/npm-test-report.txt",
+        "description": "npm test full output; 140/140 passed across router/curator/rrf/evalmatch/db/server/pipeline/llm"
+      }
+    ],
+    "contractCoverage": [
+      {
+        "id": "contract-baseline",
+        "contractRef": "Gate0 acceptance: npm test 140 green + eval label honest",
+        "obligation": "existing regression suite passes unchanged and eval labeled smoke (not 64% beat)",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "surface-suite"
+        ],
+        "adversarialCaseRefs": [
+          "case-write-block",
+          "case-file-read-block",
+          "case-reversed-topk"
+        ]
+      }
+    ],
+    "surfaceEvidence": [
+      {
+        "id": "surface-suite",
+        "contractRef": "air-server regression test suite",
+        "surface": "algorithm",
+        "invocation": "npm test (8 suites, 140 cases incl. live PG + live Qwen2.5-7B)",
+        "verdict": "passed",
+        "artifactRefs": [
+          "npm-test-report"
+        ]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "case-write-block",
+        "contractRef": "sql.query read-only safety",
+        "scenario": "attempt UPDATE/DELETE/DROP and statement chaining via sql.query",
+        "expectedBehavior": "rejected; no rows mutated",
+        "verdict": "passed",
+        "artifactRefs": [
+          "npm-test-report"
+        ]
+      },
+      {
+        "id": "case-file-read-block",
+        "contractRef": "mcp_ro least-privilege boundary",
+        "scenario": "SELECT pg_read_file(...) under mcp_ro",
+        "expectedBehavior": "permission denied; superuser file funcs blocked",
+        "verdict": "passed",
+        "artifactRefs": [
+          "npm-test-report"
+        ]
+      },
+      {
+        "id": "case-reversed-topk",
+        "contractRef": "strict execution-match ordered mode",
+        "scenario": "reversed row sequence for ordered top-k query",
+        "expectedBehavior": "strict comparator fails the reversed result",
+        "verdict": "passed",
+        "artifactRefs": [
+          "npm-test-report"
+        ]
+      }
+    ],
+    "blockers": []
+  },
+  "iteration": {
+    "status": "passed",
+    "evidence": "No blockers; full regression suite rerun clean (140/140). Gate0 introduced no code change.",
+    "fullRerun": true,
+    "rerunCommands": [
+      "cd air-server && npm test"
+    ],
+    "blockers": []
+  }
+}

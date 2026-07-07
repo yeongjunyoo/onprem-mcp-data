@@ -1,0 +1,13 @@
+# Replica spike — 2026-06-30T16:22:56Z
+## streaming replication
+primary pg_stat_replication: streaming/async
+
+## app-level READ_DATABASE_URL routing (getReadPool -> replica :5434)
+  getPool()    -> in_recovery=false (primary :5433)
+  getReadPool()-> in_recovery=true orders=2000 (replica :5434)
+
+## KILL DRILL: stop primary, replica must still serve reads
+  primary STOPPED
+  replica read while primary down: orders=2000
+  primary RESTARTED
+  primary health after restart: orders=2000

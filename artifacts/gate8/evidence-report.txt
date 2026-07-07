@@ -1,0 +1,7 @@
+EVIDENCE MANIFEST (raw, traceable)
+- internal bench: eval/internal/questions.jsonl (100Q), eval/results/internal-{llm,naive,template}-{raw,summary}.json
+- external: eval/internal/retrieval.jsonl, eval/results/external-bird-{raw,summary}.json, recall-{hash,bge,compare}.json
+- faults: eval/results/faults.json | demo: artifacts/gate6/demo-report.txt
+- cluster: docs/architecture.md, scripts/replica-spike.sh, eval/results/replica-spike.log (streaming replication + kill drill)
+- license/model: LICENSE, NOTICE, docs/model-cards/{qwen2.5-7b,bge-m3}.md | report: docs/report.md | demo script: docs/demo-script.md
+- hardware: Apple M4 / macOS 25.5

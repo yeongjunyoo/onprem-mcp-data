@@ -1,0 +1,30 @@
+{
+  "name": "air-server",
+  "version": "0.1.3",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "air dev",
+    "start": "air start",
+    "build": "tsc",
+    "test": "tsc && node dist/router.test.js && node dist/curator.test.js && node dist/rrf.test.js && node dist/evalmatch.test.js && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js",
+    "test:kg": "tsc && node dist/cli/gen-bench.js && EMBEDDER=ollama EMBED_MODEL=bge-m3 node dist/cli/embed-bench.js && node dist/graph.test.js && node dist/kgretrieve.test.js",
+    "eval": "tsc && node dist/eval.js",
+    "gen:bench": "tsc && node dist/cli/gen-bench.js",
+    "embed:bench": "tsc && node dist/cli/embed-bench.js",
+    "bench:internal": "tsc && node dist/cli/bench-eval.js",
+    "demo": "tsc && node dist/cli/demo.js",
+    "fault:inject": "tsc && node dist/cli/fault-eval.js",
+    "recall:eval": "tsc && node dist/cli/recall-eval.js",
+    "external:bird": "tsc && node dist/cli/external-eval.js"
+  },
+  "dependencies": {
+    "@airmcp-dev/core": "^0.2.0",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@types/pg": "^8.20.0",
+    "typescript": "^5.5.0"
+  }
+}

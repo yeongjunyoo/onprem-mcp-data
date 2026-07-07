@@ -1,0 +1,50 @@
+# On-prem MCP data platform — one-command bring-up (L1/L2 substrate = glue).
+# `docker compose up` -> PostgreSQL 17 + pgvector, Ollama (local 7B), MCP server.
+# NOTE: model choice pending license-gate confirm (default Qwen2.5-7B, Apache-2.0).
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mcpdata
+    ports:
+      - "5433:5432"   # host 5433 (5432 often taken by a local postgres)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mcpdata"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    # GPU optional; on Apple Silicon Ollama runs on host metal better than in-container.
+    # For dev, can point the app at a host-run `ollama serve` via OLLAMA_HOST instead.
+
+  # The air MCP server. Behind the "full" profile so the default `docker compose
+  # up` brings up only the verified substrate (db + ollama); the server runs on
+  # the host during dev/eval (cd air-server && npm i && npm run build && npm start).
+  # Containerizing it (stdio→HTTP transport) is the packaging increment.
+  mcp:
+    profiles: ["full"]
+    build: ./air-server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      EMBEDDER: hash
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
+  ollama:

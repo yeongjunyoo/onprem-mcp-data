@@ -1,0 +1,802 @@
+[
+  {
+    "id": "q01",
+    "tax": "count",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q02",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE status = 'refunded'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q03",
+    "tax": "distinct",
+    "ok": true,
+    "pred": "SELECT COUNT(DISTINCT customer_id) FROM bench.orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q04",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE active = true",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q05",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT SUM(total) FROM bench.orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q06",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT AVG(total) FROM bench.orders WHERE status = 'cancelled'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q07",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT MAX(price) FROM bench.products",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q08",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT MIN(price) FROM bench.products",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q09",
+    "tax": "comparison",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total >= 500000",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q10",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE supplier IS NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q11",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT SUM(total) FROM bench.orders WHERE status = 'shipped'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q12",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT status, COUNT(*) FROM bench.orders GROUP BY status",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q13",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT region, COUNT(*) FROM bench.customers GROUP BY region",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q14",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT segment, COUNT(*) FROM bench.customers GROUP BY segment",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q15",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT category_id, COUNT(*) FROM bench.products GROUP BY category_id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q16",
+    "tax": "order+limit",
+    "ok": true,
+    "pred": "SELECT total FROM bench.orders ORDER BY total DESC LIMIT 3",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q17",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "SELECT product_id, price FROM bench.products WHERE active = true ORDER BY price DESC LIMIT 5",
+    "predOk": false,
+    "goldOk": true
+  },
+  {
+    "id": "q18",
+    "tax": "join",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE category_id = (SELECT id FROM bench.categories WHERE name = '전자기기')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q19",
+    "tax": "join",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE customer_id IN (SELECT id FROM bench.customers WHERE segment = 'vip')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q20",
+    "tax": "filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.order_items WHERE order_id = 1",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q21",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2026-01-01' AND created_at < '2027-01-01'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q22",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2025-12-01' AND created_at < '2026-01-01'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q23",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE status = 'resolved' AND reason LIKE '%환불요청%'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q24",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE status = 'open'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q25",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE order_id IS NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q26",
+    "tax": "synonym",
+    "ok": true,
+    "pred": "SELECT SUM(total) FROM bench.orders WHERE status = 'cancelled'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q27",
+    "tax": "synonym",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE segment = 'vip'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q28",
+    "tax": "groupby+order",
+    "ok": true,
+    "pred": "SELECT MAX(order_count) FROM (SELECT COUNT(*) AS order_count FROM bench.orders GROUP BY customer_id) AS order_counts",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q29",
+    "tax": "no-answer",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total > 100000000",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q30",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE category_id = (SELECT id FROM bench.categories WHERE name = 'clothing')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q31",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT region, COUNT(*) FROM bench.customers GROUP BY region",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q32",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE region = 'seoul'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q33",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT MIN(price) FROM bench.products WHERE active = true",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q34",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT AVG(price) FROM bench.products",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q35",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT AVG(price) FROM bench.products WHERE active = true",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q36",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT SUM(qty) FROM bench.order_items WHERE order_id = 1",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q37",
+    "tax": "join+groupby",
+    "ok": true,
+    "pred": "SELECT categories.name, COUNT(*) AS product_count FROM bench.products JOIN bench.categories ON products.category_id = categories.id GROUP BY categories.name",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q38",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE reason IS NOT NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q39",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT reason, COUNT(*) FROM bench.support_tickets GROUP BY reason",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q40",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE status = 'escalated'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q41",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE supplier IS NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q42",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT SUM(total) FROM bench.orders WHERE status = 'cancelled'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q43",
+    "tax": "comparison",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total >= 100000",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q44",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q45",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE EXTRACT(YEAR FROM created_at) = 2025",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q46",
+    "tax": "order+limit",
+    "ok": true,
+    "pred": "SELECT price FROM bench.products ORDER BY price DESC LIMIT 3",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q47",
+    "tax": "distinct",
+    "ok": true,
+    "pred": "SELECT COUNT(DISTINCT customer_id) FROM bench.support_tickets WHERE customer_id IS NOT NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q48",
+    "tax": "join",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE customer_id IN (SELECT id FROM bench.customers WHERE segment = 'regular')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q49",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE segment = 'new'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q50",
+    "tax": "groupby+order",
+    "ok": true,
+    "pred": "SELECT MAX(count) FROM (SELECT COUNT(*) AS count FROM bench.orders JOIN bench.customers ON bench.orders.customer_id = bench.customers.id GROUP BY bench.customers.region) AS order_count_by_region",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q51",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT SUM(pi.qty * pi.unit_price) AS total_revenue FROM bench.order_items pi",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q52",
+    "tax": "groupby+order",
+    "ok": true,
+    "pred": "SELECT SUM(qty) AS total_sold FROM bench.order_items GROUP BY product_id ORDER BY total_sold DESC LIMIT 1",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q53",
+    "tax": "count",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.order_items",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q54",
+    "tax": "join+groupby",
+    "ok": false,
+    "pred": "SELECT c.name AS category, SUM(p.price * oi.qty) AS revenue FROM bench.products p JOIN bench.order_items oi ON p.id = oi.product_id JOIN bench.orders o ON oi.order_id = o.id JOIN bench.categories c ON p.category_id = c.id WHERE o.status = 'paid' GROUP BY c.name",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q55",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT SUM(p.price * oi.qty) AS total_revenue\nFROM bench.products p\nJOIN bench.order_items oi ON p.id = oi.product_id\nJOIN bench.orders o ON oi.order_id = o.id\nJOIN bench.categories c ON p.category_id = c.id\nWHERE c.name = 'electronics' AND o.status = 'paid'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q56",
+    "tax": "join",
+    "ok": true,
+    "pred": "SELECT SUM(o.total) FROM bench.orders o JOIN bench.customers c ON o.customer_id = c.id WHERE c.segment = 'vip'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q57",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT AVG(total) AS average_order_amount FROM bench.orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q58",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT AVG(total) FROM bench.orders WHERE status = 'paid'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q59",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT MAX(total) FROM bench.orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q60",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT total FROM bench.orders ORDER BY total ASC LIMIT 1",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q61",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE segment = 'vip' AND region = 'seoul'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q62",
+    "tax": "join",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE category_id IN (SELECT id FROM bench.categories WHERE name = '전자기기') AND active = true",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q63",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE status = 'escalated' AND reason = 'refund_request'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q64",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE status IN ('cancelled', 'refunded')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q65",
+    "tax": "comparison",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total > 50000 AND total < 100000",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q66",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT status, SUM(total) FROM bench.orders GROUP BY status",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q67",
+    "tax": "join+groupby",
+    "ok": true,
+    "pred": "SELECT segment, COUNT(*) FROM bench.customers JOIN bench.orders ON bench.customers.id = bench.orders.customer_id GROUP BY segment",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q68",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT supplier, COUNT(*) FROM bench.products WHERE supplier IS NOT NULL GROUP BY supplier",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q69",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT region, COUNT(*) FROM bench.customers WHERE segment = 'vip' GROUP BY region",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q70",
+    "tax": "groupby",
+    "ok": true,
+    "pred": "SELECT status, COUNT(*) FROM bench.support_tickets GROUP BY status",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q71",
+    "tax": "aggregate+filter",
+    "ok": true,
+    "pred": "SELECT MAX(price) FROM bench.products WHERE active = true",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q72",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT c.name, COUNT(o.id) AS order_count FROM bench.customers c JOIN bench.orders o ON c.id = o.customer_id GROUP BY c.id ORDER BY order_count DESC LIMIT 3",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q73",
+    "tax": "order+limit",
+    "ok": true,
+    "pred": "SELECT price FROM bench.products ORDER BY price LIMIT 3",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q74",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2026-01-01' AND created_at < '2026-02-01'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q75",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2025-07-01' AND created_at < '2026-01-01'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q76",
+    "tax": "time",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE EXTRACT(YEAR FROM created_at) = 2026",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q77",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE id NOT IN (SELECT customer_id FROM bench.orders)",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q78",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE id NOT IN (SELECT product_id FROM bench.order_items)",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q79",
+    "tax": "distinct",
+    "ok": true,
+    "pred": "SELECT COUNT(DISTINCT product_id) FROM bench.order_items",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q80",
+    "tax": "distinct",
+    "ok": true,
+    "pred": "SELECT COUNT(DISTINCT region) FROM bench.customers WHERE id IN (SELECT customer_id FROM bench.orders)",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q81",
+    "tax": "synonym",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE status = 'refunded'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q82",
+    "tax": "synonym",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE segment = 'regular'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q83",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT AVG(price) FROM bench.products WHERE category_id = (SELECT id FROM bench.categories WHERE name = '家具')",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q84",
+    "tax": "distinct",
+    "ok": true,
+    "pred": "SELECT COUNT(DISTINCT customer_id) FROM bench.orders WHERE status = 'refunded'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q85",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT SUM(products.price * order_items.qty) AS total_amount FROM bench.orders JOIN bench.order_items ON bench.orders.id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.orders.customer_id = 1 AND bench.orders.status = 'paid'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q86",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE status = 'shipped'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q87",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE reason IS NOT NULL AND status = 'open'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q88",
+    "tax": "count+filter",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.support_tickets WHERE status = 'resolved'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q89",
+    "tax": "aggregate",
+    "ok": true,
+    "pred": "SELECT SUM(price) FROM bench.products",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q90",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "SELECT COUNT(*) AS active_count FROM bench.products WHERE active = true UNION ALL SELECT COUNT(*) AS inactive_count FROM bench.products WHERE active = false",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q91",
+    "tax": "comparison",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total > (SELECT AVG(total) FROM bench.orders)",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q92",
+    "tax": "order+limit",
+    "ok": true,
+    "pred": "SELECT name FROM bench.products WHERE price = (SELECT MAX(price) FROM bench.products)",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q93",
+    "tax": "count",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.customers",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q94",
+    "tax": "count",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q95",
+    "tax": "count",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.categories",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q96",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT AVG(total) FROM bench.orders WHERE customer_id IN (SELECT id FROM bench.customers WHERE segment = 'vip') OR customer_id IN (SELECT id FROM bench.customers WHERE segment = 'regular') OR customer_id IN (SELECT id FROM bench.customers WHERE segment = 'new') GROUP BY segment ORDER BY AVG(total) DESC LIMIT 1",
+    "predOk": false,
+    "goldOk": true
+  },
+  {
+    "id": "q97",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE region = 'Jeju'",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q98",
+    "tax": "null",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE supplier IS NOT NULL",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q99",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT SUM(qty) AS total_quantity, product_id FROM bench.order_items GROUP BY product_id ORDER BY total_quantity DESC LIMIT 1",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q100",
+    "tax": "no-answer",
+    "ok": true,
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE total = 0",
+    "predOk": true,
+    "goldOk": true
+  }
+]

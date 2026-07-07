@@ -1,0 +1,1 @@
+recall@5 hash 0.5 -> bge 1 | MRR 0.304 -> 0.906 | thresholds {'recall5_ge15pp': True, 'mrr_ge0_10': True, 'top1_ge10pp': True}

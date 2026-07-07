@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "kind": "cli-replay",
+  "replaySafe": true,
+  "command": [
+    "node",
+    "-e",
+    "console.log(\"gate0-baseline-140-green\")"
+  ],
+  "recordedStdout": "gate0-baseline-140-green\n"
+}

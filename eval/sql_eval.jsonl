@@ -1,0 +1,14 @@
+{"q": "전체 주문 건수는?", "gold": "SELECT count(*) AS n FROM orders"}
+{"q": "환불된 주문은 몇 건이야?", "gold": "SELECT count(*) AS n FROM orders WHERE status = 'refunded'"}
+{"q": "결제완료(paid)된 주문 건수는?", "gold": "SELECT count(*) AS n FROM orders WHERE status = 'paid'"}
+{"q": "취소된 주문의 총 금액은?", "gold": "SELECT sum(amount) AS total FROM orders WHERE status = 'cancelled'"}
+{"q": "전체 주문 금액 합계는?", "gold": "SELECT sum(amount) AS total FROM orders"}
+{"q": "주문 평균 금액은?", "gold": "SELECT avg(amount) AS avg_amount FROM orders"}
+{"q": "사용자별 주문 건수를 알려줘", "gold": "SELECT user_id, count(*) AS n FROM orders GROUP BY user_id"}
+{"q": "상태별 주문 건수는?", "gold": "SELECT status, count(*) AS n FROM orders GROUP BY status"}
+{"q": "금액이 10000 이상인 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM orders WHERE amount >= 10000"}
+{"q": "가장 비싼 주문의 금액은?", "gold": "SELECT max(amount) AS max_amount FROM orders"}
+{"q": "2026년 5월에 생성된 주문 건수는?", "gold": "SELECT count(*) AS n FROM orders WHERE created_at >= '2026-05-01' AND created_at < '2026-06-01'"}
+{"q": "서로 다른 사용자는 몇 명이야?", "gold": "SELECT count(DISTINCT user_id) AS n FROM orders"}
+{"q": "환불된 주문을 한 사용자의 id는?", "gold": "SELECT user_id FROM orders WHERE status = 'refunded'"}
+{"q": "주문 금액 상위 3개를 알려줘", "gold": "SELECT amount FROM orders ORDER BY amount DESC LIMIT 3", "ordered": true}

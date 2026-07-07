@@ -1,0 +1,802 @@
+[
+  {
+    "id": "q01",
+    "tax": "count",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q02",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'refunded' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q03",
+    "tax": "distinct",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q04",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q05",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q06",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'cancelled' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q07",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q08",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q09",
+    "tax": "comparison",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q10",
+    "tax": "null",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q11",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q12",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q13",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q14",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q15",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q16",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q17",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q18",
+    "tax": "join",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q19",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q20",
+    "tax": "filter",
+    "ok": true,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q21",
+    "tax": "time",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q22",
+    "tax": "time",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q23",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q24",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q25",
+    "tax": "null",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q26",
+    "tax": "synonym",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'cancelled' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q27",
+    "tax": "synonym",
+    "ok": false,
+    "pred": "SELECT count(DISTINCT user_id)::int AS user_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q28",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q29",
+    "tax": "no-answer",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q30",
+    "tax": "join",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q31",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q32",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q33",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q34",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q35",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q36",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q37",
+    "tax": "join+groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q38",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q39",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q40",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q41",
+    "tax": "null",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q42",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'cancelled' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q43",
+    "tax": "comparison",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q44",
+    "tax": "time",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q45",
+    "tax": "time",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q46",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q47",
+    "tax": "distinct",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q48",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q49",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q50",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q51",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q52",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q53",
+    "tax": "count",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q54",
+    "tax": "join+groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q55",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q56",
+    "tax": "join",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q57",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "SELECT round(avg(amount))::int AS avg_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q58",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT round(avg(amount))::int AS avg_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q59",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q60",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q61",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q62",
+    "tax": "join",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q63",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q64",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'refunded' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q65",
+    "tax": "comparison",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q66",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "SELECT status, count(*)::int AS n FROM orders GROUP BY status ORDER BY status",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q67",
+    "tax": "join+groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q68",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q69",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q70",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "SELECT status, count(*)::int AS n FROM orders GROUP BY status ORDER BY status",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q71",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q72",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q73",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q74",
+    "tax": "time",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q75",
+    "tax": "time",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q76",
+    "tax": "time",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q77",
+    "tax": "null",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q78",
+    "tax": "null",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q79",
+    "tax": "distinct",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q80",
+    "tax": "distinct",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q81",
+    "tax": "synonym",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'refunded' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q82",
+    "tax": "synonym",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q83",
+    "tax": "join",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q84",
+    "tax": "distinct",
+    "ok": false,
+    "pred": "SELECT id, user_id, status, amount, created_at FROM orders WHERE status = 'refunded' ORDER BY id",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q85",
+    "tax": "aggregate+filter",
+    "ok": false,
+    "pred": "SELECT sum(amount)::int AS total_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q86",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q87",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q88",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q89",
+    "tax": "aggregate",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q90",
+    "tax": "groupby",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q91",
+    "tax": "comparison",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q92",
+    "tax": "order+limit",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q93",
+    "tax": "count",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q94",
+    "tax": "count",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q95",
+    "tax": "count",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q96",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "SELECT round(avg(amount))::int AS avg_amount FROM orders",
+    "predOk": true,
+    "goldOk": true
+  },
+  {
+    "id": "q97",
+    "tax": "count+filter",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q98",
+    "tax": "null",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q99",
+    "tax": "groupby+order",
+    "ok": false,
+    "pred": "(no SQL)",
+    "predOk": false,
+    "goldOk": false
+  },
+  {
+    "id": "q100",
+    "tax": "no-answer",
+    "ok": false,
+    "pred": "SELECT count(*)::int AS order_count FROM orders",
+    "predOk": true,
+    "goldOk": true
+  }
+]

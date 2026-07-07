@@ -1,0 +1,75 @@
+{
+  "strategy": "template",
+  "model": "qwen2.5:7b",
+  "total": 100,
+  "correct": 1,
+  "accuracy": 1,
+  "byTax": {
+    "count": {
+      "c": 0,
+      "n": 5
+    },
+    "count+filter": {
+      "c": 0,
+      "n": 15
+    },
+    "distinct": {
+      "c": 0,
+      "n": 5
+    },
+    "aggregate": {
+      "c": 0,
+      "n": 9
+    },
+    "aggregate+filter": {
+      "c": 0,
+      "n": 9
+    },
+    "comparison": {
+      "c": 0,
+      "n": 4
+    },
+    "null": {
+      "c": 0,
+      "n": 6
+    },
+    "groupby": {
+      "c": 0,
+      "n": 11
+    },
+    "order+limit": {
+      "c": 0,
+      "n": 5
+    },
+    "join": {
+      "c": 0,
+      "n": 8
+    },
+    "filter": {
+      "c": 1,
+      "n": 1
+    },
+    "time": {
+      "c": 0,
+      "n": 7
+    },
+    "synonym": {
+      "c": 0,
+      "n": 4
+    },
+    "groupby+order": {
+      "c": 0,
+      "n": 6
+    },
+    "no-answer": {
+      "c": 0,
+      "n": 2
+    },
+    "join+groupby": {
+      "c": 0,
+      "n": 3
+    }
+  },
+  "generatedAt": "2026-06-30T16:59:03.884Z",
+  "note": "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison."
+}

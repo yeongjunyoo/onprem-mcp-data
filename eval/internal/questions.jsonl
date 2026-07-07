@@ -1,0 +1,100 @@
+{"id": "q01", "q": "전체 주문은 몇 건이야?", "gold": "SELECT count(*) AS n FROM bench.orders", "tax": "count"}
+{"id": "q02", "q": "환불된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE status='refunded'", "tax": "count+filter"}
+{"id": "q03", "q": "주문한 서로 다른 고객은 몇 명이야?", "gold": "SELECT count(DISTINCT customer_id) AS n FROM bench.orders", "tax": "distinct"}
+{"id": "q04", "q": "판매 중인(활성) 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products WHERE active=true", "tax": "count+filter"}
+{"id": "q05", "q": "전체 주문 금액 합계는 얼마야?", "gold": "SELECT sum(total) AS s FROM bench.orders", "tax": "aggregate"}
+{"id": "q06", "q": "취소된 주문의 평균 금액은?", "gold": "SELECT avg(total) AS a FROM bench.orders WHERE status='cancelled'", "tax": "aggregate+filter", "numericTolerance": 1}
+{"id": "q07", "q": "가장 비싼 상품의 가격은?", "gold": "SELECT max(price) AS m FROM bench.products", "tax": "aggregate"}
+{"id": "q08", "q": "가장 싼 상품의 가격은?", "gold": "SELECT min(price) AS m FROM bench.products", "tax": "aggregate"}
+{"id": "q09", "q": "금액이 50만원 이상인 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total >= 500000", "tax": "comparison"}
+{"id": "q10", "q": "공급사가 등록되지 않은 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products WHERE supplier IS NULL", "tax": "null"}
+{"id": "q11", "q": "배송된 주문들의 금액 합계는?", "gold": "SELECT sum(total) AS s FROM bench.orders WHERE status='shipped'", "tax": "aggregate+filter"}
+{"id": "q12", "q": "상태별 주문 건수를 알려줘", "gold": "SELECT status, count(*) AS n FROM bench.orders GROUP BY status", "tax": "groupby"}
+{"id": "q13", "q": "지역별 고객 수는?", "gold": "SELECT region, count(*) AS n FROM bench.customers GROUP BY region", "tax": "groupby"}
+{"id": "q14", "q": "세그먼트별 고객 수는?", "gold": "SELECT segment, count(*) AS n FROM bench.customers GROUP BY segment", "tax": "groupby"}
+{"id": "q15", "q": "카테고리별 상품 수는?", "gold": "SELECT category_id, count(*) AS n FROM bench.products GROUP BY category_id", "tax": "groupby"}
+{"id": "q16", "q": "금액이 가장 큰 주문 3건의 금액은?", "gold": "SELECT total FROM bench.orders ORDER BY total DESC LIMIT 3", "tax": "order+limit", "ordered": true}
+{"id": "q17", "q": "가격이 높은 상위 5개 상품의 가격은?", "gold": "SELECT price FROM bench.products ORDER BY price DESC LIMIT 5", "tax": "order+limit", "ordered": true}
+{"id": "q18", "q": "전자기기 카테고리에 속한 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products p JOIN bench.categories c ON c.id=p.category_id WHERE c.name='전자기기'", "tax": "join"}
+{"id": "q19", "q": "VIP 고객이 낸 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders o JOIN bench.customers c ON c.id=o.customer_id WHERE c.segment='vip'", "tax": "join"}
+{"id": "q20", "q": "주문 1번에 담긴 품목은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.order_items WHERE order_id=1", "tax": "filter"}
+{"id": "q21", "q": "2026년에 생성된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE created_at >= '2026-01-01' AND created_at < '2027-01-01'", "tax": "time"}
+{"id": "q22", "q": "2025년 12월에 생성된 주문 수는?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE created_at >= '2025-12-01' AND created_at < '2026-01-01'", "tax": "time"}
+{"id": "q23", "q": "환불요청 사유의 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE reason='환불요청'", "tax": "count+filter"}
+{"id": "q24", "q": "아직 해결되지 않은(open) 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE status='open'", "tax": "count+filter"}
+{"id": "q25", "q": "주문과 연결되지 않은 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE order_id IS NULL", "tax": "null"}
+{"id": "q26", "q": "취소된 주문의 총액은 얼마야?", "gold": "SELECT sum(total) AS s FROM bench.orders WHERE status='cancelled'", "tax": "synonym"}
+{"id": "q27", "q": "우수회원(VIP) 등급 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE segment='vip'", "tax": "synonym"}
+{"id": "q28", "q": "고객별 주문 건수 중 가장 많은 건수는?", "gold": "SELECT count(*) AS n FROM bench.orders GROUP BY customer_id ORDER BY n DESC LIMIT 1", "tax": "groupby+order"}
+{"id": "q29", "q": "금액이 1조원을 넘는 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total > 1000000000000", "tax": "no-answer"}
+{"id": "q30", "q": "의류 카테고리에 속한 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products p JOIN bench.categories c ON p.category_id=c.id WHERE c.name='의류'", "tax": "join"}
+{"id": "q31", "q": "지역별 고객 수를 알려줘", "gold": "SELECT region, count(*) AS n FROM bench.customers GROUP BY region ORDER BY region", "tax": "groupby"}
+{"id": "q32", "q": "서울에 사는 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE region='서울'", "tax": "count+filter"}
+{"id": "q33", "q": "판매 중인 상품 중 가장 싼 가격은?", "gold": "SELECT min(price) AS n FROM bench.products WHERE active=true", "tax": "aggregate+filter"}
+{"id": "q34", "q": "상품의 평균 가격은?", "gold": "SELECT avg(price) AS n FROM bench.products", "tax": "aggregate", "numericTolerance": 0.01}
+{"id": "q35", "q": "판매 중인 상품의 평균 가격은?", "gold": "SELECT avg(price) AS n FROM bench.products WHERE active=true", "tax": "aggregate+filter", "numericTolerance": 0.01}
+{"id": "q36", "q": "1번 주문의 총 수량은?", "gold": "SELECT sum(qty) AS n FROM bench.order_items WHERE order_id=1", "tax": "aggregate+filter"}
+{"id": "q37", "q": "카테고리 이름별 상품 수는?", "gold": "SELECT c.name, count(*) AS n FROM bench.products p JOIN bench.categories c ON p.category_id=c.id GROUP BY c.name ORDER BY c.name", "tax": "join+groupby"}
+{"id": "q38", "q": "상품불량 사유의 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE reason='상품불량'", "tax": "count+filter"}
+{"id": "q39", "q": "사유별 티켓 건수는?", "gold": "SELECT reason, count(*) AS n FROM bench.support_tickets GROUP BY reason ORDER BY reason", "tax": "groupby"}
+{"id": "q40", "q": "에스컬레이션된 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE status='escalated'", "tax": "count+filter"}
+{"id": "q41", "q": "공급사가 없는 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products WHERE supplier IS NULL", "tax": "null"}
+{"id": "q42", "q": "취소된 주문의 총액은?", "gold": "SELECT sum(total) AS n FROM bench.orders WHERE status='cancelled'", "tax": "aggregate+filter"}
+{"id": "q43", "q": "금액이 10만원 이상인 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total >= 100000", "tax": "comparison"}
+{"id": "q44", "q": "2025년에 생성된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'", "tax": "time"}
+{"id": "q45", "q": "2025년에 가입한 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'", "tax": "time"}
+{"id": "q46", "q": "가장 비싼 상품 3개의 가격은?", "gold": "SELECT price AS n FROM bench.products ORDER BY price DESC, id LIMIT 3", "tax": "order+limit", "ordered": true}
+{"id": "q47", "q": "티켓을 낸 서로 다른 고객은 몇 명?", "gold": "SELECT count(DISTINCT customer_id) AS n FROM bench.support_tickets", "tax": "distinct"}
+{"id": "q48", "q": "regular 세그먼트 고객이 낸 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id WHERE c.segment='regular'", "tax": "join"}
+{"id": "q49", "q": "신규(new) 등급 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE segment='new'", "tax": "count+filter"}
+{"id": "q50", "q": "주문이 가장 많은 지역의 주문 건수는?", "gold": "SELECT count(*) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id GROUP BY c.region ORDER BY n DESC, c.region LIMIT 1", "tax": "groupby+order"}
+{"id": "q51", "q": "주문상품 기준 전체 매출은 얼마?", "gold": "SELECT sum(qty*unit_price) AS n FROM bench.order_items", "tax": "aggregate"}
+{"id": "q52", "q": "가장 많이 팔린(수량) 상품 1개의 총 판매수량은?", "gold": "SELECT sum(qty) AS n FROM bench.order_items GROUP BY product_id ORDER BY n DESC, product_id LIMIT 1", "tax": "groupby+order"}
+{"id": "q53", "q": "전체 주문상품 라인 수는?", "gold": "SELECT count(*) AS n FROM bench.order_items", "tax": "count"}
+{"id": "q54", "q": "카테고리별 매출은?", "gold": "SELECT c.name, sum(oi.qty*oi.unit_price) AS n FROM bench.order_items oi JOIN bench.products p ON oi.product_id=p.id JOIN bench.categories c ON p.category_id=c.id GROUP BY c.name ORDER BY c.name", "tax": "join+groupby"}
+{"id": "q55", "q": "전자기기 카테고리의 매출 합계는?", "gold": "SELECT sum(oi.qty*oi.unit_price) AS n FROM bench.order_items oi JOIN bench.products p ON oi.product_id=p.id JOIN bench.categories c ON p.category_id=c.id WHERE c.name='전자기기'", "tax": "join"}
+{"id": "q56", "q": "VIP 고객의 주문 금액 합계는?", "gold": "SELECT sum(o.total) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id WHERE c.segment='vip'", "tax": "join"}
+{"id": "q57", "q": "전체 주문의 평균 금액은?", "gold": "SELECT avg(total) AS n FROM bench.orders", "tax": "aggregate", "numericTolerance": 0.01}
+{"id": "q58", "q": "결제완료(paid) 주문의 평균 금액은?", "gold": "SELECT avg(total) AS n FROM bench.orders WHERE status='paid'", "tax": "aggregate+filter", "numericTolerance": 0.01}
+{"id": "q59", "q": "가장 금액이 큰 주문의 금액은?", "gold": "SELECT max(total) AS n FROM bench.orders", "tax": "aggregate"}
+{"id": "q60", "q": "가장 금액이 작은 주문의 금액은?", "gold": "SELECT min(total) AS n FROM bench.orders", "tax": "aggregate"}
+{"id": "q61", "q": "서울에 사는 VIP 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE region='서울' AND segment='vip'", "tax": "count+filter"}
+{"id": "q62", "q": "판매 중인 전자기기 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products p JOIN bench.categories c ON p.category_id=c.id WHERE c.name='전자기기' AND p.active=true", "tax": "join"}
+{"id": "q63", "q": "에스컬레이션되고 사유가 환불요청인 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE status='escalated' AND reason='환불요청'", "tax": "count+filter"}
+{"id": "q64", "q": "취소되거나 환불된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE status IN ('cancelled','refunded')", "tax": "count+filter"}
+{"id": "q65", "q": "금액이 5만원 이상 10만원 미만인 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total >= 50000 AND total < 100000", "tax": "comparison"}
+{"id": "q66", "q": "상태별 주문 금액 합계는?", "gold": "SELECT status, sum(total) AS n FROM bench.orders GROUP BY status ORDER BY status", "tax": "groupby"}
+{"id": "q67", "q": "세그먼트별 주문 수는?", "gold": "SELECT c.segment, count(*) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id GROUP BY c.segment ORDER BY c.segment", "tax": "join+groupby"}
+{"id": "q68", "q": "공급사별 상품 수는?", "gold": "SELECT supplier, count(*) AS n FROM bench.products WHERE supplier IS NOT NULL GROUP BY supplier ORDER BY supplier", "tax": "groupby"}
+{"id": "q69", "q": "지역별 VIP 고객 수는?", "gold": "SELECT region, count(*) AS n FROM bench.customers WHERE segment='vip' GROUP BY region ORDER BY region", "tax": "groupby"}
+{"id": "q70", "q": "티켓 상태별 건수는?", "gold": "SELECT status, count(*) AS n FROM bench.support_tickets GROUP BY status ORDER BY status", "tax": "groupby"}
+{"id": "q71", "q": "가장 비싼 활성 상품의 가격은?", "gold": "SELECT max(price) AS n FROM bench.products WHERE active=true", "tax": "aggregate+filter"}
+{"id": "q72", "q": "주문이 가장 많은 고객의 주문 건수 상위 3명?", "gold": "SELECT count(*) AS n FROM bench.orders GROUP BY customer_id ORDER BY n DESC, customer_id LIMIT 3", "tax": "groupby+order", "ordered": true}
+{"id": "q73", "q": "가격이 낮은 상품 3개의 가격은?", "gold": "SELECT price AS n FROM bench.products ORDER BY price ASC, id LIMIT 3", "tax": "order+limit", "ordered": true}
+{"id": "q74", "q": "2026년 1월에 생성된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE created_at >= '2026-01-01' AND created_at < '2026-02-01'", "tax": "time"}
+{"id": "q75", "q": "2025년 하반기(7~12월)에 생성된 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE created_at >= '2025-07-01' AND created_at < '2026-01-01'", "tax": "time"}
+{"id": "q76", "q": "2026년에 가입한 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE created_at >= '2026-01-01' AND created_at < '2027-01-01'", "tax": "time"}
+{"id": "q77", "q": "주문이 한 번도 없는 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers c WHERE NOT EXISTS (SELECT 1 FROM bench.orders o WHERE o.customer_id=c.id)", "tax": "null"}
+{"id": "q78", "q": "한 번도 주문된 적 없는 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products p WHERE NOT EXISTS (SELECT 1 FROM bench.order_items oi WHERE oi.product_id=p.id)", "tax": "null"}
+{"id": "q79", "q": "주문된 적 있는 서로 다른 상품은 몇 개?", "gold": "SELECT count(DISTINCT product_id) AS n FROM bench.order_items", "tax": "distinct"}
+{"id": "q80", "q": "주문이 있는 지역은 몇 곳?", "gold": "SELECT count(DISTINCT c.region) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id", "tax": "distinct"}
+{"id": "q81", "q": "반품(환불) 상태 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE status='refunded'", "tax": "synonym"}
+{"id": "q82", "q": "일반(regular) 등급 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE segment='regular'", "tax": "synonym"}
+{"id": "q83", "q": "가구 카테고리 상품의 평균 가격은?", "gold": "SELECT avg(p.price) AS n FROM bench.products p JOIN bench.categories c ON p.category_id=c.id WHERE c.name='가구'", "tax": "join", "numericTolerance": 0.01}
+{"id": "q84", "q": "환불된 주문을 낸 서로 다른 고객은 몇 명?", "gold": "SELECT count(DISTINCT customer_id) AS n FROM bench.orders WHERE status='refunded'", "tax": "distinct"}
+{"id": "q85", "q": "고객 1번의 총 주문 금액은?", "gold": "SELECT sum(total) AS n FROM bench.orders WHERE customer_id=1", "tax": "aggregate+filter"}
+{"id": "q86", "q": "배송된(shipped) 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE status='shipped'", "tax": "count+filter"}
+{"id": "q87", "q": "단순문의 사유의 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE reason='단순문의'", "tax": "count+filter"}
+{"id": "q88", "q": "해결된(resolved) 티켓은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.support_tickets WHERE status='resolved'", "tax": "count+filter"}
+{"id": "q89", "q": "상품 가격의 총합은?", "gold": "SELECT sum(price) AS n FROM bench.products", "tax": "aggregate"}
+{"id": "q90", "q": "활성 상품과 비활성 상품 각각 몇 개?", "gold": "SELECT active, count(*) AS n FROM bench.products GROUP BY active ORDER BY active", "tax": "groupby"}
+{"id": "q91", "q": "주문 금액이 평균보다 큰 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total > (SELECT avg(total) FROM bench.orders)", "tax": "comparison"}
+{"id": "q92", "q": "가장 비싼 상품의 이름은?", "gold": "SELECT name AS n FROM bench.products ORDER BY price DESC, id LIMIT 1", "tax": "order+limit", "ordered": true}
+{"id": "q93", "q": "고객 수는 총 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers", "tax": "count"}
+{"id": "q94", "q": "상품 수는 총 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products", "tax": "count"}
+{"id": "q95", "q": "카테고리는 총 몇 개?", "gold": "SELECT count(*) AS n FROM bench.categories", "tax": "count"}
+{"id": "q96", "q": "주문당 평균 금액이 가장 큰 세그먼트는 얼마의 평균을 가지는가?", "gold": "SELECT avg(o.total) AS n FROM bench.orders o JOIN bench.customers c ON o.customer_id=c.id GROUP BY c.segment ORDER BY n DESC LIMIT 1", "tax": "groupby+order", "numericTolerance": 0.01}
+{"id": "q97", "q": "제주 지역 고객은 몇 명?", "gold": "SELECT count(*) AS n FROM bench.customers WHERE region='제주'", "tax": "count+filter"}
+{"id": "q98", "q": "공급사가 있는 상품은 몇 개?", "gold": "SELECT count(*) AS n FROM bench.products WHERE supplier IS NOT NULL", "tax": "null"}
+{"id": "q99", "q": "주문 수량 합계가 가장 큰 상품의 총 수량은?", "gold": "SELECT sum(qty) AS n FROM bench.order_items GROUP BY product_id ORDER BY n DESC, product_id LIMIT 1", "tax": "groupby+order"}
+{"id": "q100", "q": "금액이 0원인 주문은 몇 건?", "gold": "SELECT count(*) AS n FROM bench.orders WHERE total = 0", "tax": "no-answer"}

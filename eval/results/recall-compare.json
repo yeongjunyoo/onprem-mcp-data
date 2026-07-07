@@ -1,0 +1,30 @@
+{
+  "delta": {
+    "recall5_pp": 50,
+    "recall1_pp": 68.8,
+    "mrr": 0.602
+  },
+  "thresholds": {
+    "recall5_ge15pp": true,
+    "mrr_ge0_10": true,
+    "top1_ge10pp": true
+  },
+  "bge": {
+    "recall": {
+      "1": 0.813,
+      "3": 1,
+      "5": 1
+    },
+    "mrr": 0.906
+  },
+  "hash": {
+    "recall": {
+      "1": 0.125,
+      "3": 0.375,
+      "5": 0.5
+    },
+    "mrr": 0.304
+  },
+  "generatedAt": "2026-06-30T14:42:04.066Z",
+  "note": "BGE-M3 vs deterministic hash on identical ranking path; low-lexical-overlap gold; no LLM judge."
+}

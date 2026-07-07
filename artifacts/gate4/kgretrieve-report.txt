@@ -1,0 +1,3 @@
+
+kgretrieve.test: 7 passed, 0 failed
+  agreement entity: entity:policy#1001 sources=["graph","vector"]

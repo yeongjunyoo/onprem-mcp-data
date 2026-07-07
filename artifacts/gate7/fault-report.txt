@@ -1,0 +1,6 @@
+✓degraded kg.vector_fail | errVisible=true | vector=0 graph=6 fused=5
+✓degraded kg.graph_fail | errVisible=true | vector=3 graph=0 fused=3
+✓degraded pipeline.sql_fail | errVisible=true | branch_errors=["sql: Error: nl2sql backend down (injected)"] vec=3
+✓degraded pipeline.vector_fail | errVisible=true | vec.ok=false sql=1 ctxlen=226
+
+[fault] no-crash 4/4, partial 4/4 (>=80%), error-visible 4/4 -> PASS

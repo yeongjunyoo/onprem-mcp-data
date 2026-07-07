@@ -1,0 +1,20 @@
+=== 3) L2 vector.search (BGE-M3 의미검색) ===
+  질의(어휘겹침0) -> 반품 신청 방법 | 환불 정책 | 교환 정책
+
+=== 4) 온톨로지/지식그래프 (SQL/벡터가 못 잇는 동의어·관계) ===
+  ontology.search('전자제품') -> 전자기기(alias)
+  graph.expand(환불정책, applies_to) -> 의류, 전자기기, 식품
+
+=== 5) ★ canonical 3-way RRF (sql/vector/graph 합의) ===
+  audit: vector=5 graph=6 fused=9 agreement=1
+  합의 엔티티: entity:policy#1001 sources=["graph","vector"] rank=1
+
+=== 6) 온프렘 7B 최종 답변 (Qwen2.5) ===
+  Q: 전체 주문은 몇 건이야?
+  A: 전체 주문은 2000건입니다.
+
+=== 7) 장애주입 → graceful degradation ===
+  벡터 브랜치 강제 실패: vector=0 graph=6 fused=5
+  -> 크래시 없이 그래프 브랜치로 부분 컨텍스트 반환 (graceful degradation)
+
+=== DEMO OK (전 과정 온프렘, 외부 API 없음) ===

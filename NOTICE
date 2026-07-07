@@ -1,0 +1,36 @@
+onprem-mcp-data — 2026 오픈소스 개발자대회 리원에이스 지정과제
+Copyright 2026 onprem-mcp-data contributors
+Licensed under the Apache License, Version 2.0.
+
+This product bundles / depends on the following third-party components.
+All are OSI-approved or open-weight and run fully on-prem (no external API at runtime).
+
+== Runtime frameworks / libraries ==
+- @airmcp-dev/core (air MCP server framework)   — Apache-2.0 — CodePedia Labs / 리원에이스
+    https://github.com/airmcp-dev/air
+- @modelcontextprotocol/sdk                      — MIT       (transitive via air)
+- zod                                            — MIT       (transitive via air)
+- pg (node-postgres)                             — MIT       — https://github.com/brianc/node-postgres
+
+== Data substrate ==
+- PostgreSQL 17                                  — PostgreSQL License (permissive, BSD-like)
+- pgvector                                       — PostgreSQL License — https://github.com/pgvector/pgvector
+
+== Models (open weights, on-prem via Ollama) ==
+- Qwen2.5-7B-Instruct                            — Apache-2.0 — Alibaba Cloud
+    Used for NL2SQL and final answer generation. See docs/model-cards/qwen2.5-7b.md
+- BGE-M3                                          — MIT        — BAAI
+    Used for document/query embeddings (vector(1024)). See docs/model-cards/bge-m3.md
+
+== Benchmark / evaluation datasets ==
+- Internal contest-grade benchmark (eval/internal/*) — authored for this project,
+    Apache-2.0, with generator + seed + gold SQL + raw predictions published in-repo.
+- External calibration (planned): BIRD Mini-Dev (CC BY-SA 4.0) / Spider (Apache-2.0) /
+    WikiSQL (BSD-3-Clause). License source documented in eval/external/LICENSES.md when added.
+
+== Citations (KOSSA 과제 페이지 1차출처 확인) ==
+- 전현우·김태성·강현 (2026). MCP 컨텍스트 구성이 소형 언어모델 성능에 미치는 영향. Codepedia Labs.
+    https://zenodo.org/records/18842478
+- Jeon, H. (2026). Pylon-7: A 7-Layer Reference Model for AI Agent Workflows. Codepedia Labs.
+    https://zenodo.org/records/18808598
+- Anthropic (2024). Model Context Protocol Specification. https://modelcontextprotocol.io

@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "total": 4,
+    "noCrashRate": 1,
+    "partialRate": 1,
+    "errorVisibleRate": 1,
+    "thresholds": {
+      "noCrash": 1,
+      "partial": 0.8,
+      "errorVisible": 1
+    },
+    "pass": true,
+    "generatedAt": "2026-06-30T17:55:40.431Z"
+  },
+  "scenarios": [
+    {
+      "scenario": "kg.vector_fail",
+      "crashed": false,
+      "partial": true,
+      "errorVisible": true,
+      "detail": "vector=0 graph=6 fused=5"
+    },
+    {
+      "scenario": "kg.graph_fail",
+      "crashed": false,
+      "partial": true,
+      "errorVisible": true,
+      "detail": "vector=3 graph=0 fused=3"
+    },
+    {
+      "scenario": "pipeline.sql_fail",
+      "crashed": false,
+      "partial": true,
+      "errorVisible": true,
+      "detail": "branch_errors=[\"sql: Error: nl2sql backend down (injected)\"] vec=3"
+    },
+    {
+      "scenario": "pipeline.vector_fail",
+      "crashed": false,
+      "partial": true,
+      "errorVisible": true,
+      "detail": "vec.ok=false sql=1 ctxlen=226"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+INTERNAL curated 83/100=83% | naive 30/100=30% | template 1/100=1%
+EXTERNAL BIRD Mini-Dev 7/32=21.9% (separate column, not comparable to internal)
+baseline matrix axes: template-only / naive-LLM(Qwen direct) / curated-LLM(router+TACC) ; hash-vs-BGE recall@5 0.50->1.00. No LLM judge; DB/gold oracle.
