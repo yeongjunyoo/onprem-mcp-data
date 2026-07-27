@@ -34,8 +34,12 @@
 | 레인 | 지표 | 결과 | 오라클 |
 |---|---|---|---|
 | **라우터** | 공식 30문항 도구 라벨 일치 | **30/30 = 100%**, 20회 재실행 바이트 동일 | 사업자가 붙인 `tool` 라벨 (외부 라벨) |
-| **NL2SQL** | execution match (큐레이션 스키마카드) | **6/10 = 60%** | gold SQL 실행 결과 = DB (LLM 저지 없음) |
-| **NL2SQL (ablation)** | execution match (테이블명만) | **2/10 = 20%** → **Δ +40pp** | 동일 |
+| **NL2SQL** (재시도 없음) | execution match, 큐레이션 스키마카드 | **6/10 = 60%** | gold SQL 실행 결과 = DB (LLM 저지 없음) |
+| **NL2SQL** (재시도 없음, ablation) | execution match, 테이블명만 | **2/10 = 20%** → **Δ +40pp** | 동일 |
+| **NL2SQL** (self-repair 1회) | 스키마카드 **7/10 = 70%** / 테이블명만 **7/10 = 70%** | 정확도 차이 소멸, LLM 호출 12회 vs 16회 · 8.7초 vs 11.6초 | 동일 |
+| **end-to-end `ask`** | 컨텍스트에 정답 근거 포함 | **91~96%** (7B 비결정성으로 run 간 변동) | 레인별 gold |
+| **end-to-end `ask`** | 답변 접지 (컨텍스트 밖 개체 생성) | **0건 / 18문항**, 3회 연속 | 답변 개체 ⊆ 컨텍스트 |
+| **end-to-end `ask`** | 미존재 개체 질의 거절 | **성공** (「주어진 정보로는 알 수 없습니다」) | 서울물산 케이스 |
 | **벡터 검색** | hit@5 (BGE-M3) | **8/8 = 1.00** (hash 임베더 0.75) | 원문 키워드 규칙 (검색기는 질문만 봄) |
 | **벡터 검색** | 문서 타입 정밀도 | 0.971 (hash 1.000) | 사업자 `index.json` 타입 |
 | **지식그래프** | 골드 엔티티 검색 recall | **9/9 = 1.00** (평균 1.000) | `edges.json`에서 계산한 정답 집합 |
@@ -43,12 +47,53 @@
 읽는 법 세 가지.
 
 1. **라우터 100%는 in-sample이다.** 30문항은 사업자가 *공개한 예시*이고 라우터 어휘를 그 문항을 읽으며 작성했다. 일반화 수치가 아니라 "3레인 분기가 사업자 의도와 일치한다"는 확인으로 읽어야 한다. 어휘 자체는 스키마·그래프 스키마에서 뽑았지 라벨에서 뽑지 않았다.
-2. **NL2SQL 60%의 ablation이 본 프로젝트의 논지를 사업자 데이터에서 재현한다.** 테이블명만 준 베이스라인의 실패 8건 중 6건이 **존재하지 않는 컬럼 환각**(`contracts.is_active`, `clients.registration_date`, `employees.department_id` …)이었다. 값 어휘(`quarter='2025-Q3'`, `status='active'`)까지 담은 스키마 카드를 주면 그 실패군이 사라진다. 내부 벤치의 Δ +53.0pp와 같은 방향이며, **같은 데이터·같은 모델·같은 채점기**로 측정했다.
+2. **NL2SQL 60%의 ablation이 본 프로젝트의 논지를 사업자 데이터에서 재현한다 — 단 재시도를 붙이면 그 논지가 무너진다(§0.6).** 테이블명만 준 베이스라인의 실패 8건 중 6건이 **존재하지 않는 컬럼 환각**(`contracts.is_active`, `clients.registration_date`, `employees.department_id` …)이었다. 값 어휘(`quarter='2025-Q3'`, `status='active'`)까지 담은 스키마 카드를 주면 그 실패군이 사라진다. 내부 벤치의 Δ +53.0pp와 같은 방향이며, **같은 데이터·같은 모델·같은 채점기**로 측정했다.
 3. **남은 4건은 숨기지 않는다.** ① `보안 솔루션 … 월 평균 매출` = 모델이 OR 우선순위를 틀림(진짜 오답), ② `활성 계약 수` = 스키마 카드에 `status['active'…]`가 있는데도 `is_active` 환각, ③ `평균 연봉이 가장 높은 부서` = `dept_id`만 반환(부서명 조인 누락), ④ `가장 많은 프로젝트를 진행 중인 고객사` = 모델이 `status='in_progress'` 필터를 **추가**했다 — 사업자 hint는 필터 없이 GROUP BY만 지시하므로 gold 기준으로는 오답이지만 질문 문면("진행 중인")으로는 모델 쪽이 더 충실한 해석이다. 이 4건은 7B 한계와 질문 모호성이지 파이프라인 결함이 아니다.
 
 **그래프 레인은 이번에 새로 만들었다.** 공식 라벨이 요구하는 `knowledge_graph`가 기존 라우터에 아예 없었고(구 라우터 = structured/semantic 2레인), 초기 실측 평균 recall은 **0.278**이었다. 원인 4가지를 고쳐 **1.000**으로 올렸다: ① 확장이 out 방향뿐이라 역방향 질의("Product-C1을 **사용하는** 고객사")가 조용히 0건 반환 → 양방향 BFS, ② 시드가 substring 매칭 상위 5건이라 `Product-C1`을 물으면 엉뚱한 제품이 시드 → exact>prefix>substring 랭킹, ③ 노드를 지목하지 않고 **관계만** 지목하는 질의("가장 많은 고객을 **담당하는** 직원")는 시드가 없어 시작 불가 → 관계 단위 스캔·차수 집계 도입(집계는 DB가 하고 모델은 읽기만), ④ 노드 속성 미적재로 `status='in_progress'` 필터 불가 → 속성 적재.
 
 **환각 방지 게이트(실측).** 사업자 예시 24번 `서울물산 담당 엔지니어는 누구야?`의 **서울물산은 데이터셋에 존재하지 않는다**(고객사는 `Client-A…Client-AD`, questions.json에만 등장). 이때 관계 전체(MANAGES_ACCOUNT 63엣지)를 컨텍스트로 밀어 넣으면 7B는 그럴듯한 담당자를 **지어낸다**. 그래서 "질의가 개체를 지목했는데 온톨로지에서 해소 실패 + 관계 단위 의도 없음" 조건에서 컨텍스트를 **0엣지 + 명시적 not-found 한 줄**로 만든다(`eval/results/companyx-kg.json → unresolved_gate_fired: 1`). 데이터셋 결함은 사업자에게 별도 문의했다.
+
+## 0.6 자기 반증 — 스키마 카드의 기여는 정확도가 아니라 비용이었다
+
+실패한 SQL을 **데이터베이스 자신의 카탈로그**(information_schema 실컬럼 목록)와 함께 모델에 한 번 되먹이는 self-repair를 붙이자, 스키마 카드 유무의 **정확도 차이가 사라졌다**.
+
+| 조건 | 정확도 | LLM 호출 | 총 소요 | 재시도 |
+|---|---|---|---|---|
+| 스키마 카드, 재시도 없음 | 60% | 10회 | — | — |
+| 테이블명만, 재시도 없음 | 20% | 10회 | — | — |
+| 스키마 카드 + 재시도 1회 | **70%** | **12회** | **8.7초** | 2건 |
+| 테이블명만 + 재시도 1회 | **70%** | 16회 | 11.6초 | 6건 |
+
+**해석을 바꿔야 한다.** 스키마 카드와 self-repair는 다른 기능이 아니라 **같은 병(모델이 스키마를 모른다)의 사전 처방과 사후 처방**이다. 사전에 주면 첫 호출에 맞고, 사후에 고치면 두 번째 호출에서 맞는다. 그래서 재시도가 있는 시스템에서 스키마 카드가 사는 근거는 정확도가 아니라 **호출 수 33% 감소, 지연 25% 감소, 실패 경로 3분의 1**이다. 재시도가 없는 경로에서는 Δ +40pp의 정확도 차이가 그대로 남는다.
+
+이 결과는 내부 벤치의 「구조보존 큐레이션 Δ +53.0pp」를 **부정하지 않지만 조건을 붙인다**: 그 수치는 재시도 없는 단발 호출 조건의 값이다. 같은 조건에서 사업자 데이터가 Δ +40pp로 재현했고, 재시도를 허용하면 이득이 정확도에서 비용으로 이동한다. 심사자가 재시도를 전제로 본다면 헤드라인은 **같은 정확도를 절반의 재시도로 달성한다**여야 한다.
+
+self-repair 자체는 튜닝 파라미터를 늘리지 않는다. 재시도 조건은 "엔진이 오류를 냈는가" 하나뿐이고, 성공한 쿼리는 재시도되지 않으며, 임계값도 샘플링도 없다.
+
+---
+
+## 0.7 제품 경로(`ask`) 실측 — 레인 점수가 아니라 실제 답변
+
+레인 평가는 **검색**을 재고 심사자가 보는 것은 **답변**이다. 30문항 전부를 `ask`(route → 병렬 fan-out → RRF → 큐레이션 → 온프렘 7B)로 돌려 LLM 저지 없이 셋을 측정했다. ① 큐레이션된 컨텍스트가 정답 근거를 담았는가 ② 답변이 언급한 데이터셋 개체가 전부 컨텍스트 안에 있는가(밖이면 지어낸 것) ③ 미존재 개체 질의를 거절하는가.
+
+**첫 실행에서 결함 5개가 드러났고 전부 "검색은 맞는데 출력이 새는" 유형이었다.** 레인 평가만 봤으면 못 봤을 것들이다.
+
+| 증상 | 진단 | 수정 |
+|---|---|---|
+| 「경영지원팀 팀장」에 「알 수 없습니다」, 정답은 컨텍스트 한 줄 아래 | ① 부서명이 소속 직원 전원의 property alias라 exact 동점이 되고 짧은 이름 타이브레이크로 **부서 노드가 시드에서 탈락** ② RRF의 리스트당 중복 제거가 「윤소연 이름 매칭」(정보 없음)을 「경영지원팀의 부서장: 윤소연」(정답)보다 먼저 잡아 대표로 남김 | canonical exact 4 > alias exact 3 분리, 후보 순서를 **엣지 우선, 이름 매칭 후순위**로 |
+| 「Product-S1 관련 고객 이슈」에 「이슈 없습니다」 | 관계가 특정된 질의를 2홉까지 확장해 **다른 제품 엣지**가 컨텍스트를 채움 | 관계가 지정되면 1홉, 미지정이면 요청 깊이 유지 |
+| 같은 질의에서 고객 8곳이 1줄로 붕괴 | 들어오는 엣지 8개가 전부 dst(=Product-S1) 기준 같은 canonicalKey라 중복 제거가 정당하게 8을 1로 접음 | 엣지 키를 **답이 되는 쪽 끝점**으로(시드가 dst면 src) |
+| 「활성 계약 수」에 빈 컨텍스트 | `contracts.is_active` 환각으로 SQL 거부, 컨텍스트 0자 | self-repair(§0.6). 첫 판은 스키마 카드만 되먹여 **같은 환각을 반복**했고 information_schema 실컬럼을 주자 `status='active'`로 교정 |
+| 중국어 혼입 2건, 「dept_id 5번」 | 7B code-switching, id 그대로 노출 | 답변 프롬프트에 한국어 고정, 관계줄 해석, id 대신 이름, 동점 전부 나열 |
+
+수정 후 근거 포함 82.6% → **95.7%**(gold 정의를 보수화하면 91.3%), 접지 위반 **0**, 미존재 개체 거절 성공, 중앙값 **830~940ms**, 레인 일치 30/30, 브랜치 오류 0.
+
+남은 오답 3건은 숨기지 않는다. 「월 평균 매출」은 제품별 그룹핑 해석 차이, 「진행 중인 고객사」는 모델이 `status='in_progress'`를 **추가**한 것이고 사업자 hint에는 필터가 없어 gold 기준으로만 오답이며 질문 문면으로는 모델 쪽이 더 충실하다, 「미해결 티켓」은 `closed`를 미해결에 포함한 진짜 오답이다. 셋 다 7B의 자연어 해석 한계이지 파이프라인 결함이 아니고, 여기서 프롬프트를 더 만지면 **공개된 30문항에 과적합**된다.
+
+**데이터셋 프로파일.** 이 작업 전까지 `route`/`vector.search`/`retrieve`/`ask`는 스모크 시드(public.orders)에 하드와이어되어 있었고 companyx는 평가 CLI만 알고 있었다. 즉 **심사자가 MCP 서버를 띄우면 지정과제 데이터가 아니라 장난감 테이블이 나왔다.** `DATASET=companyx|bench|smoke` 프로파일 하나로 전 도구를 한 코퍼스에 묶었다(`air-server/src/profile.ts`).
+
+---
 
 재현:
 
@@ -60,6 +105,8 @@ npm run companyx:route                            # 라우터 30문항
 npm run companyx:sql                              # NL2SQL (CX_STRATEGY=naive 로 ablation)
 npm run companyx:kg                               # 지식그래프 recall
 EMBEDDER=ollama npm run companyx:vector           # 벡터 hit@5 (hash vs BGE-M3)
+DATASET=companyx EMBEDDER=ollama npm run companyx:ask   # end-to-end 답변 (§0.7)
+CX_REPAIR=0 npm run companyx:sql                  # self-repair 끈 대조군 (§0.6)
 ```
 
 ---
@@ -177,7 +224,7 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 - 외부 calibration: `air-server/src/cli/external-eval.ts`, `eval/results/external-bird-{raw,summary}.json`. 데이터셋 `eval/external/`(gitignore, 원본 BIRD).
 - 장애: `eval/results/faults.json`. 클러스터: `scripts/replica-spike.sh` + `eval/results/replica-spike.log`.
 - 데모: `air-server/src/cli/demo.ts` 실행 로그. 토폴로지: `docs/architecture.md`.
-- **공식 데이터셋(Company-X):** 무결성·출처 `datasets/MANIFEST.md`(SHA-256 고정), 취득 `scripts/fetch-companyx-dataset.sh`, 적재 `air-server/src/companyx.ts`. 결과 `eval/results/companyx-{load,route,sql-llm,sql-naive,kg,vector}.json`. 오라클 정의 `eval/companyx/{sql_gold.jsonl,kg_gold.json,vector_gold.json}`. 회귀 `air-server/src/companyx.test.ts`(38 단언).
+- **공식 데이터셋(Company-X):** 무결성·출처 `datasets/MANIFEST.md`(SHA-256 고정), 취득 `scripts/fetch-companyx-dataset.sh`, 적재 `air-server/src/companyx.ts`. 결과 `eval/results/companyx-{load,route,sql-llm,sql-naive,kg,vector}.json`. 오라클 정의 `eval/companyx/{sql_gold.jsonl,kg_gold.json,vector_gold.json}`. 회귀 `air-server/src/companyx.test.ts`(46 단언, `npm run test:companyx`). end-to-end `air-server/src/cli/companyx-ask-eval.ts` → `eval/results/companyx-ask.json`. 프로파일 `air-server/src/profile.ts`.
 - 라이선스/모델: `LICENSE`(Apache-2.0), `NOTICE`, `docs/model-cards/{qwen2.5-7b,bge-m3}.md`.
 - 하드웨어: Apple M4 / macOS 25.5 (초기 빌드·내부 벤치). 공식 데이터셋 실측은 Windows 11 + RTX 4070 SUPER, PostgreSQL 16.14 + pgvector 0.6.0(WSL2 Ubuntu 24.04), Ollama 0.32.4 — 실행 환경이 바뀌어도 같은 커맨드로 재현되는지까지 확인한 결과다.
 

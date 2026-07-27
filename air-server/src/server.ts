@@ -16,13 +16,15 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
+import { profile } from "./profile.js";
 
 export function buildServer(): AirServer {
+  const ds = profile();
   return defineServer({
     name: "onprem-mcp-data",
     version: "0.2.0",
     description:
-      "온프렘 PostgreSQL+pgvector MCP 데이터 플랫폼 — 결정론 라우터(MCP Parallel) + 구조보존 큐레이션",
+      `온프렘 PostgreSQL+pgvector MCP 데이터 플랫폼 — 결정론 라우터(MCP Parallel) + 구조보존 큐레이션. 데이터셋: ${ds.description}`,
 
     // "장애 지점 감소 / 운영 안정성" — air 플러그인 한 줄씩. 모든 도구 호출에 적용.
     // timeout은 가장 느린 합법 경로(콜드 모델 로드 포함 7B ask)를 덮도록 넉넉히.
@@ -53,7 +55,7 @@ export function buildServer(): AirServer {
 
       defineTool(VECTOR_TOOL, {
         description:
-          "질의를 임베딩해 pgvector 코사인 유사도로 documents 상위 k건을 검색한다(의미 검색). " +
+          `질의를 임베딩해 pgvector 코사인 유사도로 ${ds.vectorTable} 상위 k건을 검색한다(의미 검색). ` +
           "임베더는 오프라인 결정론(hash) 기본, 데모는 bge-m3(Ollama)로 교체 가능.",
         params: {
           query: { type: "string", description: "검색할 한국어 질의" },

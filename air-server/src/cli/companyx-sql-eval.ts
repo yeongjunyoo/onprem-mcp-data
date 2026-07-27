@@ -13,8 +13,8 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
-import { sqlQuery } from "../sql.js";
-import { companyxNL2SQL, companyxNL2SQLNaive } from "../nl2sql.js";
+import { sqlQuery, columnsForSql } from "../sql.js";
+import { companyxNL2SQL, companyxNL2SQLNaive, repairSql } from "../nl2sql.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
 import { isAvailable } from "../llm.js";
 
@@ -50,7 +50,25 @@ async function main() {
   let goldFailures = 0;
   for (const it of items) {
     const t0 = Date.now();
-    const pred = strategy === "naive" ? await companyxNL2SQLNaive(it.q) : await companyxNL2SQL(it.q);
+    let pred = strategy === "naive" ? await companyxNL2SQLNaive(it.q) : await companyxNL2SQL(it.q);
+    // eval == live: the pipeline repairs a rejected query once with the database's
+    // own catalogue, so the benchmark must do the same or it measures a path no
+    // user ever runs. CX_REPAIR=0 reproduces the un-repaired number.
+    let repaired = false;
+    if (pred && process.env.CX_REPAIR !== "0") {
+      const probe = await sqlQuery(pool, pred);
+      if (!probe.ok) {
+        const cols = await columnsForSql(pool, pred, "companyx").catch(() => "");
+        const fixed = await repairSql(it.q, pred, probe.error ?? "unknown error", cols);
+        if (fixed) {
+          const second = await sqlQuery(pool, fixed);
+          if (second.ok) {
+            pred = fixed;
+            repaired = true;
+          }
+        }
+      }
+    }
     const ms = Date.now() - t0;
     const opts: MatchOpts = {
       ordered: it.ordered,
@@ -71,7 +89,7 @@ async function main() {
       matched = p.ok && g.ok && resultsMatch(p.rows, g.rows, opts);
     }
     if (matched) correct++;
-    rows.push({ id: it.id, tax: it.tax, ok: matched, pred: pred ?? "(no SQL)", predOk, predErr, goldOk: g.ok, goldRows: g.rows.length, ms });
+    rows.push({ id: it.id, tax: it.tax, ok: matched, repaired, pred: pred ?? "(no SQL)", predOk, predErr, goldOk: g.ok, goldRows: g.rows.length, ms });
     console.log(`${matched ? "✓" : "✗"} ${it.id} [${it.tax}] ${it.q}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").replace(/\s+/g, " ")}${predErr ? ` | err: ${predErr}` : ""}`);
   }
@@ -90,6 +108,8 @@ async function main() {
     correct,
     accuracy: Number(((correct / items.length) * 100).toFixed(1)),
     gold_execution_failures: goldFailures,
+    repaired_queries: rows.filter((r) => r.repaired).length,
+    repair_enabled: process.env.CX_REPAIR !== "0",
     byTax,
     note: "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
     generated_at: new Date().toISOString(),

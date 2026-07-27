@@ -5,7 +5,7 @@
 // skips cleanly when it is absent, exactly like the other live-PG suites.
 // Run after build: node dist/companyx.test.js
 import { route, LANE_LABEL, ONTOLOGY_TOOL, GRAPH_TOOL, VECTOR_TOOL, SQL_TOOL } from "./router.js";
-import { seedTerms, ontologySearch, graphExpand, relationScan } from "./graph.js";
+import { seedTerms, ontologySearch, graphExpand, relationScan, edgeCandidates } from "./graph.js";
 import { chunkMarkdown, nodePk, NODE_TABLE } from "./companyx.js";
 import { graphLane } from "./pipeline.js";
 import { getPool, closePool } from "./db.js";
@@ -96,7 +96,7 @@ async function live() {
   // Ranked seeds: naming Product-C1 seeds THAT product, not 5 arbitrary products.
   const seeds = await ontologySearch(pool, "Product-C1을 사용하는 고객사는 어디야?", 5, schema);
   eq(seeds.hits[0]?.canonicalName, "Product-C1", "exact match ranks first");
-  eq(seeds.hits[0]?.score, 3, "exact match scores 3");
+  eq(seeds.hits[0]?.score, 4, "exact canonical match scores 4 (outranks an exact ALIAS at 3)");
 
   // Reverse traversal: client -[USES]-> product read backwards.
   const pid = seeds.hits[0]!.entityId;
@@ -122,6 +122,35 @@ async function live() {
   ok(scanF.ok && scanF.edges.length > 0, "status-filtered scan returns edges");
   const scanAll = await relationScan(pool, { relTypes: ["LEADS"], limit: 200 }, schema);
   ok(scanAll.edges.length > scanF.edges.length, "filter actually removes edges");
+
+
+  // A department name is also a property alias on every one of its employees.
+  // Canonical-exact must outrank alias-exact or the department is evicted from the
+  // seed set and its HEAD_IS edge never reaches the context.
+  const dept = await ontologySearch(pool, "경영지원팀 팀장은 누구야?", 5, schema);
+  eq(dept.hits[0]?.type, "department", "department outranks its own members");
+  eq(dept.hits[0]?.score, 4, "canonical exact = 4");
+  ok(dept.hits.slice(1).some((h) => h.type === "employee" && h.score === 3), "employee alias hits score 3");
+
+  // Edge candidates are keyed by the endpoint that ANSWERS, not always the dst:
+  // 8 inbound edges must stay 8 distinct candidates through RRF's per-list dedupe.
+  const s1 = await ontologySearch(pool, "Product-S1", 1, schema);
+  const inEdges = await graphExpand(pool, s1.hits[0].entityId, 1, ["REPORTED_ISSUE"], schema, "in");
+  const cands = edgeCandidates(inEdges.edges, s1.hits[0].entityId);
+  eq(new Set(cands.map((c) => c.canonicalKey)).size, inEdges.edges.length,
+    "inbound edges keep distinct canonical keys (client side, not the seed)");
+  ok(cands.every((c) => c.canonicalKey.startsWith("entity:client#")), "keyed by the answering client");
+
+  // A named relation means one hop; extra hops are noise the model reads asnoise.
+  const laneRel = await graphLane(pool, "Product-S1 관련 고객 이슈 현황은?", 5, 2, schema);
+  eq(laneRel.edgeCount, 8, "relation-specified query expands exactly one hop");
+  const laneOpen = await graphLane(pool, "Product-D1 제품과 관련된 프로젝트는?", 5, 2, schema);
+  ok(laneOpen.edgeCount > 8, "unspecified relation keeps the requested depth");
+
+  // Ties are a property of the data and must survive into the context.
+  const tie = await graphLane(pool, "가장 많은 고객을 담당하는 직원은?", 5, 2, schema);
+  const tied = tie.items.filter((i) => i.text.includes("공동 1위"));
+  ok(tied.length >= 2, `tied top rank is rendered as 공동 (got ${tied.length})`);
 
   // Unresolved-entity gate: no fabricated context for an entity absent from the data.
   const missing = await graphLane(pool, "서울물산 담당 엔지니어는 누구야?", 5, 2, schema);

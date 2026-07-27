@@ -100,3 +100,21 @@ export async function sqlQuery(pool: Pool, sql: string): Promise<SqlResult> {
     client.release();
   }
 }
+
+/** Real column list for the tables a failed SQL referenced — read from the catalogue.
+ * Used by the NL2SQL repair path so the model is corrected by the database itself
+ * rather than by the same schema card it already ignored. */
+export async function columnsForSql(pool: Pool, sql: string, schema: string): Promise<string> {
+  const tables = [...new Set([...sql.matchAll(/\b([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)/gi)]
+    .filter((m) => m[1].toLowerCase() === schema.toLowerCase())
+    .map((m) => m[2].toLowerCase()))];
+  if (!tables.length) return "";
+  const res = await pool.query<{ table_name: string; cols: string }>(
+    `SELECT table_name, string_agg(column_name || ' ' || data_type, ', ' ORDER BY ordinal_position) AS cols
+       FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = ANY($2::text[])
+      GROUP BY table_name ORDER BY table_name`,
+    [schema, tables],
+  );
+  return res.rows.map((r) => `${schema}.${r.table_name}(${r.cols})`).join("\n");
+}

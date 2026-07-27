@@ -9,11 +9,12 @@
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
 import { route, audit as routeAuditLog, type RouteDecision, type GraphPlan } from "./router.js";
-import { sqlQuery, type SqlResult } from "./sql.js";
+import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { vectorSearch, type VectorResult } from "./vector.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
-import { type NL2SQL, llmNL2SQL } from "./nl2sql.js";
+import { type NL2SQL, repairSql } from "./nl2sql.js";
+import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
   ontologySearch,
@@ -33,12 +34,13 @@ export interface RetrieveDeps {
   nl2sql?: NL2SQL; // default: deterministic template fast-path
   k?: number; // vector top-k (default 5)
   budget?: number; // curator token budget (default 256)
+  repair?: boolean; // retry a rejected SQL once with the DB error (default true)
 }
 
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  sql: { text: string | null; result?: SqlResult };
+  sql: { text: string | null; result?: SqlResult; repaired?: boolean };
   vector?: VectorResult;
   graph?: GraphLaneResult;
   fused: Fused<ContextItem>[];
@@ -80,11 +82,22 @@ export async function graphLane(
 ): Promise<GraphLaneResult> {
   const p = plan ?? route(query).graphPlan;
   const relTypes = p?.relTypes?.length ? p.relTypes : undefined;
+  // When the question names a RELATION, one hop is the answer and every extra hop
+  // is noise: "Product-S1 관련 고객 이슈" pulled in Client-X -> Product-C2 edges two
+  // hops away and the 7B, reading a context full of other products, concluded there
+  // were no Product-S1 issues at all. Unspecified relations (two-hop questions like
+  // "Product-D1 관련 프로젝트") keep the requested depth.
+  const hops = relTypes ? 1 : depth;
 
   const onto = await ontologySearch(pool, query, k, schema);
   if (!onto.ok) return { seeds: [], edgeCount: 0, strategy: "none", items: [], error: onto.error };
   const seeds = onto.hits.map((h) => ({ entityId: h.entityId, canonicalName: h.canonicalName, type: h.type }));
-  const items: Candidate[] = ontologyCandidates(onto.hits);
+  // Order matters: EDGES first, name-resolution hits last. RRF keeps one entry per
+  // key at its best rank, and a seed hit ("윤소연 — 별칭 매칭 '경영지원팀'") shares its
+  // key with the edge that actually answers ("경영지원팀의 부서장: 윤소연"). Listed
+  // first, the near-empty seed line won and the model answered "알 수 없습니다" with
+  // the answer one line below the cut. Facts before bookkeeping.
+  const items: Candidate[] = [];
   let edgeCount = 0;
 
   // Anti-hallucination gate: the question names an entity, nothing resolves, and the
@@ -115,10 +128,10 @@ export async function graphLane(
   const best = Math.max(0, ...onto.hits.map((h) => h.score));
   const expandFrom = onto.hits.filter((h) => h.score === best);
   for (const hit of expandFrom) {
-    const exp = await graphExpand(pool, hit.entityId, depth, relTypes, schema, "both");
+    const exp = await graphExpand(pool, hit.entityId, hops, relTypes, schema, "both");
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
     edgeCount += exp.edges.length;
-    items.push(...edgeCandidates(exp.edges));
+    items.push(...edgeCandidates(exp.edges, hit.entityId));
   }
 
   // Relation-level scan: needed when the question names no node (aggregate /
@@ -142,6 +155,10 @@ export async function graphLane(
       items.push(...edgeCandidates(scan.edges));
     }
   }
+
+  // Seed-resolution provenance goes last: it explains WHY these edges, and it is
+  // still in the audit log even when the budget trims it from the context.
+  items.push(...ontologyCandidates(onto.hits));
 
   const strategy: GraphLaneResult["strategy"] =
     expandFrom.length && needScan
@@ -167,7 +184,7 @@ function renderRow(row: Record<string, unknown>): string {
  * templateNL2SQL` for an offline, zero-LLM deterministic fast-path. */
 export async function retrieve(query: string, deps: RetrieveDeps): Promise<RetrieveResult> {
   const { pool, embedder } = deps;
-  const nl2sql = deps.nl2sql ?? llmNL2SQL;
+  const nl2sql = deps.nl2sql ?? profile().nl2sql;
   const k = deps.k ?? 5;
   const budget = deps.budget ?? 256;
 
@@ -179,10 +196,19 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
   // in one (e.g. NL2SQL throws) still yields the other's context (graceful degradation). ---
-  const sqlBranch = (async (): Promise<{ text: string | null; result?: SqlResult }> => {
+  const sqlBranch = (async (): Promise<{ text: string | null; result?: SqlResult; repaired?: boolean }> => {
     if (!wantSql) return { text: null };
     const text = await nl2sql(query);
-    return { text, result: text ? await sqlQuery(pool, text) : undefined };
+    if (!text) return { text: null };
+    const first = await sqlQuery(pool, text);
+    if (first.ok || deps.repair === false) return { text, result: first };
+    // The engine rejected it (unknown column, bad function, ...). Feed the error
+    // back exactly once — an empty context is a worse failure than a second call.
+    const cols = await columnsForSql(pool, text, profile().kgSchema === "companyx" ? "companyx" : "public").catch(() => "");
+    const fixed = await repairSql(query, text, first.error ?? "unknown error", cols);
+    if (!fixed) return { text, result: first };
+    const second = await sqlQuery(pool, fixed);
+    return second.ok ? { text: fixed, result: second, repaired: true } : { text, result: first };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
     ? vectorSearch(pool, embedder, query, k)
@@ -194,7 +220,10 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     : Promise.resolve(undefined);
 
   const [sqlSettled, vecSettled, graphSettled] = await Promise.allSettled([sqlBranch, vecBranch, graphBranch]);
-  const sql = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null as string | null };
+  const sql =
+    sqlSettled.status === "fulfilled"
+      ? sqlSettled.value
+      : { text: null as string | null, result: undefined as SqlResult | undefined, repaired: undefined as boolean | undefined };
   const sqlText = sql.text;
   const sqlResult = sql.result;
   const vecResult = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
@@ -243,7 +272,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   return {
     query,
     route: decision.route,
-    sql: { text: sqlText, result: sqlResult },
+    sql: { text: sqlText, result: sqlResult, repaired: sql.repaired },
     vector: vecResult,
     graph: graphResult,
     fused,

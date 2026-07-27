@@ -9,7 +9,7 @@
     "mean_recall": 1,
     "full_recall_questions": 9,
     "routed_to_graph": 10,
-    "generated_at": "2026-07-27T07:18:15.865Z"
+    "generated_at": "2026-07-27T08:59:57.969Z"
   },
   "rows": [
     {
@@ -34,8 +34,8 @@
         "Client-AC(client)",
         "Client-AD(client)"
       ],
-      "edges": 13,
-      "candidates": 18,
+      "edges": 2,
+      "candidates": 7,
       "hit_n": 2,
       "recall": 1,
       "missing": []
@@ -62,8 +62,8 @@
       "seeds": [
         "Product-C1(product)"
       ],
-      "edges": 21,
-      "candidates": 22,
+      "edges": 6,
+      "candidates": 7,
       "hit_n": 6,
       "recall": 1,
       "missing": []
@@ -92,14 +92,14 @@
         "김준혁"
       ],
       "seeds": [
+        "클라우드사업부(department)",
         "안진우(employee)",
         "강현우(employee)",
         "서재원(employee)",
-        "김도윤(employee)",
-        "조동현(employee)"
+        "김도윤(employee)"
       ],
-      "edges": 50,
-      "candidates": 55,
+      "edges": 10,
+      "candidates": 15,
       "hit_n": 10,
       "recall": 1,
       "missing": []
@@ -192,11 +192,11 @@
         "윤소연"
       ],
       "seeds": [
+        "경영지원팀(department)",
         "윤소연(employee)",
         "홍서연(employee)",
         "서지현(employee)",
-        "정혜원(employee)",
-        "오수진(employee)"
+        "정혜원(employee)"
       ],
       "edges": 1,
       "candidates": 6,
@@ -264,8 +264,8 @@
       "seeds": [
         "Product-S1(product)"
       ],
-      "edges": 33,
-      "candidates": 34,
+      "edges": 8,
+      "candidates": 9,
       "hit_n": 8,
       "recall": 1,
       "missing": []

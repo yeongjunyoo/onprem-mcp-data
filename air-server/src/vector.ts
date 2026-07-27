@@ -7,6 +7,7 @@
 
 import type { Pool } from "./db.js";
 import { type Embedder, toVectorLiteral } from "./embedder.js";
+import { profile } from "./profile.js";
 
 export interface VectorHit {
   id: number;
@@ -33,7 +34,7 @@ export async function vectorSearch(
   embedder: Embedder,
   query: string,
   k = 5,
-  table = "documents",
+  table = profile().vectorTable,
 ): Promise<VectorResult> {
   try {
     // Clamp k to a sane integer range so a bad MCP arg can't error / flood.

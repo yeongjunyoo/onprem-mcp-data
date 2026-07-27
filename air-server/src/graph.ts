@@ -12,7 +12,7 @@
 
 import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
-import { contentTerms } from "./text.js";
+import { profile } from "./profile.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -20,10 +20,11 @@ function safeSchema(schema: string): string {
   return schema;
 }
 
-/** KG schema in use. `bench` = internal benchmark; `companyx` = sponsor dataset.
- * Env-driven so the same tools serve either corpus with zero code change. */
+/** KG schema of the active dataset profile (see profile.ts).
+ * One selector for every tool, so the graph lane can never point at a different
+ * corpus than the SQL and vector lanes. */
 export function kgSchema(): string {
-  return safeSchema(process.env.KG_SCHEMA ?? "bench");
+  return safeSchema(profile().kgSchema);
 }
 
 export interface OntologyHit {
@@ -32,8 +33,10 @@ export interface OntologyHit {
   canonicalName: string;
   via: "canonical" | "alias";
   matched: string;
-  /** 3 = exact name/id, 2 = prefix, 1 = substring. Ranks seeds so a query naming
-   * "Product-C1" seeds THAT product instead of the first 5 rows containing "product". */
+  /** 4 = exact canonical name, 3 = exact alias, 2 = prefix, 1 = substring. Ranks
+   * seeds so a query naming "Product-C1" seeds THAT product instead of the first 5
+   * rows containing "product", and "경영지원팀" seeds the department rather than its
+   * members (who carry the same string as a property alias). */
   score: number;
   properties?: Record<string, unknown>;
 }
@@ -97,8 +100,13 @@ export async function ontologySearch(
     if (terms.length === 0) return { ok: true, hits: [] };
     const props = await hasProps(pool, s);
     const propsCol = props ? "e.properties" : "NULL::jsonb";
-    const scoreExpr = (col: string) => `CASE
-            WHEN lower(${col}) = lower(t.term) THEN 3
+    // canonical exact (4) outranks alias exact (3). "경영지원팀" is the department's
+    // OWN name, while every employee of that department carries it as a property
+    // alias; without the split the 6 employees tie with the department and the
+    // shorter-name tiebreak evicts the department itself — so the HEAD_IS edge the
+    // question asks for never enters the context.
+    const scoreExpr = (col: string, exact: number) => `CASE
+            WHEN lower(${col}) = lower(t.term) THEN ${exact}
             WHEN lower(${col}) LIKE lower(t.term) || '%' THEN 2
             ELSE 1 END`;
     const res = await pool.query(
@@ -106,12 +114,12 @@ export async function ontologySearch(
             m AS (
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
                      'canonical'::text AS via, t.term AS matched,
-                     ${scoreExpr("e.canonical_name")} AS score
+                     ${scoreExpr("e.canonical_name", 4)} AS score
                 FROM ${s}.entities e JOIN t
                   ON e.canonical_name ILIKE '%' || t.term || '%'
               UNION ALL
               SELECT e.id, e.type, e.canonical_name, ${propsCol},
-                     'alias', t.term, ${scoreExpr("a.alias")}
+                     'alias', t.term, ${scoreExpr("a.alias", 3)}
                 FROM ${s}.entities e
                 JOIN ${s}.aliases a ON a.entity_id = e.id
                 JOIN t ON a.alias ILIKE '%' || t.term || '%'
@@ -332,15 +340,48 @@ export function ontologyCandidates(hits: OntologyHit[]): Candidate[] {
   }));
 }
 
-/** Convert graph edges to canonical graph candidates keyed by the destination entity. */
-export function edgeCandidates(edges: GraphEdge[]): Candidate[] {
-  return edges.map((e, i) => ({
-    canonicalKey: entityKey(e.dstType, e.dstId),
-    sourceKey: `graph#e${i}`,
-    source: "graph" as const,
-    text: `[그래프] ${e.srcName} -${e.relType}-> ${e.dstName}`,
-    provenance: `relation:${e.relType}:${e.provenance}`,
-  }));
+/** Korean surface form for each relation type.
+ *
+ * The raw edge label is the sponsor's SCREAMING_SNAKE identifier. Handing
+ * "경영지원팀 -HEAD_IS-> 윤소연" to a 7B produced "주어진 정보로는 알 수 없습니다"
+ * while the answer sat in its own context: the model did not read the identifier
+ * as a predicate. The edge is the same edge; only its rendering changed.
+ * Unknown types fall back to the raw label rather than being dropped. */
+const REL_LABEL: Record<string, string> = {
+  USES: "사용 중인 제품",
+  BELONGS_TO: "소속 부서",
+  HEAD_IS: "부서장",
+  MANAGES_ACCOUNT: "담당 고객사",
+  HAS_PROJECT: "진행 프로젝트",
+  LEADS: "이끄는 프로젝트",
+  REPORTED_ISSUE: "기술지원 이슈를 제기한 제품",
+};
+
+export function relLabel(relType: string): string {
+  return REL_LABEL[relType] ?? relType;
+}
+
+/** Convert graph edges to canonical candidates keyed by the entity that ANSWERS.
+ *
+ * `seedId` is the entity the query named. The candidate's identity is the OTHER
+ * endpoint, because that is the new information: for "Product-S1에 이슈를 제기한
+ * 고객" the answers are the clients, not Product-S1. Keying every edge by its
+ * destination made all 8 inbound edges share one canonicalKey, and RRF's
+ * per-list dedupe (correctly) collapsed them into a single context line — the
+ * model then reported that Product-S1 had no issues at all. Same edges, same
+ * dedupe; the bug was calling eight different facts the same thing. */
+export function edgeCandidates(edges: GraphEdge[], seedId?: number): Candidate[] {
+  return edges.map((e, i) => {
+    const seedIsDst = seedId !== undefined && e.dstId === seedId;
+    const [keyType, keyId] = seedIsDst ? [e.srcType, e.srcId] : [e.dstType, e.dstId];
+    return {
+      canonicalKey: entityKey(keyType, keyId),
+      sourceKey: `graph#e${i}`,
+      source: "graph" as const,
+      text: `[그래프] ${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName} (${e.srcType}→${e.dstType}, ${e.relType})`,
+      provenance: `relation:${e.relType}:${e.provenance}`,
+    };
+  });
 }
 
 /** Convert a relation-degree ranking to candidates (superlative questions).
@@ -351,11 +392,20 @@ export function rankingCandidates(
   relType: string,
   topN = 5,
 ): Candidate[] {
-  return ranking.slice(0, topN).map((r, i) => ({
+  // Standard competition ranking (1224): equal degree = equal rank, marked 공동.
+  // "가장 많은 고객을 담당하는 직원" has a 3-way tie in the sponsor data; numbering
+  // the tied rows 1,2,3 invited the model to answer with one name and call it the
+  // maximum. The tie is a property of the data, so the context has to carry it.
+  const withRank = ranking.map((r, i) => {
+    const rank = ranking.findIndex((x) => x.count === r.count) + 1;
+    const tied = ranking.filter((x) => x.count === r.count).length > 1;
+    return { ...r, i, rank, tied };
+  });
+  return withRank.slice(0, topN).map((r) => ({
     canonicalKey: entityKey(r.type, r.entityId),
-    sourceKey: `graph#r${i}`,
+    sourceKey: `graph#r${r.i}`,
     source: "graph" as const,
-    text: `[그래프 집계] ${r.name} (${r.type}) — ${relType} 관계 ${r.count}건 (전체 ${i + 1}위)`,
-    provenance: `relation-rank:${relType}:#${i + 1}`,
+    text: `[그래프 집계] ${r.name} (${r.type}) — ${relLabel(relType)} ${r.count}건, ${r.tied ? "공동 " : ""}${r.rank}위`,
+    provenance: `relation-rank:${relType}:#${r.rank}${r.tied ? "-tied" : ""}`,
   }));
 }

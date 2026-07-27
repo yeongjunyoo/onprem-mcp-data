@@ -158,9 +158,43 @@ export async function companyxNL2SQL(query: string): Promise<string | null> {
     "",
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "테이블은 반드시 companyx. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
+    "사람이 읽을 답을 돌려주세요: 부서·고객사·제품·직원을 물으면 id가 아니라 name을 조인해 반환합니다.",
     "",
     `질문: ${query}`,
     "SQL:",
+  ].join("\n");
+  const raw = await generate(prompt);
+  return extractSql(raw);
+}
+
+/** One deterministic repair attempt: feed the database's OWN error back.
+ *
+ * Observed on the sponsor's questions: the model invented `contracts.is_active`
+ * (the column is `status`), PostgreSQL rejected it, and the pipeline handed the
+ * 7B an EMPTY context — "현재 활성 상태인 계약 수" became "알 수 없습니다" even though
+ * the data was right there. The retry is rule-driven (retry iff the engine raised
+ * an error, exactly once, no scoring or sampling), so the tuning-free claim holds:
+ * there is no threshold to tune, and a query that executes is never retried. */
+export async function repairSql(
+  query: string,
+  failedSql: string,
+  dbError: string,
+  realColumns?: string,
+): Promise<string | null> {
+  const prompt = [
+    "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
+    COMPANYX_SCHEMA_DDL,
+    "",
+    "아래 SQL이 데이터베이스에서 오류로 거부되었습니다. 오류 메시지를 보고 고친 SQL 한 문장만 출력하세요.",
+    "오류가 지목한 컬럼은 이 데이터베이스에 존재하지 않습니다. 테이블 이름을 앞에 붙여도 생기지 않습니다.",
+    "아래 실제 컬럼 목록에 있는 컬럼만 쓰고, 의미가 비슷한 다른 컬럼으로 대체하세요.",
+    "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
+    ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
+    "",
+    `질문: ${query}`,
+    `실패한 SQL: ${failedSql}`,
+    `오류: ${dbError}`,
+    "수정된 SQL:",
   ].join("\n");
   const raw = await generate(prompt);
   return extractSql(raw);
