@@ -6,6 +6,12 @@
 // exactly why it fits a deterministic, tuning-free pipeline. A document found by
 // BOTH paths accumulates score from both, so agreement floats to the top.
 // k=60 is the standard constant (Cormack et al. 2009); it is fixed, not tuned.
+//
+// RRF is defined over ranked lists of DISTINCT items, so each list contributes a
+// key at most once, at its BEST rank. This matters on the graph branch: expanding
+// one entity emits many edges that all point at the same node, and without the
+// dedupe that node would collect a dozen increments and outrank a genuine
+// cross-source agreement. Degree is a graph fact, not retrieval evidence.
 
 import type { Candidate, CandidateSource } from "./candidate.js";
 export interface Ranked<T> {
@@ -26,7 +32,10 @@ export const RRF_K = 60;
 export function rrfMerge<T>(lists: Ranked<T>[][], k = RRF_K): Fused<T>[] {
   const acc = new Map<string, { value: T; score: number; sources: Set<number> }>();
   lists.forEach((list, li) => {
+    const seen = new Set<string>(); // best rank only, once per list
     list.forEach((r, idx) => {
+      if (seen.has(r.key)) return;
+      seen.add(r.key);
       const inc = 1 / (k + idx + 1); // rank is 1-based
       const cur = acc.get(r.key);
       if (cur) {
@@ -62,7 +71,10 @@ export interface FusedCandidate {
 export function rrfMergeNamed(lists: Candidate[][], k = RRF_K): FusedCandidate[] {
   const acc = new Map<string, { candidate: Candidate; score: number; sources: Set<CandidateSource> }>();
   for (const list of lists) {
+    const seen = new Set<string>(); // best rank only, once per list (see header)
     list.forEach((c, idx) => {
+      if (seen.has(c.canonicalKey)) return;
+      seen.add(c.canonicalKey);
       const inc = 1 / (k + idx + 1); // 1-based rank within its own list
       const cur = acc.get(c.canonicalKey);
       if (cur) {

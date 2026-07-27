@@ -58,5 +58,26 @@ let stableN = true;
 for (let i = 0; i < 20; i++) if (JSON.stringify(rrfMergeNamed([sqlList, vecList, graphList])) !== onceN) stableN = false;
 ok(stableN, "rrfMergeNamed deterministic over 20 runs");
 
+
+// Per-list dedupe: one key contributes once, at its BEST rank. Without this a
+// graph expansion that emits 10 edges into the same node would outrank a real
+// two-source agreement (degree is a graph fact, not retrieval evidence).
+{
+  const spammy = [
+    [{ key: "hub", value: 1 }, { key: "hub", value: 1 }, { key: "hub", value: 1 }, { key: "hub", value: 1 }],
+    [{ key: "agree", value: 2 }],
+  ];
+  const fusedSpam = rrfMerge([spammy[0], [{ key: "agree", value: 2 }]]);
+  const hub = fusedSpam.find((f) => f.key === "hub")!;
+  ok(Math.abs(hub.score - 1 / (60 + 1)) < 1e-12, `hub scores once at best rank (got ${hub.score})`);
+
+  const withAgreement = rrfMerge([
+    [{ key: "hub", value: 1 }, { key: "agree", value: 2 }],
+    [{ key: "agree", value: 2 }],
+  ]);
+  ok(withAgreement[0].key === "agree", `two-source agreement outranks a single-source rank-1 item (got ${withAgreement[0].key})`);
+  ok(withAgreement[0].sources.length === 2, "agreement records both lists");
+}
+
 console.log(`\nrrf.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
