@@ -14,6 +14,7 @@
 // offline in CI and with the real model in the demo.
 
 import { contentTerms } from "./text.js";
+import { profile } from "./profile.js";
 
 export const EMBED_DIM = 1024;
 
@@ -58,15 +59,26 @@ export class HashEmbedder implements Embedder {
   }
 }
 
-/** bge-m3 embeddings from a local Ollama instance (dim 1024). */
+/** Known output dimensions of the local embedding models we evaluate.
+ * The sponsor's DDL declares vector(768) — the dimension of nomic-embed-text —
+ * so the model choice decides whether the official schema is used verbatim. */
+const MODEL_DIMS: Record<string, number> = {
+  "bge-m3": 1024,
+  "nomic-embed-text": 768,
+  "mxbai-embed-large": 1024,
+};
+
+/** Embeddings from a local Ollama instance. Dimension follows the model. */
 export class OllamaEmbedder implements Embedder {
   readonly name: string;
-  readonly dim = EMBED_DIM;
+  readonly dim: number;
   constructor(
     readonly model = process.env.EMBED_MODEL ?? "bge-m3",
     readonly host = process.env.OLLAMA_HOST ?? "http://localhost:11434",
   ) {
     this.name = `ollama:${model}`;
+    const base = model.split(":")[0];
+    this.dim = Number(process.env.EMBED_DIM) || MODEL_DIMS[base] || EMBED_DIM;
   }
   async embed(text: string): Promise<number[]> {
     const res = await fetch(`${this.host}/api/embeddings`, {
@@ -81,12 +93,45 @@ export class OllamaEmbedder implements Embedder {
   }
 }
 
+
+/** Dimension reduction by truncation + renormalization (Matryoshka-style).
+ *
+ * The sponsor's DDL declares vector(768) and their own guidance is explicit:
+ * "1536차원 임베딩을 그대로 쓰면 인덱스 크기와 검색 시간이 불필요하게 커집니다.
+ *  PCA나 Matryoshka 기법으로 768 또는 512차원으로 줄여도 검색 품질 차이는 미미합니다."
+ * (liwonace.co.kr/blog/2). Swapping to a 768-native English model instead costs
+ * Korean accuracy badly (measured: type precision 0.971 -> 0.486), so the honest
+ * way to honour the official schema is to keep the Korean model and cut the tail.
+ *
+ * Whether BGE-M3 actually tolerates truncation is an empirical question, not an
+ * assumption — `npm run companyx:vector` answers it on the sponsor's own corpus.
+ */
+export class TruncatedEmbedder implements Embedder {
+  readonly name: string;
+  constructor(
+    private readonly inner: Embedder,
+    readonly dim: number,
+  ) {
+    if (dim > inner.dim) throw new Error(`cannot truncate ${inner.dim} -> ${dim}`);
+    this.name = `${inner.name}@${dim}`;
+  }
+  async embed(text: string): Promise<number[]> {
+    const full = await this.inner.embed(text);
+    return l2normalize(full.slice(0, this.dim));
+  }
+}
+
 let cached: Embedder | undefined;
 
 /** Pick the embedder from EMBEDDER env (default: hash for offline determinism). */
 export function getEmbedder(): Embedder {
   if (!cached) {
-    cached = (process.env.EMBEDDER ?? "hash") === "ollama" ? new OllamaEmbedder() : new HashEmbedder();
+    const base: Embedder =
+      (process.env.EMBEDDER ?? "hash") === "ollama"
+        ? new OllamaEmbedder()
+        : new HashEmbedder(Number(process.env.EMBED_DIM) || EMBED_DIM);
+    const want = Number(process.env.EMBED_TRUNCATE_DIM) || profile().embedDim || 0;
+    cached = want && want < base.dim ? new TruncatedEmbedder(base, want) : base;
   }
   return cached;
 }

@@ -7,6 +7,11 @@ import {
   timeoutPlugin,
   retryPlugin,
   circuitBreakerPlugin,
+  cachePlugin,
+  dedupPlugin,
+  queuePlugin,
+  sanitizerPlugin,
+  jsonLoggerPlugin,
   type AirServer,
 } from "@airmcp-dev/core";
 import { route, audit, SQL_TOOL, VECTOR_TOOL } from "./router.js";
@@ -18,6 +23,25 @@ import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 import { profile } from "./profile.js";
 
+/**
+ * Two layer systems share the letter "L" and run in OPPOSITE directions. Getting
+ * them backwards is silent — nothing breaks, the numbers just lie:
+ *
+ *   air Meter (docs.airmcp.dev/guide/meter): cost ASCENDING.
+ *     L1 static/cache … L2 lookup … L6 LLM call … L7 agent chain.
+ *     `layer` on defineTool overrides Meter's auto-classification, so it MUST be
+ *     the air value or every cost/latency statistic is filed under the wrong tier.
+ *
+ *   Pylon-7 (Jeon 2026, zenodo 18808598, Table 1): risk DESCENDING.
+ *     L7 Interface(min risk) · L6 Analysis · L5 Routing · L4 Service ·
+ *     L3 Resource · L2 Mutation(high) · L1 System(max: shell, root).
+ *
+ * So the reference-model position is carried in `tags` as `pylon7:Lx`, not in
+ * `layer`. Note what the tag list does NOT contain: no tool touches Pylon-7 L2
+ * (Mutation) or L1 (System). Every tool is read-only and `sql.query` drops to the
+ * NOLOGIN `mcp_ro` role, so the two highest-risk layers of the Descent Cost
+ * Principle are never entered at all.
+ */
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
@@ -27,8 +51,35 @@ export function buildServer(): AirServer {
       `온프렘 PostgreSQL+pgvector MCP 데이터 플랫폼 — 결정론 라우터(MCP Parallel) + 구조보존 큐레이션. 데이터셋: ${ds.description}`,
 
     // "장애 지점 감소 / 운영 안정성" — air 플러그인 한 줄씩. 모든 도구 호출에 적용.
-    // timeout은 가장 느린 합법 경로(콜드 모델 로드 포함 7B ask)를 덮도록 넉넉히.
-    use: [timeoutPlugin(120_000), retryPlugin({ maxRetries: 2, delayMs: 150 }), circuitBreakerPlugin()],
+    // 순서가 곧 실행 순서다(air: use 배열 순).
+    //
+    // 왜 이 조합인가. air는 19개를 제공하고 우리는 6개를 쓴다. 고른 기준은 이 워크로드의
+    // 성질이다: 전 도구가 읽기 전용 + 결정론(라우터/RRF/큐레이션)이라
+    //   * cache  — 같은 질의는 같은 답이 보장되므로 캐싱이 정확도를 훼손하지 않는다.
+    //              결정론이 캐시를 안전하게 만드는 것이지 그 반대가 아니다.
+    //   * dedup  — 병렬 fan-out이 같은 하위 호출을 동시에 낼 수 있다.
+    //   * queue  — 온프렘 7B는 동시 요청에 약하다. 무한 동시성보다 대기가 낫다.
+    //   * sanitizer — MCP 도구 입력은 외부 입력이다(Hou 2025 위협 모델).
+    //   * jsonLogger — 감사 로그를 ELK/Datadog가 그대로 먹는 형식으로.
+    // 쓰지 않은 것도 근거가 있다: auth/cors/rateLimit은 stdio 로컬 배포에 불필요하고,
+    // transform/i18n은 우리 응답 계약을 흐린다. dryrun은 개발 전용이다.
+    use: [
+      jsonLoggerPlugin(),
+      sanitizerPlugin(),
+      timeoutPlugin(120_000),
+      queuePlugin({ concurrency: { "*": 8, ask: 2, retrieve: 2 } }), // 7B 경로만 좁게
+      dedupPlugin(),
+      cachePlugin({ ttlMs: 60_000 }),
+      retryPlugin({ maxRetries: 2, delayMs: 150 }),
+      circuitBreakerPlugin(),
+    ],
+
+    // stdio(기본) / sse / http — air가 설정 한 줄로 바꾼다. 심사자가 Claude Desktop에
+    // 붙일 때는 stdio, 컨테이너로 띄울 때는 MCP_TRANSPORT=sse.
+    transport:
+      process.env.MCP_TRANSPORT === "sse"
+        ? { type: "sse" as const, port: Number(process.env.MCP_PORT ?? 3510) }
+        : { type: "stdio" as const },
 
     tools: [
       defineTool("route", {
@@ -37,8 +88,8 @@ export function buildServer(): AirServer {
           "LLM 호출 없는 결정론적 규칙 기반 라우팅(MCP Parallel 패턴). 같은 질의 → 항상 같은 결정.",
         params: { query: { type: "string", description: "사용자의 한국어 질의" } },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 2, // Pylon-7: routing/dispatch layer
-        tags: ["router", "deterministic", "mcp-parallel"],
+        layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
+        tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
         handler: async ({ query }) => audit(route(query as string)),
       }),
 
@@ -48,8 +99,8 @@ export function buildServer(): AirServer {
           "읽기 전용 트랜잭션으로 강제되며 쓰기/DDL/문장 체이닝은 거부된다.",
         params: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 3, // data access
-        tags: ["sql", "postgres", "read-only"],
+        layer: 2, // air Meter: simple lookup (DB read, no model)
+        tags: ["sql", "postgres", "read-only", "pylon7:L3"], // Pylon-7 L3 Resource
         handler: async ({ sql }) => sqlQuery(getReadPool(), sql as string),
       }),
 
@@ -62,8 +113,8 @@ export function buildServer(): AirServer {
           k: { type: "number", description: "반환할 상위 건수 (기본 5)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 3, // data access
-        tags: ["vector", "pgvector", "semantic"],
+        layer: 6, // air Meter: embeds the query -> LLM-call tier
+        tags: ["vector", "pgvector", "semantic", "pylon7:L3"], // Pylon-7 L3 Resource
         handler: async ({ query, k }) =>
           vectorSearch(getReadPool(), getEmbedder(), query as string, (k as number) ?? 5),
       }),
@@ -78,8 +129,8 @@ export function buildServer(): AirServer {
           budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 4, // context assembly / curation
-        tags: ["pipeline", "rrf", "curation", "tacc"],
+        layer: 7, // air Meter: orchestrates several tools in one call
+        tags: ["pipeline", "rrf", "curation", "tacc", "pylon7:L6"], // Pylon-7 L6 Analysis
         handler: async ({ query, budget }) => {
           const r = await retrieve(query as string, {
             pool: getReadPool(),
@@ -99,8 +150,8 @@ export function buildServer(): AirServer {
           budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
-        layer: 7, // Pylon-7: top agent/answer layer
-        tags: ["agent", "answer", "qwen", "end-to-end"],
+        layer: 7, // air Meter: agent chain (retrieval + generation)
+        tags: ["agent", "answer", "qwen", "end-to-end", "pylon7:L7"], // Pylon-7 L7 Interface
         handler: async ({ query, budget }) => {
           const r = await ask(query as string, {
             pool: getReadPool(),
@@ -120,8 +171,8 @@ export function buildServer(): AirServer {
           k: { type: "number", description: "최대 엔티티 수 (기본 5)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 5, // ontology / knowledge layer
-        tags: ["graph", "ontology", "kg"],
+        layer: 2, // air Meter: simple lookup (alias/canonical match)
+        tags: ["graph", "ontology", "kg", "pylon7:L3"], // Pylon-7 L3 Resource
         handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, (k as number) ?? 5, kgSchema()),
       }),
 
@@ -134,8 +185,8 @@ export function buildServer(): AirServer {
           depth: { type: "number", description: "확장 깊이 1~3 (기본 1)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
-        layer: 5, // graph traversal
-        tags: ["graph", "expand", "kg"],
+        layer: 2, // air Meter: simple lookup (indexed edge BFS)
+        tags: ["graph", "expand", "kg", "pylon7:L3"], // Pylon-7 L3 Resource
         handler: async ({ entityId, depth }) =>
           graphExpand(getReadPool(), entityId as number, (depth as number) ?? 1, undefined, kgSchema()),
       }),

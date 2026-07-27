@@ -31,6 +31,8 @@ export interface DatasetProfile {
   schemaCard: string;
   /** One-line description for the MCP tool metadata. */
   description: string;
+  /** Embedding width the corpus schema declares. companyx = 768 (official DDL). */
+  embedDim?: number;
 }
 
 const PROFILES: Record<DatasetName, DatasetProfile> = {
@@ -57,6 +59,9 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
     nl2sql: companyxNL2SQL,
     schemaCard: COMPANYX_SCHEMA_DDL,
     description: "리원에이스 공식 데이터셋 Company-X(8테이블 818행 / 문서 40건 / 그래프 133노드·354엣지)",
+    // The official DDL says vector(768). Measured on this corpus, BGE-M3 truncated
+    // to 768 keeps hit@5 = 1.00, so the schema is used verbatim instead of widened.
+    embedDim: 768,
   },
 };
 

@@ -3,18 +3,18 @@
     "dataset": "companyx-dataset-v1.0 / questions.json (end-to-end ask)",
     "profile": "companyx",
     "model": "qwen2.5:7b",
-    "embedder": "ollama:bge-m3",
+    "embedder": "ollama:bge-m3@768",
     "n": 30,
     "evidence_in_context_full": "21/23",
     "evidence_pct": 91.3,
-    "answers_grounded": "18/18",
+    "answers_grounded": "17/17",
     "grounded_pct": 100,
     "abstained_on_absent_entity": true,
     "lane_agreement": 30,
     "branch_error_questions": 0,
-    "median_ms": 940,
+    "median_ms": 910,
     "note": "No LLM judge. evidence_in_context = gold values (SQL gold rows / KG gold entities / vector gold keywords) present in the curated context. answers_grounded = every dataset entity named in the answer also appears in the context (invented entity = hallucination).",
-    "generated_at": "2026-07-27T08:59:33.896Z"
+    "generated_at": "2026-07-27T15:46:08.320Z"
   },
   "rows": [
     {
@@ -45,7 +45,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1278
+      "ms": 1152
     },
     {
       "q": "2025년 3분기 총 매출액은 얼마야?",
@@ -67,7 +67,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 985
+      "ms": 1038
     },
     {
       "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
@@ -93,13 +93,13 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1628
+      "ms": 1718
     },
     {
       "q": "현재 활성 상태인 계약 수는 몇 개야?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "46개입니다.",
+      "answer": "46개",
       "context_chars": 83,
       "candidates": {
         "sql": 1,
@@ -115,7 +115,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1013
+      "ms": 1099
     },
     {
       "q": "기술지원팀 직원 목록과 연봉을 알려줘",
@@ -145,7 +145,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1244
+      "ms": 1326
     },
     {
       "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
@@ -169,7 +169,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 944
+      "ms": 972
     },
     {
       "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
@@ -195,13 +195,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1708
+      "ms": 1817
     },
     {
       "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "Product-D3 | Product-C1 | Product-S1 | Product-D1 | Product-S2 | Product-S3 | Product-C4",
+      "answer": "Product-D3 | Product-C1 | Product-S1 | Product-D1 | Product-S2 | Product-C4 | Product-S3",
       "context_chars": 1826,
       "candidates": {
         "sql": 12,
@@ -224,12 +224,12 @@
         "Product-S1",
         "Product-D1",
         "Product-S2",
-        "Product-S3",
-        "Product-C4"
+        "Product-C4",
+        "Product-S3"
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1324
+      "ms": 1413
     },
     {
       "q": "2024년에 등록된 고객사는 몇 개야?",
@@ -251,7 +251,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1399
+      "ms": 1293
     },
     {
       "q": "평균 연봉이 가장 높은 부서는 어디야?",
@@ -275,14 +275,14 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1206
+      "ms": 910
     },
     {
       "q": "최근 서버 장애 사례와 원인을 알려줘",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "Client-A Product-C1 서비스 장애 - 원인: 디스크 IOPS 한계 초과로 인한 DB 쿼리 타임아웃. Client-B, Client-C, Client-I Product-D3 서비스 장애 - 원인: 최근 트래픽 증가에 따른 리소스 부족으로 인해 모니터링 임계값이 적절히 설정되지 않아 사전 감지가 되지 않았습니다.",
-      "context_chars": 712,
+      "answer": "Client-A Product-C1 서비스 장애 - 원인: 디스크 IOPS 한계 초과 Client-B, Client-C, Client-I Product-C2, Product-S1, Product-D3 서비스 장애 - 원인: 리소스 부족 및 모니터링 임계값 설정 미흡",
+      "context_chars": 707,
       "candidates": {
         "sql": 0,
         "vector": 5,
@@ -298,18 +298,20 @@
         "Client-B",
         "Client-C",
         "Client-I",
+        "Product-C2",
+        "Product-S1",
         "Product-D3"
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1600
+      "ms": 1146
     },
     {
       "q": "Product-C1 설치 방법이 궁금해",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
       "answer": "Docker와 Docker Compose를 설치한 후, Kubernetes 환경에서는 Helm 차트를 통해 배포할 수 있습니다.",
-      "context_chars": 403,
+      "context_chars": 527,
       "candidates": {
         "sql": 0,
         "vector": 5,
@@ -325,14 +327,14 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 805
+      "ms": 735
     },
     {
       "q": "Kubernetes 관련 장애 대응 방법은?",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "로드밸런서 설정 복구, 모니터링 알림 임계값 재설정, 재발 방지를 위한 자동화 스크립트 작성",
-      "context_chars": 626,
+      "answer": "모니터링 알림 임계값 재설정, 재발 방지를 위한 자동화 스크립트 작성",
+      "context_chars": 627,
       "candidates": {
         "sql": 0,
         "vector": 5,
@@ -347,13 +349,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 940
+      "ms": 800
     },
     {
       "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "Connection Pool의 최소 12에서 최대 90, 인덱스 점검은 월 1회 슬로우 쿼리 로그 기반으로 진행하고, 쿼리 캐싱은 Redis에 TTL 222초로 설정합니다.",
+      "answer": "- Connection Pool: 최소 12, 최대 90 - 인덱스 점검: 슬로우 쿼리 로그 기반으로 월 1회 점검 - 쿼리 캐싱: Redis에 TTL 222초 설정",
       "context_chars": 667,
       "candidates": {
         "sql": 0,
@@ -369,7 +371,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1148
+      "ms": 1235
     },
     {
       "q": "보안 취약점 점검 관련 내용이 있어?",
@@ -391,13 +393,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 691
+      "ms": 645
     },
     {
       "q": "백업 정책은 어떻게 되어 있어?",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "매일 1:00 AM에 자동 백업이 실행되며 보관 기간은 90일입니다. 또한, 매일 2:00 AM에 자동 백업이 실행되며 보관 기간은 26일입니다.",
+      "answer": "매일 1:00 AM에 자동 백업이 실행되며 보관 기간은 90일입니다. 또한 매일 2:00 AM에 자동 백업이 실행되며 보관 기간은 26일입니다.",
       "context_chars": 482,
       "candidates": {
         "sql": 0,
@@ -413,7 +415,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 1355
+      "ms": 1104
     },
     {
       "q": "API 인증 방식은 뭐야?",
@@ -435,13 +437,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 646
+      "ms": 640
     },
     {
       "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "마일스톤 2가 크리티컬 패스에 영향을 줌으로써 일정 재조정이 필요합니다.",
+      "answer": "마일스톤 2가 크리티컬 패스에 영향을 줌으로써 일정 재조정이 필요하다는 이슈가 논의되었습니다.",
       "context_chars": 597,
       "candidates": {
         "sql": 0,
@@ -455,13 +457,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 747
+      "ms": 1016
     },
     {
       "q": "클라우드 마이그레이션 제안서 내용 보여줘",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "Client-F와 Client-J의 클라우드 마이그레이션에 대한 제안서 내용은 다음과 같습니다: - Client-F: Product-C1을 통해 대규모 클라우드 마이그레이션 플랫폼을 구축할 수 있으며, 멀티클라우드 지원과 함께 운영 비용 31% 절감 및 장애 대응 시간 37% 단축 효과를 기대할 수 있습니다. - Client-J: Product-D1을 통해 레거시 시스템의 클라우드 전환과 멀티클라우드 환경에서의 통합 관리를 지원받을 수 있으며, 구체적인 운영 비용 절감 및 장애 대응 시간 단축 효과는 제공되지 않았습니다.",
+      "answer": "Client-F와 Client-J의 클라우ド 마이그레이션 제안서 내용은 다음과 같습니다: - Client-F: Product-C1을 통해 대규모 클라우드 마이그레이션 플랫폼을 구축할 수 있으며, 멀티클라우드 지원과 함께 운영 비용 31% 절감 및 장애 대응 시간 37% 단축 효과를 기대할 수 있습니다. - Client-J: Product-D1을 통해 레거시 시스템의 클라우드 전환과 멀티클라우드 환경에서의 통합 관리를 지원받을 수 있으며, 구체적인 운영 비용 절감 및 장애 대응 시간 단축 효과는 제안서에 명시되어 있지 않습니다.",
       "context_chars": 660,
       "candidates": {
         "sql": 0,
@@ -482,13 +484,13 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 2360
+      "ms": 2452
     },
     {
       "q": "SSL 인증서 관련 장애가 있었어?",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "네, SSL 인증서 만료로 인한 HTTPS 통신 실패 현상이 Client-F와 Client-E에서 발생했습니다.",
+      "answer": "네, SSL 인증서 만료로 인한 HTTPS 통신 실패 현상이 발생한 장애 보고가 있습니다.",
       "context_chars": 673,
       "candidates": {
         "sql": 0,
@@ -501,13 +503,10 @@
         "SSL"
       ],
       "evidence_in_context": 1,
-      "answer_entities": [
-        "Client-F",
-        "Client-E"
-      ],
+      "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 767
+      "ms": 856
     },
     {
       "q": "Client-A가 사용 중인 제품 목록은?",
@@ -533,7 +532,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 324
+      "ms": 325
     },
     {
       "q": "Product-C1을 사용하는 고객사는 어디야?",
@@ -566,7 +565,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 464
+      "ms": 478
     },
     {
       "q": "클라우드사업부 소속 직원들은 누구야?",
@@ -603,7 +602,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 694
+      "ms": 756
     },
     {
       "q": "서울물산 담당 엔지니어는 누구야?",
@@ -623,7 +622,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": true,
-      "ms": 326
+      "ms": 368
     },
     {
       "q": "Product-D1 제품과 관련된 프로젝트는?",
@@ -658,7 +657,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 822
+      "ms": 867
     },
     {
       "q": "기술 지원 이슈가 가장 많은 제품은?",
@@ -680,7 +679,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 222
+      "ms": 334
     },
     {
       "q": "경영지원팀 팀장은 누구야?",
@@ -704,7 +703,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 238
+      "ms": 259
     },
     {
       "q": "진행 중인 프로젝트를 이끄는 직원 목록",
@@ -734,7 +733,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 695
+      "ms": 711
     },
     {
       "q": "Product-S1 관련 고객 이슈 현황은?",
@@ -769,7 +768,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 637
+      "ms": 647
     },
     {
       "q": "가장 많은 고객을 담당하는 직원은?",
@@ -793,7 +792,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 317
+      "ms": 353
     }
   ]
 }

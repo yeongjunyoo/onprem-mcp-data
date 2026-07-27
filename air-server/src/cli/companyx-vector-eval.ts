@@ -15,7 +15,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
-import { HashEmbedder, OllamaEmbedder, type Embedder } from "../embedder.js";
+import { HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
 import { embedCompanyXChunks, datasetDir, CX_SCHEMA } from "../companyx.js";
 
@@ -51,12 +51,32 @@ async function main() {
 
   const pool = getPool();
   const k = Number(process.env.CX_TOPK ?? 5);
+  // Compared head to head because the choice decides whether the sponsor's
+  // vector(768) DDL is used verbatim: nomic-embed-text emits 768, BGE-M3 1024.
   const embedders: Embedder[] = [new HashEmbedder()];
-  if (process.env.EMBEDDER === "ollama" || process.env.CX_COMPARE === "1") embedders.push(new OllamaEmbedder());
+  if (process.env.EMBEDDER === "ollama" || process.env.CX_COMPARE === "1") {
+    for (const spec of (process.env.CX_MODELS ?? "bge-m3,bge-m3@768,bge-m3@512,nomic-embed-text").split(",")) {
+      const [model, trunc] = spec.trim().split("@");
+      const e = new OllamaEmbedder(model);
+      embedders.push(trunc ? new TruncatedEmbedder(e, Number(trunc)) : e);
+    }
+  }
 
   const results: Record<string, unknown> = {};
   for (const emb of embedders) {
     // Each embedder needs the corpus embedded with ITS OWN vectors.
+    // Each embedder needs its own column width; realign before backfilling.
+    // The read view depends on the column, so drop and recreate it around the widen.
+    await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
+    await pool.query(
+      `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
+    );
+    await pool.query(
+      `CREATE VIEW ${CX_SCHEMA}.documents AS
+         SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
+                content AS body, embedding
+           FROM ${CX_SCHEMA}.document_chunks`,
+    );
     const backfill = await embedCompanyXChunks(pool, emb, CX_SCHEMA);
     const rows = [];
     let hits = 0,

@@ -23,11 +23,11 @@ EMBEDDER=ollama npm run companyx:vector
 | 라우터 (30문항 도구 라벨) | **30/30 = 100%** (in-sample), 20회 재실행 동일 | 사업자가 붙인 `tool` 라벨 |
 | NL2SQL execution match | 재시도 없음 **6/10 = 60%** (테이블명만 2/10 = 20%, **Δ +40pp**) · self-repair 1회 **7/10 = 70%** | DB 실행 결과 |
 | end-to-end `ask` (제품 경로) | 근거 포함 **91~96%** · 컨텍스트 밖 개체 생성 **0건** · 미존재 개체 질의 거절 성공 · 중앙값 **830~940ms** | 레인별 gold + 개체 포함 검사 |
-| 벡터 hit@5 | **1.00** (BGE-M3) / 0.75 (hash) | 원문 키워드 규칙 |
+| 벡터 hit@5 | **1.00** (BGE-M3를 **768로 절단** → 공식 DDL 무변경) / 0.75 (hash·nomic-embed-text) | 원문 키워드 규칙 |
 | 지식그래프 recall | **1.00** (초기 0.278 → 결함 4개 수정) | `edges.json`에서 계산 |
 | 미존재 개체 질의 | 컨텍스트 0엣지 + not-found 명시 → 환각 차단 | — |
 
-적재 실측: 8테이블 **818행** · 문서 40건→**258청크** · 그래프 **133노드/354엣지** · `entity_links` 133.
+적재 실측: 8테이블 **818행** · 문서 40건→**258청크** · 그래프 **133노드/354엣지** · `entity_links` 133. **공식 DDL 무변경**(`ddlDeviations: []`).
 
 > ⚠️ **자기 반증(정직 표기).** self-repair(실패 SQL을 DB 카탈로그와 함께 1회 되먹임)를 켜면 스키마 카드 유무의 **정확도 차이가 사라진다**(둘 다 70%). 남는 차이는 비용이다 — LLM 호출 12회 vs 16회, 8.7초 vs 11.6초. 즉 스키마 카드의 기여는 재시도가 없는 경로에서는 정확도(Δ+40pp), 재시도가 있는 경로에서는 **호출 수와 지연**이다. 상세 = `docs/report.md §0.6`.
 
@@ -63,7 +63,7 @@ EMBEDDER=ollama npm run demo   # 오프라인 end-to-end 데모 (7툴→3-way→
 docker build -t onprem-mcp-data-mcp ./air-server   # MCP 서버 이미지 (검증됨)
 ```
 
-> `docker compose --profile full`은 mcp 서버까지 컨테이너로(Dockerfile 빌드 검증됨). stdio→HTTP transport는 후속.
+> MCP transport는 `MCP_TRANSPORT=sse`로 stdio↔SSE 전환(air 설정 한 줄). `docker compose --profile full`은 mcp 서버까지 컨테이너로(Dockerfile 빌드 검증됨). stdio→HTTP transport는 후속.
 
 ## 검증 현황 (2026-06-30, 전부 실행 결과)
 

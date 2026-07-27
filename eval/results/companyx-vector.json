@@ -12,6 +12,21 @@
       "hit@5": 1,
       "mean_type_precision": 0.971,
       "dim": 1024
+    },
+    "ollama:bge-m3@768": {
+      "hit@5": 1,
+      "mean_type_precision": 0.943,
+      "dim": 768
+    },
+    "ollama:bge-m3@512": {
+      "hit@5": 1,
+      "mean_type_precision": 0.971,
+      "dim": 512
+    },
+    "ollama:nomic-embed-text": {
+      "hit@5": 0.75,
+      "mean_type_precision": 0.486,
+      "dim": 768
     }
   },
   "detail": {
@@ -562,7 +577,829 @@
           "type_precision": 0.8
         }
       ]
+    },
+    "ollama:bge-m3@768": {
+      "embedder": "ollama:bge-m3@768",
+      "dim": 768,
+      "chunks": 258,
+      "hit@5": 1,
+      "scored_questions": 8,
+      "mean_type_precision": 0.943,
+      "rows": [
+        {
+          "q": "최근 서버 장애 사례와 원인을 알려줘",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-002",
+            "DOC-003",
+            "DOC-009",
+            "DOC-001",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.628,
+            0.619,
+            0.616,
+            0.611,
+            0.607
+          ],
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.779,
+            0.736,
+            0.669,
+            0.624,
+            0.611
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Kubernetes 관련 장애 대응 방법은?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-007",
+            "DOC-011",
+            "DOC-012",
+            "DOC-016",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-001",
+            "DOC-016",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.582,
+            0.571,
+            0.569,
+            0.564,
+            0.562
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+          "gold_n": 2,
+          "gold": [
+            "DOC-014",
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-019",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.729,
+            0.728,
+            0.628,
+            0.618,
+            0.608
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "보안 취약점 점검 관련 내용이 있어?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-024",
+            "DOC-028",
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-024",
+            "DOC-028",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.664,
+            0.659,
+            0.651,
+            0.649,
+            0.641
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "백업 정책은 어떻게 되어 있어?",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-013",
+            "DOC-018",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.625,
+            0.616,
+            0.548,
+            0.54,
+            0.518
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "API 인증 방식은 뭐야?",
+          "gold_n": 8,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006",
+            "DOC-012",
+            "DOC-015",
+            "DOC-017",
+            "DOC-020",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-020",
+            "DOC-015",
+            "DOC-012"
+          ],
+          "top_scores": [
+            0.636,
+            0.622,
+            0.55,
+            0.548,
+            0.544
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-023",
+            "DOC-021",
+            "DOC-026",
+            "DOC-029",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.667,
+            0.665,
+            0.664,
+            0.653,
+            0.653
+          ],
+          "hit@5": null,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+          "gold_n": 10,
+          "gold": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035",
+            "DOC-036",
+            "DOC-037",
+            "DOC-038",
+            "DOC-039",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-031",
+            "DOC-035",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.664,
+            0.646,
+            0.581,
+            0.568,
+            0.561
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "SSL 인증서 관련 장애가 있었어?",
+          "gold_n": 3,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-004",
+            "DOC-020"
+          ],
+          "top_scores": [
+            0.716,
+            0.713,
+            0.651,
+            0.602,
+            0.595
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        }
+      ]
+    },
+    "ollama:bge-m3@512": {
+      "embedder": "ollama:bge-m3@512",
+      "dim": 512,
+      "chunks": 258,
+      "hit@5": 1,
+      "scored_questions": 8,
+      "mean_type_precision": 0.971,
+      "rows": [
+        {
+          "q": "최근 서버 장애 사례와 원인을 알려줘",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-002",
+            "DOC-009",
+            "DOC-001",
+            "DOC-003",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.658,
+            0.657,
+            0.648,
+            0.647,
+            0.647
+          ],
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031",
+            "DOC-011"
+          ],
+          "top_scores": [
+            0.781,
+            0.74,
+            0.675,
+            0.64,
+            0.634
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Kubernetes 관련 장애 대응 방법은?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-007",
+            "DOC-011",
+            "DOC-012",
+            "DOC-016",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-016",
+            "DOC-003",
+            "DOC-011",
+            "DOC-002"
+          ],
+          "top_scores": [
+            0.619,
+            0.614,
+            0.609,
+            0.607,
+            0.591
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+          "gold_n": 2,
+          "gold": [
+            "DOC-014",
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-019",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.747,
+            0.743,
+            0.657,
+            0.65,
+            0.649
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "보안 취약점 점검 관련 내용이 있어?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-024",
+            "DOC-028",
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-021",
+            "DOC-029",
+            "DOC-024",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.686,
+            0.686,
+            0.682,
+            0.668,
+            0.666
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "백업 정책은 어떻게 되어 있어?",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-013",
+            "DOC-018",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.641,
+            0.634,
+            0.59,
+            0.578,
+            0.531
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "API 인증 방식은 뭐야?",
+          "gold_n": 8,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006",
+            "DOC-012",
+            "DOC-015",
+            "DOC-017",
+            "DOC-020",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-012",
+            "DOC-015",
+            "DOC-017"
+          ],
+          "top_scores": [
+            0.628,
+            0.606,
+            0.569,
+            0.568,
+            0.566
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-023",
+            "DOC-026",
+            "DOC-021",
+            "DOC-030",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.683,
+            0.661,
+            0.659,
+            0.643,
+            0.641
+          ],
+          "hit@5": null,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+          "gold_n": 10,
+          "gold": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035",
+            "DOC-036",
+            "DOC-037",
+            "DOC-038",
+            "DOC-039",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-031",
+            "DOC-033",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.684,
+            0.672,
+            0.61,
+            0.606,
+            0.599
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "SSL 인증서 관련 장애가 있었어?",
+          "gold_n": 3,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-004",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.719,
+            0.718,
+            0.668,
+            0.627,
+            0.622
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        }
+      ]
+    },
+    "ollama:nomic-embed-text": {
+      "embedder": "ollama:nomic-embed-text",
+      "dim": 768,
+      "chunks": 258,
+      "hit@5": 0.75,
+      "scored_questions": 8,
+      "mean_type_precision": 0.486,
+      "rows": [
+        {
+          "q": "최근 서버 장애 사례와 원인을 알려줘",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-021",
+            "DOC-023",
+            "DOC-023",
+            "DOC-022",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.785,
+            0.779,
+            0.775,
+            0.773,
+            0.773
+          ],
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-012",
+            "DOC-011",
+            "DOC-011"
+          ],
+          "top_scores": [
+            0.953,
+            0.917,
+            0.897,
+            0.894,
+            0.893
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Kubernetes 관련 장애 대응 방법은?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-007",
+            "DOC-011",
+            "DOC-012",
+            "DOC-016",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-022",
+            "DOC-012",
+            "DOC-011",
+            "DOC-017"
+          ],
+          "top_scores": [
+            0.713,
+            0.712,
+            0.71,
+            0.708,
+            0.707
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+          "gold_n": 2,
+          "gold": [
+            "DOC-014",
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-019",
+            "DOC-014",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.803,
+            0.791,
+            0.782,
+            0.754,
+            0.741
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "보안 취약점 점검 관련 내용이 있어?",
+          "gold_n": 5,
+          "gold": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-024",
+            "DOC-028",
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-026",
+            "DOC-021",
+            "DOC-030",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.734,
+            0.73,
+            0.729,
+            0.728,
+            0.728
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "백업 정책은 어떻게 되어 있어?",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-024",
+            "DOC-030",
+            "DOC-023",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.743,
+            0.735,
+            0.73,
+            0.729,
+            0.723
+          ],
+          "hit@5": false,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "API 인증 방식은 뭐야?",
+          "gold_n": 8,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006",
+            "DOC-012",
+            "DOC-015",
+            "DOC-017",
+            "DOC-020",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-015",
+            "DOC-020"
+          ],
+          "top_scores": [
+            0.771,
+            0.765,
+            0.765,
+            0.762,
+            0.759
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-021",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.774,
+            0.767,
+            0.75,
+            0.748,
+            0.744
+          ],
+          "hit@5": null,
+          "expected_type": "meeting_note",
+          "type_precision": 0.4
+        },
+        {
+          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+          "gold_n": 10,
+          "gold": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035",
+            "DOC-036",
+            "DOC-037",
+            "DOC-038",
+            "DOC-039",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-023",
+            "DOC-018",
+            "DOC-028",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.757,
+            0.742,
+            0.734,
+            0.728,
+            0.723
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "SSL 인증서 관련 장애가 있었어?",
+          "gold_n": 3,
+          "gold": [
+            "DOC-002",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-002",
+            "DOC-006",
+            "DOC-027",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.753,
+            0.731,
+            0.712,
+            0.706,
+            0.702
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.6
+        }
+      ]
     }
   },
-  "generated_at": "2026-07-27T09:02:24.803Z"
+  "generated_at": "2026-07-27T15:41:43.257Z"
 }
