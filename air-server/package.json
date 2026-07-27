@@ -7,7 +7,7 @@
     "dev": "air dev",
     "start": "air start",
     "build": "tsc",
-    "test": "tsc && node dist/router.test.js && node dist/curator.test.js && node dist/rrf.test.js && node dist/evalmatch.test.js && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js",
+    "test": "tsc && node dist/router.test.js && node dist/curator.test.js && node dist/rrf.test.js && node dist/evalmatch.test.js && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js && node dist/companyx.test.js",
     "test:kg": "tsc && node dist/cli/gen-bench.js && EMBEDDER=ollama EMBED_MODEL=bge-m3 node dist/cli/embed-bench.js && node dist/graph.test.js && node dist/kgretrieve.test.js",
     "eval": "tsc && node dist/eval.js",
     "gen:bench": "tsc && node dist/cli/gen-bench.js",
@@ -16,7 +16,12 @@
     "demo": "tsc && node dist/cli/demo.js",
     "fault:inject": "tsc && node dist/cli/fault-eval.js",
     "recall:eval": "tsc && node dist/cli/recall-eval.js",
-    "external:bird": "tsc && node dist/cli/external-eval.js"
+    "external:bird": "tsc && node dist/cli/external-eval.js",
+    "companyx:load": "tsc && node dist/cli/companyx-load.js",
+    "companyx:route": "tsc && node dist/cli/companyx-route-eval.js",
+    "companyx:kg": "tsc && node dist/cli/companyx-kg-eval.js",
+    "companyx:sql": "tsc && node dist/cli/companyx-sql-eval.js",
+    "companyx:vector": "tsc && node dist/cli/companyx-vector-eval.js"
   },
   "dependencies": {
     "@airmcp-dev/core": "^0.2.0",

@@ -6,11 +6,33 @@
 
 > 프레임: "리원에이스 자기 스펙(air·MCP Parallel·TACC·Qwen)의 **충실한 레퍼런스 구현 + 운영 안정성**". 알고리즘 신규성 주장 아님.
 
+## 공식 데이터셋 (리원에이스 Company-X, 2026-07-22 공개)
+
+사업자 배포본을 **원본 DDL 그대로** 적재하고 3레인 전부 실측한다. 데이터셋은 "대회 참가 목적 한정" 라이선스라 저장소에 넣지 않고 SHA-256 고정 후 받아 쓴다(`datasets/MANIFEST.md`).
+
+```bash
+bash scripts/pg-up.sh                      # PG16+pgvector (docker 또는 WSL2)
+bash scripts/fetch-companyx-dataset.sh     # SHA-256 3008476738d9…0827d772 검증
+cd air-server && EMBEDDER=ollama npm run companyx:load
+npm run companyx:route && npm run companyx:sql && npm run companyx:kg
+EMBEDDER=ollama npm run companyx:vector
+```
+
+| 레인 | 결과 | 오라클 |
+|---|---|---|
+| 라우터 (30문항 도구 라벨) | **30/30 = 100%** (in-sample), 20회 재실행 동일 | 사업자가 붙인 `tool` 라벨 |
+| NL2SQL execution match | **6/10 = 60%** — 테이블명만 주는 ablation은 2/10 = 20% (**Δ +40pp**) | DB 실행 결과 |
+| 벡터 hit@5 | **1.00** (BGE-M3) / 0.75 (hash) | 원문 키워드 규칙 |
+| 지식그래프 recall | **1.00** (초기 0.278 → 결함 4개 수정) | `edges.json`에서 계산 |
+| 미존재 개체 질의 | 컨텍스트 0엣지 + not-found 명시 → 환각 차단 | — |
+
+적재 실측: 8테이블 **818행** · 문서 40건→**258청크** · 그래프 **133노드/354엣지** · `entity_links` 133. 상세·한계 = `docs/report.md §0.5`.
+
 ## 구조 (레이어 + air 토대)
 
 - **L1 substrate** — PostgreSQL 17 + pgvector. 스모크 시드 `sql/init/01_schema.sql`(public) + 콘테스트급 벤치 `eval/internal/schema.sql`(격리 `bench` 스키마, e-commerce 8테이블·수천 행).
 - **L2 DB MCP 도구** — `sql.query`(읽기전용 트랜잭션 + 최소권한 `mcp_ro` 강등 → superuser 함수·쓰기 거부, statement/lock timeout), `vector.search`(pgvector 코사인, BGE-M3 임베딩, 2차키 id로 tie 결정성, k 클램프).
-- **L3 차별점 A — 규칙기반 병렬 라우터 `route`(MCP Parallel)** — 한국어 질의 분류(**LLM 호출 X = 결정론, 튜닝파라미터 0, run-to-run 분산 0**) → structured/semantic/hybrid 병렬 fan-out + 감사 로그.
+- **L3 차별점 A — 규칙기반 병렬 라우터 `route`(MCP Parallel)** — 한국어 질의 분류(**LLM 호출 X = 결정론, 튜닝파라미터 0, run-to-run 분산 0**) → **structured / semantic / graph** 3레인 + hybrid 병렬 fan-out + 감사 로그. 레인 = 사업자 과제의 nl2sql / 벡터검색 / 지식그래프와 1:1.
 - **L4 차별점 B — 구조보존 큐레이션 `retrieve`(TACC)** — 7B 컨텍스트 진입 전 스키마인지 row 원자 패킹. **해자 = SQL 튜플을 안 깨고 트림**(토큰압축기 실패모드 회피). thesis = 고정 예산 **구조 무결성(broken_rows=0)**.
 - **L5 온톨로지/지식그래프** — `entities/aliases/relations/entity_links`. `ontology.search`(별칭 해소: 전자제품→전자기기), `graph.expand`(타입 관계 BFS + provenance). canonical `entity_links` 브릿지로 SQL/vector/graph 후보를 동일 엔티티로 매핑 → **named-source RRF 3-way agreement**.
 - **L7 답변 `ask`** — 온프렘 Qwen2.5-7B(Ollama)가 큐레이션 컨텍스트에만 근거해 답변(추측 금지).

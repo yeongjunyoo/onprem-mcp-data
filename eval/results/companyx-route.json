@@ -1,0 +1,785 @@
+{
+  "summary": {
+    "dataset": "companyx-dataset-v1.0 / questions.json",
+    "n": 30,
+    "exact_lane_match": 30,
+    "exact_pct": 100,
+    "label_reached": 30,
+    "reached_pct": 100,
+    "by_label": {
+      "nl2sql": {
+        "n": 10,
+        "exact": 10,
+        "reached": 10
+      },
+      "vector_search": {
+        "n": 10,
+        "exact": 10,
+        "reached": 10
+      },
+      "knowledge_graph": {
+        "n": 10,
+        "exact": 10,
+        "reached": 10
+      }
+    },
+    "deterministic_20_runs": true,
+    "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
+    "misses": [],
+    "generated_at": "2026-07-27T06:40:00.743Z"
+  },
+  "rows": [
+    {
+      "q": "서울 지역 매출 상위 5개 고객사를 알려줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "sort",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "2025년 3분기 총 매출액은 얼마야?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "time_filter",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "aggregate",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "현재 활성 상태인 계약 수는 몇 개야?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "count",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "기술지원팀 직원 목록과 연봉을 알려줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [
+          "org_unit"
+        ],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "superlative"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "sort",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "sort",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "2024년에 등록된 고객사는 몇 개야?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "count",
+          "time_filter",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "평균 연봉이 가장 높은 부서는 어디야?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "structured",
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "structured_signals": [
+          "aggregate",
+          "superlative",
+          "schema_column"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "only structured signals",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "최근 서버 장애 사례와 원인을 알려줘",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [
+          "time_filter"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Product-C1 설치 방법이 궁금해",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [
+          "doc_artifact"
+        ],
+        "entity_signals": [
+          "entity_id"
+        ],
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Kubernetes 관련 장애 대응 방법은?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "similarity"
+        ],
+        "graph_signals": [],
+        "document_signals": [
+          "doc_artifact",
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals doc_artifact,ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [
+          "doc_artifact",
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals doc_artifact,ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "보안 취약점 점검 관련 내용이 있어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "similarity",
+          "aboutness"
+        ],
+        "graph_signals": [],
+        "document_signals": [
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "백업 정책은 어떻게 되어 있어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "explain"
+        ],
+        "graph_signals": [],
+        "document_signals": [
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "API 인증 방식은 뭐야?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [],
+        "document_signals": [
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "REPORTED_ISSUE"
+        ],
+        "document_signals": [
+          "doc_artifact"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "aboutness"
+        ],
+        "graph_signals": [],
+        "document_signals": [
+          "doc_artifact"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "SSL 인증서 관련 장애가 있었어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "semantic",
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "similarity"
+        ],
+        "graph_signals": [],
+        "document_signals": [
+          "ops_topic"
+        ],
+        "entity_signals": [],
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Client-A가 사용 중인 제품 목록은?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "USES"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "entity_id"
+        ],
+        "rationale": "relation verb USES -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Product-C1을 사용하는 고객사는 어디야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "USES"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "entity_id"
+        ],
+        "rationale": "relation verb USES -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "클라우드사업부 소속 직원들은 누구야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "BELONGS_TO"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "org_unit"
+        ],
+        "rationale": "relation verb BELONGS_TO -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "서울물산 담당 엔지니어는 누구야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "MANAGES_ACCOUNT"
+        ],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Product-D1 제품과 관련된 프로젝트는?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "similarity"
+        ],
+        "graph_signals": [
+          "RELATED_TO"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "entity_id"
+        ],
+        "rationale": "relation noun RELATED_TO + entity entity_id",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "기술 지원 이슈가 가장 많은 제품은?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [
+          "superlative"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [
+          "REPORTED_ISSUE"
+        ],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "relation noun REPORTED_ISSUE + superlative",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "경영지원팀 팀장은 누구야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "HEAD_IS"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "org_unit"
+        ],
+        "rationale": "relation verb HEAD_IS -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "진행 중인 프로젝트를 이끄는 직원 목록",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [],
+        "graph_signals": [
+          "LEADS"
+        ],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "relation verb LEADS -> graph traversal",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "Product-S1 관련 고객 이슈 현황은?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [],
+        "semantic_signals": [
+          "similarity"
+        ],
+        "graph_signals": [
+          "REPORTED_ISSUE",
+          "RELATED_TO"
+        ],
+        "document_signals": [],
+        "entity_signals": [
+          "entity_id"
+        ],
+        "rationale": "relation noun REPORTED_ISSUE,RELATED_TO + entity entity_id",
+        "deterministic": true
+      }
+    },
+    {
+      "q": "가장 많은 고객을 담당하는 직원은?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "exact": true,
+      "reached": true,
+      "audit": {
+        "route": "graph",
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "structured_signals": [
+          "superlative"
+        ],
+        "semantic_signals": [],
+        "graph_signals": [
+          "MANAGES_ACCOUNT"
+        ],
+        "document_signals": [],
+        "entity_signals": [],
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "deterministic": true
+      }
+    }
+  ]
+}

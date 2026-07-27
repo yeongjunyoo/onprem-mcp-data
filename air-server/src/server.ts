@@ -15,7 +15,7 @@ import { getEmbedder } from "./embedder.js";
 import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
-import { ontologySearch, graphExpand } from "./graph.js";
+import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 
 export function buildServer(): AirServer {
   return defineServer({
@@ -120,7 +120,7 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 5, // ontology / knowledge layer
         tags: ["graph", "ontology", "kg"],
-        handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, (k as number) ?? 5, "bench"),
+        handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, (k as number) ?? 5, kgSchema()),
       }),
 
       defineTool("graph.expand", {
@@ -135,7 +135,7 @@ export function buildServer(): AirServer {
         layer: 5, // graph traversal
         tags: ["graph", "expand", "kg"],
         handler: async ({ entityId, depth }) =>
-          graphExpand(getReadPool(), entityId as number, (depth as number) ?? 1, undefined, "bench"),
+          graphExpand(getReadPool(), entityId as number, (depth as number) ?? 1, undefined, kgSchema()),
       }),
     ],
   });

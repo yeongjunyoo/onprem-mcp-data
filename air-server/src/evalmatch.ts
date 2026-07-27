@@ -8,6 +8,12 @@
 //   * columnsSensitive -> column NAMES must match, not just values
 //   * tupleSensitive   -> within-row column order/association preserved
 //   * numericTolerance -> allow |a-b| <= tol for numeric values (e.g. avg rounding)
+//   * subsetColumns    -> the prediction may carry EXTRA columns as long as it
+//                         contains every gold value in the matching row. "목록을
+//                         알려줘" is answered correctly by `SELECT *` as well as by
+//                         `SELECT id, title`; penalising the wider projection would
+//                         measure prompt luck, not SQL correctness. Row COUNT and
+//                         row CONTENT are still strict, so a wrong filter still fails.
 // This is the Spider-style execution match, scoped to our domain.
 
 export type Row = Record<string, unknown>;
@@ -17,6 +23,7 @@ export interface MatchOpts {
   columnsSensitive?: boolean;
   tupleSensitive?: boolean;
   numericTolerance?: number;
+  subsetColumns?: boolean;
 }
 
 const NUMERIC = /^-?\d+(\.\d+)?$/;
@@ -45,7 +52,31 @@ export function canonicalize(rows: Row[], opts: MatchOpts = {}): string[] {
   return rows.map((r) => canonRow(r, opts)).sort();
 }
 
+/** Does row `pred` contain every value of row `gold` (multiset containment)? */
+function rowContains(pred: Row, gold: Row, tol?: number): boolean {
+  const pool = Object.values(pred).map((v) => normToken(v, tol));
+  for (const v of Object.values(gold)) {
+    const idx = pool.indexOf(normToken(v, tol));
+    if (idx < 0) return false;
+    pool.splice(idx, 1);
+  }
+  return true;
+}
+
+function subsetMatch(pred: Row[], gold: Row[], opts: MatchOpts): boolean {
+  if (pred.length !== gold.length) return false;
+  if (opts.ordered) return gold.every((g, i) => rowContains(pred[i], g, opts.numericTolerance));
+  const used = new Set<number>();
+  for (const g of gold) {
+    const hit = pred.findIndex((p, i) => !used.has(i) && rowContains(p, g, opts.numericTolerance));
+    if (hit < 0) return false;
+    used.add(hit);
+  }
+  return true;
+}
+
 export function resultsMatch(a: Row[], b: Row[], opts: MatchOpts = {}): boolean {
+  if (opts.subsetColumns) return subsetMatch(a, b, opts);
   if (opts.ordered) {
     // order-sensitive: compare row SEQUENCES, not multisets.
     return JSON.stringify(a.map((r) => canonRow(r, opts))) === JSON.stringify(b.map((r) => canonRow(r, opts)));

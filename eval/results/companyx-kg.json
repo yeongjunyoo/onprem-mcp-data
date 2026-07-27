@@ -1,0 +1,298 @@
+{
+  "summary": {
+    "dataset": "companyx-dataset-v1.0 / graph",
+    "schema": "companyx",
+    "n": 10,
+    "scored": 9,
+    "abstain_cases": 1,
+    "unresolved_gate_fired": 1,
+    "mean_recall": 1,
+    "full_recall_questions": 9,
+    "routed_to_graph": 10,
+    "generated_at": "2026-07-27T06:45:55.478Z"
+  },
+  "rows": [
+    {
+      "q": "Client-A가 사용 중인 제품 목록은?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": [
+          "USES"
+        ]
+      },
+      "spec": "neighbors",
+      "gold_n": 2,
+      "gold": [
+        "Product-C3",
+        "Product-S1"
+      ],
+      "seeds": [
+        "Client-A(client)",
+        "Client-AA(client)",
+        "Client-AB(client)",
+        "Client-AC(client)",
+        "Client-AD(client)"
+      ],
+      "edges": 13,
+      "candidates": 18,
+      "hit_n": 2,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "Product-C1을 사용하는 고객사는 어디야?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": [
+          "USES"
+        ]
+      },
+      "spec": "neighbors",
+      "gold_n": 6,
+      "gold": [
+        "Client-H",
+        "Client-D",
+        "Client-T",
+        "Client-Y",
+        "Client-Q",
+        "Client-V"
+      ],
+      "seeds": [
+        "Product-C1(product)"
+      ],
+      "edges": 21,
+      "candidates": 22,
+      "hit_n": 6,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "클라우드사업부 소속 직원들은 누구야?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": [
+          "BELONGS_TO"
+        ]
+      },
+      "spec": "neighbors",
+      "gold_n": 10,
+      "gold": [
+        "안진우",
+        "강현우",
+        "서재원",
+        "김도윤",
+        "조동현",
+        "이지훈",
+        "황다은",
+        "한은지",
+        "황재원",
+        "김준혁"
+      ],
+      "seeds": [
+        "안진우(employee)",
+        "강현우(employee)",
+        "서재원(employee)",
+        "김도윤(employee)",
+        "조동현(employee)"
+      ],
+      "edges": 50,
+      "candidates": 55,
+      "hit_n": 10,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "서울물산 담당 엔지니어는 누구야?",
+      "routed": "graph",
+      "strategy": "unresolved",
+      "plan": {
+        "relTypes": [
+          "MANAGES_ACCOUNT"
+        ]
+      },
+      "spec": "absent",
+      "gold_n": 0,
+      "gold": [],
+      "seeds": [],
+      "edges": 0,
+      "candidates": 1,
+      "hit_n": 0,
+      "recall": null,
+      "missing": []
+    },
+    {
+      "q": "Product-D1 제품과 관련된 프로젝트는?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": []
+      },
+      "spec": "two_hop",
+      "gold_n": 6,
+      "gold": [
+        "Client-Y 데이터 거버넌스",
+        "Client-AB DevOps 전환",
+        "Client-B CI/CD 파이프라인 구축",
+        "Client-B CI/CD 파이프라인 구축",
+        "Client-B 하이브리드 클라우드",
+        "Client-Q AI 예측 모델 구축"
+      ],
+      "seeds": [
+        "Product-D1(product)"
+      ],
+      "edges": 139,
+      "candidates": 140,
+      "hit_n": 6,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "기술 지원 이슈가 가장 많은 제품은?",
+      "routed": "graph",
+      "strategy": "seeded+relation-scan",
+      "plan": {
+        "relTypes": [
+          "REPORTED_ISSUE"
+        ],
+        "aggregate": "target"
+      },
+      "spec": "argmax",
+      "gold_n": 1,
+      "gold": [
+        "Product-T2"
+      ],
+      "seeds": [
+        "박소연(employee)",
+        "권승호(employee)",
+        "조예진(employee)",
+        "임우진(employee)",
+        "기술지원팀(department)"
+      ],
+      "edges": 60,
+      "candidates": 10,
+      "hit_n": 1,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "경영지원팀 팀장은 누구야?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": [
+          "HEAD_IS"
+        ]
+      },
+      "spec": "neighbors",
+      "gold_n": 1,
+      "gold": [
+        "윤소연"
+      ],
+      "seeds": [
+        "윤소연(employee)",
+        "홍서연(employee)",
+        "서지현(employee)",
+        "정혜원(employee)",
+        "오수진(employee)"
+      ],
+      "edges": 1,
+      "candidates": 6,
+      "hit_n": 1,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "진행 중인 프로젝트를 이끄는 직원 목록",
+      "routed": "graph",
+      "strategy": "relation-scan",
+      "plan": {
+        "relTypes": [
+          "LEADS"
+        ],
+        "filter": {
+          "side": "target",
+          "key": "status",
+          "value": "in_progress"
+        }
+      },
+      "spec": "leads_status",
+      "gold_n": 11,
+      "gold": [
+        "강현우",
+        "조동현",
+        "한태호",
+        "장미라",
+        "김준혁",
+        "서재원",
+        "안진우",
+        "류서연",
+        "권소연",
+        "박성민",
+        "조재원"
+      ],
+      "seeds": [],
+      "edges": 18,
+      "candidates": 18,
+      "hit_n": 11,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "Product-S1 관련 고객 이슈 현황은?",
+      "routed": "graph",
+      "strategy": "seeded",
+      "plan": {
+        "relTypes": [
+          "REPORTED_ISSUE"
+        ]
+      },
+      "spec": "neighbors",
+      "gold_n": 8,
+      "gold": [
+        "Client-D",
+        "Client-J",
+        "Client-X",
+        "Client-V",
+        "Client-O",
+        "Client-S",
+        "Client-AA",
+        "Client-E"
+      ],
+      "seeds": [
+        "Product-S1(product)"
+      ],
+      "edges": 33,
+      "candidates": 34,
+      "hit_n": 8,
+      "recall": 1,
+      "missing": []
+    },
+    {
+      "q": "가장 많은 고객을 담당하는 직원은?",
+      "routed": "graph",
+      "strategy": "relation-scan",
+      "plan": {
+        "relTypes": [
+          "MANAGES_ACCOUNT"
+        ],
+        "aggregate": "source"
+      },
+      "spec": "argmax",
+      "gold_n": 3,
+      "gold": [
+        "조현우",
+        "안소연",
+        "김준혁"
+      ],
+      "seeds": [],
+      "edges": 60,
+      "candidates": 5,
+      "hit_n": 3,
+      "recall": 1,
+      "missing": []
+    }
+  ]
+}

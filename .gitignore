@@ -20,3 +20,9 @@ dist/
 
 # Keep evidence logs even though *.log is ignored
 !eval/results/replica-spike.log
+
+# Sponsor dataset — licence says contest use only, so it is fetched, never vendored.
+# Provenance + integrity: datasets/MANIFEST.md, fetch with scripts/fetch-companyx-dataset.sh
+datasets/companyx-dataset-v1.0.zip
+datasets/companyx-v1.0/
+.eval*.log

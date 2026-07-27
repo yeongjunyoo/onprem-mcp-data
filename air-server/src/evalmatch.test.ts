@@ -52,5 +52,22 @@ ok(resultsMatch([{ x: 1, y: 2 }], [{ a: 1, b: 2 }], { tupleSensitive: true }), "
 ok(!resultsMatch([{ a: 14000 }], [{ a: 14000.4 }]), "default: numeric exact mismatch");
 ok(resultsMatch([{ a: 14000 }], [{ a: 14000.4 }], { numericTolerance: 1 }), "numericTolerance: within tolerance matches");
 
+
+// subsetColumns: a wider projection is accepted, wrong rows are not.
+ok(resultsMatch([{ id: 1, title: "a", extra: 9 }], [{ id: 1, title: "a" }], { subsetColumns: true }),
+  "subsetColumns accepts extra columns");
+ok(!resultsMatch([{ id: 2, title: "a" }], [{ id: 1, title: "a" }], { subsetColumns: true }),
+  "subsetColumns still rejects a wrong row");
+ok(!resultsMatch([{ id: 1 }], [{ id: 1, title: "a" }], { subsetColumns: true }),
+  "subsetColumns rejects a NARROWER projection (missing gold value)");
+ok(!resultsMatch([{ id: 1, title: "a" }, { id: 2, title: "b" }], [{ id: 1, title: "a" }], { subsetColumns: true }),
+  "subsetColumns rejects a different row count");
+ok(resultsMatch([{ n: 3.0001, x: 1 }], [{ n: 3 }], { subsetColumns: true, numericTolerance: 0.01 }),
+  "subsetColumns honours numericTolerance");
+ok(resultsMatch([{ a: 2, z: 0 }, { a: 1, z: 0 }], [{ a: 2 }, { a: 1 }], { subsetColumns: true, ordered: true }),
+  "subsetColumns honours row order when ordered");
+ok(!resultsMatch([{ a: 1, z: 0 }, { a: 2, z: 0 }], [{ a: 2 }, { a: 1 }], { subsetColumns: true, ordered: true }),
+  "subsetColumns rejects wrong order when ordered");
+
 console.log(`\nevalmatch.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

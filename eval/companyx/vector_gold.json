@@ -1,0 +1,15 @@
+{
+  "oracle": "Gold sets are computed by a DETERMINISTIC LEXICAL RULE over the raw documents (a doc is gold iff it contains every keyword in `keywords`, case-insensitive) and/or by the document type declared in documents/index.json. The retriever never sees the keywords — it only embeds the natural-language question — so lexical gold + semantic retrieval keeps the oracle independent of the system under test. Questions whose sponsor hint names only a document TYPE are scored on type accuracy alone.",
+  "items": [
+    { "q": "최근 서버 장애 사례와 원인을 알려줘", "type": "incident_report", "keywords": [] },
+    { "q": "Product-C1 설치 방법이 궁금해", "type": "technical_doc", "keywords": ["Product-C1", "설치"] },
+    { "q": "Kubernetes 관련 장애 대응 방법은?", "type": null, "keywords": ["Kubernetes"] },
+    { "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘", "type": "technical_doc", "keywords": ["튜닝"] },
+    { "q": "보안 취약점 점검 관련 내용이 있어?", "type": null, "keywords": ["취약점"] },
+    { "q": "백업 정책은 어떻게 되어 있어?", "type": null, "keywords": ["백업"] },
+    { "q": "API 인증 방식은 뭐야?", "type": "technical_doc", "keywords": ["인증"] },
+    { "q": "고객사 미팅에서 논의된 일정 지연 이슈는?", "type": "meeting_note", "keywords": [] },
+    { "q": "클라우드 마이그레이션 제안서 내용 보여줘", "type": "proposal", "keywords": ["마이그레이션"] },
+    { "q": "SSL 인증서 관련 장애가 있었어?", "type": "incident_report", "keywords": ["SSL"] }
+  ]
+}

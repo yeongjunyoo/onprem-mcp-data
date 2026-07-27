@@ -1,0 +1,32 @@
+{
+  "dataset": "companyx-dataset-v1.0",
+  "sha256": "3008476738d992857d738337b4882772e88288f7b314da235d6a5d120827d772",
+  "source": "https://liwonace.co.kr/blog/9",
+  "schema": "companyx",
+  "tables": {
+    "departments": 6,
+    "employees": 45,
+    "clients": 30,
+    "products": 12,
+    "contracts": 65,
+    "projects": 40,
+    "sales": 500,
+    "support_tickets": 120,
+    "document_chunks": 258
+  },
+  "docs": 40,
+  "chunks": 258,
+  "entities": 133,
+  "relations": 354,
+  "entityLinks": 133,
+  "embeddingDim": 1024,
+  "ddlDeviations": [
+    "document_chunks.embedding vector(768) -> vector(1024) (official DDL assumes nomic-embed-text/768; configured embedder emits 1024)"
+  ],
+  "embedder": "hash",
+  "embedded_chunks": 258,
+  "embedding_dim_actual": 1024,
+  "ms_load": 698,
+  "ms_embed": 359,
+  "generated_at": "2026-07-27T06:55:46.276Z"
+}

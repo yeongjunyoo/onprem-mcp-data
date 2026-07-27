@@ -131,3 +131,65 @@ export function templateNL2SQL(query: string): string | null {
 
   return null; // decline -> LLM fallback (or no SQL candidates)
 }
+
+// ---------- CompanyX (sponsor dataset) ----------
+
+/** Schema card for the sponsor's Company-X dataset, generated from the official
+ * sql/01-schema.sql: table -> columns, FK arrows, and the ENUM-like value
+ * vocabulary actually present in the data (status / priority / quarter / category).
+ * The VALUES matter as much as the types here: a 7B that does not know a quarter
+ * looks like '2025-Q3' writes a syntactically perfect query that returns zero rows. */
+export const COMPANYX_SCHEMA_DDL = [
+  "companyx.departments(id, name)  -- 경영지원팀, 클라우드사업부, 보안솔루션팀, 데이터플랫폼팀, 기술지원팀, 영업팀",
+  "companyx.employees(id, name, email, position, dept_id->departments.id, hire_date date, salary int, is_active bool)",
+  "companyx.clients(id, name, industry, region, company_size['startup'|'mid'|'enterprise'], contact_name, contact_email, registered_at date, is_active bool)",
+  "companyx.products(id, name, category['cloud'|'security'|'data'|'consulting'], description, price_monthly int, version, release_date date, status['active'|'beta'])",
+  "companyx.contracts(id, client_id->clients.id, product_id->products.id, manager_id->employees.id, contract_type['subscription'|'project'|'maintenance'], amount int, start_date date, end_date date, status['active'|'completed'|'cancelled'])",
+  "companyx.projects(id, name, client_id->clients.id, manager_id->employees.id, contract_id->contracts.id, status['planning'|'in_progress'|'completed'|'on_hold'], start_date date, end_date date, budget int, description)",
+  "companyx.sales(id, contract_id->contracts.id, client_id->clients.id, product_id->products.id, amount int, sale_date date, quarter text 예:'2025-Q3', category['cloud'|'security'|'data'|'consulting'], region 예:'서울')",
+  "companyx.support_tickets(id, client_id->clients.id, product_id->products.id, assignee_id->employees.id, title, description, priority['critical'|'high'|'medium'|'low'], status['open'|'in_progress'|'resolved'|'closed'], created_at timestamp, resolved_at timestamp)",
+].join("\n");
+
+/** Qwen2.5-7B NL->SQL over the sponsor's Company-X schema. */
+export async function companyxNL2SQL(query: string): Promise<string | null> {
+  const prompt = [
+    "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
+    COMPANYX_SCHEMA_DDL,
+    "",
+    "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
+    "테이블은 반드시 companyx. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
+    "",
+    `질문: ${query}`,
+    "SQL:",
+  ].join("\n");
+  const raw = await generate(prompt);
+  return extractSql(raw);
+}
+
+/** Ablation baseline: bare table names only (no columns, no value vocabulary).
+ * Isolates the contribution of the curated schema card on the sponsor's own data. */
+export const COMPANYX_SCHEMA_NAIVE = [
+  "companyx.departments",
+  "companyx.employees",
+  "companyx.clients",
+  "companyx.products",
+  "companyx.contracts",
+  "companyx.projects",
+  "companyx.sales",
+  "companyx.support_tickets",
+].join("\n");
+
+export async function companyxNL2SQLNaive(query: string): Promise<string | null> {
+  const prompt = [
+    "다음 PostgreSQL 테이블이 있습니다(모두 companyx 스키마).",
+    COMPANYX_SCHEMA_NAIVE,
+    "",
+    "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
+    "테이블은 반드시 companyx. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
+    "",
+    `질문: ${query}`,
+    "SQL:",
+  ].join("\n");
+  const raw = await generate(prompt);
+  return extractSql(raw);
+}

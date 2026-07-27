@@ -3,7 +3,7 @@
 **2026 오픈소스 개발자대회 · 리원에이스 지정과제 「MCP 기반 지능형 데이터 플랫폼 클러스터」**
 
 > 전 과정 온프렘·오프라인(외부 API 0). 모든 수치는 실제 실행 결과이며, 정확도 채점에 **자작 LLM-저지를 쓰지 않는다**(DB/gold가 오라클).
-> _본 문서는 OT(07-23) 배점 공개 전 초안이다. 배점 확정 시 헤드라인 가중치를 재정렬한다._
+> _배점은 OT(07-23) 녹화 영상 공개 후 반영한다. 공식 데이터셋(2026-07-22 공개)은 §0.5에 실측 반영 완료._
 
 ---
 
@@ -21,6 +21,46 @@
 | **MCP·air 규격 준수** | air `defineServer/defineTool` 위 **7 MCP 도구**; Pylon-7 layer 힌트; 전현우 2026 TACC 논문을 설계 근거로 구현 |
 
 핵심 한 줄: **"튜닝 0·장애 지점 최소화로 운영을 단순화하되, 구조보존 큐레이션으로 품질(83%)을 지킨 온프렘 MCP 데이터 플랫폼."**
+
+
+---
+
+## 0.5 공식 데이터셋(Company-X) 실측 — 사업자 배포본 그대로
+
+리원에이스가 2026-07-22 공개한 **공식 데이터셋**(`companyx-dataset-v1.0.zip`, SHA-256 `30084767…0827d772`, 출처 https://liwonace.co.kr/blog/9)을 **원본 DDL 그대로** 적재하고 3개 도구 레인을 전부 실측했다. 사내 합성 벤치가 아니라 **심사자가 준 데이터** 위의 숫자다.
+
+적재 실측 (`eval/results/companyx-load.json`): 8테이블 **818행** · 문서 40건 → **258청크**(섹션 원자 분할) · 그래프 **133노드/354엣지** · `entity_links` 133건(그래프 노드 ↔ 관계형 행 1:1 브릿지). 공식 DDL 대비 변경은 **1건뿐**이며 로더가 그 사실을 출력한다(`document_chunks.embedding vector(768)→vector(1024)`, 공식 768은 nomic-embed-text 전제·본 구현은 BGE-M3).
+
+| 레인 | 지표 | 결과 | 오라클 |
+|---|---|---|---|
+| **라우터** | 공식 30문항 도구 라벨 일치 | **30/30 = 100%**, 20회 재실행 바이트 동일 | 사업자가 붙인 `tool` 라벨 (외부 라벨) |
+| **NL2SQL** | execution match (큐레이션 스키마카드) | **6/10 = 60%** | gold SQL 실행 결과 = DB (LLM 저지 없음) |
+| **NL2SQL (ablation)** | execution match (테이블명만) | **2/10 = 20%** → **Δ +40pp** | 동일 |
+| **벡터 검색** | hit@5 (BGE-M3) | **8/8 = 1.00** (hash 임베더 0.75) | 원문 키워드 규칙 (검색기는 질문만 봄) |
+| **벡터 검색** | 문서 타입 정밀도 | 0.971 (hash 1.000) | 사업자 `index.json` 타입 |
+| **지식그래프** | 골드 엔티티 검색 recall | **9/9 = 1.00** (평균 1.000) | `edges.json`에서 계산한 정답 집합 |
+
+읽는 법 세 가지.
+
+1. **라우터 100%는 in-sample이다.** 30문항은 사업자가 *공개한 예시*이고 라우터 어휘를 그 문항을 읽으며 작성했다. 일반화 수치가 아니라 "3레인 분기가 사업자 의도와 일치한다"는 확인으로 읽어야 한다. 어휘 자체는 스키마·그래프 스키마에서 뽑았지 라벨에서 뽑지 않았다.
+2. **NL2SQL 60%의 ablation이 본 프로젝트의 논지를 사업자 데이터에서 재현한다.** 테이블명만 준 베이스라인의 실패 8건 중 6건이 **존재하지 않는 컬럼 환각**(`contracts.is_active`, `clients.registration_date`, `employees.department_id` …)이었다. 값 어휘(`quarter='2025-Q3'`, `status='active'`)까지 담은 스키마 카드를 주면 그 실패군이 사라진다. 내부 벤치의 Δ +53.0pp와 같은 방향이며, **같은 데이터·같은 모델·같은 채점기**로 측정했다.
+3. **남은 4건은 숨기지 않는다.** ① `보안 솔루션 … 월 평균 매출` = 모델이 OR 우선순위를 틀림(진짜 오답), ② `활성 계약 수` = 스키마 카드에 `status['active'…]`가 있는데도 `is_active` 환각, ③ `평균 연봉이 가장 높은 부서` = `dept_id`만 반환(부서명 조인 누락), ④ `가장 많은 프로젝트를 진행 중인 고객사` = 모델이 `status='in_progress'` 필터를 **추가**했다 — 사업자 hint는 필터 없이 GROUP BY만 지시하므로 gold 기준으로는 오답이지만 질문 문면("진행 중인")으로는 모델 쪽이 더 충실한 해석이다. 이 4건은 7B 한계와 질문 모호성이지 파이프라인 결함이 아니다.
+
+**그래프 레인은 이번에 새로 만들었다.** 공식 라벨이 요구하는 `knowledge_graph`가 기존 라우터에 아예 없었고(구 라우터 = structured/semantic 2레인), 초기 실측 평균 recall은 **0.278**이었다. 원인 4가지를 고쳐 **1.000**으로 올렸다: ① 확장이 out 방향뿐이라 역방향 질의("Product-C1을 **사용하는** 고객사")가 조용히 0건 반환 → 양방향 BFS, ② 시드가 substring 매칭 상위 5건이라 `Product-C1`을 물으면 엉뚱한 제품이 시드 → exact>prefix>substring 랭킹, ③ 노드를 지목하지 않고 **관계만** 지목하는 질의("가장 많은 고객을 **담당하는** 직원")는 시드가 없어 시작 불가 → 관계 단위 스캔·차수 집계 도입(집계는 DB가 하고 모델은 읽기만), ④ 노드 속성 미적재로 `status='in_progress'` 필터 불가 → 속성 적재.
+
+**환각 방지 게이트(실측).** 사업자 예시 24번 `서울물산 담당 엔지니어는 누구야?`의 **서울물산은 데이터셋에 존재하지 않는다**(고객사는 `Client-A…Client-AD`, questions.json에만 등장). 이때 관계 전체(MANAGES_ACCOUNT 63엣지)를 컨텍스트로 밀어 넣으면 7B는 그럴듯한 담당자를 **지어낸다**. 그래서 "질의가 개체를 지목했는데 온톨로지에서 해소 실패 + 관계 단위 의도 없음" 조건에서 컨텍스트를 **0엣지 + 명시적 not-found 한 줄**로 만든다(`eval/results/companyx-kg.json → unresolved_gate_fired: 1`). 데이터셋 결함은 사업자에게 별도 문의했다.
+
+재현:
+
+```bash
+bash scripts/fetch-companyx-dataset.sh            # SHA-256 검증 후 추출 (재배포 금지 라이선스 → 저장소 미포함)
+cd air-server
+EMBEDDER=ollama npm run companyx:load             # 적재 + BGE-M3 임베딩
+npm run companyx:route                            # 라우터 30문항
+npm run companyx:sql                              # NL2SQL (CX_STRATEGY=naive 로 ablation)
+npm run companyx:kg                               # 지식그래프 recall
+EMBEDDER=ollama npm run companyx:vector           # 벡터 hit@5 (hash vs BGE-M3)
+```
 
 ---
 
@@ -137,8 +177,9 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 - 외부 calibration: `air-server/src/cli/external-eval.ts`, `eval/results/external-bird-{raw,summary}.json`. 데이터셋 `eval/external/`(gitignore, 원본 BIRD).
 - 장애: `eval/results/faults.json`. 클러스터: `scripts/replica-spike.sh` + `eval/results/replica-spike.log`.
 - 데모: `air-server/src/cli/demo.ts` 실행 로그. 토폴로지: `docs/architecture.md`.
+- **공식 데이터셋(Company-X):** 무결성·출처 `datasets/MANIFEST.md`(SHA-256 고정), 취득 `scripts/fetch-companyx-dataset.sh`, 적재 `air-server/src/companyx.ts`. 결과 `eval/results/companyx-{load,route,sql-llm,sql-naive,kg,vector}.json`. 오라클 정의 `eval/companyx/{sql_gold.jsonl,kg_gold.json,vector_gold.json}`. 회귀 `air-server/src/companyx.test.ts`(38 단언).
 - 라이선스/모델: `LICENSE`(Apache-2.0), `NOTICE`, `docs/model-cards/{qwen2.5-7b,bge-m3}.md`.
-- 하드웨어: Apple M4 / macOS 25.5.
+- 하드웨어: Apple M4 / macOS 25.5 (초기 빌드·내부 벤치). 공식 데이터셋 실측은 Windows 11 + RTX 4070 SUPER, PostgreSQL 16.14 + pgvector 0.6.0(WSL2 Ubuntu 24.04), Ollama 0.32.4 — 실행 환경이 바뀌어도 같은 커맨드로 재현되는지까지 확인한 결과다.
 
 ---
 

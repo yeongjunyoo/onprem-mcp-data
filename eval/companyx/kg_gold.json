@@ -1,0 +1,42 @@
+[
+  {
+    "q": "Client-A가 사용 중인 제품 목록은?",
+    "spec": { "kind": "neighbors", "seed": "client_1", "rel": "USES", "dir": "out" }
+  },
+  {
+    "q": "Product-C1을 사용하는 고객사는 어디야?",
+    "spec": { "kind": "neighbors", "seed": "product_1", "rel": "USES", "dir": "in" }
+  },
+  {
+    "q": "클라우드사업부 소속 직원들은 누구야?",
+    "spec": { "kind": "neighbors", "seed": "dept_2", "rel": "BELONGS_TO", "dir": "in" }
+  },
+  {
+    "q": "서울물산 담당 엔지니어는 누구야?",
+    "spec": { "kind": "absent", "note": "'서울물산' exists only in questions.json; no such client node/row in the dataset. Correct behaviour = empty/abstain, not a fabricated engineer." }
+  },
+  {
+    "q": "Product-D1 제품과 관련된 프로젝트는?",
+    "spec": { "kind": "two_hop", "seed": "product_5", "rel1": "USES", "dir1": "in", "rel2": "HAS_PROJECT", "dir2": "out" }
+  },
+  {
+    "q": "기술 지원 이슈가 가장 많은 제품은?",
+    "spec": { "kind": "argmax", "rel": "REPORTED_ISSUE", "over": "target" }
+  },
+  {
+    "q": "경영지원팀 팀장은 누구야?",
+    "spec": { "kind": "neighbors", "seed": "dept_1", "rel": "HEAD_IS", "dir": "out" }
+  },
+  {
+    "q": "진행 중인 프로젝트를 이끄는 직원 목록",
+    "spec": { "kind": "leads_status", "rel": "LEADS", "status": "in_progress" }
+  },
+  {
+    "q": "Product-S1 관련 고객 이슈 현황은?",
+    "spec": { "kind": "neighbors", "seed": "product_3", "rel": "REPORTED_ISSUE", "dir": "in" }
+  },
+  {
+    "q": "가장 많은 고객을 담당하는 직원은?",
+    "spec": { "kind": "argmax", "rel": "MANAGES_ACCOUNT", "over": "source" }
+  }
+]
