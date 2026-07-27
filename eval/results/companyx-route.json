@@ -26,7 +26,7 @@
     "deterministic_20_runs": true,
     "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
     "misses": [],
-    "generated_at": "2026-07-27T06:40:00.743Z"
+    "generated_at": "2026-07-27T07:18:15.661Z"
   },
   "rows": [
     {
@@ -47,6 +47,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -71,6 +72,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -95,6 +97,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -119,6 +122,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -142,6 +146,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [
           "org_unit"
@@ -167,6 +172,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -191,6 +197,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -215,6 +222,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -240,6 +248,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -265,6 +274,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
         "rationale": "only structured signals",
@@ -288,6 +298,7 @@
         ],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "ops_topic"
         ],
@@ -311,6 +322,7 @@
         "structured_signals": [],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "doc_artifact"
         ],
@@ -338,6 +350,7 @@
           "similarity"
         ],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "doc_artifact",
           "ops_topic"
@@ -362,6 +375,7 @@
         "structured_signals": [],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "doc_artifact",
           "ops_topic"
@@ -389,6 +403,7 @@
           "aboutness"
         ],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "ops_topic"
         ],
@@ -414,6 +429,7 @@
           "explain"
         ],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "ops_topic"
         ],
@@ -437,6 +453,7 @@
         "structured_signals": [],
         "semantic_signals": [],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "ops_topic"
         ],
@@ -462,6 +479,7 @@
         "graph_signals": [
           "REPORTED_ISSUE"
         ],
+        "graph_plan": null,
         "document_signals": [
           "doc_artifact"
         ],
@@ -487,6 +505,7 @@
           "aboutness"
         ],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "doc_artifact"
         ],
@@ -512,6 +531,7 @@
           "similarity"
         ],
         "graph_signals": [],
+        "graph_plan": null,
         "document_signals": [
           "ops_topic"
         ],
@@ -538,6 +558,11 @@
         "graph_signals": [
           "USES"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "USES"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [
           "entity_id"
@@ -564,6 +589,11 @@
         "graph_signals": [
           "USES"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "USES"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [
           "entity_id"
@@ -590,6 +620,11 @@
         "graph_signals": [
           "BELONGS_TO"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "BELONGS_TO"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [
           "org_unit"
@@ -616,6 +651,11 @@
         "graph_signals": [
           "MANAGES_ACCOUNT"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "MANAGES_ACCOUNT"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [],
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
@@ -642,6 +682,9 @@
         "graph_signals": [
           "RELATED_TO"
         ],
+        "graph_plan": {
+          "relTypes": []
+        },
         "document_signals": [],
         "entity_signals": [
           "entity_id"
@@ -670,6 +713,12 @@
         "graph_signals": [
           "REPORTED_ISSUE"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "REPORTED_ISSUE"
+          ],
+          "aggregate": "target"
+        },
         "document_signals": [],
         "entity_signals": [],
         "rationale": "relation noun REPORTED_ISSUE + superlative",
@@ -694,6 +743,11 @@
         "graph_signals": [
           "HEAD_IS"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "HEAD_IS"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [
           "org_unit"
@@ -720,6 +774,16 @@
         "graph_signals": [
           "LEADS"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "LEADS"
+          ],
+          "filter": {
+            "side": "target",
+            "key": "status",
+            "value": "in_progress"
+          }
+        },
         "document_signals": [],
         "entity_signals": [],
         "rationale": "relation verb LEADS -> graph traversal",
@@ -747,6 +811,11 @@
           "REPORTED_ISSUE",
           "RELATED_TO"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "REPORTED_ISSUE"
+          ]
+        },
         "document_signals": [],
         "entity_signals": [
           "entity_id"
@@ -775,6 +844,12 @@
         "graph_signals": [
           "MANAGES_ACCOUNT"
         ],
+        "graph_plan": {
+          "relTypes": [
+            "MANAGES_ACCOUNT"
+          ],
+          "aggregate": "source"
+        },
         "document_signals": [],
         "entity_signals": [],
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
