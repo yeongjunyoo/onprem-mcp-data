@@ -1,9 +1,10 @@
 # On-prem MCP data platform — one-command bring-up (L1/L2 substrate = glue).
-# `docker compose up` -> PostgreSQL 17 + pgvector, Ollama (local 7B), MCP server.
+# `docker compose up` -> PostgreSQL 16 + pgvector, Ollama (local 7B).
+# MCP 서버까지 컨테이너로 띄우려면 `docker compose --profile full up`.
 # NOTE: model choice pending license-gate confirm (default Qwen2.5-7B, Apache-2.0).
 services:
   db:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg16   # 문서와 측정 환경이 16이다. 이미지도 16으로 고정한다.
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mcpdata
@@ -41,7 +42,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:7b
-      EMBEDDER: hash
+      EMBEDDER: ollama              # 문서에 적힌 기본값과 같게 둔다. hash는 오프라인 CI 폴백 전용이다.
+      EMBED_MODEL: bge-m3
     ports:
       - "8080:8080"
 

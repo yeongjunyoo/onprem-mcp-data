@@ -25,8 +25,13 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
 == Benchmark / evaluation datasets ==
 - Internal contest-grade benchmark (eval/internal/*) — authored for this project,
     Apache-2.0, with generator + seed + gold SQL + raw predictions published in-repo.
-- External calibration (planned): BIRD Mini-Dev (CC BY-SA 4.0) / Spider (Apache-2.0) /
-    WikiSQL (BSD-3-Clause). License source documented in eval/external/LICENSES.md when added.
+- Sponsor dataset (used, not redistributed): companyx-dataset-v1.0, distributed by
+    Liwonace for this contest only. Fetched by scripts/fetch-companyx-dataset.sh with a
+    SHA-256 check; provenance in datasets/MANIFEST.md. No copy ships in this repository.
+- External calibration (used, not redistributed): BIRD Mini-Dev (CC BY-SA 4.0).
+    Downloaded locally to eval/external/ for the cross-domain calibration number in
+    docs/report.md; that path is git-ignored, so this repository ships no copy of it.
+    Spider (Apache-2.0) and WikiSQL (BSD-3-Clause) were considered but not used.
 
 == Citations (KOSSA 과제 페이지 1차출처 확인) ==
 - 전현우·김태성·강현 (2026). MCP 컨텍스트 구성이 소형 언어모델 성능에 미치는 영향. Codepedia Labs.
