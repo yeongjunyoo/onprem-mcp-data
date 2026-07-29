@@ -1,0 +1,4601 @@
+{
+  "dataset": "companyx-dataset-v1.0 / documents",
+  "top_k": 5,
+  "oracle": "Gold sets are computed by a DETERMINISTIC LEXICAL RULE over the raw documents (a doc is gold iff it contains every keyword in `keywords`, case-insensitive) and/or by the document type declared in documents/index.json. The retriever never sees the keywords - it only embeds the natural-language question - so lexical gold + semantic retrieval keeps the oracle independent of the system under test. Questions whose sponsor hint names only a document TYPE are scored on type accuracy alone. `style` marks whether the question repeats the keywords (entity) or avoids them entirely (paraphrase); paraphrase items are the ones that actually test semantic retrieval.",
+  "embedder": "ollama:bge-m3@768",
+  "summary": {
+    "dense": {
+      "hit@5": 0.985,
+      "hit@1": 0.868,
+      "mrr": 0.913,
+      "scored": 68,
+      "ci95_hit5": [
+        0.921,
+        0.997
+      ],
+      "entity": "37/38",
+      "paraphrase": "30/30"
+    },
+    "keyword": {
+      "hit@5": 0.838,
+      "hit@1": 0.618,
+      "mrr": 0.705,
+      "scored": 68,
+      "ci95_hit5": [
+        0.733,
+        0.907
+      ],
+      "entity": "29/38",
+      "paraphrase": "28/30"
+    },
+    "hybrid": {
+      "hit@5": 0.985,
+      "hit@1": 0.706,
+      "mrr": 0.83,
+      "scored": 68,
+      "ci95_hit5": [
+        0.921,
+        0.997
+      ],
+      "entity": "37/38",
+      "paraphrase": "30/30"
+    },
+    "gated": {
+      "hit@5": 0.985,
+      "hit@1": 0.838,
+      "mrr": 0.894,
+      "scored": 68,
+      "ci95_hit5": [
+        0.921,
+        0.997
+      ],
+      "entity": "37/38",
+      "paraphrase": "30/30"
+    }
+  },
+  "hybrid_vs_dense": {
+    "gained": [
+      "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서"
+    ],
+    "lost": [
+      "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서"
+    ],
+    "net": 0,
+    "rank_up": [
+      "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+      "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+      "Product-D3의 쿼리 캐시 만료 시간은",
+      "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+      "추가 인력 두 명이 더 필요하다고 보고된 회의",
+      "구축 2단계에만 8주가 걸린다고 잡은 제안서"
+    ],
+    "rank_down": [
+      "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+      "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+      "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+      "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+      "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+      "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+      "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+      "Product-S2의 커넥션 풀 최대값은 얼마인가",
+      "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+      "일정이 2주 늘어나기로 합의된 회의",
+      "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+      "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+      "고객사 사무실을 직접 방문해서 진행한 회의",
+      "투입 인력이 여덟 명이라고 보고된 회의",
+      "Client-I 제안의 총소유비용 절감률은",
+      "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서"
+    ]
+  },
+  "detail": {
+    "dense": {
+      "hit": 67,
+      "hit1": 59,
+      "rr": 62.06666666666667,
+      "scored": 68,
+      "rows": [
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "style": "entity",
+          "gold": [
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-020",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "style": "entity",
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-001",
+            "DOC-004",
+            "DOC-008",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-003",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-003",
+            "DOC-002",
+            "DOC-009"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "style": "entity",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-002",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "style": "entity",
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-010",
+            "DOC-003",
+            "DOC-010",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-029",
+            "DOC-022",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-005",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "style": "entity",
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-004",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-001",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "style": "entity",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-008",
+            "DOC-003",
+            "DOC-002",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "style": "entity",
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-008",
+            "DOC-003",
+            "DOC-003",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "style": "entity",
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-007",
+            "DOC-008",
+            "DOC-001",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-008",
+            "DOC-002",
+            "DOC-007",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-007",
+            "DOC-010",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "style": "entity",
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-031",
+            "DOC-011",
+            "DOC-019",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-016",
+            "DOC-003",
+            "DOC-002",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "style": "entity",
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-019",
+            "DOC-014",
+            "DOC-011",
+            "DOC-016"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "style": "entity",
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-014",
+            "DOC-017",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-020",
+            "DOC-015",
+            "DOC-018"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-034",
+            "DOC-040",
+            "DOC-012"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-033",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-019",
+            "DOC-009",
+            "DOC-007",
+            "DOC-002"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-012",
+            "DOC-017",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-034",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-019",
+            "DOC-013",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-009",
+            "DOC-039",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 5
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-026",
+            "DOC-031",
+            "DOC-030"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "style": "entity",
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-015",
+            "DOC-020",
+            "DOC-020",
+            "DOC-009"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-019",
+            "DOC-020",
+            "DOC-009"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-034",
+            "DOC-015"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-024",
+            "DOC-028",
+            "DOC-022",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-021",
+            "DOC-029",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-027",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "style": "entity",
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-027",
+            "DOC-025",
+            "DOC-023",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-030",
+            "DOC-022",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "style": "entity",
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-027",
+            "DOC-023",
+            "DOC-022",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-030",
+            "DOC-028",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "style": "entity",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-026",
+            "DOC-027",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "style": "entity",
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-023",
+            "DOC-026",
+            "DOC-021",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-029",
+            "DOC-024",
+            "DOC-029",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-024",
+            "DOC-028",
+            "DOC-025",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-028",
+            "DOC-030",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-031",
+            "DOC-032",
+            "DOC-035",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-037",
+            "DOC-033",
+            "DOC-035",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-040",
+            "DOC-035",
+            "DOC-038",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-038",
+            "DOC-035",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-034",
+            "DOC-040",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-020",
+            "DOC-015",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-033",
+            "DOC-037",
+            "DOC-031",
+            "DOC-038"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-032",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-013",
+            "DOC-040",
+            "DOC-018"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-034",
+            "DOC-037",
+            "DOC-033",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-036",
+            "DOC-038",
+            "DOC-039",
+            "DOC-035"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-030",
+            "DOC-026",
+            "DOC-037",
+            "DOC-030"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-037",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-031",
+            "DOC-037",
+            "DOC-036",
+            "DOC-040"
+          ],
+          "hit": true,
+          "rank": 5
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-034",
+            "DOC-036",
+            "DOC-040",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-038",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 1
+        }
+      ]
+    },
+    "keyword": {
+      "hit": 57,
+      "hit1": 42,
+      "rr": 47.916666666666664,
+      "scored": 68,
+      "rows": [
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-021",
+            "DOC-021",
+            "DOC-022",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "style": "entity",
+          "gold": [
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-002",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "style": "entity",
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-009",
+            "DOC-014",
+            "DOC-015",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-014",
+            "DOC-019",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "style": "entity",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "style": "entity",
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-003",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-005",
+            "DOC-006",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-028",
+            "DOC-012",
+            "DOC-017"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-034",
+            "DOC-001",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "style": "entity",
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-004",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-007",
+            "DOC-009",
+            "DOC-013",
+            "DOC-013"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "style": "entity",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-002",
+            "DOC-003",
+            "DOC-003"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "style": "entity",
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "style": "entity",
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-005",
+            "DOC-006",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "style": "entity",
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-001",
+            "DOC-001",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 4
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "style": "entity",
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-006",
+            "DOC-006",
+            "DOC-036",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "style": "entity",
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-002",
+            "DOC-032",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-015",
+            "DOC-020",
+            "DOC-002"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-003",
+            "DOC-003",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-026",
+            "DOC-030",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-014",
+            "DOC-019",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-011",
+            "DOC-013",
+            "DOC-016"
+          ],
+          "hit": true,
+          "rank": 4
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-034",
+            "DOC-004",
+            "DOC-004",
+            "DOC-004"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-005"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-019",
+            "DOC-039",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-019",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "style": "entity",
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-015",
+            "DOC-015",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-015",
+            "DOC-020",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-011",
+            "DOC-016",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-028",
+            "DOC-029",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-025",
+            "DOC-021",
+            "DOC-021",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-021",
+            "DOC-022",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "style": "entity",
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-026",
+            "DOC-027",
+            "DOC-025",
+            "DOC-021"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-028",
+            "DOC-030",
+            "DOC-025",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "style": "entity",
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-023",
+            "DOC-024",
+            "DOC-025",
+            "DOC-027"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-030",
+            "DOC-021",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-025",
+            "DOC-021",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "style": "entity",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-021",
+            "DOC-022",
+            "DOC-023",
+            "DOC-027"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-021",
+            "DOC-022",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "style": "entity",
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-021",
+            "DOC-022",
+            "DOC-023",
+            "DOC-024"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-023",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-024",
+            "DOC-028",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 4
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-012",
+            "DOC-017",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-035",
+            "DOC-034",
+            "DOC-037",
+            "DOC-040"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-035",
+            "DOC-038",
+            "DOC-040",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-013",
+            "DOC-018",
+            "DOC-031",
+            "DOC-035"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-012",
+            "DOC-017",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-033",
+            "DOC-034",
+            "DOC-034",
+            "DOC-012"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-031",
+            "DOC-032",
+            "DOC-032",
+            "DOC-033"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-011",
+            "DOC-012"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-031",
+            "DOC-032",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-031",
+            "DOC-040",
+            "DOC-001",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-038",
+            "DOC-037",
+            "DOC-039",
+            "DOC-038"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-035",
+            "DOC-001",
+            "DOC-002",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-012",
+            "DOC-017",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-036",
+            "DOC-040",
+            "DOC-031",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-035"
+          ],
+          "hit": true,
+          "rank": 1
+        }
+      ]
+    },
+    "hybrid": {
+      "hit": 67,
+      "hit1": 48,
+      "rr": 56.416666666666664,
+      "scored": 68,
+      "rows": [
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-025",
+            "DOC-021",
+            "DOC-021"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "style": "entity",
+          "gold": [
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-002",
+            "DOC-020"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "style": "entity",
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-009",
+            "DOC-004",
+            "DOC-014",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-004",
+            "DOC-007"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-003",
+            "DOC-014",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "style": "entity",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-001",
+            "DOC-003",
+            "DOC-002",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "style": "entity",
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-003",
+            "DOC-003",
+            "DOC-008",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-005",
+            "DOC-010",
+            "DOC-003",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-028",
+            "DOC-029",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-034",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "style": "entity",
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-004",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-001",
+            "DOC-001",
+            "DOC-009",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "style": "entity",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-003",
+            "DOC-007",
+            "DOC-001",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "style": "entity",
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-008",
+            "DOC-002",
+            "DOC-008",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "style": "entity",
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-009",
+            "DOC-002",
+            "DOC-007",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-002",
+            "DOC-001",
+            "DOC-008",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-008",
+            "DOC-005",
+            "DOC-007",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "style": "entity",
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-007",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-001",
+            "DOC-031",
+            "DOC-001",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-011",
+            "DOC-016"
+          ],
+          "hit": true,
+          "rank": 4
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "style": "entity",
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-019",
+            "DOC-006",
+            "DOC-006",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "style": "entity",
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-014",
+            "DOC-002",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-020",
+            "DOC-015",
+            "DOC-018"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-012",
+            "DOC-017",
+            "DOC-006",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-003",
+            "DOC-013",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-013",
+            "DOC-018",
+            "DOC-019",
+            "DOC-026"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-018",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-013",
+            "DOC-017",
+            "DOC-018",
+            "DOC-011"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-004",
+            "DOC-014",
+            "DOC-014",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-001",
+            "DOC-014",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-019",
+            "DOC-009",
+            "DOC-039"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-019",
+            "DOC-014",
+            "DOC-026",
+            "DOC-031",
+            "DOC-030"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "style": "entity",
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-015",
+            "DOC-015",
+            "DOC-020"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-019",
+            "DOC-015"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-034",
+            "DOC-020",
+            "DOC-011"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-022",
+            "DOC-028",
+            "DOC-024",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-030",
+            "DOC-021",
+            "DOC-025",
+            "DOC-021"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-025",
+            "DOC-021",
+            "DOC-027",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "style": "entity",
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-025",
+            "DOC-023",
+            "DOC-026",
+            "DOC-027"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-028",
+            "DOC-030",
+            "DOC-022",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "style": "entity",
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-023",
+            "DOC-027",
+            "DOC-024",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-030",
+            "DOC-021",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-025",
+            "DOC-027",
+            "DOC-021"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "style": "entity",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-021",
+            "DOC-028",
+            "DOC-022",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-021",
+            "DOC-026",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "style": "entity",
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-029",
+            "DOC-021",
+            "DOC-023",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-030",
+            "DOC-022",
+            "DOC-029",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-025",
+            "DOC-030",
+            "DOC-028",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 3
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-028",
+            "DOC-012",
+            "DOC-017"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-035",
+            "DOC-031",
+            "DOC-032",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-033",
+            "DOC-032",
+            "DOC-035",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-035",
+            "DOC-040",
+            "DOC-038",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-035",
+            "DOC-031",
+            "DOC-013"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-034",
+            "DOC-012",
+            "DOC-017"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-033",
+            "DOC-034",
+            "DOC-032",
+            "DOC-020"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-032",
+            "DOC-011"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-031",
+            "DOC-013",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-031",
+            "DOC-034",
+            "DOC-037",
+            "DOC-040"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-038",
+            "DOC-038",
+            "DOC-039",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 2
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-030",
+            "DOC-035",
+            "DOC-026",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-031",
+            "DOC-037",
+            "DOC-012"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-037",
+            "DOC-031",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "hit": false,
+          "rank": null
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-032",
+            "DOC-040",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-032",
+            "DOC-038"
+          ],
+          "hit": true,
+          "rank": 1
+        }
+      ]
+    },
+    "gated": {
+      "hit": 67,
+      "hit1": 57,
+      "rr": 60.78333333333334,
+      "scored": 68,
+      "rows": [
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "style": "entity",
+          "gold": [
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-020",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "style": "entity",
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-001",
+            "DOC-004",
+            "DOC-008",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 2,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-003",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-003",
+            "DOC-002",
+            "DOC-009"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "style": "entity",
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-002",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "style": "entity",
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 2,
+          "gate": "dense"
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-010",
+            "DOC-003",
+            "DOC-010",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-029",
+            "DOC-022",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-005",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "style": "entity",
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-004",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-001",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "style": "entity",
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-008",
+            "DOC-003",
+            "DOC-002",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "style": "entity",
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-008",
+            "DOC-003",
+            "DOC-003",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "style": "entity",
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-007",
+            "DOC-008",
+            "DOC-001",
+            "DOC-010"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-008",
+            "DOC-002",
+            "DOC-007",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-007",
+            "DOC-010",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "hit": true,
+          "rank": 3,
+          "gate": "dense"
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "style": "entity",
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008",
+            "DOC-005"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-001",
+            "DOC-031",
+            "DOC-001",
+            "DOC-001"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-003",
+            "DOC-011",
+            "DOC-016"
+          ],
+          "hit": true,
+          "rank": 4,
+          "gate": "hybrid"
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "style": "entity",
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-019",
+            "DOC-006",
+            "DOC-006",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "style": "entity",
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-014",
+            "DOC-002",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-020",
+            "DOC-015",
+            "DOC-018"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-034",
+            "DOC-040",
+            "DOC-012"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-003",
+            "DOC-013",
+            "DOC-003"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-019",
+            "DOC-009",
+            "DOC-007",
+            "DOC-002"
+          ],
+          "hit": false,
+          "rank": null,
+          "gate": "dense"
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-018",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-012",
+            "DOC-017",
+            "DOC-014"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-004",
+            "DOC-014",
+            "DOC-014",
+            "DOC-004"
+          ],
+          "hit": true,
+          "rank": 3,
+          "gate": "hybrid"
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "style": "entity",
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-019",
+            "DOC-013",
+            "DOC-002"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-019",
+            "DOC-009",
+            "DOC-039"
+          ],
+          "hit": true,
+          "rank": 3,
+          "gate": "hybrid"
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "style": "entity",
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-026",
+            "DOC-031",
+            "DOC-030"
+          ],
+          "hit": true,
+          "rank": 2,
+          "gate": "dense"
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "style": "entity",
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-015",
+            "DOC-015",
+            "DOC-020"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "hybrid"
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "style": "entity",
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-019",
+            "DOC-020",
+            "DOC-009"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-034",
+            "DOC-015"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "style": "entity",
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-024",
+            "DOC-028",
+            "DOC-022",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-021",
+            "DOC-029",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-027",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "style": "entity",
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-027",
+            "DOC-025",
+            "DOC-023",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-030",
+            "DOC-022",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 2,
+          "gate": "dense"
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "style": "entity",
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-027",
+            "DOC-023",
+            "DOC-022",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-030",
+            "DOC-028",
+            "DOC-023"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "style": "entity",
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "style": "entity",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-026",
+            "DOC-027",
+            "DOC-029"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "style": "entity",
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-023",
+            "DOC-026",
+            "DOC-021",
+            "DOC-025"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-029",
+            "DOC-024",
+            "DOC-029",
+            "DOC-022"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-024",
+            "DOC-028",
+            "DOC-025",
+            "DOC-024"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-028",
+            "DOC-030",
+            "DOC-028"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-031",
+            "DOC-032",
+            "DOC-035",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "style": "entity",
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-037",
+            "DOC-033",
+            "DOC-035",
+            "DOC-032"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-040",
+            "DOC-035",
+            "DOC-038",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-038",
+            "DOC-035",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-034",
+            "DOC-040",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-020",
+            "DOC-015",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-033",
+            "DOC-037",
+            "DOC-031",
+            "DOC-038"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-032",
+            "DOC-034"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-013",
+            "DOC-040",
+            "DOC-018"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-034",
+            "DOC-037",
+            "DOC-033",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-036",
+            "DOC-038",
+            "DOC-039",
+            "DOC-035"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-030",
+            "DOC-026",
+            "DOC-037",
+            "DOC-030"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "style": "paraphrase",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-037",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-031",
+            "DOC-037",
+            "DOC-036",
+            "DOC-040"
+          ],
+          "hit": true,
+          "rank": 5,
+          "gate": "dense"
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "style": "entity",
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-034",
+            "DOC-036",
+            "DOC-040",
+            "DOC-031"
+          ],
+          "hit": true,
+          "rank": 3,
+          "gate": "dense"
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "style": "entity",
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-038",
+            "DOC-037"
+          ],
+          "hit": true,
+          "rank": 1,
+          "gate": "dense"
+        }
+      ]
+    }
+  },
+  "note": "키워드 레인은 normalize.ts의 정규화 계약을 통과한 토큰을 simple 설정 tsvector에 넣어 만든다. 색인과 질의가 같은 함수를 쓴다.",
+  "generated_at": "2026-07-29T14:13:17.785Z"
+}
