@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-07-29T09:23:40.435Z
+> 생성 시각 2026-07-29T11:35:43.749Z
 > npm 패키지 110개(직접 5 / 전이 105) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL) 의존성 **0건** → 라이선스 충돌 없음.
@@ -10,16 +10,16 @@
 
 | 번호 | 라이브러리명 | 버전 | 라이선스 | 공식 저장소 URL | 사용 목적 및 주요 기능 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | @airmcp-dev/core | 0.2.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록·transport·라이프사이클 관리 |
+| 1 | @airmcp-dev/core | 0.2.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
 | 2 | @types/node | 26.0.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 3 | @types/pg | 8.20.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
-| 4 | pg | 8.22.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회·pgvector 유사도 검색·읽기 엔드포인트 풀링 |
+| 4 | pg | 8.22.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
 | 5 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript | 빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일 |
-| 6 | PostgreSQL | 16 | PostgreSQL License (OSI 인증) | https://github.com/postgres/postgres | 관계형 저장소 + 온프렘 클러스터(primary/replica) |
-| 7 | pgvector | 0.6.0 | PostgreSQL License (OSI 인증) | https://github.com/pgvector/pgvector | 벡터 인덱스·코사인 유사도 검색 |
-| 8 | Ollama | 0.32.4 | MIT | https://github.com/ollama/ollama | 로컬 LLM·임베딩 런타임(외부 API 호출 없음) |
-| 9 | qwen2.5:7b | 7B | Apache-2.0 (오픈웨이트) | https://huggingface.co/Qwen/Qwen2.5-7B-Instruct | 질의 의도 분해·답변 생성(로컬 추론) |
-| 10 | bge-m3 | 567M | MIT (오픈웨이트) | https://huggingface.co/BAAI/bge-m3 | 문서·질의 임베딩(1024차원, 로컬 추론) |
+| 6 | PostgreSQL | 16 | PostgreSQL License (OSI 인증) | https://github.com/postgres/postgres | 관계형 저장소와 온프렘 클러스터(primary, replica) |
+| 7 | pgvector | 0.6.0 | PostgreSQL License (OSI 인증) | https://github.com/pgvector/pgvector | 벡터 인덱스와 코사인 유사도 검색 |
+| 8 | Ollama | 0.32.4 | MIT | https://github.com/ollama/ollama | 로컬 LLM과 임베딩 런타임(외부 API 호출 없음) |
+| 9 | qwen2.5:7b | 7B | Apache-2.0 (오픈웨이트) | https://huggingface.co/Qwen/Qwen2.5-7B-Instruct | 질의 의도 분해와 답변 생성(로컬 추론) |
+| 10 | bge-m3 | 567M | MIT (오픈웨이트) | https://huggingface.co/BAAI/bge-m3 | 문서와 질의 임베딩(1024차원, 로컬 추론) |
 | 11 | Node.js | 20 LTS | MIT | https://github.com/nodejs/node | MCP 서버 런타임 |
 
 ## 2. 전이 의존성 (자동 수집)

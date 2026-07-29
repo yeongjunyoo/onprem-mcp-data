@@ -12,19 +12,19 @@ const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
 
 // 직접 의존성의 사용 목적 — 사람이 유지하는 유일한 수기 항목.
 const PURPOSE = {
-  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 도구 등록·transport·라이프사이클 관리',
-  pg: 'PostgreSQL 클라이언트. 관계형 조회·pgvector 유사도 검색·읽기 엔드포인트 풀링',
+  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리',
+  pg: 'PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링',
   typescript: '빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일',
   '@types/node': '타입 정의(개발 전용)',
   '@types/pg': '타입 정의(개발 전용)',
 };
 
 const RUNTIME = [
-  ['PostgreSQL', '16', 'PostgreSQL License (OSI 인증)', 'https://github.com/postgres/postgres', '관계형 저장소 + 온프렘 클러스터(primary/replica)'],
-  ['pgvector', '0.6.0', 'PostgreSQL License (OSI 인증)', 'https://github.com/pgvector/pgvector', '벡터 인덱스·코사인 유사도 검색'],
-  ['Ollama', '0.32.4', 'MIT', 'https://github.com/ollama/ollama', '로컬 LLM·임베딩 런타임(외부 API 호출 없음)'],
-  ['qwen2.5:7b', '7B', 'Apache-2.0 (오픈웨이트)', 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct', '질의 의도 분해·답변 생성(로컬 추론)'],
-  ['bge-m3', '567M', 'MIT (오픈웨이트)', 'https://huggingface.co/BAAI/bge-m3', '문서·질의 임베딩(1024차원, 로컬 추론)'],
+  ['PostgreSQL', '16', 'PostgreSQL License (OSI 인증)', 'https://github.com/postgres/postgres', '관계형 저장소와 온프렘 클러스터(primary, replica)'],
+  ['pgvector', '0.6.0', 'PostgreSQL License (OSI 인증)', 'https://github.com/pgvector/pgvector', '벡터 인덱스와 코사인 유사도 검색'],
+  ['Ollama', '0.32.4', 'MIT', 'https://github.com/ollama/ollama', '로컬 LLM과 임베딩 런타임(외부 API 호출 없음)'],
+  ['qwen2.5:7b', '7B', 'Apache-2.0 (오픈웨이트)', 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct', '질의 의도 분해와 답변 생성(로컬 추론)'],
+  ['bge-m3', '567M', 'MIT (오픈웨이트)', 'https://huggingface.co/BAAI/bge-m3', '문서와 질의 임베딩(1024차원, 로컬 추론)'],
   ['Node.js', '20 LTS', 'MIT', 'https://github.com/nodejs/node', 'MCP 서버 런타임'],
 ];
 

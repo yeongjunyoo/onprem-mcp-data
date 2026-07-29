@@ -32,3 +32,6 @@ air-server/README.md
 air-server/LICENSE
 air-server/NOTICE
 air-server/*.tgz
+
+# 제출 서류(접수번호·성명 포함). vault의 제출 폴더에 보관한다.
+submission/
