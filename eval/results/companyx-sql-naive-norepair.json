@@ -4,18 +4,18 @@
     "strategy": "naive",
     "model": "qwen2.5:7b",
     "total": 10,
-    "correct": 7,
-    "accuracy": 70,
+    "correct": 2,
+    "accuracy": 20,
     "gold_execution_failures": 0,
-    "repaired_queries": 6,
-    "repair_enabled": true,
+    "repaired_queries": 0,
+    "repair_enabled": false,
     "byTax": {
       "join+group+top-k": {
-        "c": 1,
+        "c": 0,
         "n": 1
       },
       "filter+aggregate": {
-        "c": 1,
+        "c": 0,
         "n": 2
       },
       "filter+count": {
@@ -23,11 +23,11 @@
         "n": 1
       },
       "join+projection": {
-        "c": 1,
+        "c": 0,
         "n": 1
       },
       "join+group+argmax": {
-        "c": 1,
+        "c": 0,
         "n": 2
       },
       "filter+set-membership": {
@@ -39,46 +39,49 @@
         "n": 1
       },
       "time-filter+count": {
-        "c": 1,
+        "c": 0,
         "n": 1
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:14:23.058Z"
+    "generated_at": "2026-07-29T12:14:36.496Z"
   },
   "rows": [
     {
       "id": "CX-SQL-01",
       "tax": "join+group+top-k",
-      "ok": true,
-      "repaired": true,
-      "pred": "SELECT c.* FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP BY c.id, c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
-      "predOk": true,
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT c.* FROM companyx.clients c JOIN companyx.sales s ON c.client_id = s.client_id WHERE s.region = '서울' GROUP BY c.client_id, c.client_name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "predOk": false,
+      "predErr": "column c.client_id does not exist",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 1562
+      "ms": 782
     },
     {
       "id": "CX-SQL-02",
       "tax": "filter+aggregate",
-      "ok": true,
-      "repaired": true,
-      "pred": "SELECT SUM(companyx.sales.amount) AS total_revenue FROM companyx.sales JOIN companyx.contracts ON companyx.sales.contract_id = companyx.contracts.id WHERE EXTRACT(YEAR FROM companyx.sales.sale_date) = 2025 AND EXTRACT(QUARTER FROM companyx.sales.sale_date) = 3",
-      "predOk": true,
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT SUM(companyx.sales.amount) AS total_revenue FROM companyx.sales JOIN companyx.contracts ON companyx.sales.contract_id = companyx.contracts.id JOIN companyx.projects ON companyx.contracts.project_id = companyx.projects.id WHERE EXTRACT(YEAR FROM companyx.sales.date) = 2025 AND EXTRACT(QUARTER FROM companyx.sales.date) = 3",
+      "predOk": false,
+      "predErr": "column contracts.project_id does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 2086
+      "ms": 1103
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
       "ok": false,
-      "repaired": true,
-      "pred": "SELECT AVG(s.amount) FROM companyx.sales AS s JOIN companyx.products AS p ON s.product_id = p.id WHERE p.category = 'security' AND p.status = 'active'",
-      "predOk": true,
+      "repaired": false,
+      "pred": "SELECT AVG(sales.amount) FROM companyx.sales AS s JOIN companyx.products AS p ON s.product_id = p.id WHERE p.category = '보안 솔루션' AND p.type = '제품'",
+      "predOk": false,
+      "predErr": "missing FROM-clause entry for table \"sales\"",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 1355
+      "ms": 710
     },
     {
       "id": "CX-SQL-04",
@@ -89,18 +92,19 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 374
+      "ms": 353
     },
     {
       "id": "CX-SQL-05",
       "tax": "join+projection",
-      "ok": true,
-      "repaired": true,
-      "pred": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '기술지원팀'",
-      "predOk": true,
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.department_id = d.id WHERE d.name = '기술지원팀'",
+      "predOk": false,
+      "predErr": "column e.department_id does not exist",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 1173
+      "ms": 582
     },
     {
       "id": "CX-SQL-06",
@@ -111,7 +115,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 721
+      "ms": 702
     },
     {
       "id": "CX-SQL-07",
@@ -122,7 +126,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 432
+      "ms": 423
     },
     {
       "id": "CX-SQL-08",
@@ -138,24 +142,26 @@
     {
       "id": "CX-SQL-09",
       "tax": "time-filter+count",
-      "ok": true,
-      "repaired": true,
-      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE registered_at >= '2024-01-01' AND registered_at < '2025-01-01'",
-      "predOk": true,
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE registration_date >= '2024-01-01' AND registration_date < '2025-01-01'",
+      "predOk": false,
+      "predErr": "column \"registration_date\" does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 1305
+      "ms": 632
     },
     {
       "id": "CX-SQL-10",
       "tax": "join+group+argmax",
-      "ok": true,
-      "repaired": true,
-      "pred": "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1",
-      "predOk": true,
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT d.department_name FROM companyx.departments d JOIN companyx.employees e ON d.department_id = e.department_id GROUP BY d.department_name ORDER BY AVG(e.salary) DESC LIMIT 1",
+      "predOk": false,
+      "predErr": "column d.department_id does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 1275
+      "ms": 631
     }
   ]
 }

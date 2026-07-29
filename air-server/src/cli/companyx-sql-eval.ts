@@ -115,7 +115,13 @@ async function main() {
     generated_at: new Date().toISOString(),
   };
   await mkdir(resolve(root, "eval/results"), { recursive: true });
-  await writeFile(resolve(root, `eval/results/companyx-sql-${strategy}.json`), JSON.stringify({ summary, rows }, null, 2) + "\n");
+  // 재시도 유무는 같은 전략의 다른 조건이다. 한 파일에 덮어쓰면 2x2(스키마카드 x 재시도)
+  // 중 두 칸만 저장소에 남고 보고서가 인용하는 나머지 두 칸은 근거가 사라진다.
+  const suffix = process.env.CX_REPAIR === "0" ? "-norepair" : "";
+  await writeFile(
+    resolve(root, `eval/results/companyx-sql-${strategy}${suffix}.json`),
+    JSON.stringify({ summary, rows }, null, 2) + "\n",
+  );
   console.log(`\ncompanyx:sql ${JSON.stringify(summary, null, 2)}`);
   await closePool();
 }
