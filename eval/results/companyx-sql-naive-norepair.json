@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:14:36.496Z"
+    "generated_at": "2026-07-29T12:49:47.748Z"
   },
   "rows": [
     {
@@ -57,7 +57,7 @@
       "predErr": "column c.client_id does not exist",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 782
+      "ms": 735
     },
     {
       "id": "CX-SQL-02",
@@ -69,7 +69,7 @@
       "predErr": "column contracts.project_id does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 1103
+      "ms": 1094
     },
     {
       "id": "CX-SQL-03",
@@ -81,7 +81,7 @@
       "predErr": "missing FROM-clause entry for table \"sales\"",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 710
+      "ms": 724
     },
     {
       "id": "CX-SQL-04",
@@ -92,7 +92,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 353
+      "ms": 367
     },
     {
       "id": "CX-SQL-05",
@@ -104,7 +104,7 @@
       "predErr": "column e.department_id does not exist",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 582
+      "ms": 591
     },
     {
       "id": "CX-SQL-06",
@@ -115,7 +115,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 702
+      "ms": 687
     },
     {
       "id": "CX-SQL-07",
@@ -126,7 +126,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 423
+      "ms": 417
     },
     {
       "id": "CX-SQL-08",
@@ -137,7 +137,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 681
+      "ms": 688
     },
     {
       "id": "CX-SQL-09",
@@ -149,7 +149,7 @@
       "predErr": "column \"registration_date\" does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 632
+      "ms": 624
     },
     {
       "id": "CX-SQL-10",
@@ -161,7 +161,7 @@
       "predErr": "column d.department_id does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 631
+      "ms": 629
     }
   ]
 }

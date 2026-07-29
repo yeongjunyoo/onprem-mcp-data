@@ -1,0 +1,83 @@
+{
+  "strategy": "llm",
+  "repair_enabled": false,
+  "repeats": 5,
+  "total": 10,
+  "scores": [
+    5,
+    5,
+    5,
+    5,
+    5
+  ],
+  "median": 5,
+  "min": 5,
+  "max": 5,
+  "always_wrong": [
+    "CX-SQL-03",
+    "CX-SQL-04",
+    "CX-SQL-06",
+    "CX-SQL-07",
+    "CX-SQL-09"
+  ],
+  "flaky": [],
+  "runs": [
+    {
+      "correct": 5,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-03",
+        "CX-SQL-04",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09"
+      ]
+    },
+    {
+      "correct": 5,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-03",
+        "CX-SQL-04",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09"
+      ]
+    },
+    {
+      "correct": 5,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-03",
+        "CX-SQL-04",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09"
+      ]
+    },
+    {
+      "correct": 5,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-03",
+        "CX-SQL-04",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09"
+      ]
+    },
+    {
+      "correct": 5,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-03",
+        "CX-SQL-04",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09"
+      ]
+    }
+  ],
+  "note": "temperature 0과 seed를 고정해도 로컬 7B는 실행마다 흔들린다. n=10에서 한 문항은 10pp이므로 단일 실행 수치를 헤드라인으로 쓰지 않는다.",
+  "generated_at": "2026-07-29T12:48:18.292Z"
+}

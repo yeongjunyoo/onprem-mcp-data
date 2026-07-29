@@ -41,8 +41,8 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Metric | Result | Sample and conditions |
 | --- | --- | --- |
 | Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |
-| NL2SQL execution match | **7/10** (2/10 without the schema card) | no retry, qwen2.5:7b Q4_K_M, Korean queries, n=10 |
-| NL2SQL with one repair pass | **8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; 2 vs 6 repairs |
+| NL2SQL execution match | **5-7/10** (2/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
+| NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
 | Vector hit@5 | **0.985 (67/68)**, 95% CI [0.921, 0.997] | expanded from 8 to 68 questions; hash fallback 0.779, English-only 768 model 0.368 |
 | End-to-end evidence in context | 91.3% (95.7% under a looser gold definition) | 23 scorable of 30 |
@@ -54,7 +54,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 ## What we disproved about our own work
 
-- **The schema card buys cost, not accuracy, once a repair pass exists.** Without retry the gap is 7/10 versus 2/10 (+50pp); with one execution-feedback retry it narrows to 8/10 versus 7/10 (+10pp) while the repair count splits 2 versus 6. With n=10 and a 7B model that moves by about one question per run, we do not call the remaining 10pp significant.
+- **The schema card buys cost, not accuracy, once a repair pass exists.** Without retry the gap is 5-7/10 versus 2/10 (+30 to +50pp); with one execution-feedback retry it narrows to 7-8/10 versus 7/10 (0 to +10pp) while the repair count splits 2 versus 6. Sixteen repeated runs showed results identical within a session but shifting by 1-2 questions across sessions, so we report ranges, never a single run.
 - **Truncating the embedding was not an officially supported mode, but we measured the cost.** The sponsor schema fixes `vector(768)`, so we stored the first 768 of bge-m3's 1024 dimensions, and the model card only documents 1024 dense dimensions without claiming Matryoshka training. We expanded the evaluation from 8 to 68 questions and compared head to head: **native 1024 and truncated 768 both score 67/68 and miss one different question each (McNemar p = 1.0)**. On this corpus the truncation costs nothing measurable, yet it is still not a guaranteed output mode, so we do not present it as a feature. An English-only 768 model scored 25/68 on the same Korean questions.
 - **30/30 routing is in-sample.** The router vocabulary was written while reading those published questions. Generalisation is unverified.
 

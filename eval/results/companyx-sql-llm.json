@@ -4,8 +4,8 @@
     "strategy": "llm",
     "model": "qwen2.5:7b",
     "total": 10,
-    "correct": 8,
-    "accuracy": 80,
+    "correct": 7,
+    "accuracy": 70,
     "gold_execution_failures": 0,
     "repaired_queries": 2,
     "repair_enabled": true,
@@ -15,7 +15,7 @@
         "n": 1
       },
       "filter+aggregate": {
-        "c": 2,
+        "c": 1,
         "n": 2
       },
       "filter+count": {
@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:14:11.915Z"
+    "generated_at": "2026-07-29T12:49:17.972Z"
   },
   "rows": [
     {
@@ -52,11 +52,11 @@
       "tax": "join+group+top-k",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 5243
+      "ms": 701
     },
     {
       "id": "CX-SQL-02",
@@ -67,18 +67,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 669
+      "ms": 660
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
-      "ok": true,
+      "ok": false,
       "repaired": false,
-      "pred": "SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = 'security'",
+      "pred": "SELECT p.name AS product_name, AVG(s.amount) AS average_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 526
+      "ms": 718
     },
     {
       "id": "CX-SQL-04",
@@ -89,7 +89,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 749
+      "ms": 716
     },
     {
       "id": "CX-SQL-05",
@@ -100,7 +100,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 615
+      "ms": 608
     },
     {
       "id": "CX-SQL-06",
@@ -111,7 +111,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 690
+      "ms": 683
     },
     {
       "id": "CX-SQL-07",
@@ -122,7 +122,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 1125
+      "ms": 1132
     },
     {
       "id": "CX-SQL-08",
@@ -133,7 +133,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 683
+      "ms": 681
     },
     {
       "id": "CX-SQL-09",
@@ -144,7 +144,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 989
+      "ms": 962
     },
     {
       "id": "CX-SQL-10",
@@ -155,7 +155,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 621
+      "ms": 630
     }
   ]
 }

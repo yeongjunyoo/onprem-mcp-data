@@ -1,0 +1,71 @@
+{
+  "strategy": "naive",
+  "repair_enabled": false,
+  "repeats": 3,
+  "total": 10,
+  "scores": [
+    2,
+    2,
+    2
+  ],
+  "median": 2,
+  "min": 2,
+  "max": 2,
+  "always_wrong": [
+    "CX-SQL-01",
+    "CX-SQL-02",
+    "CX-SQL-03",
+    "CX-SQL-05",
+    "CX-SQL-06",
+    "CX-SQL-07",
+    "CX-SQL-09",
+    "CX-SQL-10"
+  ],
+  "flaky": [],
+  "runs": [
+    {
+      "correct": 2,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-01",
+        "CX-SQL-02",
+        "CX-SQL-03",
+        "CX-SQL-05",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09",
+        "CX-SQL-10"
+      ]
+    },
+    {
+      "correct": 2,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-01",
+        "CX-SQL-02",
+        "CX-SQL-03",
+        "CX-SQL-05",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09",
+        "CX-SQL-10"
+      ]
+    },
+    {
+      "correct": 2,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-01",
+        "CX-SQL-02",
+        "CX-SQL-03",
+        "CX-SQL-05",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-09",
+        "CX-SQL-10"
+      ]
+    }
+  ],
+  "note": "temperature 0과 seed를 고정해도 로컬 7B는 실행마다 흔들린다. n=10에서 한 문항은 10pp이므로 단일 실행 수치를 헤드라인으로 쓰지 않는다.",
+  "generated_at": "2026-07-29T12:49:47.760Z"
+}

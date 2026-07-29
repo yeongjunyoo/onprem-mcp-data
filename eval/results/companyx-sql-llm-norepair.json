@@ -4,8 +4,8 @@
     "strategy": "llm",
     "model": "qwen2.5:7b",
     "total": 10,
-    "correct": 7,
-    "accuracy": 70,
+    "correct": 5,
+    "accuracy": 50,
     "gold_execution_failures": 0,
     "repaired_queries": 0,
     "repair_enabled": false,
@@ -15,11 +15,11 @@
         "n": 1
       },
       "filter+aggregate": {
-        "c": 2,
+        "c": 1,
         "n": 2
       },
       "filter+count": {
-        "c": 1,
+        "c": 0,
         "n": 1
       },
       "join+projection": {
@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:14:29.674Z"
+    "generated_at": "2026-07-29T12:48:18.280Z"
   },
   "rows": [
     {
@@ -52,11 +52,11 @@
       "tax": "join+group+top-k",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 711
+      "ms": 691
     },
     {
       "id": "CX-SQL-02",
@@ -67,29 +67,30 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 669
+      "ms": 645
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
-      "ok": true,
+      "ok": false,
       "repaired": false,
-      "pred": "SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = 'security'",
+      "pred": "SELECT p.name AS product_name, AVG(s.amount) AS average_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 527
+      "ms": 711
     },
     {
       "id": "CX-SQL-04",
       "tax": "filter+count",
-      "ok": true,
+      "ok": false,
       "repaired": false,
-      "pred": "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'",
-      "predOk": true,
+      "pred": "SELECT COUNT(*) FROM companyx.contracts WHERE is_active = true",
+      "predOk": false,
+      "predErr": "column \"is_active\" does not exist",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 353
+      "ms": 350
     },
     {
       "id": "CX-SQL-05",
@@ -100,7 +101,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 596
+      "ms": 598
     },
     {
       "id": "CX-SQL-06",
@@ -111,18 +112,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 687
+      "ms": 670
     },
     {
       "id": "CX-SQL-07",
       "tax": "filter+set-membership",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status != 'resolved'",
+      "pred": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status != 'resolved'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 1103
+      "ms": 1130
     },
     {
       "id": "CX-SQL-08",
@@ -133,7 +134,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 679
+      "ms": 682
     },
     {
       "id": "CX-SQL-09",
@@ -145,7 +146,7 @@
       "predErr": "syntax error at end of input",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 477
+      "ms": 479
     },
     {
       "id": "CX-SQL-10",
@@ -156,7 +157,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 614
+      "ms": 623
     }
   ]
 }
