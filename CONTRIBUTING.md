@@ -17,7 +17,7 @@
 | Ollama | 0.32 이상 | `qwen2.5:7b`(생성), `bge-m3`(임베딩) |
 
 ```bash
-git clone <repo-url> && cd onprem-mcp-data
+git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
 bash scripts/pg-up.sh                 # PostgreSQL 16 + pgvector 기동
 cd air-server && npm ci && npx tsc     # 의존성 설치와 빌드
 ```

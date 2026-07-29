@@ -15,7 +15,7 @@ Company data usually cannot leave the network, yet document search, SQL analytic
 ## Quick start
 
 ```bash
-git clone <repo-url> && cd onprem-mcp-data
+git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
 docker compose up -d                                     # PostgreSQL 16 + pgvector
 ollama pull qwen2.5:7b && ollama pull bge-m3             # local models
 

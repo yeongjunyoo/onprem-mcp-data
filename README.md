@@ -18,7 +18,7 @@
 ## 30초 만에 돌려보기
 
 ```bash
-git clone <repo-url> && cd onprem-mcp-data
+git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
 docker compose up -d                                    # PostgreSQL 16 + pgvector
 ollama pull qwen2.5:7b && ollama pull bge-m3            # 로컬 모델 2종
 
