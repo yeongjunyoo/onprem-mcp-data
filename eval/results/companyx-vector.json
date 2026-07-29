@@ -1,31 +1,26 @@
 {
   "dataset": "companyx-dataset-v1.0 / documents (40 docs, 258 chunks)",
   "top_k": 5,
-  "oracle": "Gold sets are computed by a DETERMINISTIC LEXICAL RULE over the raw documents (a doc is gold iff it contains every keyword in `keywords`, case-insensitive) and/or by the document type declared in documents/index.json. The retriever never sees the keywords — it only embeds the natural-language question — so lexical gold + semantic retrieval keeps the oracle independent of the system under test. Questions whose sponsor hint names only a document TYPE are scored on type accuracy alone.",
+  "oracle": "Gold sets are computed by a DETERMINISTIC LEXICAL RULE over the raw documents (a doc is gold iff it contains every keyword in `keywords`, case-insensitive) and/or by the document type declared in documents/index.json. The retriever never sees the keywords - it only embeds the natural-language question - so lexical gold + semantic retrieval keeps the oracle independent of the system under test. Questions whose sponsor hint names only a document TYPE are scored on type accuracy alone. `style` marks whether the question repeats the keywords (entity) or avoids them entirely (paraphrase); paraphrase items are the ones that actually test semantic retrieval.",
   "summary": {
     "hash": {
-      "hit@5": 0.75,
-      "mean_type_precision": 1,
+      "hit@5": 0.779,
+      "mean_type_precision": 0.68,
       "dim": 1024
     },
     "ollama:bge-m3": {
-      "hit@5": 1,
-      "mean_type_precision": 0.971,
+      "hit@5": 0.985,
+      "mean_type_precision": 0.891,
       "dim": 1024
     },
-    "ollama:bge-m3@768": {
-      "hit@5": 1,
-      "mean_type_precision": 0.943,
+    "ollama:nomic-embed-text": {
+      "hit@5": 0.368,
+      "mean_type_precision": 0.366,
       "dim": 768
     },
-    "ollama:bge-m3@512": {
-      "hit@5": 1,
-      "mean_type_precision": 0.971,
-      "dim": 512
-    },
-    "ollama:nomic-embed-text": {
-      "hit@5": 0.75,
-      "mean_type_precision": 0.486,
+    "ollama:bge-m3@768": {
+      "hit@5": 0.985,
+      "mean_type_precision": 0.88,
       "dim": 768
     }
   },
@@ -34,9 +29,9 @@
       "embedder": "hash",
       "dim": 1024,
       "chunks": 258,
-      "hit@5": 0.75,
-      "scored_questions": 8,
-      "mean_type_precision": 1,
+      "hit@5": 0.779,
+      "scored_questions": 68,
+      "mean_type_precision": 0.68,
       "rows": [
         {
           "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -86,14 +81,8 @@
         },
         {
           "q": "Kubernetes 관련 장애 대응 방법은?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-007",
-            "DOC-011",
-            "DOC-012",
-            "DOC-016",
-            "DOC-017"
-          ],
+          "gold_n": 0,
+          "gold": [],
           "retrieved": [
             "DOC-025",
             "DOC-039",
@@ -108,69 +97,1419 @@
             0.316,
             0.308
           ],
-          "hit@5": false,
-          "expected_type": null,
-          "type_precision": null
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
         },
         {
-          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.258,
+            0.258,
+            0.258,
+            0.25,
+            0.25
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
           "gold_n": 2,
           "gold": [
-            "DOC-014",
-            "DOC-019"
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-009",
+            "DOC-002",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.445,
+            0.445,
+            0.25,
+            0.24,
+            0.236
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
           ],
           "retrieved": [
             "DOC-014",
-            "DOC-019",
             "DOC-014",
+            "DOC-019",
             "DOC-019",
             "DOC-014"
           ],
           "top_scores": [
-            0.429,
-            0.429,
-            0.309,
-            0.309,
-            0.302
+            0.667,
+            0.617,
+            0.5,
+            0.463,
+            0.375
           ],
           "hit@5": true,
           "expected_type": "technical_doc",
           "type_precision": 1
         },
         {
-          "q": "보안 취약점 점검 관련 내용이 있어?",
-          "gold_n": 5,
+          "q": "제안서에서 언급된 ROI는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.241,
+            0.236,
+            0.236,
+            0.236,
+            0.236
+          ],
+          "hit@5": null,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "gold_n": 3,
           "gold": [
-            "DOC-021",
-            "DOC-022",
-            "DOC-024",
-            "DOC-028",
-            "DOC-029"
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
           ],
           "retrieved": [
-            "DOC-024",
-            "DOC-021",
-            "DOC-028",
-            "DOC-022",
-            "DOC-029"
+            "DOC-008",
+            "DOC-003",
+            "DOC-010",
+            "DOC-031",
+            "DOC-032"
           ],
           "top_scores": [
             0.274,
-            0.267,
-            0.267,
-            0.255,
-            0.255
+            0.274,
+            0.274,
+            0.102,
+            0.102
           ],
           "hit@5": true,
           "expected_type": null,
           "type_precision": null
         },
         {
-          "q": "백업 정책은 어떻게 되어 있어?",
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-028",
+            "DOC-001",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.132,
+            0.132,
+            0.132,
+            0.129,
+            0.129
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.2
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-006",
+            "DOC-007",
+            "DOC-002",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.335,
+            0.335,
+            0.335,
+            0.325,
+            0.325
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-026",
+            "DOC-002",
+            "DOC-004",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.157,
+            0.153,
+            0.149,
+            0.149,
+            0.126
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-021",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.387,
+            0.373,
+            0.338,
+            0.338,
+            0.338
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "gold_n": 1,
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.204,
+            0.177,
+            0.177,
+            0.177,
+            0.177
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "gold_n": 1,
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-004",
+            "DOC-009",
+            "DOC-009",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.354,
+            0.348,
+            0.341,
+            0.289,
+            0.281
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-001",
+            "DOC-034",
+            "DOC-011",
+            "DOC-016"
+          ],
+          "top_scores": [
+            0.231,
+            0.231,
+            0.189,
+            0.173,
+            0.173
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "gold_n": 1,
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-021",
+            "DOC-025",
+            "DOC-002",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.252,
+            0.252,
+            0.252,
+            0.25,
+            0.25
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-004",
+            "DOC-036"
+          ],
+          "top_scores": [
+            0.33,
+            0.33,
+            0.254,
+            0.254,
+            0.145
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-014",
+            "DOC-014",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.178,
+            0.178,
+            0.167,
+            0.154,
+            0.154
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-006",
+            "DOC-007",
+            "DOC-002",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.25,
+            0.25,
+            0.25,
+            0.243,
+            0.243
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "gold_n": 1,
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-025",
+            "DOC-035",
+            "DOC-025",
+            "DOC-038"
+          ],
+          "top_scores": [
+            0.364,
+            0.302,
+            0.286,
+            0.286,
+            0.267
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-024",
+            "DOC-008",
+            "DOC-024",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.267,
+            0.25,
+            0.224,
+            0.183,
+            0.177
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-027",
+            "DOC-022",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.507,
+            0.507,
+            0.474,
+            0.474,
+            0.424
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.2
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-005",
+            "DOC-006",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.379,
+            0.316,
+            0.316,
+            0.316,
+            0.316
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "gold_n": 3,
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-007",
+            "DOC-022",
+            "DOC-025",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.387,
+            0.387,
+            0.338,
+            0.338,
+            0.338
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031",
+            "DOC-016"
+          ],
+          "top_scores": [
+            0.338,
+            0.33,
+            0.309,
+            0.286,
+            0.247
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-006",
+            "DOC-007",
+            "DOC-002",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.177,
+            0.177,
+            0.177,
+            0.171,
+            0.171
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-016",
+            "DOC-036",
+            "DOC-016",
+            "DOC-017"
+          ],
+          "top_scores": [
+            0.316,
+            0.289,
+            0.267,
+            0.257,
+            0.237
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-012",
+            "DOC-017",
+            "DOC-032",
+            "DOC-012"
+          ],
+          "top_scores": [
+            0.423,
+            0.338,
+            0.338,
+            0.286,
+            0.267
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-017",
+            "DOC-012",
+            "DOC-001",
+            "DOC-001",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.077,
+            0.077,
+            0,
+            0,
+            0
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-003",
+            "DOC-009",
+            "DOC-020",
+            "DOC-015"
+          ],
+          "top_scores": [
+            0.2,
+            0.2,
+            0.194,
+            0.189,
+            0.189
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-013",
+            "DOC-033",
+            "DOC-003",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.365,
+            0.333,
+            0.309,
+            0.297,
+            0.267
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-008",
+            "DOC-003",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.207,
+            0.207,
+            0.141,
+            0.141,
+            0.141
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-011",
+            "DOC-016",
+            "DOC-007",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.174,
+            0.096,
+            0.096,
+            0.089,
+            0.087
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
           "gold_n": 2,
           "gold": [
             "DOC-013",
             "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-011",
+            "DOC-016",
+            "DOC-017"
+          ],
+          "top_scores": [
+            0.289,
+            0.289,
+            0.187,
+            0.187,
+            0.183
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-040",
+            "DOC-034",
+            "DOC-040",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.507,
+            0.507,
+            0.447,
+            0.447,
+            0.447
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-009",
+            "DOC-001",
+            "DOC-002"
+          ],
+          "top_scores": [
+            0.157,
+            0.157,
+            0.153,
+            0.083,
+            0.083
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-009",
+            "DOC-009",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.375,
+            0.354,
+            0.341,
+            0.333,
+            0.333
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-019",
+            "DOC-002",
+            "DOC-014",
+            "DOC-007",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.213,
+            0.142,
+            0.142,
+            0.073,
+            0.073
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-015",
+            "DOC-015",
+            "DOC-015",
+            "DOC-020"
+          ],
+          "top_scores": [
+            0.424,
+            0.387,
+            0.387,
+            0.365,
+            0.323
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-022",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.306,
+            0.204,
+            0.094,
+            0.091,
+            0.091
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-015",
+            "DOC-020",
+            "DOC-011"
+          ],
+          "top_scores": [
+            0.239,
+            0.239,
+            0.183,
+            0.183,
+            0.12
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-028",
+            "DOC-022",
+            "DOC-029",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.39,
+            0.39,
+            0.373,
+            0.373,
+            0.338
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "gold_n": 3,
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030",
+            "DOC-027",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.149,
+            0.149,
+            0.149,
+            0.136,
+            0.132
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-025",
+            "DOC-024",
+            "DOC-037"
+          ],
+          "top_scores": [
+            0.192,
+            0.192,
+            0.178,
+            0.174,
+            0.167
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "gold_n": 1,
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-023",
+            "DOC-023",
+            "DOC-026",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.2,
+            0.191,
+            0.183,
+            0.183,
+            0.179
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-023",
+            "DOC-024",
+            "DOC-025",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.144,
+            0.144,
+            0.144,
+            0.144,
+            0.126
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-002",
+            "DOC-007",
+            "DOC-024",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.179,
+            0.112,
+            0.112,
+            0.1,
+            0.1
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.6
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-013",
+            "DOC-018",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.34,
+            0.327,
+            0.218,
+            0.218,
+            0.149
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-026",
+            "DOC-030",
+            "DOC-024",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.309,
+            0.309,
+            0.309,
+            0.289,
+            0.289
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-021",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.429,
+            0.401,
+            0.293,
+            0.286,
+            0.286
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-021",
+            "DOC-028",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.375,
+            0.274,
+            0.267,
+            0.267,
+            0.255
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-033",
+            "DOC-034",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.255,
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 0
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-020",
+            "DOC-021",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.129,
+            0.129,
+            0.115,
+            0.112,
+            0.112
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 0.6
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-023",
+            "DOC-024",
+            "DOC-025",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.224,
+            0.224,
+            0.224,
+            0.224,
+            0.195
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-004",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.169,
+            0.143,
+            0.134,
+            0.12,
+            0.098
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.401,
+            0.286,
+            0.286,
+            0.286,
+            0.286
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-040",
+            "DOC-031",
+            "DOC-032"
+          ],
+          "top_scores": [
+            0.51,
+            0.468,
+            0.463,
+            0.408,
+            0.408
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.348,
+            0.189,
+            0.189,
+            0.189,
+            0.189
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-032",
+            "DOC-032",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.217,
+            0.208,
+            0.147,
+            0.144,
+            0.144
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-032",
+            "DOC-012",
+            "DOC-017"
+          ],
+          "top_scores": [
+            0.227,
+            0.197,
+            0.148,
+            0.098,
+            0.098
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-038",
+            "DOC-032",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.212,
+            0.188,
+            0.185,
+            0.185,
+            0.182
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
           ],
           "retrieved": [
             "DOC-031",
@@ -180,126 +1519,231 @@
             "DOC-035"
           ],
           "top_scores": [
-            0.169,
-            0.169,
-            0.169,
-            0.169,
-            0.169
-          ],
-          "hit@5": false,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "API 인증 방식은 뭐야?",
-          "gold_n": 8,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006",
-            "DOC-012",
-            "DOC-015",
-            "DOC-017",
-            "DOC-020",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-020",
-            "DOC-015",
-            "DOC-017",
-            "DOC-012",
-            "DOC-015"
-          ],
-          "top_scores": [
-            0.401,
-            0.401,
-            0.257,
-            0.257,
-            0.224
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
-          "gold_n": 0,
-          "gold": [],
-          "retrieved": [
-            "DOC-021",
-            "DOC-029",
-            "DOC-027",
-            "DOC-021",
-            "DOC-023"
-          ],
-          "top_scores": [
-            0.211,
-            0.211,
-            0.192,
-            0.187,
-            0.183
-          ],
-          "hit@5": null,
-          "expected_type": "meeting_note",
-          "type_precision": 1
-        },
-        {
-          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
-          "gold_n": 10,
-          "gold": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-033",
-            "DOC-034",
-            "DOC-035",
-            "DOC-036",
-            "DOC-037",
-            "DOC-038",
-            "DOC-039",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-032",
-            "DOC-031",
-            "DOC-032",
-            "DOC-034",
-            "DOC-039"
-          ],
-          "top_scores": [
-            0.263,
-            0.258,
-            0.205,
-            0.205,
-            0.205
+            0.378,
+            0.378,
+            0.378,
+            0.378,
+            0.378
           ],
           "hit@5": true,
           "expected_type": "proposal",
           "type_precision": 1
         },
         {
-          "q": "SSL 인증서 관련 장애가 있었어?",
-          "gold_n": 3,
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "gold_n": 1,
           "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006"
+            "DOC-035"
           ],
           "retrieved": [
-            "DOC-005",
-            "DOC-006",
-            "DOC-002",
-            "DOC-009",
-            "DOC-009"
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-017",
+            "DOC-031"
           ],
           "top_scores": [
-            0.293,
-            0.293,
-            0.263,
-            0.258,
-            0.211
+            0.231,
+            0.227,
+            0.167,
+            0.144,
+            0.144
           ],
           "hit@5": true,
-          "expected_type": "incident_report",
+          "expected_type": "proposal",
+          "type_precision": 0.8
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-024",
+            "DOC-025",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.272,
+            0.136,
+            0.134,
+            0.134,
+            0.131
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-001",
+            "DOC-029",
+            "DOC-002",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.245,
+            0.227,
+            0.211,
+            0.16,
+            0.16
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.2
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-037",
+            "DOC-039",
+            "DOC-038",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.204,
+            0.197,
+            0.194,
+            0.188,
+            0.167
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.8
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "gold_n": 1,
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-030",
+            "DOC-021",
+            "DOC-024",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.217,
+            0.094,
+            0.091,
+            0.091,
+            0.091
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.2
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-017",
+            "DOC-012",
+            "DOC-040",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.276,
+            0.259,
+            0.259,
+            0.218,
+            0.2
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-032",
+            "DOC-034",
+            "DOC-039",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.272,
+            0.243,
+            0.243,
+            0.243,
+            0.243
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "gold_n": 2,
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-034",
+            "DOC-039",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.229,
+            0.229,
+            0.229,
+            0.229,
+            0.229
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-032",
+            "DOC-031",
+            "DOC-033",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.417,
+            0.341,
+            0.333,
+            0.333,
+            0.333
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
           "type_precision": 1
         }
       ]
@@ -308,9 +1752,9 @@
       "embedder": "ollama:bge-m3",
       "dim": 1024,
       "chunks": 258,
-      "hit@5": 1,
-      "scored_questions": 8,
-      "mean_type_precision": 0.971,
+      "hit@5": 0.985,
+      "scored_questions": 68,
+      "mean_type_precision": 0.891,
       "rows": [
         {
           "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -360,14 +1804,8 @@
         },
         {
           "q": "Kubernetes 관련 장애 대응 방법은?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-007",
-            "DOC-011",
-            "DOC-012",
-            "DOC-016",
-            "DOC-017"
-          ],
+          "gold_n": 0,
+          "gold": [],
           "retrieved": [
             "DOC-008",
             "DOC-016",
@@ -382,179 +1820,38 @@
             0.549,
             0.541
           ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
-          "gold_n": 2,
-          "gold": [
-            "DOC-014",
-            "DOC-019"
-          ],
-          "retrieved": [
-            "DOC-014",
-            "DOC-019",
-            "DOC-019",
-            "DOC-014",
-            "DOC-019"
-          ],
-          "top_scores": [
-            0.726,
-            0.725,
-            0.624,
-            0.612,
-            0.608
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "보안 취약점 점검 관련 내용이 있어?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-021",
-            "DOC-022",
-            "DOC-024",
-            "DOC-028",
-            "DOC-029"
-          ],
-          "retrieved": [
-            "DOC-021",
-            "DOC-024",
-            "DOC-029",
-            "DOC-028",
-            "DOC-022"
-          ],
-          "top_scores": [
-            0.647,
-            0.645,
-            0.642,
-            0.636,
-            0.624
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "백업 정책은 어떻게 되어 있어?",
-          "gold_n": 2,
-          "gold": [
-            "DOC-013",
-            "DOC-018"
-          ],
-          "retrieved": [
-            "DOC-018",
-            "DOC-013",
-            "DOC-013",
-            "DOC-018",
-            "DOC-018"
-          ],
-          "top_scores": [
-            0.624,
-            0.616,
-            0.545,
-            0.538,
-            0.524
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "API 인증 방식은 뭐야?",
-          "gold_n": 8,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006",
-            "DOC-012",
-            "DOC-015",
-            "DOC-017",
-            "DOC-020",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-015",
-            "DOC-020",
-            "DOC-020",
-            "DOC-015",
-            "DOC-017"
-          ],
-          "top_scores": [
-            0.635,
-            0.628,
-            0.537,
-            0.531,
-            0.53
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
-          "gold_n": 0,
-          "gold": [],
-          "retrieved": [
-            "DOC-023",
-            "DOC-021",
-            "DOC-026",
-            "DOC-029",
-            "DOC-023"
-          ],
-          "top_scores": [
-            0.663,
-            0.66,
-            0.649,
-            0.646,
-            0.645
-          ],
           "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-028",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.682,
+            0.666,
+            0.664,
+            0.628,
+            0.622
+          ],
+          "hit@5": true,
           "expected_type": "meeting_note",
           "type_precision": 1
         },
         {
-          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
-          "gold_n": 10,
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "gold_n": 2,
           "gold": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-033",
-            "DOC-034",
-            "DOC-035",
-            "DOC-036",
-            "DOC-037",
-            "DOC-038",
-            "DOC-039",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-031",
-            "DOC-035",
-            "DOC-033"
-          ],
-          "top_scores": [
-            0.658,
-            0.638,
-            0.572,
-            0.565,
-            0.551
-          ],
-          "hit@5": true,
-          "expected_type": "proposal",
-          "type_precision": 1
-        },
-        {
-          "q": "SSL 인증서 관련 장애가 있었어?",
-          "gold_n": 3,
-          "gold": [
-            "DOC-002",
             "DOC-005",
             "DOC-006"
           ],
@@ -563,480 +1860,568 @@
             "DOC-005",
             "DOC-002",
             "DOC-020",
-            "DOC-004"
+            "DOC-015"
           ],
           "top_scores": [
-            0.696,
-            0.696,
-            0.645,
-            0.583,
-            0.573
+            0.756,
+            0.752,
+            0.637,
+            0.582,
+            0.564
           ],
           "hit@5": true,
           "expected_type": "incident_report",
-          "type_precision": 0.8
-        }
-      ]
-    },
-    "ollama:bge-m3@768": {
-      "embedder": "ollama:bge-m3@768",
-      "dim": 768,
-      "chunks": 258,
-      "hit@5": 1,
-      "scored_questions": 8,
-      "mean_type_precision": 0.943,
-      "rows": [
+          "type_precision": 0.6
+        },
         {
-          "q": "최근 서버 장애 사례와 원인을 알려줘",
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.746,
+            0.742,
+            0.682,
+            0.656,
+            0.648
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "제안서에서 언급된 ROI는?",
           "gold_n": 0,
           "gold": [],
           "retrieved": [
-            "DOC-002",
-            "DOC-003",
-            "DOC-009",
-            "DOC-001",
-            "DOC-010"
+            "DOC-034",
+            "DOC-033",
+            "DOC-040",
+            "DOC-038",
+            "DOC-031"
           ],
           "top_scores": [
-            0.628,
-            0.619,
-            0.616,
-            0.611,
-            0.607
+            0.637,
+            0.632,
+            0.632,
+            0.627,
+            0.625
           ],
           "hit@5": null,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "gold_n": 3,
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.642,
+            0.64,
+            0.636,
+            0.593,
+            0.573
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-001",
+            "DOC-004",
+            "DOC-008",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.603,
+            0.595,
+            0.522,
+            0.522,
+            0.52
+          ],
+          "hit@5": true,
           "expected_type": "incident_report",
           "type_precision": 1
         },
         {
-          "q": "Product-C1 설치 방법이 궁금해",
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-003",
+            "DOC-002",
+            "DOC-008",
+            "DOC-005"
+          ],
+          "top_scores": [
+            0.736,
+            0.723,
+            0.72,
+            0.717,
+            0.714
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-003",
+            "DOC-002",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.6,
+            0.583,
+            0.537,
+            0.535,
+            0.532
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-002",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.557,
+            0.53,
+            0.507,
+            0.506,
+            0.503
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "gold_n": 1,
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-003",
+            "DOC-001",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.683,
+            0.68,
+            0.67,
+            0.657,
+            0.656
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "gold_n": 1,
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-010",
+            "DOC-003",
+            "DOC-008",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.628,
+            0.577,
+            0.576,
+            0.572,
+            0.567
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-029",
+            "DOC-022",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.666,
+            0.65,
+            0.544,
+            0.523,
+            0.513
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.4
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "gold_n": 1,
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-005",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.687,
+            0.635,
+            0.605,
+            0.596,
+            0.571
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-004",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.704,
+            0.66,
+            0.55,
+            0.549,
+            0.548
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.602,
+            0.474,
+            0.471,
+            0.47,
+            0.47
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-008",
+            "DOC-002",
+            "DOC-003",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.674,
+            0.633,
+            0.624,
+            0.623,
+            0.623
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "gold_n": 1,
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-008",
+            "DOC-033",
+            "DOC-003",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.552,
+            0.547,
+            0.536,
+            0.533,
+            0.525
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-008",
+            "DOC-007",
+            "DOC-001",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.624,
+            0.602,
+            0.589,
+            0.587,
+            0.582
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-008",
+            "DOC-002",
+            "DOC-025",
+            "DOC-007"
+          ],
+          "top_scores": [
+            0.606,
+            0.587,
+            0.576,
+            0.575,
+            0.569
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-007",
+            "DOC-010",
+            "DOC-006",
+            "DOC-005"
+          ],
+          "top_scores": [
+            0.626,
+            0.617,
+            0.616,
+            0.609,
+            0.608
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "gold_n": 3,
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007",
+            "DOC-010",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.598,
+            0.579,
+            0.578,
+            0.523,
+            0.521
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
           "gold_n": 1,
           "gold": [
             "DOC-011"
           ],
           "retrieved": [
             "DOC-011",
-            "DOC-011",
-            "DOC-011",
-            "DOC-011",
-            "DOC-031"
+            "DOC-019",
+            "DOC-031",
+            "DOC-014",
+            "DOC-011"
           ],
           "top_scores": [
-            0.779,
-            0.736,
-            0.669,
-            0.624,
-            0.611
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 0.8
-        },
-        {
-          "q": "Kubernetes 관련 장애 대응 방법은?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-007",
-            "DOC-011",
-            "DOC-012",
-            "DOC-016",
-            "DOC-017"
-          ],
-          "retrieved": [
-            "DOC-008",
-            "DOC-003",
-            "DOC-001",
-            "DOC-016",
-            "DOC-006"
-          ],
-          "top_scores": [
+            0.664,
             0.582,
+            0.575,
             0.571,
-            0.569,
-            0.564,
-            0.562
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
-          "gold_n": 2,
-          "gold": [
-            "DOC-014",
-            "DOC-019"
-          ],
-          "retrieved": [
-            "DOC-014",
-            "DOC-019",
-            "DOC-019",
-            "DOC-014",
-            "DOC-019"
-          ],
-          "top_scores": [
-            0.729,
-            0.728,
-            0.628,
-            0.618,
-            0.608
+            0.565
           ],
           "hit@5": true,
           "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "보안 취약점 점검 관련 내용이 있어?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-021",
-            "DOC-022",
-            "DOC-024",
-            "DOC-028",
-            "DOC-029"
-          ],
-          "retrieved": [
-            "DOC-021",
-            "DOC-029",
-            "DOC-024",
-            "DOC-028",
-            "DOC-022"
-          ],
-          "top_scores": [
-            0.664,
-            0.659,
-            0.651,
-            0.649,
-            0.641
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "백업 정책은 어떻게 되어 있어?",
-          "gold_n": 2,
-          "gold": [
-            "DOC-013",
-            "DOC-018"
-          ],
-          "retrieved": [
-            "DOC-018",
-            "DOC-013",
-            "DOC-013",
-            "DOC-018",
-            "DOC-018"
-          ],
-          "top_scores": [
-            0.625,
-            0.616,
-            0.548,
-            0.54,
-            0.518
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "API 인증 방식은 뭐야?",
-          "gold_n": 8,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006",
-            "DOC-012",
-            "DOC-015",
-            "DOC-017",
-            "DOC-020",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-015",
-            "DOC-020",
-            "DOC-020",
-            "DOC-015",
-            "DOC-012"
-          ],
-          "top_scores": [
-            0.636,
-            0.622,
-            0.55,
-            0.548,
-            0.544
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
-          "gold_n": 0,
-          "gold": [],
-          "retrieved": [
-            "DOC-023",
-            "DOC-021",
-            "DOC-026",
-            "DOC-029",
-            "DOC-023"
-          ],
-          "top_scores": [
-            0.667,
-            0.665,
-            0.664,
-            0.653,
-            0.653
-          ],
-          "hit@5": null,
-          "expected_type": "meeting_note",
-          "type_precision": 1
-        },
-        {
-          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
-          "gold_n": 10,
-          "gold": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-033",
-            "DOC-034",
-            "DOC-035",
-            "DOC-036",
-            "DOC-037",
-            "DOC-038",
-            "DOC-039",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-031",
-            "DOC-035",
-            "DOC-033"
-          ],
-          "top_scores": [
-            0.664,
-            0.646,
-            0.581,
-            0.568,
-            0.561
-          ],
-          "hit@5": true,
-          "expected_type": "proposal",
-          "type_precision": 1
-        },
-        {
-          "q": "SSL 인증서 관련 장애가 있었어?",
-          "gold_n": 3,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006"
-          ],
-          "retrieved": [
-            "DOC-005",
-            "DOC-006",
-            "DOC-002",
-            "DOC-004",
-            "DOC-020"
-          ],
-          "top_scores": [
-            0.716,
-            0.713,
-            0.651,
-            0.602,
-            0.595
-          ],
-          "hit@5": true,
-          "expected_type": "incident_report",
           "type_precision": 0.8
-        }
-      ]
-    },
-    "ollama:bge-m3@512": {
-      "embedder": "ollama:bge-m3@512",
-      "dim": 512,
-      "chunks": 258,
-      "hit@5": 1,
-      "scored_questions": 8,
-      "mean_type_precision": 0.971,
-      "rows": [
+        },
         {
-          "q": "최근 서버 장애 사례와 원인을 알려줘",
-          "gold_n": 0,
-          "gold": [],
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
           "retrieved": [
+            "DOC-011",
+            "DOC-016",
             "DOC-002",
-            "DOC-009",
-            "DOC-001",
             "DOC-003",
             "DOC-009"
           ],
           "top_scores": [
-            0.658,
-            0.657,
-            0.648,
-            0.647,
-            0.647
+            0.628,
+            0.592,
+            0.56,
+            0.558,
+            0.555
           ],
-          "hit@5": null,
-          "expected_type": "incident_report",
-          "type_precision": 1
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
         },
         {
-          "q": "Product-C1 설치 방법이 궁금해",
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
           "gold_n": 1,
           "gold": [
-            "DOC-011"
+            "DOC-016"
           ],
           "retrieved": [
-            "DOC-011",
-            "DOC-011",
-            "DOC-011",
-            "DOC-031",
-            "DOC-011"
-          ],
-          "top_scores": [
-            0.781,
-            0.74,
-            0.675,
-            0.64,
-            0.634
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 0.8
-        },
-        {
-          "q": "Kubernetes 관련 장애 대응 방법은?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-007",
-            "DOC-011",
-            "DOC-012",
             "DOC-016",
-            "DOC-017"
-          ],
-          "retrieved": [
-            "DOC-008",
-            "DOC-016",
-            "DOC-003",
+            "DOC-019",
             "DOC-011",
-            "DOC-002"
+            "DOC-014",
+            "DOC-016"
           ],
           "top_scores": [
-            0.619,
-            0.614,
-            0.609,
-            0.607,
-            0.591
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
-          "gold_n": 2,
-          "gold": [
-            "DOC-014",
-            "DOC-019"
-          ],
-          "retrieved": [
-            "DOC-014",
-            "DOC-019",
-            "DOC-019",
-            "DOC-014",
-            "DOC-019"
-          ],
-          "top_scores": [
-            0.747,
-            0.743,
-            0.657,
-            0.65,
-            0.649
+            0.679,
+            0.588,
+            0.568,
+            0.566,
+            0.555
           ],
           "hit@5": true,
           "expected_type": "technical_doc",
           "type_precision": 1
         },
         {
-          "q": "보안 취약점 점검 관련 내용이 있어?",
-          "gold_n": 5,
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "gold_n": 1,
           "gold": [
-            "DOC-021",
-            "DOC-022",
-            "DOC-024",
-            "DOC-028",
-            "DOC-029"
+            "DOC-012"
           ],
           "retrieved": [
-            "DOC-028",
-            "DOC-021",
-            "DOC-029",
-            "DOC-024",
-            "DOC-022"
-          ],
-          "top_scores": [
-            0.686,
-            0.686,
-            0.682,
-            0.668,
-            0.666
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "백업 정책은 어떻게 되어 있어?",
-          "gold_n": 2,
-          "gold": [
-            "DOC-013",
-            "DOC-018"
-          ],
-          "retrieved": [
-            "DOC-018",
-            "DOC-013",
-            "DOC-013",
-            "DOC-018",
-            "DOC-018"
-          ],
-          "top_scores": [
-            0.641,
-            0.634,
-            0.59,
-            0.578,
-            0.531
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "API 인증 방식은 뭐야?",
-          "gold_n": 8,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006",
             "DOC-012",
-            "DOC-015",
             "DOC-017",
-            "DOC-020",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-015",
-            "DOC-020",
-            "DOC-012",
-            "DOC-015",
-            "DOC-017"
+            "DOC-014",
+            "DOC-014",
+            "DOC-019"
           ],
           "top_scores": [
-            0.628,
-            0.606,
-            0.569,
-            0.568,
+            0.65,
+            0.616,
+            0.6,
+            0.588,
             0.566
           ],
           "hit@5": true,
@@ -1044,84 +2429,1044 @@
           "type_precision": 1
         },
         {
-          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
-          "gold_n": 0,
-          "gold": [],
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
           "retrieved": [
-            "DOC-023",
+            "DOC-017",
+            "DOC-012",
+            "DOC-020",
             "DOC-026",
-            "DOC-021",
-            "DOC-030",
-            "DOC-030"
+            "DOC-023"
           ],
           "top_scores": [
-            0.683,
-            0.661,
-            0.659,
-            0.643,
-            0.641
+            0.449,
+            0.448,
+            0.421,
+            0.421,
+            0.415
           ],
-          "hit@5": null,
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-034",
+            "DOC-040",
+            "DOC-015"
+          ],
+          "top_scores": [
+            0.597,
+            0.589,
+            0.585,
+            0.572,
+            0.55
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-003",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.724,
+            0.708,
+            0.607,
+            0.589,
+            0.583
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-013",
+            "DOC-019",
+            "DOC-018",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.551,
+            0.53,
+            0.525,
+            0.516,
+            0.515
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.689,
+            0.682,
+            0.574,
+            0.564,
+            0.511
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-012",
+            "DOC-017",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.532,
+            0.53,
+            0.493,
+            0.478,
+            0.422
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-034",
+            "DOC-014",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.578,
+            0.573,
+            0.531,
+            0.521,
+            0.52
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-019",
+            "DOC-019",
+            "DOC-015"
+          ],
+          "top_scores": [
+            0.519,
+            0.502,
+            0.5,
+            0.483,
+            0.481
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-009",
+            "DOC-039",
+            "DOC-039"
+          ],
+          "top_scores": [
+            0.642,
+            0.64,
+            0.633,
+            0.602,
+            0.588
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-031",
+            "DOC-030",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.618,
+            0.61,
+            0.515,
+            0.514,
+            0.505
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-015",
+            "DOC-020",
+            "DOC-020",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.701,
+            0.671,
+            0.649,
+            0.612,
+            0.579
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-015",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.684,
+            0.655,
+            0.485,
+            0.482,
+            0.475
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-016",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.638,
+            0.633,
+            0.486,
+            0.478,
+            0.47
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-024",
+            "DOC-028",
+            "DOC-022",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.684,
+            0.654,
+            0.644,
+            0.625,
+            0.625
+          ],
+          "hit@5": true,
           "expected_type": "meeting_note",
           "type_precision": 1
         },
         {
-          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
-          "gold_n": 10,
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "gold_n": 3,
           "gold": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-033",
-            "DOC-034",
-            "DOC-035",
-            "DOC-036",
-            "DOC-037",
-            "DOC-038",
-            "DOC-039",
-            "DOC-040"
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-029",
+            "DOC-021",
+            "DOC-021",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.723,
+            0.699,
+            0.698,
+            0.626,
+            0.617
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-027",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.697,
+            0.667,
+            0.638,
+            0.605,
+            0.596
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "gold_n": 1,
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-027",
+            "DOC-025",
+            "DOC-029",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.625,
+            0.618,
+            0.616,
+            0.594,
+            0.592
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-030",
+            "DOC-024",
+            "DOC-022",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.665,
+            0.657,
+            0.656,
+            0.6,
+            0.596
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-027",
+            "DOC-023",
+            "DOC-022",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.643,
+            0.6,
+            0.597,
+            0.499,
+            0.477
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-028",
+            "DOC-030",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.74,
+            0.708,
+            0.533,
+            0.532,
+            0.522
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.712,
+            0.669,
+            0.653,
+            0.6,
+            0.58
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.71,
+            0.708,
+            0.682,
+            0.606,
+            0.598
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-029",
+            "DOC-022",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.757,
+            0.617,
+            0.589,
+            0.586,
+            0.585
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-026",
+            "DOC-023",
+            "DOC-021",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.656,
+            0.64,
+            0.64,
+            0.639,
+            0.617
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-029",
+            "DOC-021",
+            "DOC-029",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.581,
+            0.579,
+            0.567,
+            0.564,
+            0.564
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-024",
+            "DOC-028",
+            "DOC-025",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.597,
+            0.581,
+            0.571,
+            0.499,
+            0.488
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-028",
+            "DOC-030",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.661,
+            0.65,
+            0.618,
+            0.548,
+            0.527
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
           ],
           "retrieved": [
             "DOC-031",
-            "DOC-032",
             "DOC-031",
-            "DOC-033",
-            "DOC-035"
+            "DOC-032",
+            "DOC-035",
+            "DOC-040"
           ],
           "top_scores": [
-            0.684,
-            0.672,
-            0.61,
-            0.606,
-            0.599
+            0.65,
+            0.582,
+            0.58,
+            0.569,
+            0.538
           ],
           "hit@5": true,
           "expected_type": "proposal",
           "type_precision": 1
         },
         {
-          "q": "SSL 인증서 관련 장애가 있었어?",
-          "gold_n": 3,
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "gold_n": 1,
           "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006"
+            "DOC-031"
           ],
           "retrieved": [
-            "DOC-006",
-            "DOC-005",
-            "DOC-002",
-            "DOC-004",
-            "DOC-010"
+            "DOC-031",
+            "DOC-037",
+            "DOC-033",
+            "DOC-035",
+            "DOC-032"
           ],
           "top_scores": [
-            0.719,
-            0.718,
-            0.668,
-            0.627,
-            0.622
+            0.714,
+            0.675,
+            0.672,
+            0.659,
+            0.658
           ],
           "hit@5": true,
-          "expected_type": "incident_report",
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-040",
+            "DOC-035",
+            "DOC-038",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.616,
+            0.521,
+            0.501,
+            0.494,
+            0.465
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-035",
+            "DOC-038",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.648,
+            0.577,
+            0.515,
+            0.509,
+            0.506
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-040",
+            "DOC-037",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.621,
+            0.568,
+            0.462,
+            0.456,
+            0.455
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-020",
+            "DOC-015",
+            "DOC-034",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.641,
+            0.542,
+            0.536,
+            0.534,
+            0.53
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-037",
+            "DOC-031",
+            "DOC-038",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.644,
+            0.639,
+            0.638,
+            0.637,
+            0.636
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-032",
+            "DOC-040"
+          ],
+          "top_scores": [
+            0.568,
+            0.537,
+            0.532,
+            0.518,
+            0.48
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-038",
+            "DOC-035",
+            "DOC-040"
+          ],
+          "top_scores": [
+            0.579,
+            0.523,
+            0.492,
+            0.49,
+            0.482
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-034",
+            "DOC-033",
+            "DOC-037",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.643,
+            0.572,
+            0.561,
+            0.56,
+            0.544
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-039",
+            "DOC-036",
+            "DOC-035",
+            "DOC-038"
+          ],
+          "top_scores": [
+            0.532,
+            0.513,
+            0.509,
+            0.503,
+            0.5
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "gold_n": 1,
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-038",
+            "DOC-037",
+            "DOC-030",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.597,
+            0.523,
+            0.518,
+            0.511,
+            0.51
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.8
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-037",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.544,
+            0.54,
+            0.483,
+            0.471,
+            0.461
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-037",
+            "DOC-040",
+            "DOC-040",
+            "DOC-039"
+          ],
+          "top_scores": [
+            0.561,
+            0.549,
+            0.546,
+            0.546,
+            0.543
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "gold_n": 2,
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-032",
+            "DOC-036",
+            "DOC-040",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.657,
+            0.656,
+            0.655,
+            0.634,
+            0.631
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-038",
+            "DOC-037"
+          ],
+          "top_scores": [
+            0.644,
+            0.627,
+            0.626,
+            0.616,
+            0.614
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
           "type_precision": 1
         }
       ]
@@ -1130,9 +3475,9 @@
       "embedder": "ollama:nomic-embed-text",
       "dim": 768,
       "chunks": 258,
-      "hit@5": 0.75,
-      "scored_questions": 8,
-      "mean_type_precision": 0.486,
+      "hit@5": 0.368,
+      "scored_questions": 68,
+      "mean_type_precision": 0.366,
       "rows": [
         {
           "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -1182,14 +3527,8 @@
         },
         {
           "q": "Kubernetes 관련 장애 대응 방법은?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-007",
-            "DOC-011",
-            "DOC-012",
-            "DOC-016",
-            "DOC-017"
-          ],
+          "gold_n": 0,
+          "gold": [],
           "retrieved": [
             "DOC-016",
             "DOC-022",
@@ -1204,179 +3543,38 @@
             0.708,
             0.707
           ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
-          "gold_n": 2,
-          "gold": [
-            "DOC-014",
-            "DOC-019"
-          ],
-          "retrieved": [
-            "DOC-030",
-            "DOC-026",
-            "DOC-019",
-            "DOC-014",
-            "DOC-028"
-          ],
-          "top_scores": [
-            0.803,
-            0.791,
-            0.782,
-            0.754,
-            0.741
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 0.4
-        },
-        {
-          "q": "보안 취약점 점검 관련 내용이 있어?",
-          "gold_n": 5,
-          "gold": [
-            "DOC-021",
-            "DOC-022",
-            "DOC-024",
-            "DOC-028",
-            "DOC-029"
-          ],
-          "retrieved": [
-            "DOC-027",
-            "DOC-026",
-            "DOC-021",
-            "DOC-030",
-            "DOC-027"
-          ],
-          "top_scores": [
-            0.734,
-            0.73,
-            0.729,
-            0.728,
-            0.728
-          ],
-          "hit@5": true,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "백업 정책은 어떻게 되어 있어?",
-          "gold_n": 2,
-          "gold": [
-            "DOC-013",
-            "DOC-018"
-          ],
-          "retrieved": [
-            "DOC-022",
-            "DOC-024",
-            "DOC-030",
-            "DOC-023",
-            "DOC-026"
-          ],
-          "top_scores": [
-            0.743,
-            0.735,
-            0.73,
-            0.729,
-            0.723
-          ],
-          "hit@5": false,
-          "expected_type": null,
-          "type_precision": null
-        },
-        {
-          "q": "API 인증 방식은 뭐야?",
-          "gold_n": 8,
-          "gold": [
-            "DOC-002",
-            "DOC-005",
-            "DOC-006",
-            "DOC-012",
-            "DOC-015",
-            "DOC-017",
-            "DOC-020",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-020",
-            "DOC-015",
-            "DOC-020",
-            "DOC-015",
-            "DOC-020"
-          ],
-          "top_scores": [
-            0.771,
-            0.765,
-            0.765,
-            0.762,
-            0.759
-          ],
-          "hit@5": true,
-          "expected_type": "technical_doc",
-          "type_precision": 1
-        },
-        {
-          "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
-          "gold_n": 0,
-          "gold": [],
-          "retrieved": [
-            "DOC-013",
-            "DOC-018",
-            "DOC-013",
-            "DOC-021",
-            "DOC-027"
-          ],
-          "top_scores": [
-            0.774,
-            0.767,
-            0.75,
-            0.748,
-            0.744
-          ],
           "hit@5": null,
-          "expected_type": "meeting_note",
-          "type_precision": 0.4
-        },
-        {
-          "q": "클라우드 마이그레이션 제안서 내용 보여줘",
-          "gold_n": 10,
-          "gold": [
-            "DOC-031",
-            "DOC-032",
-            "DOC-033",
-            "DOC-034",
-            "DOC-035",
-            "DOC-036",
-            "DOC-037",
-            "DOC-038",
-            "DOC-039",
-            "DOC-040"
-          ],
-          "retrieved": [
-            "DOC-018",
-            "DOC-023",
-            "DOC-018",
-            "DOC-028",
-            "DOC-018"
-          ],
-          "top_scores": [
-            0.757,
-            0.742,
-            0.734,
-            0.728,
-            0.723
-          ],
-          "hit@5": false,
-          "expected_type": "proposal",
+          "expected_type": "incident_report",
           "type_precision": 0
         },
         {
-          "q": "SSL 인증서 관련 장애가 있었어?",
-          "gold_n": 3,
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "gold_n": 1,
           "gold": [
-            "DOC-002",
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.888,
+            0.888,
+            0.885,
+            0.884,
+            0.884
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "gold_n": 2,
+          "gold": [
             "DOC-005",
             "DOC-006"
           ],
@@ -1384,22 +3582,3341 @@
             "DOC-005",
             "DOC-002",
             "DOC-006",
-            "DOC-027",
-            "DOC-030"
+            "DOC-030",
+            "DOC-023"
           ],
           "top_scores": [
             0.753,
-            0.731,
-            0.712,
-            0.706,
-            0.702
+            0.74,
+            0.722,
+            0.715,
+            0.715
           ],
           "hit@5": true,
           "expected_type": "incident_report",
           "type_precision": 0.6
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-034",
+            "DOC-004",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.962,
+            0.909,
+            0.854,
+            0.852,
+            0.85
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "제안서에서 언급된 ROI는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-035",
+            "DOC-034",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.711,
+            0.704,
+            0.701,
+            0.695,
+            0.692
+          ],
+          "hit@5": null,
+          "expected_type": "proposal",
+          "type_precision": 0.4
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "gold_n": 3,
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-030",
+            "DOC-019",
+            "DOC-009",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.816,
+            0.795,
+            0.762,
+            0.759,
+            0.757
+          ],
+          "hit@5": false,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-013",
+            "DOC-021",
+            "DOC-018",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.781,
+            0.773,
+            0.767,
+            0.762,
+            0.754
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.9,
+            0.894,
+            0.892,
+            0.885,
+            0.884
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-021",
+            "DOC-018",
+            "DOC-028",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.814,
+            0.785,
+            0.781,
+            0.776,
+            0.768
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-022",
+            "DOC-022",
+            "DOC-022",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.903,
+            0.896,
+            0.892,
+            0.889,
+            0.888
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "gold_n": 1,
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-023",
+            "DOC-023",
+            "DOC-023",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.874,
+            0.869,
+            0.869,
+            0.867,
+            0.867
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "gold_n": 1,
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-021",
+            "DOC-027",
+            "DOC-018",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.757,
+            0.755,
+            0.751,
+            0.751,
+            0.751
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-023",
+            "DOC-022",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.782,
+            0.772,
+            0.768,
+            0.761,
+            0.76
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "gold_n": 1,
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-025",
+            "DOC-025",
+            "DOC-025",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.892,
+            0.889,
+            0.881,
+            0.877,
+            0.875
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-026",
+            "DOC-026",
+            "DOC-026",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.886,
+            0.884,
+            0.882,
+            0.877,
+            0.873
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-028",
+            "DOC-017",
+            "DOC-028",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.793,
+            0.776,
+            0.776,
+            0.776,
+            0.775
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.908,
+            0.908,
+            0.9,
+            0.895,
+            0.885
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "gold_n": 1,
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-028",
+            "DOC-025",
+            "DOC-028",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.896,
+            0.858,
+            0.857,
+            0.855,
+            0.854
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.9,
+            0.894,
+            0.89,
+            0.889,
+            0.888
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-022",
+            "DOC-024",
+            "DOC-030",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.773,
+            0.766,
+            0.766,
+            0.763,
+            0.759
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-022",
+            "DOC-027",
+            "DOC-028",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.774,
+            0.771,
+            0.771,
+            0.77,
+            0.765
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "gold_n": 3,
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-024",
+            "DOC-024",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.754,
+            0.752,
+            0.747,
+            0.732,
+            0.731
+          ],
+          "hit@5": false,
+          "expected_type": "incident_report",
+          "type_precision": 0
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-012",
+            "DOC-011",
+            "DOC-011"
+          ],
+          "top_scores": [
+            0.904,
+            0.889,
+            0.878,
+            0.877,
+            0.872
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-026",
+            "DOC-018",
+            "DOC-026",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.716,
+            0.704,
+            0.701,
+            0.699,
+            0.699
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-016",
+            "DOC-016",
+            "DOC-016",
+            "DOC-036"
+          ],
+          "top_scores": [
+            0.916,
+            0.901,
+            0.885,
+            0.873,
+            0.866
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-012",
+            "DOC-012",
+            "DOC-011",
+            "DOC-012"
+          ],
+          "top_scores": [
+            0.891,
+            0.879,
+            0.847,
+            0.843,
+            0.834
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-028",
+            "DOC-023",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.766,
+            0.758,
+            0.754,
+            0.749,
+            0.748
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-013",
+            "DOC-022",
+            "DOC-021",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.785,
+            0.774,
+            0.768,
+            0.765,
+            0.765
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-013",
+            "DOC-013",
+            "DOC-013",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.935,
+            0.918,
+            0.914,
+            0.908,
+            0.88
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-023",
+            "DOC-027",
+            "DOC-015",
+            "DOC-020"
+          ],
+          "top_scores": [
+            0.731,
+            0.73,
+            0.72,
+            0.711,
+            0.708
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-028",
+            "DOC-021",
+            "DOC-025",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.721,
+            0.688,
+            0.686,
+            0.683,
+            0.683
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-022",
+            "DOC-021",
+            "DOC-022",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.807,
+            0.79,
+            0.783,
+            0.779,
+            0.778
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-034",
+            "DOC-004",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.944,
+            0.892,
+            0.858,
+            0.858,
+            0.85
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-028",
+            "DOC-023",
+            "DOC-023",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.742,
+            0.732,
+            0.731,
+            0.728,
+            0.725
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-019",
+            "DOC-019",
+            "DOC-039",
+            "DOC-019",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.938,
+            0.891,
+            0.855,
+            0.846,
+            0.844
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-017",
+            "DOC-012",
+            "DOC-023",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.794,
+            0.788,
+            0.776,
+            0.772,
+            0.769
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-015",
+            "DOC-015",
+            "DOC-015",
+            "DOC-015"
+          ],
+          "top_scores": [
+            0.937,
+            0.921,
+            0.912,
+            0.877,
+            0.87
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-023",
+            "DOC-024",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.744,
+            0.74,
+            0.737,
+            0.733,
+            0.732
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-028",
+            "DOC-018",
+            "DOC-022",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.778,
+            0.777,
+            0.776,
+            0.767,
+            0.764
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.909,
+            0.894,
+            0.893,
+            0.882,
+            0.882
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "gold_n": 3,
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-024",
+            "DOC-027",
+            "DOC-028",
+            "DOC-025",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.745,
+            0.732,
+            0.73,
+            0.73,
+            0.729
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-022",
+            "DOC-022",
+            "DOC-022",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.898,
+            0.892,
+            0.891,
+            0.886,
+            0.885
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "gold_n": 1,
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-003",
+            "DOC-023",
+            "DOC-037",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.853,
+            0.848,
+            0.842,
+            0.838,
+            0.837
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.4
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-022",
+            "DOC-018",
+            "DOC-023",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.773,
+            0.769,
+            0.768,
+            0.768,
+            0.767
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 0.6
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-023",
+            "DOC-030",
+            "DOC-025",
+            "DOC-012"
+          ],
+          "top_scores": [
+            0.71,
+            0.706,
+            0.699,
+            0.697,
+            0.687
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-018",
+            "DOC-021",
+            "DOC-013",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.778,
+            0.771,
+            0.767,
+            0.762,
+            0.761
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-032"
+          ],
+          "top_scores": [
+            0.908,
+            0.9,
+            0.9,
+            0.898,
+            0.897
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-033",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.892,
+            0.88,
+            0.877,
+            0.877,
+            0.876
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-022",
+            "DOC-027",
+            "DOC-028",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.786,
+            0.779,
+            0.773,
+            0.77,
+            0.77
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.91,
+            0.909,
+            0.908,
+            0.907,
+            0.897
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-030",
+            "DOC-027",
+            "DOC-027",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.752,
+            0.748,
+            0.748,
+            0.744,
+            0.743
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-023",
+            "DOC-029",
+            "DOC-022",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.744,
+            0.741,
+            0.741,
+            0.74,
+            0.738
+          ],
+          "hit@5": false,
+          "expected_type": "meeting_note",
+          "type_precision": 0.8
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-027",
+            "DOC-027",
+            "DOC-022",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.762,
+            0.745,
+            0.742,
+            0.739,
+            0.738
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-028",
+            "DOC-027",
+            "DOC-028",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.762,
+            0.757,
+            0.754,
+            0.749,
+            0.748
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-026",
+            "DOC-026",
+            "DOC-026",
+            "DOC-026"
+          ],
+          "top_scores": [
+            0.908,
+            0.902,
+            0.898,
+            0.897,
+            0.896
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-021",
+            "DOC-027",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.798,
+            0.784,
+            0.772,
+            0.76,
+            0.752
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-018",
+            "DOC-027",
+            "DOC-028",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.773,
+            0.764,
+            0.761,
+            0.761,
+            0.759
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-030",
+            "DOC-029",
+            "DOC-022",
+            "DOC-021"
+          ],
+          "top_scores": [
+            0.802,
+            0.773,
+            0.766,
+            0.765,
+            0.761
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-027",
+            "DOC-018",
+            "DOC-028",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.803,
+            0.785,
+            0.781,
+            0.78,
+            0.768
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.902,
+            0.901,
+            0.897,
+            0.894,
+            0.893
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-013",
+            "DOC-028",
+            "DOC-028",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.814,
+            0.797,
+            0.782,
+            0.779,
+            0.772
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-027",
+            "DOC-027",
+            "DOC-030",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.758,
+            0.754,
+            0.754,
+            0.751,
+            0.747
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-028",
+            "DOC-013",
+            "DOC-028",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.803,
+            0.757,
+            0.755,
+            0.755,
+            0.753
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-035",
+            "DOC-018",
+            "DOC-028",
+            "DOC-013"
+          ],
+          "top_scores": [
+            0.738,
+            0.726,
+            0.72,
+            0.719,
+            0.718
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.4
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "gold_n": 1,
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-028",
+            "DOC-027",
+            "DOC-028",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.776,
+            0.769,
+            0.764,
+            0.764,
+            0.763
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-027",
+            "DOC-022",
+            "DOC-013",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.773,
+            0.755,
+            0.751,
+            0.746,
+            0.745
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-027",
+            "DOC-022",
+            "DOC-015",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.696,
+            0.689,
+            0.686,
+            0.686,
+            0.685
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "gold_n": 2,
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-016",
+            "DOC-023",
+            "DOC-023",
+            "DOC-032"
+          ],
+          "top_scores": [
+            0.744,
+            0.716,
+            0.696,
+            0.689,
+            0.681
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0.2
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-013",
+            "DOC-029",
+            "DOC-027",
+            "DOC-027"
+          ],
+          "top_scores": [
+            0.714,
+            0.698,
+            0.698,
+            0.695,
+            0.695
+          ],
+          "hit@5": false,
+          "expected_type": "proposal",
+          "type_precision": 0
+        }
+      ]
+    },
+    "ollama:bge-m3@768": {
+      "embedder": "ollama:bge-m3@768",
+      "dim": 768,
+      "chunks": 258,
+      "hit@5": 0.985,
+      "scored_questions": 68,
+      "mean_type_precision": 0.88,
+      "rows": [
+        {
+          "q": "최근 서버 장애 사례와 원인을 알려줘",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-002",
+            "DOC-003",
+            "DOC-009",
+            "DOC-001",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.628,
+            0.619,
+            0.616,
+            0.611,
+            0.607
+          ],
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C1 설치 방법이 궁금해",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-011",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.779,
+            0.736,
+            0.669,
+            0.624,
+            0.611
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Kubernetes 관련 장애 대응 방법은?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-001",
+            "DOC-016",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.582,
+            0.571,
+            0.569,
+            0.564,
+            0.562
+          ],
+          "hit@5": null,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-A와의 회의에서 결정된 사항은?",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-021",
+            "DOC-021",
+            "DOC-030",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.706,
+            0.671,
+            0.669,
+            0.649,
+            0.641
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+          "gold_n": 2,
+          "gold": [
+            "DOC-005",
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-020",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.774,
+            0.771,
+            0.65,
+            0.6,
+            0.591
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Product-S2 성능 튜닝 방법 알려줘",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-014",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.747,
+            0.745,
+            0.691,
+            0.661,
+            0.646
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "제안서에서 언급된 ROI는?",
+          "gold_n": 0,
+          "gold": [],
+          "retrieved": [
+            "DOC-034",
+            "DOC-038",
+            "DOC-040",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.65,
+            0.646,
+            0.643,
+            0.642,
+            0.642
+          ],
+          "hit@5": null,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "DB 연결 풀 고갈 문제 해결 방법",
+          "gold_n": 3,
+          "gold": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-003",
+            "DOC-008",
+            "DOC-010",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.645,
+            0.644,
+            0.633,
+            0.617,
+            0.6
+          ],
+          "hit@5": true,
+          "expected_type": null,
+          "type_precision": null
+        },
+        {
+          "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-001",
+            "DOC-004",
+            "DOC-008",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.619,
+            0.616,
+            0.539,
+            0.536,
+            0.532
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-001"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-003",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.751,
+            0.741,
+            0.738,
+            0.73,
+            0.729
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-004",
+            "DOC-003",
+            "DOC-002",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.612,
+            0.6,
+            0.533,
+            0.53,
+            0.527
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-002"
+          ],
+          "retrieved": [
+            "DOC-002",
+            "DOC-002",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.575,
+            0.549,
+            0.53,
+            0.528,
+            0.521
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+          "gold_n": 1,
+          "gold": [
+            "DOC-003"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-003",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.686,
+            0.68,
+            0.68,
+            0.679,
+            0.669
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+          "gold_n": 1,
+          "gold": [
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-004",
+            "DOC-010",
+            "DOC-003",
+            "DOC-010",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.643,
+            0.603,
+            0.592,
+            0.589,
+            0.586
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-001",
+            "DOC-004"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-004",
+            "DOC-029",
+            "DOC-022",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.659,
+            0.642,
+            0.555,
+            0.53,
+            0.529
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.6
+        },
+        {
+          "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+          "gold_n": 1,
+          "gold": [
+            "DOC-005"
+          ],
+          "retrieved": [
+            "DOC-005",
+            "DOC-006",
+            "DOC-002",
+            "DOC-005",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.687,
+            0.642,
+            0.623,
+            0.621,
+            0.593
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-006"
+          ],
+          "retrieved": [
+            "DOC-006",
+            "DOC-005",
+            "DOC-002",
+            "DOC-004",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.713,
+            0.67,
+            0.572,
+            0.571,
+            0.562
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-001",
+            "DOC-001",
+            "DOC-003",
+            "DOC-008"
+          ],
+          "top_scores": [
+            0.608,
+            0.489,
+            0.486,
+            0.485,
+            0.481
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+          "gold_n": 1,
+          "gold": [
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-007",
+            "DOC-008",
+            "DOC-003",
+            "DOC-002",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.688,
+            0.647,
+            0.64,
+            0.639,
+            0.637
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+          "gold_n": 1,
+          "gold": [
+            "DOC-008"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-008",
+            "DOC-003",
+            "DOC-003",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.569,
+            0.569,
+            0.555,
+            0.552,
+            0.55
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+          "gold_n": 1,
+          "gold": [
+            "DOC-009"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-007",
+            "DOC-008",
+            "DOC-001",
+            "DOC-010"
+          ],
+          "top_scores": [
+            0.652,
+            0.62,
+            0.619,
+            0.606,
+            0.601
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "2026년에 접수된 장애 보고서가 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-010",
+            "DOC-008",
+            "DOC-002",
+            "DOC-007",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.634,
+            0.612,
+            0.604,
+            0.601,
+            0.594
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 0.8
+        },
+        {
+          "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+          "gold_n": 1,
+          "gold": [
+            "DOC-010"
+          ],
+          "retrieved": [
+            "DOC-008",
+            "DOC-007",
+            "DOC-010",
+            "DOC-005",
+            "DOC-006"
+          ],
+          "top_scores": [
+            0.644,
+            0.629,
+            0.626,
+            0.621,
+            0.62
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "장애 대응 담당이 조예진이었던 보고서",
+          "gold_n": 3,
+          "gold": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007"
+          ],
+          "retrieved": [
+            "DOC-001",
+            "DOC-002",
+            "DOC-007",
+            "DOC-008",
+            "DOC-005"
+          ],
+          "top_scores": [
+            0.623,
+            0.599,
+            0.594,
+            0.545,
+            0.545
+          ],
+          "hit@5": true,
+          "expected_type": "incident_report",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-031",
+            "DOC-011",
+            "DOC-019",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.667,
+            0.589,
+            0.58,
+            0.573,
+            0.566
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-011"
+          ],
+          "retrieved": [
+            "DOC-011",
+            "DOC-016",
+            "DOC-003",
+            "DOC-002",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.633,
+            0.594,
+            0.572,
+            0.569,
+            0.567
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-016"
+          ],
+          "retrieved": [
+            "DOC-016",
+            "DOC-019",
+            "DOC-014",
+            "DOC-011",
+            "DOC-016"
+          ],
+          "top_scores": [
+            0.677,
+            0.601,
+            0.587,
+            0.565,
+            0.546
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-012"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-014",
+            "DOC-017",
+            "DOC-014",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.645,
+            0.613,
+            0.611,
+            0.587,
+            0.567
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-020",
+            "DOC-015",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.462,
+            0.458,
+            0.436,
+            0.431,
+            0.426
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+          "gold_n": 2,
+          "gold": [
+            "DOC-012",
+            "DOC-017"
+          ],
+          "retrieved": [
+            "DOC-012",
+            "DOC-017",
+            "DOC-034",
+            "DOC-040",
+            "DOC-012"
+          ],
+          "top_scores": [
+            0.618,
+            0.604,
+            0.601,
+            0.569,
+            0.558
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Product-S1의 백업은 며칠 동안 보관되나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-033",
+            "DOC-003"
+          ],
+          "top_scores": [
+            0.716,
+            0.698,
+            0.602,
+            0.598,
+            0.589
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.6
+        },
+        {
+          "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-013"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-019",
+            "DOC-009",
+            "DOC-007",
+            "DOC-002"
+          ],
+          "top_scores": [
+            0.537,
+            0.524,
+            0.518,
+            0.516,
+            0.515
+          ],
+          "hit@5": false,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "로그를 121일간 보관한다고 명시한 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-018",
+            "DOC-013",
+            "DOC-018",
+            "DOC-013",
+            "DOC-001"
+          ],
+          "top_scores": [
+            0.697,
+            0.688,
+            0.57,
+            0.562,
+            0.527
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+          "gold_n": 2,
+          "gold": [
+            "DOC-013",
+            "DOC-018"
+          ],
+          "retrieved": [
+            "DOC-013",
+            "DOC-018",
+            "DOC-012",
+            "DOC-017",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.545,
+            0.543,
+            0.494,
+            0.48,
+            0.439
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 1
+        },
+        {
+          "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-034",
+            "DOC-019",
+            "DOC-014"
+          ],
+          "top_scores": [
+            0.59,
+            0.575,
+            0.551,
+            0.529,
+            0.522
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+          "gold_n": 1,
+          "gold": [
+            "DOC-014"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-014",
+            "DOC-019",
+            "DOC-013",
+            "DOC-002"
+          ],
+          "top_scores": [
+            0.528,
+            0.511,
+            0.505,
+            0.491,
+            0.49
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Product-D3의 쿼리 캐시 만료 시간은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-009",
+            "DOC-009",
+            "DOC-009",
+            "DOC-039",
+            "DOC-019"
+          ],
+          "top_scores": [
+            0.651,
+            0.65,
+            0.644,
+            0.608,
+            0.591
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.2
+        },
+        {
+          "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-019"
+          ],
+          "retrieved": [
+            "DOC-014",
+            "DOC-019",
+            "DOC-026",
+            "DOC-031",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.621,
+            0.605,
+            0.525,
+            0.524,
+            0.509
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.4
+        },
+        {
+          "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-015"
+          ],
+          "retrieved": [
+            "DOC-015",
+            "DOC-015",
+            "DOC-020",
+            "DOC-020",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.716,
+            0.674,
+            0.666,
+            0.617,
+            0.58
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+          "gold_n": 1,
+          "gold": [
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-019",
+            "DOC-020",
+            "DOC-009"
+          ],
+          "top_scores": [
+            0.695,
+            0.667,
+            0.487,
+            0.485,
+            0.482
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+          "gold_n": 2,
+          "gold": [
+            "DOC-015",
+            "DOC-020"
+          ],
+          "retrieved": [
+            "DOC-020",
+            "DOC-015",
+            "DOC-020",
+            "DOC-034",
+            "DOC-015"
+          ],
+          "top_scores": [
+            0.646,
+            0.637,
+            0.506,
+            0.486,
+            0.485
+          ],
+          "hit@5": true,
+          "expected_type": "technical_doc",
+          "type_precision": 0.8
+        },
+        {
+          "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-021"
+          ],
+          "retrieved": [
+            "DOC-021",
+            "DOC-024",
+            "DOC-028",
+            "DOC-022",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.696,
+            0.664,
+            0.654,
+            0.649,
+            0.647
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "일정이 2주 늘어나기로 합의된 회의",
+          "gold_n": 3,
+          "gold": [
+            "DOC-021",
+            "DOC-029",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-021",
+            "DOC-029",
+            "DOC-022",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.741,
+            0.719,
+            0.712,
+            0.642,
+            0.632
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-022"
+          ],
+          "retrieved": [
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-027",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.703,
+            0.665,
+            0.646,
+            0.607,
+            0.602
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+          "gold_n": 1,
+          "gold": [
+            "DOC-023"
+          ],
+          "retrieved": [
+            "DOC-023",
+            "DOC-027",
+            "DOC-025",
+            "DOC-023",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.643,
+            0.632,
+            0.63,
+            0.608,
+            0.6
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-024"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-030",
+            "DOC-022",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.673,
+            0.671,
+            0.67,
+            0.621,
+            0.619
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "진행률이 80퍼센트라고 공유된 화상회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-025"
+          ],
+          "retrieved": [
+            "DOC-025",
+            "DOC-027",
+            "DOC-023",
+            "DOC-022",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.65,
+            0.619,
+            0.608,
+            0.522,
+            0.5
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-026",
+            "DOC-030",
+            "DOC-028",
+            "DOC-023"
+          ],
+          "top_scores": [
+            0.747,
+            0.716,
+            0.554,
+            0.538,
+            0.538
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-027",
+            "DOC-022",
+            "DOC-027",
+            "DOC-024",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.715,
+            0.681,
+            0.667,
+            0.621,
+            0.598
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.723,
+            0.722,
+            0.693,
+            0.623,
+            0.622
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-028"
+          ],
+          "retrieved": [
+            "DOC-028",
+            "DOC-024",
+            "DOC-026",
+            "DOC-027",
+            "DOC-029"
+          ],
+          "top_scores": [
+            0.763,
+            0.636,
+            0.604,
+            0.603,
+            0.601
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+          "gold_n": 1,
+          "gold": [
+            "DOC-029"
+          ],
+          "retrieved": [
+            "DOC-029",
+            "DOC-023",
+            "DOC-026",
+            "DOC-021",
+            "DOC-025"
+          ],
+          "top_scores": [
+            0.675,
+            0.662,
+            0.662,
+            0.654,
+            0.63
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-029",
+            "DOC-024",
+            "DOC-029",
+            "DOC-022"
+          ],
+          "top_scores": [
+            0.606,
+            0.587,
+            0.583,
+            0.583,
+            0.582
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "투입 인력이 여덟 명이라고 보고된 회의",
+          "gold_n": 1,
+          "gold": [
+            "DOC-030"
+          ],
+          "retrieved": [
+            "DOC-030",
+            "DOC-024",
+            "DOC-028",
+            "DOC-025",
+            "DOC-024"
+          ],
+          "top_scores": [
+            0.601,
+            0.589,
+            0.578,
+            0.502,
+            0.485
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+          "gold_n": 2,
+          "gold": [
+            "DOC-026",
+            "DOC-027"
+          ],
+          "retrieved": [
+            "DOC-026",
+            "DOC-027",
+            "DOC-028",
+            "DOC-030",
+            "DOC-028"
+          ],
+          "top_scores": [
+            0.672,
+            0.658,
+            0.637,
+            0.586,
+            0.54
+          ],
+          "hit@5": true,
+          "expected_type": "meeting_note",
+          "type_precision": 1
+        },
+        {
+          "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-031",
+            "DOC-032",
+            "DOC-035",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.652,
+            0.595,
+            0.589,
+            0.574,
+            0.542
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+          "gold_n": 1,
+          "gold": [
+            "DOC-031"
+          ],
+          "retrieved": [
+            "DOC-031",
+            "DOC-037",
+            "DOC-033",
+            "DOC-035",
+            "DOC-032"
+          ],
+          "top_scores": [
+            0.722,
+            0.686,
+            0.677,
+            0.673,
+            0.668
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-040",
+            "DOC-035",
+            "DOC-038",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.621,
+            0.536,
+            0.524,
+            0.505,
+            0.491
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-032"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-031",
+            "DOC-038",
+            "DOC-035",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.655,
+            0.591,
+            0.52,
+            0.513,
+            0.511
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-033"
+          ],
+          "retrieved": [
+            "DOC-033",
+            "DOC-033",
+            "DOC-034",
+            "DOC-040",
+            "DOC-037"
+          ],
+          "top_scores": [
+            0.62,
+            0.572,
+            0.465,
+            0.464,
+            0.449
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-020",
+            "DOC-015",
+            "DOC-033",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.664,
+            0.571,
+            0.569,
+            0.544,
+            0.54
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "Client-I 제안의 총소유비용 절감률은",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-033",
+            "DOC-037",
+            "DOC-031",
+            "DOC-038"
+          ],
+          "top_scores": [
+            0.659,
+            0.649,
+            0.649,
+            0.646,
+            0.645
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-035"
+          ],
+          "retrieved": [
+            "DOC-035",
+            "DOC-035",
+            "DOC-038",
+            "DOC-032",
+            "DOC-034"
+          ],
+          "top_scores": [
+            0.58,
+            0.545,
+            0.537,
+            0.525,
+            0.494
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-036"
+          ],
+          "retrieved": [
+            "DOC-036",
+            "DOC-036",
+            "DOC-013",
+            "DOC-040",
+            "DOC-018"
+          ],
+          "top_scores": [
+            0.584,
+            0.537,
+            0.496,
+            0.492,
+            0.491
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.6
+        },
+        {
+          "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-037"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-034",
+            "DOC-037",
+            "DOC-033",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.641,
+            0.582,
+            0.577,
+            0.576,
+            0.562
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-038"
+          ],
+          "retrieved": [
+            "DOC-038",
+            "DOC-036",
+            "DOC-038",
+            "DOC-039",
+            "DOC-035"
+          ],
+          "top_scores": [
+            0.536,
+            0.512,
+            0.51,
+            0.506,
+            0.502
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+          "gold_n": 1,
+          "gold": [
+            "DOC-039"
+          ],
+          "retrieved": [
+            "DOC-039",
+            "DOC-030",
+            "DOC-026",
+            "DOC-037",
+            "DOC-030"
+          ],
+          "top_scores": [
+            0.598,
+            0.526,
+            0.523,
+            0.523,
+            0.519
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 0.4
+        },
+        {
+          "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-040",
+            "DOC-040",
+            "DOC-037",
+            "DOC-031",
+            "DOC-033"
+          ],
+          "top_scores": [
+            0.548,
+            0.547,
+            0.498,
+            0.479,
+            0.474
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+          "gold_n": 1,
+          "gold": [
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-037",
+            "DOC-031",
+            "DOC-037",
+            "DOC-036",
+            "DOC-040"
+          ],
+          "top_scores": [
+            0.569,
+            0.568,
+            0.567,
+            0.564,
+            0.562
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+          "gold_n": 2,
+          "gold": [
+            "DOC-036",
+            "DOC-040"
+          ],
+          "retrieved": [
+            "DOC-032",
+            "DOC-034",
+            "DOC-036",
+            "DOC-040",
+            "DOC-031"
+          ],
+          "top_scores": [
+            0.672,
+            0.669,
+            0.666,
+            0.647,
+            0.642
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
+        },
+        {
+          "q": "투자 회수 기간을 18개월로 본 제안",
+          "gold_n": 1,
+          "gold": [
+            "DOC-034"
+          ],
+          "retrieved": [
+            "DOC-034",
+            "DOC-031",
+            "DOC-033",
+            "DOC-038",
+            "DOC-037"
+          ],
+          "top_scores": [
+            0.65,
+            0.641,
+            0.633,
+            0.626,
+            0.625
+          ],
+          "hit@5": true,
+          "expected_type": "proposal",
+          "type_precision": 1
         }
       ]
     }
   },
-  "generated_at": "2026-07-27T15:41:43.257Z"
+  "generated_at": "2026-07-29T09:54:28.542Z"
 }

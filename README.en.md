@@ -44,7 +44,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | NL2SQL execution match | 6/10 (2/10 without the schema card) | no retry, qwen2.5:7b Q4_K_M, Korean queries |
 | NL2SQL with one repair pass | 7/10 (also 7/10 without the schema card) | failed SQL fed back with the database catalogue |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
-| Vector hit@5 | 1.00 (hash fallback 0.75) | **only 8 questions, wide confidence interval** |
+| Vector hit@5 | **0.985 (67/68)**, 95% CI [0.921, 0.997] | expanded from 8 to 68 questions; hash fallback 0.779, English-only 768 model 0.368 |
 | End-to-end evidence in context | 91.3% (95.7% under a looser gold definition) | 23 scorable of 30 |
 | Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
 | Median latency | 910 ms | local CPU, end to end |
@@ -55,12 +55,12 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 ## What we disproved about our own work
 
 - **The schema card buys cost, not accuracy, once a repair pass exists.** With one execution-feedback retry both arms reach 7/10; the remaining difference is 12 versus 16 LLM calls and 8.7 versus 11.6 seconds.
-- **Truncating the embedding was not an officially supported mode.** The sponsor schema fixes `vector(768)`, so we stored the first 768 of bge-m3's 1024 dimensions. The bge-m3 model card only documents 1024 dense dimensions and does not claim Matryoshka training, so this truncation is not a guaranteed output mode. The loss has not been measured yet and a controlled comparison against models whose official output is 768 is designed but not run.
+- **Truncating the embedding was not an officially supported mode, but we measured the cost.** The sponsor schema fixes `vector(768)`, so we stored the first 768 of bge-m3's 1024 dimensions, and the model card only documents 1024 dense dimensions without claiming Matryoshka training. We expanded the evaluation from 8 to 68 questions and compared head to head: **native 1024 and truncated 768 both score 67/68 and miss one different question each (McNemar p = 1.0)**. On this corpus the truncation costs nothing measurable, yet it is still not a guaranteed output mode, so we do not present it as a feature. An English-only 768 model scored 25/68 on the same Korean questions.
 - **30/30 routing is in-sample.** The router vocabulary was written while reading those published questions. Generalisation is unverified.
 
 ## Limits
 
-Vector evaluation has only 8 questions. The 7B model still makes real interpretation errors, listed openly in the engineering report. Automatic failover is out of scope; replica read fallback with a kill drill is what is verified. CI runs offline unit tests and an SBOM drift check only, because database and model suites cannot be honestly reproduced in CI.
+Vector evaluation now uses 68 questions covering all 40 documents, 30 of which never repeat the gold keywords. The 7B model still makes real interpretation errors, listed openly in the engineering report. Automatic failover is out of scope; replica read fallback with a kill drill is what is verified. CI runs offline unit tests and an SBOM drift check only, because database and model suites cannot be honestly reproduced in CI.
 
 ## Docs
 
