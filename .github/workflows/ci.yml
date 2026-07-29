@@ -33,8 +33,9 @@ jobs:
       - run: npm ci
       - name: typecheck + build
         run: npx tsc
-      - name: offline unit tests (router, curator, RRF, execution-match)
+      - name: offline unit tests (표준 표면, router, curator, RRF, execution-match)
         run: |
+          node dist/surfaces.test.js
           node dist/router.test.js
           node dist/curator.test.js
           node dist/rrf.test.js
