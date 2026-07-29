@@ -1,0 +1,68 @@
+{
+  "dataset": "companyx-dataset-v1.0",
+  "tasks": 6,
+  "summary": {
+    "task_complete_rate": 0.833,
+    "completed": 5,
+    "steps_total": 15,
+    "steps_passed": 14
+  },
+  "rows": [
+    {
+      "id": "MS-01",
+      "q": "Client-A가 사용 중인 제품 목록은?",
+      "steps_passed": 2,
+      "steps_total": 2,
+      "task_complete": true,
+      "completeness_rate": 1,
+      "failed_step": null
+    },
+    {
+      "id": "MS-02",
+      "q": "Client-A가 사용 중인 제품들의 총 매출은?",
+      "steps_passed": 3,
+      "steps_total": 3,
+      "task_complete": true,
+      "completeness_rate": null,
+      "failed_step": null
+    },
+    {
+      "id": "MS-03",
+      "q": "Product-C1을 사용하는 고객사들의 평균 계약 금액은?",
+      "steps_passed": 3,
+      "steps_total": 3,
+      "task_complete": true,
+      "completeness_rate": null,
+      "failed_step": null
+    },
+    {
+      "id": "MS-04",
+      "q": "Client-A가 사용하는 제품의 월 매출 평균은?",
+      "steps_passed": 3,
+      "steps_total": 3,
+      "task_complete": true,
+      "completeness_rate": null,
+      "failed_step": null
+    },
+    {
+      "id": "MS-06",
+      "q": "Client-A가 사용하는 제품의 카테고리 매출은?",
+      "steps_passed": 3,
+      "steps_total": 3,
+      "task_complete": true,
+      "completeness_rate": null,
+      "failed_step": null
+    },
+    {
+      "id": "MS-05",
+      "q": "서울물산 담당 엔지니어의 소속 부서는?",
+      "steps_passed": 0,
+      "steps_total": 1,
+      "task_complete": false,
+      "completeness_rate": null,
+      "failed_step": "개체 해소"
+    }
+  ],
+  "note": "v1은 단일 ask 호출의 감사 레코드로 단계를 '정의'했는데 그건 다단계가 아니라 한 호출에 이름표를 붙인 것이라 전부 실패했다. v2는 runMultiStep으로 개체 해소 -> 관계 탐색 -> 집계를 실제로 엮고, placeholder SQL을 이전 단계 출력으로 조립한다. MS-05는 존재하지 않는 개처이므로 개체 해소가 실패하는 것이 정답이다(환각 차단).",
+  "generated_at": "2026-07-29T15:13:52.330Z"
+}
