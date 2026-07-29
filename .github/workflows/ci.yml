@@ -36,6 +36,7 @@ jobs:
       - name: offline unit tests (표준 표면, router, curator, RRF, execution-match)
         run: |
           node dist/normalize.test.js
+          node dist/auditrecord.test.js
           node dist/surfaces.test.js
           node dist/router.test.js
           node dist/curator.test.js

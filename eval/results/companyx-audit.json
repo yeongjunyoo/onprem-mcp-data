@@ -1,0 +1,3382 @@
+{
+  "dataset": "companyx-dataset-v1.0 / questions.json",
+  "questions": 30,
+  "summary": {
+    "policies": {
+      "context-budget:degrade": 17,
+      "graph-unresolved-gate:deny": 1,
+      "sql-read-only:allow": 10,
+      "sql-repair:repair": 2
+    },
+    "grounding_violations": 0,
+    "broken_rows_violations": 0,
+    "determinism_checked": 5,
+    "routing_stable": 5,
+    "pipeline_stable": 4
+  },
+  "determinism": [
+    {
+      "q": "서울 지역 매출 상위 5개 고객사를 알려줘",
+      "routing": [
+        "e80c61a2",
+        "e80c61a2"
+      ],
+      "pipeline": [
+        "b4e9d905",
+        "b4e9d905"
+      ],
+      "routing_same": true,
+      "pipeline_same": true
+    },
+    {
+      "q": "2025년 3분기 총 매출액은 얼마야?",
+      "routing": [
+        "6ac0ba07",
+        "6ac0ba07"
+      ],
+      "pipeline": [
+        "f0461d13",
+        "f0461d13"
+      ],
+      "routing_same": true,
+      "pipeline_same": true
+    },
+    {
+      "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
+      "routing": [
+        "5611f64b",
+        "5611f64b"
+      ],
+      "pipeline": [
+        "8a82fc86",
+        "1436eb52"
+      ],
+      "routing_same": true,
+      "pipeline_same": false
+    },
+    {
+      "q": "현재 활성 상태인 계약 수는 몇 개야?",
+      "routing": [
+        "a86d4747",
+        "a86d4747"
+      ],
+      "pipeline": [
+        "3291d62f",
+        "3291d62f"
+      ],
+      "routing_same": true,
+      "pipeline_same": true
+    },
+    {
+      "q": "기술지원팀 직원 목록과 연봉을 알려줘",
+      "routing": [
+        "f8fdc77b",
+        "f8fdc77b"
+      ],
+      "pipeline": [
+        "5151f66a",
+        "5151f66a"
+      ],
+      "routing_same": true,
+      "pipeline_same": true
+    }
+  ],
+  "records": [
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "서울 지역 매출 상위 5개 고객사를 알려줘",
+      "routing_fingerprint": "e80c61a2",
+      "pipeline_fingerprint": "b4e9d905",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "sort",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
+          "ok": true,
+          "rows": 4,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 4,
+          "vector": 0,
+          "graph": 0,
+          "fused": 4
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+        },
+        {
+          "key": "sql#1",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+        },
+        {
+          "key": "sql#2",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+        },
+        {
+          "key": "sql#3",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+        }
+      ],
+      "context": {
+        "items": 4,
+        "chars": 723,
+        "budget_tokens": 256,
+        "tokens_used": 236,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 4행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:38:50.290Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 38,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "2025년 3분기 총 매출액은 얼마야?",
+      "routing_fingerprint": "6ac0ba07",
+      "pipeline_fingerprint": "f0461d13",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "time_filter",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2025-07-01' AND '2025-09-30'",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2025-07-01' AND '2025-09-30' →"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 140,
+        "budget_tokens": 256,
+        "tokens_used": 41,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:38:52.337Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 7,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
+      "routing_fingerprint": "5611f64b",
+      "pipeline_fingerprint": "8a82fc86",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "aggregate",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = 'security'",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = '"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 156,
+        "budget_tokens": 256,
+        "tokens_used": 45,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:38:54.130Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 6,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "현재 활성 상태인 계약 수는 몇 개야?",
+      "routing_fingerprint": "a86d4747",
+      "pipeline_fingerprint": "3291d62f",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "count",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": true
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active' → count=46"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 83,
+        "budget_tokens": 256,
+        "tokens_used": 24,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        },
+        {
+          "policy": "sql-repair",
+          "verdict": "repair",
+          "detail": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정했다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:38:56.776Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 3,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "기술지원팀 직원 목록과 연봉을 알려줘",
+      "routing_fingerprint": "f8fdc77b",
+      "pipeline_fingerprint": "5151f66a",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '기술지원팀'",
+          "ok": true,
+          "rows": 4,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 4,
+          "vector": 0,
+          "graph": 0,
+          "fused": 4
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+        },
+        {
+          "key": "sql#1",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+        },
+        {
+          "key": "sql#2",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+        },
+        {
+          "key": "sql#3",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+        }
+      ],
+      "context": {
+        "items": 4,
+        "chars": 619,
+        "budget_tokens": 256,
+        "tokens_used": 216,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 4행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:38:59.049Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 41,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "가장 많은 프로젝트를 진행 중인 고객사는?",
+      "routing_fingerprint": "e0106900",
+      "pipeline_fingerprint": "497bad24",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "superlative"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progress' GROUP BY c.name ORDER BY COUNT(p.id) DESC LIMIT 1",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progr"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 191,
+        "budget_tokens": 256,
+        "tokens_used": 59,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:01.199Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 9,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
+      "routing_fingerprint": "428606ca",
+      "pipeline_fingerprint": "1146f5ab",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "sort",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status != 'resolved'",
+          "ok": true,
+          "rows": 13,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 13,
+          "vector": 0,
+          "graph": 0,
+          "fused": 13
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#1",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#2",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#3",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#4",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#5",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#6",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#7",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#8",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        },
+        {
+          "key": "sql#9",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 487,
+        "budget_tokens": 256,
+        "tokens_used": 159,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 13행 반환"
+        },
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 12건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:02.716Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 8,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "제품별 총 계약 금액을 큰 순서로 보여줘",
+      "routing_fingerprint": "604d92c0",
+      "pipeline_fingerprint": "df44d394",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "sort",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.products p ON c.product_id = p.id GROUP BY p.name ORDER BY total_contract_amount DESC",
+          "ok": true,
+          "rows": 12,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 12,
+          "vector": 0,
+          "graph": 0,
+          "fused": 12
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#1",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#2",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#3",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#4",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#5",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#6",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#7",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#8",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        },
+        {
+          "key": "sql#9",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 782,
+        "budget_tokens": 256,
+        "tokens_used": 198,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 12행 반환"
+        },
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 9건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:03.834Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 36,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "2024년에 등록된 고객사는 몇 개야?",
+      "routing_fingerprint": "3c55cd4f",
+      "pipeline_fingerprint": "11688cef",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "count",
+            "time_filter",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at::timestamp) = 2024",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": true
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at::timestamp) = 2024 → count=8"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 113,
+        "budget_tokens": 256,
+        "tokens_used": 31,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        },
+        {
+          "policy": "sql-repair",
+          "verdict": "repair",
+          "detail": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정했다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:05.096Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 2,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "평균 연봉이 가장 높은 부서는 어디야?",
+      "routing_fingerprint": "a1e2a017",
+      "pipeline_fingerprint": "34b16e26",
+      "routing": {
+        "lane": "nl2sql",
+        "tools": [
+          "sql.query"
+        ],
+        "signals": {
+          "structured": [
+            "aggregate",
+            "superlative",
+            "schema_column"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "only structured signals",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1",
+          "ok": true,
+          "rows": 1,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 1,
+          "vector": 0,
+          "graph": 0,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "sql#0",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[SQL 결과] SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER B"
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 161,
+        "budget_tokens": 256,
+        "tokens_used": 52,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "sql-read-only",
+          "verdict": "allow",
+          "detail": "읽기 전용 트랜잭션에서 실행, 1행 반환"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:06.082Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 5,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "최근 서버 장애 사례와 원인을 알려줘",
+      "routing_fingerprint": "31f414c3",
+      "pipeline_fingerprint": "20fd9505",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [
+            "time_filter"
+          ],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#11",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-B Product-C2 서비스 장애 (2025-04-22) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+        },
+        {
+          "key": "documents#18",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-C Product-S1 서비스 장애 (2025-11-08) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+        },
+        {
+          "key": "documents#60",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-I Product-D3 서비스 장애 (2025-03-17) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+        },
+        {
+          "key": "documents#3",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27) — 장애 내용: ## 장애 내용\nClient-A에서 운영 중인 Product-C1 서비스에서 디스크 IOPS 한계 초과로 인한 DB"
+        },
+        {
+          "key": "documents#66",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-J Product-S3 서비스 장애 (2026-02-16) — 장애 내용: ## 장애 내용\nClient-J에서 운영 중인 Product-S3 서비스에서 DB 연결 풀 고갈로 인한 서비스 응답"
+        }
+      ],
+      "context": {
+        "items": 2,
+        "chars": 285,
+        "budget_tokens": 256,
+        "tokens_used": 192,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 3건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:10.041Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 187,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Product-C1 설치 방법이 궁금해",
+      "routing_fingerprint": "8cd9fc86",
+      "pipeline_fingerprint": "36723117",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#73",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C1 설치 가이드 — 설치 절차: ## 설치 절차"
+        },
+        {
+          "key": "documents#71",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C1 설치 가이드 — Product-C1 설치 가이드: # Product-C1 설치 가이드"
+        },
+        {
+          "key": "documents#74",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C1 설치 가이드 — 1단계: 의존성 설치: ### 1단계: 의존성 설치\nDocker와 Docker Compose가 필요합니다. Kubernetes 환경에서는 Helm 차트를 통해 배포할 "
+        },
+        {
+          "key": "documents#72",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C1 설치 가이드 — 시스템 요구사항: ## 시스템 요구사항\n- OS: Ubuntu 22.04+ / RHEL 8+\n- RAM: 최소 5GB\n- CPU: 2코어 이상\n- 디스크: 146GB "
+        },
+        {
+          "key": "documents#201",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-F Product-C1 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C1을 통해 다음을 달성할 수 있습니다:\n- 대규모 클라우드 마이그레이션 플랫폼. 멀티클라우드 지"
+        }
+      ],
+      "context": {
+        "items": 4,
+        "chars": 360,
+        "budget_tokens": 256,
+        "tokens_used": 193,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 1건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:11.331Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 154,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Kubernetes 관련 장애 대응 방법은?",
+      "routing_fingerprint": "70e481e4",
+      "pipeline_fingerprint": "fd5ef417",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "similarity"
+          ],
+          "graph": []
+        },
+        "rationale": "document signals doc_artifact,ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#54",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-H Product-C4 서비스 장애 (2025-04-26) — 조치 사항: ## 조치 사항\n1. 로드밸런서 설정 복구\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+        },
+        {
+          "key": "documents#19",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-C Product-S1 서비스 장애 (2025-11-08) — 조치 사항: ## 조치 사항\n1. 로드밸런서 설정 복구\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+        },
+        {
+          "key": "documents#5",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27) — 조치 사항: ## 조치 사항\n1. 디스크 확장 및 쿼리 최적화\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 "
+        },
+        {
+          "key": "documents#103",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D2 설치 가이드 — 1단계: 의존성 설치: ### 1단계: 의존성 설치\nDocker와 Docker Compose가 필요합니다. Kubernetes 환경에서는 Helm 차트를 통해 배포할 "
+        },
+        {
+          "key": "documents#40",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-F Product-D2 서비스 장애 (2025-10-19) — 조치 사항: ## 조치 사항\n1. 긴급 스케일아웃 수행\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 375,
+        "budget_tokens": 256,
+        "tokens_used": 239,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:11.890Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 18,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+      "routing_fingerprint": "ec63ea04",
+      "pipeline_fingerprint": "da0ed8db",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "document signals doc_artifact,ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#91",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S2 성능 튜닝 가이드 — DB 최적화: ### DB 최적화\n- Connection Pool: 최소 12, 최대 90\n- 인덱스 점검: 슬로우 쿼리 로그 기반으로 월 1회 점검\n- 쿼리 캐"
+        },
+        {
+          "key": "documents#120",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — DB 최적화: ### DB 최적화\n- Connection Pool: 최소 14, 최대 52\n- 인덱스 점검: 슬로우 쿼리 로그 기반으로 월 1회 점검\n- 쿼리 캐"
+        },
+        {
+          "key": "documents#121",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — 애플리케이션 최적화: ### 애플리케이션 최적화\n- JVM 힙: 2GB 설정 권장\n- GC: G1GC 사용, MaxGCPauseMillis=157\n- 스레드풀: "
+        },
+        {
+          "key": "documents#92",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S2 성능 튜닝 가이드 — 애플리케이션 최적화: ### 애플리케이션 최적화\n- JVM 힙: 2GB 설정 권장\n- GC: G1GC 사용, MaxGCPauseMillis=102\n- 스레드풀: "
+        },
+        {
+          "key": "documents#122",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — 네트워크 최적화: ### 네트워크 최적화\n- Keep-Alive 활성화\n- gzip 압축 적용 (1KB 이상)\n- CDN 적용 시 캐시 적중률 91% 달성 가능"
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 415,
+        "budget_tokens": 256,
+        "tokens_used": 223,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:13.279Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 116,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "보안 취약점 점검 관련 내용이 있어?",
+      "routing_fingerprint": "c47dd5c8",
+      "pipeline_fingerprint": "fa87ebd9",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "similarity",
+            "aboutness"
+          ],
+          "graph": []
+        },
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#132",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-A 정기 미팅 (2025-04-21) — 1. 성능 개선 방안: ### 1. 성능 개선 방안\n보안 취약점 점검 결과 7건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영할"
+        },
+        {
+          "key": "documents#188",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-I 정기 미팅 (2025-07-03) — 1. 프로젝트 진행 상황 공유: ### 1. 프로젝트 진행 상황 공유\n보안 취약점 점검 결과 2건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음"
+        },
+        {
+          "key": "documents#153",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-D 중간 점검 (2026-06-26) — 1. 다음 단계 계획: ### 1. 다음 단계 계획\n보안 취약점 점검 결과 4건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영할"
+        },
+        {
+          "key": "documents#181",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-H 킥오프 미팅 (2025-03-20) — 1. 성능 개선 방안: ### 1. 성능 개선 방안\n보안 취약점 점검 결과 6건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영"
+        },
+        {
+          "key": "documents#139",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-B 정기 미팅 (2026-02-20) — 1. 프로젝트 진행 상황 공유: ### 1. 프로젝트 진행 상황 공유\n보안 취약점 점검 결과 2건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음"
+        }
+      ],
+      "context": {
+        "items": 2,
+        "chars": 265,
+        "budget_tokens": 256,
+        "tokens_used": 186,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 3건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:14.046Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 57,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "백업 정책은 어떻게 되어 있어?",
+      "routing_fingerprint": "4e9f386f",
+      "pipeline_fingerprint": "0a9de92b",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "explain"
+          ],
+          "graph": []
+        },
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#115",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 백업: ### 백업\n매일 1:00 AM에 자동 백업이 실행됩니다. 보관 기간은 90일이며, S3 호환 스토리지에 저장됩니다."
+        },
+        {
+          "key": "documents#86",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S1 운영 매뉴얼 — 백업: ### 백업\n매일 2:00 AM에 자동 백업이 실행됩니다. 보관 기간은 26일이며, S3 호환 스토리지에 저장됩니다."
+        },
+        {
+          "key": "documents#88",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S1 운영 매뉴얼 — 업데이트: ### 업데이트\n블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다."
+        },
+        {
+          "key": "documents#117",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 업데이트: ### 업데이트\n블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다."
+        },
+        {
+          "key": "documents#116",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 로그 관리: ### 로그 관리\nELK 스택을 통해 로그를 수집·분석합니다. 보관 기간은 121일이며, 용량 기반 로테이션이 적용됩니다."
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 286,
+        "budget_tokens": 256,
+        "tokens_used": 197,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:15.190Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 82,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "API 인증 방식은 뭐야?",
+      "routing_fingerprint": "87b56520",
+      "pipeline_fingerprint": "98f64392",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": []
+        },
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#96",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D1 API 레퍼런스 — 인증: ### 인증\nBearer 토큰 방식을 사용합니다. /auth/token 엔드포인트에서 발급받습니다."
+        },
+        {
+          "key": "documents#125",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S3 API 레퍼런스 — 인증: ### 인증\nBearer 토큰 방식을 사용합니다. /auth/token 엔드포인트에서 발급받습니다."
+        },
+        {
+          "key": "documents#126",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S3 API 레퍼런스 — 주요 API: ### 주요 API\n- GET /api/v1/status: 서비스 상태 조회\n- POST /api/v1/data/query: 데이터 질의\n- GET "
+        },
+        {
+          "key": "documents#97",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-D1 API 레퍼런스 — 주요 API: ### 주요 API\n- GET /api/v1/status: 서비스 상태 조회\n- POST /api/v1/data/query: 데이터 질의\n- GET "
+        },
+        {
+          "key": "documents#80",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-C2 아키텍처 설계서 — 핵심 컴포넌트: ### 핵심 컴포넌트\n- API Gateway: 인증, 라우팅, 레이트리밋 담당\n- Core Service: 비즈니스 로직 처리\n- Data Ser"
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 389,
+        "budget_tokens": 256,
+        "tokens_used": 204,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:15.754Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 20,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+      "routing_fingerprint": "915e8097",
+      "pipeline_fingerprint": "6faa0ef4",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "REPORTED_ISSUE"
+          ]
+        },
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#146",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-C 정기 미팅 (2025-08-28) — 1. 이슈 사항 논의: ### 1. 이슈 사항 논의\n현재 진행률 40%로 예정대로 진행 중입니다. 일부 기능의 테스트가 지연되고 있으나 전체 일정에는 "
+        },
+        {
+          "key": "documents#133",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-A 정기 미팅 (2025-04-21) — 2. 일정 조정: ### 2. 일정 조정\n마일스톤 2가 14일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+        },
+        {
+          "key": "documents#168",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-F 중간 점검 (2026-01-27) — 2. 일정 조정: ### 2. 일정 조정\n마일스톤 2가 14일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+        },
+        {
+          "key": "documents#189",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-I 정기 미팅 (2025-07-03) — 2. 기술 검토: ### 2. 기술 검토\n마일스톤 2가 13일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+        },
+        {
+          "key": "documents#147",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[회의록] Client-C 정기 미팅 (2025-08-28) — 2. 기술 검토: ### 2. 기술 검토\n마일스톤 2가 10일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 367,
+        "budget_tokens": 256,
+        "tokens_used": 253,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:16.538Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 53,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "클라우드 마이그레이션 제안서 내용 보여줘",
+      "routing_fingerprint": "ae7ad83b",
+      "pipeline_fingerprint": "8c4e0de2",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "aboutness"
+          ],
+          "graph": []
+        },
+        "rationale": "document signals doc_artifact",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#201",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-F Product-C1 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C1을 통해 다음을 달성할 수 있습니다:\n- 대규모 클라우드 마이그레이션 플랫폼. 멀티클라우드 지"
+        },
+        {
+          "key": "documents#207",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-G Product-C2 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C2을 통해 다음을 달성할 수 있습니다:\n- 중소기업용 클라우드 마이그레이션 간편 도구.\n- 도입"
+        },
+        {
+          "key": "documents#200",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-F Product-C1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-F은 교육 분야의 대기업으로, 인천에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과제:\n"
+        },
+        {
+          "key": "documents#224",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-J Product-D1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-J은 공공기관 분야의 스타트업으로, 경기에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과"
+        },
+        {
+          "key": "documents#212",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[제안서] Client-H Product-S1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-H은 에너지 분야의 중견기업으로, 제주에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과제"
+        }
+      ],
+      "context": {
+        "items": 2,
+        "chars": 326,
+        "budget_tokens": 256,
+        "tokens_used": 206,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 3건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:18.310Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 194,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "SSL 인증서 관련 장애가 있었어?",
+      "routing_fingerprint": "04079f14",
+      "pipeline_fingerprint": "9fb3f412",
+      "routing": {
+        "lane": "vector_search",
+        "tools": [
+          "vector.search"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "similarity"
+          ],
+          "graph": []
+        },
+        "rationale": "document signals ops_topic",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": 5
+        },
+        "graph": {
+          "strategy": null,
+          "seeds": null,
+          "edges": null
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 5,
+          "graph": 0,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "documents#31",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-E Product-D1 서비스 장애 (2024-11-15) — 장애 내용: ## 장애 내용\nClient-E에서 운영 중인 Product-D1 서비스에서 SSL 인증서 만료로 인한 HTTPS "
+        },
+        {
+          "key": "documents#38",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-F Product-D2 서비스 장애 (2025-10-19) — 장애 내용: ## 장애 내용\nClient-F에서 운영 중인 Product-D2 서비스에서 SSL 인증서 만료로 인한 HTTPS "
+        },
+        {
+          "key": "documents#12",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-B Product-C2 서비스 장애 (2025-04-22) — 조치 사항: ## 조치 사항\n1. SSL 인증서 갱신\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트 "
+        },
+        {
+          "key": "documents#24",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[장애보고] Client-D Product-S2 서비스 장애 (2024-08-05) — 장애 내용: ## 장애 내용\nClient-D에서 운영 중인 Product-S2 서비스에서 로드밸런서 헬스체크 실패로 인한 트래픽"
+        },
+        {
+          "key": "documents#127",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[기술문서] Product-S3 API 레퍼런스 — 에러 코드: ### 에러 코드\n- 400: 잘못된 요청 파라미터\n- 401: 인증 실패\n- 403: 권한 없음\n- 429: 요청 한도 초과 (분당 813회)\n- 5"
+        }
+      ],
+      "context": {
+        "items": 3,
+        "chars": 400,
+        "budget_tokens": 256,
+        "tokens_used": 232,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 2건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:19.063Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 47,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Client-A가 사용 중인 제품 목록은?",
+      "routing_fingerprint": "f8edc1cc",
+      "pipeline_fingerprint": "d519cbf0",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "USES"
+          ]
+        },
+        "rationale": "relation verb USES -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 5,
+          "edges": 2
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 7,
+          "fused": 7
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:product#37",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-A의 사용 중인 제품: Product-C3 (client→product, USES)"
+        },
+        {
+          "key": "entity:product#33",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-A의 사용 중인 제품: Product-S1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#1",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-A (client) — 별칭/이름 매칭 'Client-A'"
+        },
+        {
+          "key": "entity:client#27",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AA (client) — 별칭/이름 매칭 'Client-A'"
+        },
+        {
+          "key": "entity:client#28",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AB (client) — 별칭/이름 매칭 'Client-A'"
+        },
+        {
+          "key": "entity:client#29",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AC (client) — 별칭/이름 매칭 'Client-A'"
+        },
+        {
+          "key": "entity:client#30",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AD (client) — 별칭/이름 매칭 'Client-A'"
+        }
+      ],
+      "context": {
+        "items": 7,
+        "chars": 353,
+        "budget_tokens": 256,
+        "tokens_used": 172,
+        "broken_rows": 0
+      },
+      "policies": [],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:19.346Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 22,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Product-C1을 사용하는 고객사는 어디야?",
+      "routing_fingerprint": "2a471fa9",
+      "pipeline_fingerprint": "155df2ba",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "USES"
+          ]
+        },
+        "rationale": "relation verb USES -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 1,
+          "edges": 6
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 7,
+          "fused": 7
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:client#8",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-H의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#4",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-D의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#20",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-T의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#25",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-Y의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#17",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-Q의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#22",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-V의 사용 중인 제품: Product-C1 (client→product, USES)"
+        },
+        {
+          "key": "entity:product#31",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Product-C1 (product) — 별칭/이름 매칭 'Product-C1'"
+        }
+      ],
+      "context": {
+        "items": 7,
+        "chars": 410,
+        "budget_tokens": 256,
+        "tokens_used": 180,
+        "broken_rows": 0
+      },
+      "policies": [],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:19.746Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 58,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "클라우드사업부 소속 직원들은 누구야?",
+      "routing_fingerprint": "7c2d6f75",
+      "pipeline_fingerprint": "8df24d2c",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "BELONGS_TO"
+          ]
+        },
+        "rationale": "relation verb BELONGS_TO -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 5,
+          "edges": 10
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 15,
+          "fused": 11
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:employee#44",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 안진우의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#49",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 강현우의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#50",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 서재원의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#52",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 김도윤의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#62",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 조동현의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#64",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 이지훈의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#69",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 황다은의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#75",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 한은지의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#81",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 황재원의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        },
+        {
+          "key": "entity:employee#87",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 김준혁의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+        }
+      ],
+      "context": {
+        "items": 8,
+        "chars": 479,
+        "budget_tokens": 256,
+        "tokens_used": 232,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 3건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:20.359Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 38,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "서울물산 담당 엔지니어는 누구야?",
+      "routing_fingerprint": "854ab155",
+      "pipeline_fingerprint": "09d15636",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "MANAGES_ACCOUNT"
+          ]
+        },
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "unresolved",
+          "seeds": 0,
+          "edges": 0
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 1,
+          "fused": 1
+        }
+      },
+      "fusion": [
+        {
+          "key": "unresolved#서울물산+누구야",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 질의에 등장한 대상(서울물산, 누구야)을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다."
+        }
+      ],
+      "context": {
+        "items": 1,
+        "chars": 70,
+        "budget_tokens": 256,
+        "tokens_used": 58,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "graph-unresolved-gate",
+          "verdict": "deny",
+          "detail": "질의가 지목한 개체를 온톨로지에서 해소하지 못해 컨텍스트를 0건으로 만들었다(환각 차단)"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:20.656Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 17,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Product-D1 제품과 관련된 프로젝트는?",
+      "routing_fingerprint": "fff80b98",
+      "pipeline_fingerprint": "bfd02766",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "similarity"
+          ],
+          "graph": [
+            "RELATED_TO"
+          ]
+        },
+        "rationale": "relation noun RELATED_TO + entity entity_id",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 1,
+          "edges": 139
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 140,
+          "fused": 42
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:client#25",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-Y의 사용 중인 제품: Product-D1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#28",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AB의 사용 중인 제품: Product-D1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#2",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-B의 사용 중인 제품: Product-D1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#20",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-T의 사용 중인 제품: Product-D1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#17",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-Q의 사용 중인 제품: Product-D1 (client→product, USES)"
+        },
+        {
+          "key": "entity:client#22",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-V의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#23",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-W의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#27",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AA의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#21",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-U의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#14",
+          "score": 0.014085,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-N의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+        }
+      ],
+      "context": {
+        "items": 9,
+        "chars": 592,
+        "budget_tokens": 256,
+        "tokens_used": 255,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 33건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:21.233Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 94,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "기술 지원 이슈가 가장 많은 제품은?",
+      "routing_fingerprint": "f261c06e",
+      "pipeline_fingerprint": "12c54cc2",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [
+            "superlative"
+          ],
+          "semantic": [],
+          "graph": [
+            "REPORTED_ISSUE"
+          ]
+        },
+        "rationale": "relation noun REPORTED_ISSUE + superlative",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded+relation-scan",
+          "seeds": 5,
+          "edges": 60
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 10,
+          "fused": 10
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:product#42",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] Product-T2 (product) — 기술지원 이슈를 제기한 제품 13건, 1위"
+        },
+        {
+          "key": "entity:product#34",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] Product-S2 (product) — 기술지원 이슈를 제기한 제품 12건, 2위"
+        },
+        {
+          "key": "entity:product#35",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] Product-D1 (product) — 기술지원 이슈를 제기한 제품 11건, 3위"
+        },
+        {
+          "key": "entity:product#40",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] Product-S3 (product) — 기술지원 이슈를 제기한 제품 9건, 4위"
+        },
+        {
+          "key": "entity:product#33",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] Product-S1 (product) — 기술지원 이슈를 제기한 제품 8건, 공동 5위"
+        },
+        {
+          "key": "entity:employee#47",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 박소연 (employee) — 별칭/이름 매칭 '기술'"
+        },
+        {
+          "key": "entity:employee#56",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 권승호 (employee) — 별칭/이름 매칭 '기술'"
+        },
+        {
+          "key": "entity:employee#74",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 조예진 (employee) — 별칭/이름 매칭 '기술'"
+        },
+        {
+          "key": "entity:employee#83",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 임우진 (employee) — 별칭/이름 매칭 '기술'"
+        },
+        {
+          "key": "entity:department#132",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 기술지원팀 (department) — 별칭/이름 매칭 '기술'"
+        }
+      ],
+      "context": {
+        "items": 9,
+        "chars": 428,
+        "budget_tokens": 256,
+        "tokens_used": 249,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 1건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:21.514Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 10,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "경영지원팀 팀장은 누구야?",
+      "routing_fingerprint": "6a97ee1d",
+      "pipeline_fingerprint": "346f5564",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "HEAD_IS"
+          ]
+        },
+        "rationale": "relation verb HEAD_IS -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 5,
+          "edges": 1
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 6,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:employee#43",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 경영지원팀의 부서장: 윤소연 (department→employee, HEAD_IS)"
+        },
+        {
+          "key": "entity:department#128",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 경영지원팀 (department) — 별칭/이름 매칭 '경영지원팀'"
+        },
+        {
+          "key": "entity:employee#51",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 홍서연 (employee) — 별칭/이름 매칭 '경영지원팀'"
+        },
+        {
+          "key": "entity:employee#65",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 서지현 (employee) — 별칭/이름 매칭 '경영지원팀'"
+        },
+        {
+          "key": "entity:employee#68",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 정혜원 (employee) — 별칭/이름 매칭 '경영지원팀'"
+        }
+      ],
+      "context": {
+        "items": 5,
+        "chars": 216,
+        "budget_tokens": 256,
+        "tokens_used": 132,
+        "broken_rows": 0
+      },
+      "policies": [],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:21.770Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 3,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "진행 중인 프로젝트를 이끄는 직원 목록",
+      "routing_fingerprint": "d4c7209e",
+      "pipeline_fingerprint": "ce1fe86c",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [],
+          "graph": [
+            "LEADS"
+          ]
+        },
+        "rationale": "relation verb LEADS -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "relation-scan",
+          "seeds": 0,
+          "edges": 18
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 18,
+          "fused": 18
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:project#88",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 강현우의 이끄는 프로젝트: Client-J 모니터링 시스템 도입 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#91",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 조동현의 이끄는 프로젝트: Client-O 클라우드 마이그레이션 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#93",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 한태호의 이끄는 프로젝트: Client-N K8s 클러스터 구축 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#98",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 장미라의 이끄는 프로젝트: Client-V 하이브리드 클라우드 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#101",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 김준혁의 이끄는 프로젝트: Client-U AI 예측 모델 구축 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#102",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 김준혁의 이끄는 프로젝트: Client-AC 로그 분석 시스템 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#103",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 장미라의 이끄는 프로젝트: Client-E 로그 분석 시스템 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#104",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 한태호의 이끄는 프로젝트: Client-AA 재해 복구 시스템 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#106",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 서재원의 이끄는 프로젝트: Client-M 하이브리드 클라우드 (employee→project, LEADS)"
+        },
+        {
+          "key": "entity:project#107",
+          "score": 0.014286,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] 안진우의 이끄는 프로젝트: Client-C DB 마이그레이션 (employee→project, LEADS)"
+        }
+      ],
+      "context": {
+        "items": 7,
+        "chars": 471,
+        "budget_tokens": 256,
+        "tokens_used": 245,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 11건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:22.231Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 23,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "Product-S1 관련 고객 이슈 현황은?",
+      "routing_fingerprint": "a2c64141",
+      "pipeline_fingerprint": "041c7667",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [],
+          "semantic": [
+            "similarity"
+          ],
+          "graph": [
+            "REPORTED_ISSUE",
+            "RELATED_TO"
+          ]
+        },
+        "rationale": "relation noun REPORTED_ISSUE,RELATED_TO + entity entity_id",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "seeded",
+          "seeds": 1,
+          "edges": 8
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 9,
+          "fused": 9
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:client#4",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-D의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#10",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-J의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#24",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-X의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#22",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-V의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#15",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-O의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#19",
+          "score": 0.015152,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-S의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#27",
+          "score": 0.014925,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-AA의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:client#5",
+          "score": 0.014706,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Client-E의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+        },
+        {
+          "key": "entity:product#33",
+          "score": 0.014493,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프] Product-S1 (product) — 별칭/이름 매칭 'Product-S1'"
+        }
+      ],
+      "context": {
+        "items": 8,
+        "chars": 590,
+        "budget_tokens": 256,
+        "tokens_used": 255,
+        "broken_rows": 0
+      },
+      "policies": [
+        {
+          "policy": "context-budget",
+          "verdict": "degrade",
+          "detail": "토큰 예산으로 후보 1건을 잘랐다"
+        }
+      ],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:22.839Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 87,
+        "outside_context": []
+      }
+    },
+    {
+      "schema": "onprem-mcp-data/audit/v1",
+      "query": "가장 많은 고객을 담당하는 직원은?",
+      "routing_fingerprint": "6ab6c314",
+      "pipeline_fingerprint": "1a32dfb2",
+      "routing": {
+        "lane": "knowledge_graph",
+        "tools": [
+          "ontology.search",
+          "graph.expand"
+        ],
+        "signals": {
+          "structured": [
+            "superlative"
+          ],
+          "semantic": [],
+          "graph": [
+            "MANAGES_ACCOUNT"
+          ]
+        },
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "deterministic": true
+      },
+      "retrieval": {
+        "sql": {
+          "text": null,
+          "ok": null,
+          "rows": null,
+          "error": null,
+          "repaired": false
+        },
+        "vector": {
+          "hits": null
+        },
+        "graph": {
+          "strategy": "relation-scan",
+          "seeds": 0,
+          "edges": 60
+        },
+        "candidates": {
+          "sql": 0,
+          "vector": 0,
+          "graph": 5,
+          "fused": 5
+        }
+      },
+      "fusion": [
+        {
+          "key": "entity:employee#60",
+          "score": 0.016393,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] 안소연 (employee) — 담당 고객사 4건, 공동 1위"
+        },
+        {
+          "key": "entity:employee#85",
+          "score": 0.016129,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] 조현우 (employee) — 담당 고객사 4건, 공동 1위"
+        },
+        {
+          "key": "entity:employee#87",
+          "score": 0.015873,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] 김준혁 (employee) — 담당 고객사 4건, 공동 1위"
+        },
+        {
+          "key": "entity:employee#55",
+          "score": 0.015625,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] 권소연 (employee) — 담당 고객사 3건, 공동 4위"
+        },
+        {
+          "key": "entity:employee#57",
+          "score": 0.015385,
+          "sources": [
+            "0"
+          ],
+          "preview": "[그래프 집계] 한태호 (employee) — 담당 고객사 3건, 공동 4위"
+        }
+      ],
+      "context": {
+        "items": 5,
+        "chars": 214,
+        "budget_tokens": 256,
+        "tokens_used": 130,
+        "broken_rows": 0
+      },
+      "policies": [],
+      "branch_errors": [],
+      "generated_at": "2026-07-29T14:39:23.237Z",
+      "grounding": {
+        "checked": true,
+        "answer_chars": 13,
+        "outside_context": []
+      }
+    }
+  ],
+  "note": "감사 레코드는 순수 변환이다(auditrecord.ts). 지문은 둘로 나뉜다. routing_fingerprint는 규칙 구간(라우팅과 정책)만 덮으므로 같은 질의에서 항상 같아야 한다. pipeline_fingerprint는 모델이 만든 SQL까지 덮으므로 로컬 7B의 실행 간 변동이 그대로 드러난다. 두 값을 나눈 이유는 무엇이 결정론이고 무엇이 아닌지를 숨기지 않기 위해서다. broken_rows는 큐레이터의 구조 보존 계약이라 0이 아니면 결함이다.",
+  "generated_at": "2026-07-29T14:39:23.237Z"
+}

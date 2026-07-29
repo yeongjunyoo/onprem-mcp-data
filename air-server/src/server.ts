@@ -21,6 +21,7 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
+import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
 import { profile } from "./profile.js";
@@ -177,7 +178,29 @@ export function buildServer(): AirServer {
             embedder: getEmbedder(),
             budget: budget as number | undefined,
           });
-          return { answer: r.answer, route: r.route, context: r.context, audit: r.audit };
+          // 감사 레코드를 함께 낸다. 답만 주면 "왜 그 답인가"를 확인할 방법이 없다.
+          return { answer: r.answer, route: r.route, context: r.context, audit: buildAuditRecord(r) };
+        },
+      }),
+
+      defineTool("audit.explain", {
+        description:
+          "한 질의를 끝까지 실행하고 왜 그 답이 나왔는지를 기계가 읽을 감사 레코드로 돌려준다. " +
+          "라우팅 근거, 실행되거나 거부된 SQL과 그 사유, 레인별 후보 수, 융합 상위 항목과 합의한 소스, " +
+          "정책 판정(읽기 전용 가드, 자기 수정, 미해소 개체 게이트, 컨텍스트 예산, 브랜치 격리), " +
+          "그리고 답변이 컨텍스트 밖 개체를 만들었는지까지 한 레코드에 담는다. " +
+          "답변 텍스트를 제외한 구간은 결정론이라 같은 질의는 같은 지문(fingerprint)을 낸다.",
+        params: {
+          query: { type: "string", description: "감사할 한국어 질의" },
+          format: { type: "string", description: "json(기본) 또는 text", optional: true },
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        layer: 7,
+        tags: ["audit", "explainability", "provenance", "pylon7:L7"],
+        handler: async ({ query, format }) => {
+          const r = await ask(query as string, { pool: getReadPool(), embedder: getEmbedder() });
+          const record = buildAuditRecord(r);
+          return format === "text" ? { text: renderAudit(record) } : record;
         },
       }),
 

@@ -18,7 +18,7 @@ function ok(cond: boolean, msg: string) {
 async function main() {
   // --- resources ---
   const resources = buildResources();
-  ok(resources.length >= 5, `리소스 5개 이상 등록 (got ${resources.length})`);
+  ok(resources.length >= 6, `리소스 6개 이상 등록 (got ${resources.length})`);
 
   const uris = resources.map((r) => r.uri);
   for (const expected of [
@@ -27,6 +27,7 @@ async function main() {
     "eval://results/index",
     "profile://dataset/active",
     "docs://report/evidence",
+    "audit://schema/v1",
   ]) {
     ok(uris.includes(expected), `리소스 ${expected} 존재`);
   }

@@ -118,6 +118,38 @@ export function buildResources() {
     }),
 
     defineResource({
+      uri: "audit://schema/v1",
+      name: "감사 레코드 스키마",
+      description:
+        "audit.explain이 돌려주는 레코드의 구조와 각 정책의 의미. 감사 결과를 파싱하려는 쪽이 먼저 읽을 문서다.",
+      mimeType: "application/json",
+      handler: () =>
+        JSON.stringify(
+          {
+            schema: "onprem-mcp-data/audit/v1",
+            fields: {
+              fingerprint: "답변을 제외한 결정론 구간의 해시. 같은 질의는 같은 값을 낸다",
+              routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
+              retrieval: "레인별 실행 결과와 후보 수",
+              fusion: "RRF 상위 항목과 합의한 소스",
+              context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
+              policies: "실제로 발동한 정책만 기록한다",
+              grounding: "답변이 컨텍스트 밖 개체를 만들었는지",
+            },
+            policies: {
+              "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",
+              "sql-repair": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정",
+              "graph-unresolved-gate": "질의가 지목한 개체를 해소하지 못하면 컨텍스트를 0건으로(환각 차단)",
+              "context-budget": "토큰 예산으로 후보를 자름",
+              "branch-isolation": "레인 하나가 실패해도 나머지로 응답",
+            },
+          },
+          null,
+          2,
+        ),
+    }),
+
+    defineResource({
       uri: "docs://report/evidence",
       name: "개발보고서 증거 목록",
       description:
