@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // onprem-mcp-data — air MCP server entrypoint (리원에이스 지정과제).
 //
 // Single-runtime, fully on-prem MCP data platform. air gives us the MCP server +

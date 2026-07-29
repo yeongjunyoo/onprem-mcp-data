@@ -26,3 +26,9 @@ dist/
 datasets/companyx-dataset-v1.0.zip
 datasets/companyx-v1.0/
 .eval*.log
+
+# npm pack 직전에 저장소 루트에서 복사되는 사본 (air-server/scripts/prepack.mjs)
+air-server/README.md
+air-server/LICENSE
+air-server/NOTICE
+air-server/*.tgz

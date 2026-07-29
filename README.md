@@ -111,6 +111,8 @@ prototype/           로직 검증용 Python 레퍼런스
 - [CONTRIBUTING.md](CONTRIBUTING.md) 개발 환경, 테스트 계층, PR 규칙
 - [SECURITY.md](SECURITY.md) 취약점 비공개 신고 경로
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) Contributor Covenant 2.1
+- [docs/roadmap.md](docs/roadmap.md) 개발 로드맵과 범위 밖으로 정한 것
+- [docs/publishing.md](docs/publishing.md) 패키지 배포와 레지스트리 등록 절차
 
 ## 라이선스
 

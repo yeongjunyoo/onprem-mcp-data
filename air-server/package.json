@@ -1,9 +1,47 @@
 {
   "name": "air-server",
   "version": "0.1.3",
+  "description": "온프렘 MCP 데이터 플랫폼. 자연어 질문을 벡터 검색, NL2SQL, 지식그래프 세 레인으로 규칙 기반 분기해 병렬 조회하고 RRF로 융합한 뒤 로컬 LLM이 근거 기반으로 답한다. 외부 API 호출 없음.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "postgresql",
+    "pgvector",
+    "rag",
+    "nl2sql",
+    "knowledge-graph",
+    "ollama",
+    "on-premise",
+    "korean"
+  ],
+  "license": "Apache-2.0",
+  "author": "Yeongjun Yoo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yeongjunyoo/onprem-mcp-data.git"
+  },
+  "homepage": "https://github.com/yeongjunyoo/onprem-mcp-data#readme",
+  "bugs": {
+    "url": "https://github.com/yeongjunyoo/onprem-mcp-data/issues"
+  },
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "onprem-mcp-data": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist/**/*.js",
+    "!dist/**/*.test.js",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
   "scripts": {
+    "prepack": "node scripts/prepack.mjs && node node_modules/typescript/bin/tsc",
     "dev": "air dev",
     "start": "air start",
     "build": "tsc",
