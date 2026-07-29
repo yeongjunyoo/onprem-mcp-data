@@ -10,6 +10,7 @@ import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
 import { route, audit as routeAuditLog, type RouteDecision, type GraphPlan } from "./router.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
+import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
 import { vectorSearch, type VectorResult } from "./vector.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
@@ -218,8 +219,31 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const graphBranch: Promise<GraphLaneResult | undefined> = wantGraph
     ? graphLane(pool, query, k, 2, kgSchema(), decision.graphPlan)
     : Promise.resolve(undefined);
+  // 키워드(희소) 레인. **기본은 꺼져 있다.**
+  //
+  // 왜 껐나. 68문항으로 재 보니 이 코퍼스에서는 융합이 순위를 떨어뜨렸다.
+  // 밀집 hit@1 0.868 / MRR 0.913 대 무조건 융합 0.706 / 0.830, 식별자 조건으로
+  // 게이트를 걸어도 0.838 / 0.894였다(eval/results/companyx-hybrid.json).
+  // 문서가 40건뿐이라 밀집이 이미 hit@5 0.985로 천장에 붙어 있고, 약한 레인을
+  // 같은 가중치로 섞으면 손해만 남는다. 가중치를 조정하면 개선되겠지만 그것은
+  // 튜닝 파라미터를 하나 만드는 일이라 이 프로젝트의 전제와 충돌한다.
+  //
+  // 그래서 코드는 남기고 기본값만 끈다. 식별자가 지배적인 코퍼스나 문서 수가
+  // 훨씬 큰 환경에서는 결과가 달라질 수 있고, 그때는 KEYWORD_LANE=1로 켠다.
+  const keywordBranch: Promise<KeywordSearchResult | undefined> = wantVec && process.env.KEYWORD_LANE === "1"
+    ? (async () => {
+        const table = profile().name === "companyx" ? "companyx.document_chunks" : profile().vectorTable;
+        if (!(await keywordIndexReady(pool, table))) return undefined;
+        return keywordSearch(pool, query, k, table);
+      })()
+    : Promise.resolve(undefined);
 
-  const [sqlSettled, vecSettled, graphSettled] = await Promise.allSettled([sqlBranch, vecBranch, graphBranch]);
+  const [sqlSettled, vecSettled, graphSettled, kwSettled] = await Promise.allSettled([
+    sqlBranch,
+    vecBranch,
+    graphBranch,
+    keywordBranch,
+  ]);
   const sql =
     sqlSettled.status === "fulfilled"
       ? sqlSettled.value
@@ -228,10 +252,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const sqlResult = sql.result;
   const vecResult = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
   const graphResult = graphSettled.status === "fulfilled" ? graphSettled.value : undefined;
+  const kwResult = kwSettled.status === "fulfilled" ? kwSettled.value : undefined;
   const branchErrors: string[] = [];
   if (sqlSettled.status === "rejected") branchErrors.push(`sql: ${String(sqlSettled.reason)}`);
   if (vecSettled.status === "rejected") branchErrors.push(`vector: ${String(vecSettled.reason)}`);
   if (graphSettled.status === "rejected") branchErrors.push(`graph: ${String(graphSettled.reason)}`);
+  if (kwSettled.status === "rejected") branchErrors.push(`keyword: ${String(kwSettled.reason)}`);
+  if (kwResult && !kwResult.ok) branchErrors.push(`keyword: ${kwResult.error ?? "unknown"}`);
   if (graphResult?.error) branchErrors.push(`graph: ${graphResult.error}`);
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
@@ -253,6 +280,16 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       vecResult.hits.map((h) => ({
         key: `documents#${h.id}`,
         value: { kind: "chunk", text: `${h.title}: ${h.body}`, source: `documents#${h.id}` },
+      })),
+    );
+  }
+  if (kwResult?.ok && kwResult.hits.length) {
+    // 벡터 레인과 같은 key 규칙(documents#id)을 쓴다. 같은 청크를 두 레인이 찾으면
+    // RRF가 교차 소스 합의로 인식해 순위를 올린다. 그것이 하이브리드의 이득이다.
+    lists.push(
+      kwResult.hits.map((h) => ({
+        key: `documents#${h.id}`,
+        value: { kind: "chunk" as const, text: `${h.title}: ${h.body}`, source: `keyword#${h.id}` },
       })),
     );
   }
