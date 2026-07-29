@@ -1,5 +1,6 @@
 # onprem-mcp-data
 
+[![CI](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml/badge.svg)](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-7%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
