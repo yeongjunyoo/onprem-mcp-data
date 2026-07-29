@@ -1,0 +1,60 @@
+name: 버그 신고
+description: 재현 가능한 오동작을 신고합니다
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        보안 취약점은 여기 올리지 말고 `SECURITY.md`의 비공개 경로를 이용해 주세요.
+  - type: textarea
+    id: what
+    attributes:
+      label: 무엇이 잘못되었나요
+      description: 관측된 동작과 기대한 동작을 나눠서 적어 주세요.
+      placeholder: |
+        관측: `ask` 도구가 "정보 없음"을 반환
+        기대: 컨텍스트에 있는 부서장 이름을 답변
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 절차
+      description: 실행한 커맨드와 입력 질의를 그대로 붙여 주세요.
+      render: bash
+      placeholder: |
+        bash scripts/pg-up.sh
+        cd air-server && DATASET=companyx npm run companyx:ask
+        # 질의: "경영지원팀 팀장이 누구야?"
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 환경
+      description: 버전을 정확히 적어 주세요. 모델은 태그와 양자화까지.
+      value: |
+        - OS:
+        - Node.js:
+        - PostgreSQL / pgvector:
+        - Ollama:
+        - 생성 모델 태그:
+        - 임베딩 모델 태그:
+        - DATASET 프로파일: companyx | bench | smoke
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그·출력
+      description: 도구 응답 JSON이나 스택트레이스가 있으면 붙여 주세요. 사내 데이터가 섞였다면 반드시 지우고 올려 주세요.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 확인
+      options:
+        - label: 사내 데이터나 자격증명을 본문에서 제거했습니다
+          required: true
+        - label: 같은 증상의 기존 이슈가 없는지 검색했습니다
+          required: true

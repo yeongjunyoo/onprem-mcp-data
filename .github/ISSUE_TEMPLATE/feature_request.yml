@@ -1,0 +1,43 @@
+name: 기능 제안
+description: 해결하려는 문제와 함께 제안합니다
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 문제를 겪고 있나요
+      description: 해결책이 아니라 문제부터 적어 주세요. 어떤 질의·데이터·운영 상황에서 막혔는지가 중요합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안하는 방향
+      description: 있으면 적어 주세요. 없어도 됩니다.
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영향 범위
+      options:
+        - 라우팅 (질의 분기)
+        - NL2SQL
+        - 벡터 검색
+        - 지식그래프
+        - 융합·큐레이션 (RRF, 컨텍스트)
+        - MCP 도구·서버
+        - 평가·벤치마크
+        - 문서
+        - 기타
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: 설계 제약 확인
+      description: 이 프로젝트의 제약을 깨는 제안은 받기 어렵습니다.
+      options:
+        - label: 외부 상용 API 호출을 필요로 하지 않습니다 (모델은 로컬 실행)
+          required: true
+        - label: 카피레프트 라이선스 의존성을 요구하지 않습니다
+          required: true
+        - label: 라우팅·융합 경로에 튜닝 파라미터를 새로 만들지 않습니다 (또는 만든다면 그 이유를 본문에 적었습니다)

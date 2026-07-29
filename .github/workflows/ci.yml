@@ -1,0 +1,59 @@
+name: CI
+
+# 이 워크플로는 **네트워크와 데이터베이스 없이 확실히 재현되는 것만** 돌린다.
+# PostgreSQL/pgvector가 필요한 통합 스위트와 Ollama 로컬 모델이 필요한 평가는
+# CI에서 돌리지 않는다(모델 가중치 수 GB 다운로드가 필요하고, 그 결과를 CI에서
+# 재현하는 척하면 그 자체가 검증 불가능한 주장이 된다).
+# 그 스위트의 실행 커맨드와 원자료는 저장소에 그대로 있다: CONTRIBUTING.md,
+# docs/report.md §9(Evidence manifest), eval/results/*.json.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: typecheck + offline unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ["20", "22"]
+    defaults:
+      run:
+        working-directory: air-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: air-server/package-lock.json
+      - run: npm ci
+      - name: typecheck + build
+        run: npx tsc
+      - name: offline unit tests (router, curator, RRF, execution-match)
+        run: |
+          node dist/router.test.js
+          node dist/curator.test.js
+          node dist/rrf.test.js
+          node dist/evalmatch.test.js
+
+  sbom:
+    name: SBOM drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: air-server/package-lock.json
+      - run: npm ci
+        working-directory: air-server
+      - name: docs/sbom.md 는 생성물이어야 한다 (손으로 고친 흔적이 있으면 실패)
+        run: |
+          node scripts/sbom.mjs > /tmp/sbom.generated.md
+          diff <(grep -v '^> 생성 시각' docs/sbom.md) <(grep -v '^> 생성 시각' /tmp/sbom.generated.md)
+        shell: bash

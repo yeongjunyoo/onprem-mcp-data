@@ -1,0 +1,2 @@
+blank_issues_enabled: false
+# 보안 취약점은 이슈가 아니라 SECURITY.md의 비공개 경로(GitHub Security 탭 > Report a vulnerability)로 받습니다.

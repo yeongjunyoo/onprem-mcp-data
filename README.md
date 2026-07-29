@@ -1,101 +1,123 @@
-# on-prem-mcp-data (working name)
+# onprem-mcp-data
 
-2026 오픈소스 개발자대회 리원에이스 지정과제 출품작 (제출 2026-08-27).
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-7%20tools-informational)](docs/architecture.md)
+[![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
 
-**한 줄:** PostgreSQL + pgvector를 MCP 도구로 노출하고, 규칙기반 병렬 라우터(MCP Parallel)와 구조보존 컨텍스트 큐레이션(TACC)으로 온프렘 소형 LLM(7B)이 비싼 컨텍스트 없이 정확히 답하게 하는 데이터 플랫폼 에이전트. 전부 air(Apache-2.0) 위에서, 외부 API 없이.
+**사내 데이터베이스에 자연어로 묻고, 근거와 함께 답을 받는 온프렘 MCP 서버.** 질문 하나를 벡터 검색, NL2SQL, 지식그래프 세 갈래로 자동 분기해 동시에 조회하고, 결과를 합쳐 로컬 소형 모델이 답합니다. 모델은 전부 로컬에서 돌고 **외부 API를 호출하지 않습니다.**
 
-> 프레임: "리원에이스 자기 스펙(air·MCP Parallel·TACC·Qwen)의 **충실한 레퍼런스 구현 + 운영 안정성**". 알고리즘 신규성 주장 아님.
+| | |
+| --- | --- |
+| 무엇을 푸는가 | 사내 데이터는 밖으로 못 내보내는데, 문서 검색과 통계 조회와 관계 추적은 서로 다른 시스템에 흩어져 있다 |
+| 어떻게 | MCP 도구 7종 뒤에서 3레인 라우팅, 병렬 조회, RRF 융합, 구조 보존 큐레이션, 로컬 7B 답변 |
+| 무엇을 안 하는가 | 외부 상용 API 호출, 쓰기 작업, 컨텍스트 밖 추측 |
+| 실행 환경 | PostgreSQL 16 + pgvector, Ollama, Node.js 20 이상. GPU 없이 CPU로 동작 |
 
-## 공식 데이터셋 (리원에이스 Company-X, 2026-07-22 공개)
+[English summary](README.en.md) | [개발보고서](docs/report.md) | [아키텍처](docs/architecture.md) | [SBOM](docs/sbom.md) | [기여 안내](CONTRIBUTING.md)
 
-사업자 배포본을 **원본 DDL 그대로** 적재하고 3레인 전부 실측한다. 데이터셋은 "대회 참가 목적 한정" 라이선스라 저장소에 넣지 않고 SHA-256 고정 후 받아 쓴다(`datasets/MANIFEST.md`).
-
-```bash
-bash scripts/pg-up.sh                      # PG16+pgvector (docker 또는 WSL2)
-bash scripts/fetch-companyx-dataset.sh     # SHA-256 3008476738d9…0827d772 검증
-cd air-server && EMBEDDER=ollama npm run companyx:load
-npm run companyx:route && npm run companyx:sql && npm run companyx:kg
-EMBEDDER=ollama npm run companyx:vector
-```
-
-| 레인 | 결과 | 오라클 |
-|---|---|---|
-| 라우터 (30문항 도구 라벨) | **30/30 = 100%** (in-sample), 20회 재실행 동일 | 사업자가 붙인 `tool` 라벨 |
-| NL2SQL execution match | 재시도 없음 **6/10 = 60%** (테이블명만 2/10 = 20%, **Δ +40pp**) · self-repair 1회 **7/10 = 70%** | DB 실행 결과 |
-| end-to-end `ask` (제품 경로) | 근거 포함 **91~96%** · 컨텍스트 밖 개체 생성 **0건** · 미존재 개체 질의 거절 성공 · 중앙값 **830~940ms** | 레인별 gold + 개체 포함 검사 |
-| 벡터 hit@5 | **1.00** (BGE-M3를 **768로 절단** → 공식 DDL 무변경) / 0.75 (hash·nomic-embed-text) | 원문 키워드 규칙 |
-| 지식그래프 recall | **1.00** (초기 0.278 → 결함 4개 수정) | `edges.json`에서 계산 |
-| 미존재 개체 질의 | 컨텍스트 0엣지 + not-found 명시 → 환각 차단 | — |
-
-적재 실측: 8테이블 **818행** · 문서 40건→**258청크** · 그래프 **133노드/354엣지** · `entity_links` 133. **공식 DDL 무변경**(`ddlDeviations: []`).
-
-> ⚠️ **자기 반증(정직 표기).** self-repair(실패 SQL을 DB 카탈로그와 함께 1회 되먹임)를 켜면 스키마 카드 유무의 **정확도 차이가 사라진다**(둘 다 70%). 남는 차이는 비용이다 — LLM 호출 12회 vs 16회, 8.7초 vs 11.6초. 즉 스키마 카드의 기여는 재시도가 없는 경로에서는 정확도(Δ+40pp), 재시도가 있는 경로에서는 **호출 수와 지연**이다. 상세 = `docs/report.md §0.6`.
-
-모든 MCP 도구는 `DATASET=companyx|bench|smoke` 프로파일 하나로 같은 코퍼스에 묶인다(`air-server/src/profile.ts`). 상세·한계 = `docs/report.md §0.5~0.7`.
-
-## 구조 (레이어 + air 토대)
-
-- **L1 substrate** — PostgreSQL 17 + pgvector. 스모크 시드 `sql/init/01_schema.sql`(public) + 콘테스트급 벤치 `eval/internal/schema.sql`(격리 `bench` 스키마, e-commerce 8테이블·수천 행).
-- **L2 DB MCP 도구** — `sql.query`(읽기전용 트랜잭션 + 최소권한 `mcp_ro` 강등 → superuser 함수·쓰기 거부, statement/lock timeout), `vector.search`(pgvector 코사인, BGE-M3 임베딩, 2차키 id로 tie 결정성, k 클램프).
-- **L3 차별점 A — 규칙기반 병렬 라우터 `route`(MCP Parallel)** — 한국어 질의 분류(**LLM 호출 X = 결정론, 튜닝파라미터 0, run-to-run 분산 0**) → **structured / semantic / graph** 3레인 + hybrid 병렬 fan-out + 감사 로그. 레인 = 사업자 과제의 nl2sql / 벡터검색 / 지식그래프와 1:1.
-- **L4 차별점 B — 구조보존 큐레이션 `retrieve`(TACC)** — 7B 컨텍스트 진입 전 스키마인지 row 원자 패킹. **해자 = SQL 튜플을 안 깨고 트림**(토큰압축기 실패모드 회피). thesis = 고정 예산 **구조 무결성(broken_rows=0)**.
-- **L5 온톨로지/지식그래프** — `entities/aliases/relations/entity_links`. `ontology.search`(별칭 해소: 전자제품→전자기기), `graph.expand`(타입 관계 BFS + provenance). canonical `entity_links` 브릿지로 SQL/vector/graph 후보를 동일 엔티티로 매핑 → **named-source RRF 3-way agreement**.
-- **L7 답변 `ask`** — 온프렘 Qwen2.5-7B(Ollama)가 큐레이션 컨텍스트에만 근거해 답변(추측 금지).
-- **토대: air** (`@airmcp-dev/core`, Apache-2.0) — `defineServer`/`defineTool` + **7 MCP 도구**(route/sql.query/vector.search/retrieve/ask/ontology.search/graph.expand) + 플러그인 `timeout`/`retry`/`circuitBreaker` + Pylon-7 `layer` 힌트.
-
-## 빠른 시작 (오프라인)
+## 30초 만에 돌려보기
 
 ```bash
-docker compose up -d              # PG17+pgvector(:5433) + Ollama(:11434)
-docker compose exec -T ollama ollama pull qwen2.5:7b   # 답변용 (Apache-2.0)
-docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
+git clone <repo-url> && cd onprem-mcp-data
+docker compose up -d                                    # PostgreSQL 16 + pgvector
+ollama pull qwen2.5:7b && ollama pull bge-m3            # 로컬 모델 2종
 
-cd air-server && npm ci && npm run build
-npm run gen:bench                         # 결정론 벤치 데이터(seed=42, orders 2000)
-EMBEDDER=ollama npm run embed:bench       # bench 문서 BGE-M3 임베딩
-
-npm test            # 스모크 단위+통합 148 (라이브 PG; LLM/모델 없으면 graceful skip)
-npm run test:kg     # 그래프/온톨로지 + canonical 3-way 19 (bench+BGE-M3)
-npm run bench:internal   # 내부 SQL execution-match 벤치 (자작 LLM-저지 없음)
-npm run recall:eval      # 의미검색 BGE-M3 vs hash recall@k/MRR head-to-head
-npm run fault:inject     # 장애주입 → graceful degradation 스위트
-EMBEDDER=ollama npm run demo   # 오프라인 end-to-end 데모 (7툴→3-way→7B→fault)
-docker build -t onprem-mcp-data-mcp ./air-server   # MCP 서버 이미지 (검증됨)
+cd air-server && npm ci && npx tsc
+npm run gen:bench && EMBEDDER=ollama npm run embed:bench # 결정론 시드 데이터 적재
+EMBEDDER=ollama npm run demo                            # 도구 7종부터 장애 주입까지 한 번에
 ```
 
-> MCP transport는 `MCP_TRANSPORT=sse`로 stdio↔SSE 전환(air 설정 한 줄). `docker compose --profile full`은 mcp 서버까지 컨테이너로(Dockerfile 빌드 검증됨). stdio→HTTP transport는 후속.
+`npm run demo`는 네트워크 없이 돕니다. 도구 호출, 3레인 합의, 로컬 7B 답변, 장애 주입 후 응답까지 한 화면에서 확인할 수 있습니다.
 
-## 검증 현황 (2026-06-30, 전부 실행 결과)
+MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP_TRANSPORT=sse`로 전송 방식을 바꿀 수 있습니다.
 
-- **빌드:** TypeScript strict, clean. **air 7 MCP 도구** 등록 확인.
-- **테스트:** 스모크 151(router 9/curator 67/rrf 13/evalmatch 21/db 22/server 5/pipeline 14) + KG 19(graph 12/kgretrieve 7) + llm 5 = **175**, 단계별 그린. 라이브 PG/모델 없으면 graceful skip.
-- **내부 SQL execution-match 벤치:** **83/100 = 83.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). 4~8테이블·수천행 e-commerce, 100문항·16종 taxonomy, **자작 LLM-저지 없이 DB가 오라클**, 순서/별칭/튜플/수치 strict. ⚠️ **회사 64.0%는 다른 데이터셋의 contextual reference — same-benchmark beat 아님.**
-- **외부 calibration(BIRD Mini-Dev SQLite, 객관성 anchor):** 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행, **execution accuracy 7/32 = 21.9%**(stride 샘플 of 500; simple 50%·moderate 21%·challenging 0%, 샘플 moderate/challenging 편중). ⚠️ **다른·더 어려운 데이터셋·샘플 — 내부 83.0%와 비교 불가**(참고: 풀 BIRD GPT-4 ≈46%, 7B급 ≈20~35%). `EXT_LIMIT=32 npm run external:bird`.
-- **Ablation matrix(동일 100문항·컴포넌트별 기여):** template-only **1/100(1.0%)** → naive LLM(bare 테이블) **30/100(30.0%)** → 큐레이션 스키마카드 **83/100(83.0%)**. 결정 레버 = 구조보존 큐레이션(naive→curated **Δ +53.0pp**). 동일 bench·DB오라클·LLM저지 없음. `BENCH_STRATEGY={template|naive} npm run bench:internal`.
-- **의미검색 정량(BGE-M3 vs hash):** 저-어휘겹침 16질의(암호↔비밀번호 등)에서 hash recall@5=0.50/MRR=0.30 → **BGE recall@5=1.00/MRR=0.91**(Δ recall@5 +50pp·top1 +69pp·MRR +0.60, plan 임계 전부 통과). **canonical 3-way RRF**: `entity:policy#1001`이 vector+graph 합의 → rank 1. `npm run recall:eval`.
-- **운영 안정성(장애주입):** `eval/results/faults.json` — no-crash 4/4, partial-context 4/4(≥80%), error-visible 4/4. 스위트가 실제 크래시 버그(entity_links) 적발·수정. `sql.query` mcp_ro 강등으로 `pg_read_file`·쓰기 거부.
-- **클러스터(검증):** 무상태 air 서버 → 수평확장 구조. read-only 도구는 `getReadPool()` 경유(`READ_DATABASE_URL` 설정→읽기 오프로드, 미설정→Primary 폴백, `db.test`). **검증된 라이브 streaming-replica spike**(`scripts/replica-spike.sh`, 로그 `eval/results/replica-spike.log`): pg_basebackup hot-standby → 실제 streaming replication, replica read-only 강제, `getReadPool` replica 라우팅, **kill-drill: primary 정지 중 replica가 reads 제공**. 토폴로지 `docs/architecture.md`. ⚠️ 자동 promotion/failover·lag SLA = production HA(범위 외).
-- **결정론(범위 한정):** route/RRF/curator/벡터정렬은 분산 0(테스트 단언). **NL2SQL·답변은 7B라 결정론 아님**(temp0/seed 재현성).
+## 동작 방식
 
-## 남은 작업 (정직, 출품 08-27 전)
+```mermaid
+flowchart LR
+    Q["자연어 질문"] --> R["route<br/>규칙 기반 라우터<br/>LLM 호출 0"]
+    R -->|structured| S["sql.query<br/>NL2SQL + 읽기전용 가드"]
+    R -->|semantic| V["vector.search<br/>pgvector 코사인"]
+    R -->|graph| G["kgRetrieve<br/>양방향 BFS"]
+    S --> F["RRF 융합"]
+    V --> F
+    G --> F
+    F --> C["retrieve<br/>구조 보존 큐레이션"]
+    C --> A["ask<br/>로컬 7B, 근거 밖 생성 금지"]
+```
 
-> 9 워크스트림 핵심은 빌드+검증 완료. 아래는 acceptance 완성을 위한 잔여(개발보고서 §8).
+- **라우터는 모델을 부르지 않습니다.** 질의 어휘를 스키마와 그래프 온톨로지에 대조하는 규칙 기반이라 튜닝 파라미터가 없고, 같은 질문에 같은 분기를 냅니다.
+- **SQL은 읽기 전용으로 강등된 롤에서만 실행됩니다.** 쓰기 구문, 다중 구문 연결, 수퍼유저 함수는 거부되고 statement와 lock에 타임아웃이 걸립니다.
+- **큐레이션은 구조를 깨지 않습니다.** 표는 표로, 관계는 관계 문장으로 컨텍스트에 들어갑니다.
+- **질문이 지목한 개체를 못 찾으면 컨텍스트를 비웁니다.** 관계를 통째로 밀어 넣으면 소형 모델은 그럴듯한 답을 지어냅니다. 그래서 미해소 개체는 0건과 not found로 만듭니다.
 
-- **벤치 확장:** 내부 29→100문항, **외부 BIRD Mini-Dev/Spider calibration**(객관성 anchor, headline 별도 열), baseline matrix(qwen-direct/router+TACC/template) 실행.
-- **의미검색 정량:** hash vs BGE-M3 recall@5/MRR/top1 임계 비교.
-- **클러스터:** HA/replica 다이어그램 + (안정 시) read-replica 1일 spike.
-- **시연영상:** 3분 네트워크off 녹화(`docs/demo-script.md` 스크립트 준비됨).
+MCP 도구는 7종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `ontology.search`, `graph.expand`. 지식그래프 3-way 검색(`kgRetrieve`)은 `retrieve`와 `ask` 안에서 동작합니다. 각 도구에는 위험도 계층 힌트가 붙어 있습니다.
 
-## 레퍼런스 / 인용 (전부 KOSSA 과제 페이지 1차출처 확인)
+## 측정 결과
 
-- 전현우·김태성·강현(2026), zenodo 18842478 — 컨텍스트 한계효용은 모델 의존적, **Qwen 풀컨텍스트 이득(p<0.001)** → L4 설계 + Qwen2.5-7B 선택 근거.
-- Pylon-7(Jeon 2026, zenodo 18808598) — 7계층 워크플로(도구 `layer` 힌트로 반영).
-- MCP 스펙(modelcontextprotocol.io), pgvector, Ollama, Lewis 2020(RAG), Liu 2024(Lost in the Middle), Hou 2025(MCP 보안).
+모든 수치는 실행 결과이고 원자료는 `eval/results/`에 JSON으로 있습니다. **정확도 채점에 자체 제작한 LLM 심판을 쓰지 않았습니다.** 채점자는 데이터베이스 실행 결과와 정답 집합입니다.
 
-## 검증된 Python 레퍼런스
+| 측정 | 결과 | 표본과 조건 | 오라클 |
+| --- | --- | --- | --- |
+| 라우팅 도구 일치 | 30/30 | 사업자 공개 예시 30문항, 20회 재실행 동일. **in-sample** | 데이터셋이 붙인 도구 라벨 |
+| NL2SQL 실행 일치 | 6/10, 스키마 카드 제거 시 2/10 | 재시도 없음, qwen2.5:7b Q4_K_M, 한국어 질의 | 정답 SQL의 실행 결과 |
+| NL2SQL 실행 일치 (재시도 1회) | 7/10, 스키마 카드 제거해도 7/10 | 실패 SQL을 DB 카탈로그와 함께 1회 되먹임 | 동일 |
+| 지식그래프 검색 재현율 | 1.000 (개선 전 0.278) | 10문항, 결함 4건 수리 후 | 관계 파일에서 계산한 정답 집합 |
+| 벡터 검색 hit@5 | 1.00 (해시 폴백 0.75) | **8문항. 표본이 작아 신뢰구간이 넓습니다** | 원문 키워드 규칙 |
+| 종단 답변 근거 포함 | 91.3% (완화 기준 95.7%) | 30문항 중 채점 가능한 23문항 | 레인별 정답 근거 |
+| 답변 접지 위반 | 0건 (17/17) | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사 | 컨텍스트 집합 |
+| 응답 지연 중앙값 | 910ms | 로컬 CPU, 종단 실행 | 실측 |
+| 장애 주입 | 무중단 4/4, 부분 응답 4/4, 오류 가시성 4/4 | DB 정지, 지연, 부분 실패 주입 | 실측 |
+| 테스트 | 223단언 통과 | 오프라인 120 + DB 통합 + 모델 평가 | 실측 |
+| 의존성 라이선스 | 110개 전부 허용형, 카피레프트 0건 | 설치된 매니페스트에서 자동 생성 | `node scripts/sbom.mjs` |
 
-`prototype/`의 `router.py`(6/6) + `curator.py`(head-to-head)는 로직을 먼저 검증한 레퍼런스. TS 포트(`air-server/src/`)가 이를 충실히 이식 + 확장.
+재현 명령은 `docs/report.md`의 evidence manifest에 측정별로 적혀 있습니다.
+
+## 스스로 반증한 것
+
+이 프로젝트는 자기 주장을 무너뜨린 기록을 지우지 않습니다. 검증 비용을 낮추는 것이 목적이기 때문입니다.
+
+1. **스키마 카드의 기여는 정확도가 아니라 비용이었습니다.** 값 어휘까지 담은 스키마 카드가 NL2SQL 정확도를 6/10 대 2/10으로 갈랐지만, 실패한 SQL을 데이터베이스 카탈로그와 함께 한 번 되먹이자 양쪽 모두 7/10이 됐습니다. 남은 차이는 LLM 호출 12회 대 16회, 8.7초 대 11.6초입니다. 재시도가 없는 경로에서만 정확도 차이가 유지됩니다.
+2. **임베딩 차원을 자른 방식은 공식 지원이 아니었습니다.** 사업자 스키마가 `vector(768)`이라 bge-m3의 1024차원 출력 중 앞 768개만 저장해 왔는데, bge-m3 모델 카드는 dense 1024만 명시하고 차원 축소 학습을 주장하지 않습니다. 즉 이 절단은 모델이 보증한 출력 모드가 아닙니다. 손실 크기는 아직 측정하지 않았고, 공식 768 출력 모델과의 대조 실험을 설계해 뒀습니다. 그전까지 이 방식을 정식 기능으로 주장하지 않습니다.
+3. **라우팅 30/30은 일반화 수치가 아닙니다.** 30문항은 사업자가 공개한 예시이고 라우터 어휘를 그 문항을 읽으며 작성했습니다. 어휘 자체는 스키마와 그래프 온톨로지에서 뽑았지만, 미공개 문항에서의 성능은 확인되지 않았습니다.
+
+## 알려진 한계
+
+- 벡터 검색 평가 문항이 8개뿐입니다. hit@5 1.00의 신뢰구간 하한은 0.68 수준이라 우열 판정 근거로 쓰기 어렵습니다. 문항을 60개 이상으로 늘리는 것이 다음 작업입니다.
+- 7B 모델은 자연어 해석에서 실제 오답을 냅니다. 남은 오답 3건의 원인을 `docs/report.md`에 그대로 적었습니다. 공개된 30문항에 맞춰 프롬프트를 더 손대면 과적합이 됩니다.
+- 자동 장애 조치(failover)는 범위 밖입니다. 읽기 엔드포인트의 replica 폴백과 kill drill 로그까지가 검증된 범위입니다.
+- CI는 오프라인 단위 테스트와 SBOM 드리프트만 검사합니다. 데이터베이스와 모델이 필요한 스위트는 로컬에서 돌고, 그 원자료를 저장소에 커밋합니다. CI에서 도는 것처럼 표시하지 않습니다.
+
+## 프로젝트 구조
+
+```
+air-server/          MCP 서버 (TypeScript, air 프레임워크)
+  src/router.ts      규칙 기반 3레인 라우터
+  src/curator.ts     구조 보존 컨텍스트 큐레이션
+  src/graph.ts       지식그래프 탐색
+  src/cli/           평가 실행기
+docs/                개발보고서, 아키텍처, 모델카드, SBOM, AI 모델 명세
+eval/results/        모든 측정의 원자료 JSON
+sql/, scripts/       스키마와 운영 스크립트
+prototype/           로직 검증용 Python 레퍼런스
+```
+
+## 데이터셋
+
+평가에 쓰는 사업자 공개 데이터셋은 배포 조건이 대회 목적 사용으로 한정되어 있어 **저장소에 포함하지 않습니다.** `scripts/fetch-companyx-dataset.sh`가 SHA-256을 검증하며 받아 오고, 출처와 무결성 명세는 `datasets/MANIFEST.md`에 있습니다. 공식 DDL은 한 글자도 바꾸지 않고 적재합니다.
+
+## 기여와 정책
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) 개발 환경, 테스트 계층, PR 규칙
+- [SECURITY.md](SECURITY.md) 취약점 비공개 신고 경로
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) Contributor Covenant 2.1
 
 ## 라이선스
 
-코드 = **Apache-2.0** (`LICENSE`). 의존성·모델 라이선스 = `NOTICE` (air Apache-2.0 / pg MIT / Qwen2.5-7B Apache-2.0 / BGE-M3 MIT / PostgreSQL·pgvector PostgreSQL License). 모델카드 = `docs/model-cards/`. 임베더 = BGE-M3(데모/평가 기본) 또는 오프라인 결정론 hash(CI fallback). 개발보고서 = `docs/report.md`.
+직접 작성한 코드는 **Apache License 2.0**입니다. 제3자 구성요소와 모델의 라이선스는 [NOTICE](NOTICE)와 [docs/sbom.md](docs/sbom.md)에 있습니다. 탑재 모델은 qwen2.5:7b(Apache-2.0)와 bge-m3(MIT)이며 둘 다 오픈웨이트를 로컬에서 구동합니다. 모델 활용 명세는 [docs/ai-model-spec.md](docs/ai-model-spec.md)에 있습니다.
+
+## 참고 문헌
+
+- 전현우, 김태성, 강현 (2026), zenodo 18842478. 컨텍스트 한계효용이 모델에 따라 다르며 Qwen 계열은 풀 컨텍스트에서 유의하게 개선된다는 결과. 큐레이션 설계와 모델 선택의 근거.
+- Pylon-7 (2026), zenodo 18808598. 계층별 위험도 정의. 도구의 layer 힌트에 반영.
+- Model Context Protocol 명세, pgvector, Ollama 공식 문서.
