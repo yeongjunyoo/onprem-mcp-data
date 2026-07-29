@@ -1,0 +1,125 @@
+{
+  "note": "사업자 공개 30문항과 어휘가 겹치지 않는 홀드아웃 라우팅 평가셋. 라벨은 스키마/온톨로지의 라우팅 신호로 정한다.",
+  "items": [
+    {
+      "q": "Product-T1 제품의 올해 총 판매액은 얼마야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "Product-C2 제품의 올해 총 판매액은 얼마야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "Client-A 고객사와 체결된 계약은 몇 건이야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "Client-X 고객사와 체결된 계약은 몇 건이야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "부서별 평균 연봉을 큰 순서로 보여줘",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "제주 지역에서 발생한 매출 합계는?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "경기 지역에서 발생한 매출 합계는?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "계약 금액이 가장 큰 카테고리는 뭐야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "2025년 4분기에 등록된 신규 고객사 수는?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "재직 중인 직원의 평균 연봉은 얼마야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "상태가 활성인 계약의 총액은 얼마야?",
+      "expected": "nl2sql"
+    },
+    {
+      "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘",
+      "expected": "vector_search"
+    },
+    {
+      "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘",
+      "expected": "vector_search"
+    },
+    {
+      "q": "데이터베이스 백업과 복원 절차가 궁금해",
+      "expected": "vector_search"
+    },
+    {
+      "q": "보안 감사 대비 점검 항목이 뭐야?",
+      "expected": "vector_search"
+    },
+    {
+      "q": "클oud 인프라 이전 계획을 세우고 싶어",
+      "expected": "vector_search"
+    },
+    {
+      "q": "서버 성능 튜닝 방법을 알려줘",
+      "expected": "vector_search"
+    },
+    {
+      "q": "API 인증 방식과 토큰 갱신 방법을 알려줘",
+      "expected": "vector_search"
+    },
+    {
+      "q": "강현우 직원이 소속된 부서는 어디야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "장미라 직원이 소속된 부서는 어디야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Client-X 고객사와 연결된 직원은 누구야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Client-AC 고객사와 연결된 직원은 누구야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Product-D3 제품을 담당하는 팀은 어디야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Product-C2 제품을 담당하는 팀은 어디야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "기술지원팀 부서에 소속된 직원 전원을 보여줘",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "데이터플랫폼팀 부서에 소속된 직원 전원을 보여줘",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Client-B 고객사가 사용하는 제품을 전부 보여줘",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "Client-A 고객사가 사용하는 제품을 전부 보여줘",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "김지훈 직원이 관여하는 프로젝트는 뭐야?",
+      "expected": "knowledge_graph"
+    },
+    {
+      "q": "권승호 직원이 관여하는 프로젝트는 뭐야?",
+      "expected": "knowledge_graph"
+    }
+  ]
+}
