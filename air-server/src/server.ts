@@ -21,6 +21,8 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
+import { buildPrompts } from "./prompts.js";
+import { buildResources } from "./resources.js";
 import { profile } from "./profile.js";
 
 /**
@@ -81,12 +83,29 @@ export function buildServer(): AirServer {
         ? { type: "sse" as const, port: Number(process.env.MCP_PORT ?? 3510) }
         : { type: "stdio" as const },
 
+    // MCP 표준 표면. 도구는 "실행", 리소스는 "열람", 프롬프트는 "재사용 템플릿"이다.
+    // 스키마 카드와 평가 원자료를 도구 뒤에 숨기면 호스트도 심사자도 근거를 볼 수 없다.
+    resources: buildResources(),
+    prompts: buildPrompts(),
+
     tools: [
       defineTool("route", {
         description:
           "한국어 질의를 분석해 어떤 데이터 도구(sql.query / vector.search)를 호출할지 결정한다. " +
           "LLM 호출 없는 결정론적 규칙 기반 라우팅(MCP Parallel 패턴). 같은 질의 → 항상 같은 결정.",
         params: { query: { type: "string", description: "사용자의 한국어 질의" } },
+        // 구조화 출력. 라우팅 결정은 사람이 읽는 문장이 아니라 기계가 검증할 계약이다.
+        // 호스트가 이 스키마로 결과를 파싱하면 감사와 재현이 가능해진다.
+        outputSchema: {
+          route: { type: "string", description: "structured | semantic | graph | hybrid" },
+          lane: { type: "string", description: "사람이 읽는 레인 이름" },
+          tools: { type: "object", description: "호출할 도구 이름 목록(문자열 배열)" },
+          structured_signals: { type: "object", description: "관계형 레인을 고르게 한 어휘(문자열 배열)" },
+          semantic_signals: { type: "object", description: "의미 검색 레인을 고르게 한 어휘(문자열 배열)" },
+          graph_signals: { type: "object", description: "그래프 레인을 고르게 한 어휘(문자열 배열)" },
+          rationale: { type: "string", description: "결정 근거 한 줄" },
+          deterministic: { type: "boolean", description: "항상 true. LLM 호출 없이 규칙으로만 결정한다" },
+        },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
