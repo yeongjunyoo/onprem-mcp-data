@@ -12,7 +12,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route } from "../router.js";
+import { route, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
 
 async function main() {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -30,22 +30,51 @@ async function main() {
     hybrid: "hybrid",
   };
 
-  const rows: { q: string; expected: string; got: string; lane: string; hit: boolean; rationale: string }[] = [];
+  // 기대 레인이 실제로 호출되는가를 도구 목록으로 판정한다. 라벨 문자열 일치는
+  // 엄격 지표이고, 이쪽은 "그 레인에 닿기는 했는가"라는 도달 지표다.
+  // 둘을 나누는 이유: fan-out으로 기대 레인을 포함해 연 경우는 답이 나올 수
+  // 있으므로 라벨 불일치와 같은 실패로 셀 수 없다. 반대로 닿지도 못한 것은
+  // 변명의 여지가 없는 실패다. 이 구분을 사람이 적지 않고 코드가 판정한다.
+  const LANE_TOOLS: Record<string, string[]> = {
+    nl2sql: [SQL_TOOL],
+    vector_search: [VECTOR_TOOL],
+    knowledge_graph: [ONTOLOGY_TOOL, GRAPH_TOOL],
+  };
+
+  type Row = {
+    q: string;
+    expected: string;
+    got: string;
+    lane: string;
+    hit: boolean;
+    reached: boolean;
+    tools: string[];
+    rationale: string;
+  };
+  const rows: Row[] = [];
   let hits = 0;
+  let reachedCount = 0;
   for (const item of gold.items) {
     const d = route(item.q);
     const got = LANE[d.route] ?? d.route;
     const hit = got === item.expected;
+    const want = LANE_TOOLS[item.expected] ?? [];
+    // 기대 레인의 도구 중 하나라도 실제 호출 목록에 있으면 도달로 센다.
+    const reached = want.length > 0 && want.some((t) => d.tools.includes(t));
     if (hit) hits++;
+    if (reached) reachedCount++;
     rows.push({
       q: item.q,
       expected: item.expected,
       got,
       lane: d.route,
       hit,
+      reached,
+      tools: d.tools,
       rationale: d.rationale,
     });
-    console.log(`${hit ? "HIT " : "MISS"} 기대=${item.expected} 실제=${got} :: ${item.q}`);
+    const mark = hit ? "HIT " : reached ? "FAN " : "MISS";
+    console.log(`${mark} 기대=${item.expected} 실제=${got} :: ${item.q}`);
   }
 
   // 혼동 행렬 — 어디를 어디로 헷갈리는지.
@@ -54,18 +83,36 @@ async function main() {
     if (!r.hit) confusion[`${r.expected} -> ${r.got}`] = (confusion[`${r.expected} -> ${r.got}`] ?? 0) + 1;
   }
 
+  const total = gold.items.length;
+  const conservativeFanout = rows.filter((r) => !r.hit && r.reached).length;
+  const trueMiss = rows.filter((r) => !r.reached).length;
+
   const out = {
-    note: "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다.",
-    total: gold.items.length,
+    note:
+      "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. " +
+      "라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. " +
+      "strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. " +
+      "conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). " +
+      "true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
+    total,
     correct: hits,
-    accuracy: Number((hits / gold.items.length).toFixed(3)),
+    accuracy: Number((hits / total).toFixed(3)),
+    summary: {
+      total,
+      correct: hits,
+      strict_accuracy: Number((hits / total).toFixed(3)),
+      conservative_fanout: conservativeFanout,
+      true_miss: trueMiss,
+      coverage: Number((reachedCount / total).toFixed(3)),
+    },
     confusion,
     rows,
     generated_at: new Date().toISOString(),
   };
   await mkdir(resolve(root, "eval/results"), { recursive: true });
   await writeFile(resolve(root, "eval/results/companyx-holdout-route.json"), JSON.stringify(out, null, 2) + "\n");
-  console.log(`\n${JSON.stringify({ correct: hits, total: gold.items.length, accuracy: out.accuracy, confusion }, null, 2)}`);
+  console.log(`\n${JSON.stringify(out.summary, null, 2)}`);
+  console.log(`confusion: ${JSON.stringify(confusion)}`);
 }
 
 main().catch((e) => {

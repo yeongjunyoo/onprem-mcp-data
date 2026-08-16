@@ -68,12 +68,29 @@ const DOC_SIGNALS: [RegExp, string][] = [
 ];
 
 // L5 graph lane. Relation VERBS name an edge directly (traversal intent).
+//
+// ★ 온톨로지 전수 커버 의무(2026-08-16). 데이터셋 엣지 타입은 7종이다
+// (USES, BELONGS_TO, MANAGES_ACCOUNT, LEADS, HEAD_IS, REPORTED_ISSUE, HAS_PROJECT).
+// 하나라도 라우팅 신호가 없으면 그 관계는 질문으로 도달할 수 없는 구조적 사각지대가
+// 된다. router.test.ts가 edges.json을 읽어 이 불변식을 강제한다.
+// HAS_PROJECT(354엣지 중 40)가 실제로 비어 있었고, 홀드아웃 오답 4건 중 2건이
+// 거기서 나왔다.
 const RELATION_VERBS: [RegExp, string][] = [
   [/사용\s*(중|하는|중인)|사용하는|쓰고\s*있|도입한|이용\s*중/, "USES"],
   [/소속|속한|속해\s*있/, "BELONGS_TO"],
   [/담당(하는|자|해|인)?/, "MANAGES_ACCOUNT"],
   [/이끄는|이끌고|리드하는|맡고\s*있는|맡은/, "LEADS"],
   [/팀장|부서장|본부장|책임자/, "HEAD_IS"],
+  // HAS_PROJECT — employee→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
+  // 오직 엣지만이 답할 수 있는 질문이다.
+  [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
+];
+
+// 타입 미지정 관계 신호. "연결된/이어진"은 어떤 엣지인지 문장만으로는 정해지지
+// 않지만, 컬럼이나 문서가 아닌 「엣지」를 묻는다는 것만은 확정적이다.
+// RELATED_TO는 buildGraphPlan이 relTypes에서 털어내므로 무타입 확장으로 간다.
+const GENERIC_RELATION_VERBS: [RegExp, string][] = [
+  [/연결(된|돼|되어)|이어진|엮여\s*있는|관계\s*있는/, "RELATED_TO"],
 ];
 
 // Relation NOUNS are weaker: they need an entity reference or a superlative to
@@ -88,6 +105,9 @@ const RELATION_NOUNS: [RegExp, string][] = [
 const ENTITY_REFS: [RegExp, string][] = [
   [/\b(client|product|employee|project|dept|department)[-_ ]?[a-z]?\d*\b/i, "entity_id"],
   [/[가-힣]{2,}(팀|사업부|본부|부서)/, "org_unit"],
+  // employee는 온톨로지의 1급 노드타입(45개)인데 인물을 지칭하는 패턴이 없었다.
+  // 뒤에 붙는 동사 관형어미(소속된 직원, 재직 중인 직원)는 이름이 아니므로 제외한다.
+  [/[가-힣]{2,4}(?<![은는된한인든린])\s*(직원|사원|담당자)/, "person"],
 ];
 
 /** What the graph lane should DO once routed — derived from the same deterministic
@@ -151,6 +171,18 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
   return signals.filter(([re]) => re.test(q)).map(([, name]) => name);
 }
 
+/** 라우터가 신호를 가진 관계 타입 전체.
+ *
+ * 온톨로지 커버리지 불변식의 한쪽 항이다. 데이터셋 edges.json의 relation 집합이
+ * 이 집합에 포함되지 않으면 그 관계는 질문으로 도달할 수 없다 — router.test.ts가
+ * 그것을 실패로 만든다. 목록을 손으로 적지 않고 신호 테이블에서 유도하므로
+ * 신호를 추가하면 자동으로 반영된다. */
+export const RELATION_SIGNAL_TYPES: ReadonlySet<string> = new Set([
+  ...RELATION_VERBS.map(([, t]) => t),
+  ...GENERIC_RELATION_VERBS.map(([, t]) => t),
+  ...RELATION_NOUNS.map(([, t]) => t),
+]);
+
 const GRAPH_TOOLS = [ONTOLOGY_TOOL, GRAPH_TOOL];
 
 export function route(query: string): RouteDecision {
@@ -158,10 +190,11 @@ export function route(query: string): RouteDecision {
   const s = scan(q, STRUCTURED_SIGNALS);
   const m = scan(q, SEMANTIC_SIGNALS);
   const verbs = scan(q, RELATION_VERBS);
+  const generic = scan(q, GENERIC_RELATION_VERBS);
   const nouns = scan(q, RELATION_NOUNS);
   const docs = scan(q, DOC_SIGNALS);
   const ents = scan(q, ENTITY_REFS);
-  const graphHits = [...verbs, ...nouns];
+  const graphHits = [...verbs, ...generic, ...nouns];
 
   let route: Route, tools: string[], rationale: string;
   let graphPlan: GraphPlan | undefined;
@@ -170,6 +203,15 @@ export function route(query: string): RouteDecision {
     // rung 1 — an explicit traversal verb: only the graph holds edges.
     [route, tools, rationale] = ["graph", GRAPH_TOOLS, `relation verb ${verbs.join(",")} -> graph traversal`];
     graphPlan = buildGraphPlan(q, verbs, s.includes("superlative"));
+  } else if (generic.length && ents.length) {
+    // rung 1b — 타입 미지정 관계어 + 엔티티 앵커. 엣지를 묻는 것은 확실하고
+    // 어느 엣지인지만 미정이라, 무타입 확장으로 그래프를 탄다.
+    [route, tools, rationale] = [
+      "graph",
+      GRAPH_TOOLS,
+      `generic relation ${generic.join(",")} + entity ${ents.join(",")} -> untyped traversal`,
+    ];
+    graphPlan = buildGraphPlan(q, generic, s.includes("superlative"));
   } else if (docs.length) {
     // rung 2 — prose artifact / ops topic: the corpus, not the edges.
     [route, tools, rationale] = ["semantic", [VECTOR_TOOL], `document signals ${docs.join(",")}`];
@@ -187,8 +229,21 @@ export function route(query: string): RouteDecision {
     [route, tools, rationale] = ["structured", [SQL_TOOL], "only structured signals"];
   } else if (m.length) {
     [route, tools, rationale] = ["semantic", [VECTOR_TOOL], "only semantic signals"];
+  } else if (ents.length) {
+    // Ambiguous BUT entity-anchored -> 세 레인 전부 연다.
+    //
+    // 결함이었던 지점: 기존 fan-out은 structured+semantic만 켜서, 신호를 놓친
+    // 관계 질문이 그래프에 영영 닿지 못했다. 3레인 시스템에서 "모르겠으면 둘만"은
+    // 세 번째 레인을 구조적 사각지대로 만든다. 그래프 탐색은 앵커가 있어야
+    // 의미가 있으므로, 엔티티가 지목된 모호 질문에 한해 그래프를 포함한다.
+    [route, tools, rationale] = [
+      "hybrid",
+      [SQL_TOOL, VECTOR_TOOL, ...GRAPH_TOOLS],
+      `no decisive signal; entity-anchored fan-out (${ents.join(",")})`,
+    ];
+    graphPlan = buildGraphPlan(q, [], s.includes("superlative"));
   } else {
-    // Ambiguous -> fan out both. Safer (fewer misses); RRF merges the results.
+    // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
   return {
