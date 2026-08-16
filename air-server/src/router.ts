@@ -106,9 +106,19 @@ const ENTITY_REFS: [RegExp, string][] = [
   [/\b(client|product|employee|project|dept|department)[-_ ]?[a-z]?\d*\b/i, "entity_id"],
   [/[가-힣]{2,}(팀|사업부|본부|부서)/, "org_unit"],
   // employee는 온톨로지의 1급 노드타입(45개)인데 인물을 지칭하는 패턴이 없었다.
-  // 뒤에 붙는 동사 관형어미(소속된 직원, 재직 중인 직원)는 이름이 아니므로 제외한다.
-  [/[가-힣]{2,4}(?<![은는된한인든린])\s*(직원|사원|담당자)/, "person"],
+  //
+  // 이것은 사전이 없을 때의 폴백이다. 이름을 정규식으로 맞히는 것은 원리적으로
+  // 불가능하다 — 실제로 "신하은"이 은으로 끝난다는 이유로 제외되는 결함이 있었다.
+  // 정답은 온톨로지 대조이고(installEntityLexicon), 여기서는 동사 관형어미만
+  // 걸러 오탐을 줄인다.
+  [/[가-힣]{2,4}(?<![된는인])\s*(직원|사원|담당자)/, "person"],
 ];
+
+/** 이름 자리에 올 수 없는 수식어. 폴백 정규식의 오탐을 줄인다. */
+const NOT_A_NAME = new Set([
+  "소속된", "재직", "중인", "담당하는", "근무하는", "입사한", "퇴사한",
+  "해당", "관련된", "신규", "전체", "모든", "우리", "각", "타",
+]);
 
 /** What the graph lane should DO once routed — derived from the same deterministic
  * scan, so retrieval never has to re-parse the question. */
@@ -129,6 +139,8 @@ export interface RouteDecision {
   graphHits: string[];
   docHits: string[];
   entityHits: string[];
+  /** 타입쌍 추론 결과. 관계어를 못 맞혀도 온톨로지가 엣지를 알려준 경우. */
+  typePair?: { relation: string; from: string; to: string };
   graphPlan?: GraphPlan;
   rationale: string;
 }
@@ -171,6 +183,92 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
   return signals.filter(([re]) => re.test(q)).map(([, name]) => name);
 }
 
+// ── 온톨로지 엔티티 사전 ──────────────────────────────────────────────
+//
+// 라우터가 개체를 「추측」하지 않고 「대조」하게 한다. 실제 배포에서 이 목록은
+// 고객사 자신의 DB에서 나오므로(기동 시 1회 적재), 데이터셋을 저장소에 재배포할
+// 필요가 없다. 임계값이 없으므로 튜닝 파라미터도 늘지 않는다.
+//
+// 왜 필요한가: 홀드아웃 2차(구어체)에서 knowledge_graph strict 1/10이 나왔고,
+// 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
+let ENTITY_LEXICON: { name: string; type: string }[] = [];
+
+/** 타입쌍 -> 엣지 타입. edges.json에서 유도하며 사람이 적지 않는다. */
+let TYPE_PAIR_EDGE = new Map<string, string>();
+
+/** 노드 타입을 가리키는 말. 관계 동사와 달리 **닫힌 집합**이다 — 온톨로지의
+ * 노드 타입이 5종이므로 이 표도 5행에서 끝난다. 관계 표현은 무한하지만
+ * "무엇을 묻는가"의 대상 타입은 유한하다. 이것이 이 설계의 요점이다. */
+const NODE_TYPE_TERMS: [RegExp, string][] = [
+  [/부서|조직|팀|본부|사업부|소속/, "department"],
+  [/직원|사원|담당자|담당|사람|누구|인원|엔지니어|창구|윗선|책임자|팀장/, "employee"],
+  [/프로젝트|과제|건(이|을|은|가|\s|$)|업무/, "project"],
+  [/제품|솔루션|서비스|상품/, "product"],
+  [/고객사|고객|거래처|계정/, "client"],
+];
+
+/** 기동 시 1회 설치한다.
+ *
+ * 실제 배포에서 nodes/edges는 고객사 자신의 DB에서 온다. 저장소에 데이터를
+ * 재배포하지 않아도 되고, 임계값이 없으므로 튜닝 파라미터도 늘지 않는다. */
+export function installOntology(
+  nodes: Iterable<{ name: string; type: string }>,
+  edges: Iterable<{ source: string; target: string; relation: string }> = [],
+): { entities: number; typePairs: number } {
+  const seen = new Set<string>();
+  ENTITY_LEXICON = [];
+  for (const n of nodes) {
+    const name = (n.name ?? "").trim();
+    if (name.length < 2 || seen.has(name)) continue;
+    seen.add(name);
+    ENTITY_LEXICON.push({ name, type: n.type });
+  }
+  // 긴 이름부터 대조해 부분 일치를 막는다.
+  ENTITY_LEXICON.sort((a, b) => b.name.length - a.name.length);
+
+  // 타입쌍 -> 엣지. 노드 id 접두사가 타입이다(client_7 -> client).
+  const typeOf = new Map<string, string>();
+  for (const n of nodes as Iterable<{ name: string; type: string; id?: string }>) {
+    if (n.id) typeOf.set(n.id, n.type);
+  }
+  TYPE_PAIR_EDGE = new Map();
+  for (const e of edges) {
+    const st = typeOf.get(e.source) ?? e.source.replace(/_\d+$/, "");
+    const tt = typeOf.get(e.target) ?? e.target.replace(/_\d+$/, "");
+    // 같은 타입쌍에 여러 엣지가 있으면 먼저 나온 것을 쓴다(데이터 순서 = 결정론).
+    if (!TYPE_PAIR_EDGE.has(`${st}|${tt}`)) TYPE_PAIR_EDGE.set(`${st}|${tt}`, e.relation);
+    if (!TYPE_PAIR_EDGE.has(`${tt}|${st}`)) TYPE_PAIR_EDGE.set(`${tt}|${st}`, e.relation);
+  }
+  return { entities: ENTITY_LEXICON.length, typePairs: TYPE_PAIR_EDGE.size };
+}
+
+/** 테스트와 재현성을 위해 현재 사전 크기를 노출한다. */
+export function entityLexiconSize(): number {
+  return ENTITY_LEXICON.length;
+}
+
+/** 질문에 등장하는 실재 개체의 타입들. */
+function entityTypesIn(q: string): string[] {
+  const out = new Set<string>();
+  for (const e of ENTITY_LEXICON) if (q.includes(e.name)) out.add(e.type);
+  return [...out];
+}
+
+/** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지. */
+function inferByTypePair(q: string): { relation: string; from: string; to: string } | null {
+  const froms = entityTypesIn(q);
+  if (!froms.length) return null;
+  const tos = scan(q, NODE_TYPE_TERMS);
+  for (const from of froms) {
+    for (const to of tos) {
+      if (to === from) continue;
+      const rel = TYPE_PAIR_EDGE.get(`${from}|${to}`);
+      if (rel) return { relation: rel, from, to };
+    }
+  }
+  return null;
+}
+
 /** 라우터가 신호를 가진 관계 타입 전체.
  *
  * 온톨로지 커버리지 불변식의 한쪽 항이다. 데이터셋 edges.json의 relation 집합이
@@ -193,8 +291,21 @@ export function route(query: string): RouteDecision {
   const generic = scan(q, GENERIC_RELATION_VERBS);
   const nouns = scan(q, RELATION_NOUNS);
   const docs = scan(q, DOC_SIGNALS);
-  const ents = scan(q, ENTITY_REFS);
+  const ents = scan(q, ENTITY_REFS).filter((name) => {
+    if (name !== "person") return true;
+    // 폴백 정규식이 잡은 인물 후보가 수식어면 버린다.
+    const m = q.match(/([가-힣]{2,4})\s*(?:직원|사원|담당자)/);
+    return !(m && NOT_A_NAME.has(m[1]));
+  });
+  // 온톨로지에 실재하는 개체명이 문장에 있으면 추측할 필요가 없다.
+  if (ENTITY_LEXICON.some((n) => q.includes(n.name)) && !ents.includes("known_entity")) {
+    ents.push("known_entity");
+  }
   const graphHits = [...verbs, ...generic, ...nouns];
+
+  const typePair = inferByTypePair(q);
+  // 최상급은 그래프 집계일 수 있으므로 구조화 신호에서 분리한다.
+  const columnish = s.filter((x) => x !== "superlative");
 
   let route: Route, tools: string[], rationale: string;
   let graphPlan: GraphPlan | undefined;
@@ -215,6 +326,20 @@ export function route(query: string): RouteDecision {
   } else if (docs.length) {
     // rung 2 — prose artifact / ops topic: the corpus, not the edges.
     [route, tools, rationale] = ["semantic", [VECTOR_TOOL], `document signals ${docs.join(",")}`];
+  } else if (typePair && !docs.length && !columnish.length) {
+    // rung 2b — 타입쌍 추론. 관계어를 못 맞혀도, 지목된 개체의 타입과 질문이
+    // 가리키는 타입이 온톨로지에서 엣지로 이어져 있으면 그것은 관계 질문이다.
+    //
+    // 두 곳에 양보한다. 문서 신호가 있으면 산문이 답할 수 있고(rung 2),
+    // 컬럼 어휘가 있으면 STRUCTURED_SIGNALS의 공리대로 SQL만이 답할 수 있다
+    // ("연봉"을 물으면 그것은 엣지 질문이 아니다). 최상급은 예외로 두는데,
+    // 엣지를 세는 질문("가장 많은 고객을 담당하는 직원")이 그래프 집계이기 때문이다.
+    [route, tools, rationale] = [
+      "graph",
+      GRAPH_TOOLS,
+      `type-pair ${typePair.from}->${typePair.to} => ${typePair.relation}`,
+    ];
+    graphPlan = buildGraphPlan(q, [typePair.relation], s.includes("superlative"));
   } else if (nouns.length && (ents.length || s.includes("superlative"))) {
     // rung 3 — relation noun anchored by an entity or a count-over-edges question.
     [route, tools, rationale] = [
@@ -254,6 +379,7 @@ export function route(query: string): RouteDecision {
     graphHits,
     docHits: docs,
     entityHits: ents,
+    typePair: typePair ?? undefined,
     graphPlan,
     rationale,
   };
@@ -271,6 +397,7 @@ export function audit(d: RouteDecision) {
     graph_plan: d.graphPlan ?? null,
     document_signals: d.docHits,
     entity_signals: d.entityHits,
+    type_pair: d.typePair ?? null,
     rationale: d.rationale,
     deterministic: true,
   };

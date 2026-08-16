@@ -10,7 +10,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { route, audit, LANE_LABEL, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
+import { installOntology, route, audit, LANE_LABEL, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
 import { loadQuestions, datasetDir, type CxQuestion } from "../companyx.js";
 
 const TOOL_OF_LABEL: Record<CxQuestion["tool"], string[]> = {
@@ -20,6 +20,11 @@ const TOOL_OF_LABEL: Record<CxQuestion["tool"], string[]> = {
 };
 
 async function main() {
+  {
+    const { loadGraph } = await import("../companyx.js");
+    const { nodes, edges } = await loadGraph();
+    console.log(`entity lexicon: ${installOntology(nodes, edges).entities}개`);
+  }
   const questions = await loadQuestions(datasetDir());
   const rows = questions.map((item) => {
     const d = route(item.q);

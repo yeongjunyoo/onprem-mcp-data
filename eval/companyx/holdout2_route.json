@@ -1,0 +1,156 @@
+{
+  "note": "홀드아웃 2차. 1차 홀드아웃은 라우터 온톨로지 커버리지 구멍을 진단하는 데 썼으므로 더 이상 홀드아웃이 아니다. 이 평가셋은 그 수정 이후 라우터가 한 번도 보지 않은 문구다. 표면형은 업무 담당자의 구어체로 쓰고 어미·조사·어순을 흔들었으며, 온톨로지 엣지 7종을 전수 포함한다. 라벨은 데이터 구조가 정한다(컬럼이 답하면 nl2sql, 문서가 답하면 vector_search, 엣지가 답하면 knowledge_graph).",
+  "seed": 20260816,
+  "items": [
+    {
+      "q": "작년 대비 올해 계약 금액이 얼마나 늘었어?",
+      "expected": "nl2sql",
+      "basis": "contracts.amount 집계"
+    },
+    {
+      "q": "연봉 상위 10명의 평균이 궁금한데",
+      "expected": "nl2sql",
+      "basis": "employees.salary 집계"
+    },
+    {
+      "q": "Product-S3 이거 분기별로 얼마나 팔렸어?",
+      "expected": "nl2sql",
+      "basis": "sales 집계"
+    },
+    {
+      "q": "신규로 들어온 고객사가 몇 군데나 돼?",
+      "expected": "nl2sql",
+      "basis": "clients 필터+카운트"
+    },
+    {
+      "q": "아직 안 닫힌 티켓 몇 건이나 남았지?",
+      "expected": "nl2sql",
+      "basis": "tickets 상태 필터"
+    },
+    {
+      "q": "계약 규모 큰 순으로 스무 곳만 뽑아줘",
+      "expected": "nl2sql",
+      "basis": "contracts 정렬"
+    },
+    {
+      "q": "퇴사자 빼고 인원수만 알려줄래?",
+      "expected": "nl2sql",
+      "basis": "employees 필터"
+    },
+    {
+      "q": "지역별로 매출 얼마씩 나왔는지 정리해줘",
+      "expected": "nl2sql",
+      "basis": "sales 지역 집계"
+    },
+    {
+      "q": "예산 초과한 프로젝트 총액이 얼마지?",
+      "expected": "nl2sql",
+      "basis": "projects.budget 집계"
+    },
+    {
+      "q": "우선순위별 티켓 분포 좀 보여줘",
+      "expected": "nl2sql",
+      "basis": "tickets 우선순위 집계"
+    },
+    {
+      "q": "신규 입사자가 개발 환경 세팅하려면 뭐부터 해야 해?",
+      "expected": "vector_search",
+      "basis": "기술문서"
+    },
+    {
+      "q": "지난번 디스크 꽉 찼을 때 어떻게 복구했더라?",
+      "expected": "vector_search",
+      "basis": "장애보고서"
+    },
+    {
+      "q": "재해 복구 절차가 문서로 정리된 게 있나?",
+      "expected": "vector_search",
+      "basis": "정책문서"
+    },
+    {
+      "q": "로그 수집 파이프라인을 어떤 식으로 꾸렸는지 설명해줘",
+      "expected": "vector_search",
+      "basis": "기술문서"
+    },
+    {
+      "q": "지난 분기 회고에서 나온 개선 안건 뭐였지?",
+      "expected": "vector_search",
+      "basis": "회의록"
+    },
+    {
+      "q": "고객사에 낸 제안서 중에 아키텍처 설명한 부분 찾아줘",
+      "expected": "vector_search",
+      "basis": "제안서"
+    },
+    {
+      "q": "권한 요청은 어떤 절차를 밟아야 하는지 알려줘",
+      "expected": "vector_search",
+      "basis": "정책문서"
+    },
+    {
+      "q": "네트워크 지연 때문에 생긴 사고 기록 있어?",
+      "expected": "vector_search",
+      "basis": "장애보고서"
+    },
+    {
+      "q": "모니터링 알람 임계값은 어떤 기준으로 잡았어?",
+      "expected": "vector_search",
+      "basis": "기술문서"
+    },
+    {
+      "q": "개인정보 처리할 때 지켜야 하는 원칙이 뭐야?",
+      "expected": "vector_search",
+      "basis": "정책문서"
+    },
+    {
+      "q": "Client-P 여기는 우리 솔루션 중에 뭘 쓰지?",
+      "expected": "knowledge_graph",
+      "basis": "USES"
+    },
+    {
+      "q": "Product-D2 이거 깔려 있는 데가 어디어디야?",
+      "expected": "knowledge_graph",
+      "basis": "USES"
+    },
+    {
+      "q": "신하은 사원은 어느 조직 사람이야?",
+      "expected": "knowledge_graph",
+      "basis": "BELONGS_TO"
+    },
+    {
+      "q": "보안솔루션팀 인원 구성 좀 보여줘",
+      "expected": "knowledge_graph",
+      "basis": "BELONGS_TO"
+    },
+    {
+      "q": "Client-A 여기 창구가 누구야?",
+      "expected": "knowledge_graph",
+      "basis": "MANAGES_ACCOUNT"
+    },
+    {
+      "q": "고객사를 제일 많이 끼고 있는 사람이 누구지?",
+      "expected": "knowledge_graph",
+      "basis": "MANAGES_ACCOUNT"
+    },
+    {
+      "q": "신미라 직원이 리드하는 건이 뭐가 있어?",
+      "expected": "knowledge_graph",
+      "basis": "LEADS"
+    },
+    {
+      "q": "영업팀 윗선이 누구인지 알려줘",
+      "expected": "knowledge_graph",
+      "basis": "HEAD_IS"
+    },
+    {
+      "q": "Product-C3 이거 말썽 많이 나는 편이야?",
+      "expected": "knowledge_graph",
+      "basis": "REPORTED_ISSUE"
+    },
+    {
+      "q": "김도윤 직원 지금 무슨 건 붙어 있어?",
+      "expected": "knowledge_graph",
+      "basis": "HAS_PROJECT"
+    }
+  ]
+}
