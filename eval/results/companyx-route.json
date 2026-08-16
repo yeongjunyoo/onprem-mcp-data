@@ -26,7 +26,7 @@
     "deterministic_20_runs": true,
     "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
     "misses": [],
-    "generated_at": "2026-07-27T15:45:27.353Z"
+    "generated_at": "2026-08-16T17:14:13.893Z"
   },
   "rows": [
     {
@@ -149,7 +149,8 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [
-          "org_unit"
+          "org_unit",
+          "person"
         ],
         "rationale": "only structured signals",
         "deterministic": true
@@ -627,7 +628,8 @@
         },
         "document_signals": [],
         "entity_signals": [
-          "org_unit"
+          "org_unit",
+          "person"
         ],
         "rationale": "relation verb BELONGS_TO -> graph traversal",
         "deterministic": true

@@ -74,7 +74,7 @@ def main() -> int:
         ("vector_search", "{product} 초기 설정과 필수 요구사항을 알려줘", products, "product"),
         ("vector_search", "데이터베이스 백업과 복원 절차가 궁금해", [], ""),
         ("vector_search", "보안 감사 대비 점검 항목이 뭐야?", [], ""),
-        ("vector_search", "클oud 인프라 이전 계획을 세우고 싶어", [], ""),
+        ("vector_search", "클라우드 인프라 이전 계획을 세우고 싶어", [], ""),
         ("vector_search", "서버 성능 튜닝 방법을 알려줘", [], ""),
         ("vector_search", "API 인증 방식과 토큰 갱신 방법을 알려줘", [], ""),
         ("knowledge_graph", "{employee} 직원이 소속된 부서는 어디야?", employees, "employee"),
