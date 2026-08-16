@@ -1,24 +1,27 @@
 {
-  "gold": "eval/companyx/holdout_route.json",
+  "gold": "eval/companyx/holdout2_route.json",
   "entity_lexicon_size": 131,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
   "total": 30,
-  "correct": 27,
-  "accuracy": 0.9,
+  "correct": 19,
+  "accuracy": 0.633,
   "summary": {
     "total": 30,
-    "correct": 27,
-    "strict_accuracy": 0.9,
-    "conservative_fanout": 3,
-    "true_miss": 0,
-    "coverage": 1
+    "correct": 19,
+    "strict_accuracy": 0.633,
+    "conservative_fanout": 9,
+    "true_miss": 2,
+    "coverage": 0.933
   },
   "confusion": {
-    "vector_search -> hybrid": 3
+    "nl2sql -> hybrid": 3,
+    "vector_search -> hybrid": 4,
+    "vector_search -> nl2sql": 1,
+    "knowledge_graph -> hybrid": 3
   },
   "rows": [
     {
-      "q": "Product-T1 제품의 올해 총 판매액은 얼마야?",
+      "q": "작년 대비 올해 계약 금액이 얼마나 늘었어?",
       "expected": "nl2sql",
       "got": "nl2sql",
       "lane": "structured",
@@ -30,7 +33,7 @@
       "rationale": "only structured signals"
     },
     {
-      "q": "Product-C2 제품의 올해 총 판매액은 얼마야?",
+      "q": "연봉 상위 10명의 평균이 궁금한데",
       "expected": "nl2sql",
       "got": "nl2sql",
       "lane": "structured",
@@ -42,7 +45,7 @@
       "rationale": "only structured signals"
     },
     {
-      "q": "Client-A 고객사와 체결된 계약은 몇 건이야?",
+      "q": "Product-S3 이거 분기별로 얼마나 팔렸어?",
       "expected": "nl2sql",
       "got": "nl2sql",
       "lane": "structured",
@@ -54,157 +57,94 @@
       "rationale": "only structured signals"
     },
     {
-      "q": "Client-X 고객사와 체결된 계약은 몇 건이야?",
+      "q": "신규로 들어온 고객사가 몇 군데나 돼?",
       "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "부서별 평균 연봉을 큰 순서로 보여줘",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "제주 지역에서 발생한 매출 합계는?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "경기 지역에서 발생한 매출 합계는?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "계약 금액이 가장 큰 카테고리는 뭐야?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "2025년 4분기에 등록된 신규 고객사 수는?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "재직 중인 직원의 평균 연봉은 얼마야?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "상태가 활성인 계약의 총액은 얼마야?",
-      "expected": "nl2sql",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "sql.query"
-      ],
-      "rationale": "only structured signals"
-    },
-    {
-      "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘",
-      "expected": "vector_search",
       "got": "hybrid",
       "lane": "hybrid",
       "hit": false,
       "reached": true,
       "tools": [
         "sql.query",
-        "vector.search",
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+      "rationale": "no decisive signal; default fan-out"
     },
     {
-      "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘",
-      "expected": "vector_search",
+      "q": "아직 안 닫힌 티켓 몇 건이나 남았지?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals"
+    },
+    {
+      "q": "계약 규모 큰 순으로 스무 곳만 뽑아줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals"
+    },
+    {
+      "q": "퇴사자 빼고 인원수만 알려줄래?",
+      "expected": "nl2sql",
       "got": "hybrid",
       "lane": "hybrid",
       "hit": false,
       "reached": true,
       "tools": [
         "sql.query",
-        "vector.search",
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+      "rationale": "no decisive signal; default fan-out"
     },
     {
-      "q": "데이터베이스 백업과 복원 절차가 궁금해",
-      "expected": "vector_search",
-      "got": "vector_search",
-      "lane": "semantic",
+      "q": "지역별로 매출 얼마씩 나왔는지 정리해줘",
+      "expected": "nl2sql",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "structured + semantic signals both present"
+    },
+    {
+      "q": "예산 초과한 프로젝트 총액이 얼마지?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
       "hit": true,
       "reached": true,
       "tools": [
-        "vector.search"
+        "sql.query"
       ],
-      "rationale": "document signals doc_artifact,ops_topic"
+      "rationale": "only structured signals"
     },
     {
-      "q": "보안 감사 대비 점검 항목이 뭐야?",
-      "expected": "vector_search",
-      "got": "vector_search",
-      "lane": "semantic",
+      "q": "우선순위별 티켓 분포 좀 보여줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
       "hit": true,
       "reached": true,
       "tools": [
-        "vector.search"
+        "sql.query"
       ],
-      "rationale": "document signals ops_topic"
+      "rationale": "only structured signals"
     },
     {
-      "q": "클라우드 인프라 이전 계획을 세우고 싶어",
+      "q": "신규 입사자가 개발 환경 세팅하려면 뭐부터 해야 해?",
       "expected": "vector_search",
       "got": "hybrid",
       "lane": "hybrid",
@@ -217,7 +157,19 @@
       "rationale": "no decisive signal; default fan-out"
     },
     {
-      "q": "서버 성능 튜닝 방법을 알려줘",
+      "q": "지난번 디스크 꽉 찼을 때 어떻게 복구했더라?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals ops_topic"
+    },
+    {
+      "q": "재해 복구 절차가 문서로 정리된 게 있나?",
       "expected": "vector_search",
       "got": "vector_search",
       "lane": "semantic",
@@ -229,7 +181,7 @@
       "rationale": "document signals doc_artifact,ops_topic"
     },
     {
-      "q": "API 인증 방식과 토큰 갱신 방법을 알려줘",
+      "q": "로그 수집 파이프라인을 어떤 식으로 꾸렸는지 설명해줘",
       "expected": "vector_search",
       "got": "vector_search",
       "lane": "semantic",
@@ -238,10 +190,85 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals doc_artifact,ops_topic"
+      "rationale": "only semantic signals"
     },
     {
-      "q": "강현우 직원이 소속된 부서는 어디야?",
+      "q": "지난 분기 회고에서 나온 개선 안건 뭐였지?",
+      "expected": "vector_search",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals"
+    },
+    {
+      "q": "고객사에 낸 제안서 중에 아키텍처 설명한 부분 찾아줘",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact"
+    },
+    {
+      "q": "권한 요청은 어떤 절차를 밟아야 하는지 알려줘",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact"
+    },
+    {
+      "q": "네트워크 지연 때문에 생긴 사고 기록 있어?",
+      "expected": "vector_search",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "no decisive signal; default fan-out"
+    },
+    {
+      "q": "모니터링 알람 임계값은 어떤 기준으로 잡았어?",
+      "expected": "vector_search",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "no decisive signal; default fan-out"
+    },
+    {
+      "q": "개인정보 처리할 때 지켜야 하는 원칙이 뭐야?",
+      "expected": "vector_search",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "no decisive signal; default fan-out"
+    },
+    {
+      "q": "Client-P 여기는 우리 솔루션 중에 뭘 쓰지?",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -251,10 +278,25 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "type-pair client->product => USES"
     },
     {
-      "q": "장미라 직원이 소속된 부서는 어디야?",
+      "q": "Product-D2 이거 깔려 있는 데가 어디어디야?",
+      "expected": "knowledge_graph",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search",
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+    },
+    {
+      "q": "신하은 사원은 어느 조직 사람이야?",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -264,10 +306,10 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "type-pair employee->department => BELONGS_TO"
     },
     {
-      "q": "Client-X 고객사와 연결된 직원은 누구야?",
+      "q": "보안솔루션팀 인원 구성 좀 보여줘",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -277,10 +319,10 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal"
+      "rationale": "type-pair department->employee => BELONGS_TO"
     },
     {
-      "q": "Client-AC 고객사와 연결된 직원은 누구야?",
+      "q": "Client-A 여기 창구가 누구야?",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -290,10 +332,23 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal"
+      "rationale": "type-pair client->employee => MANAGES_ACCOUNT"
     },
     {
-      "q": "Product-D3 제품을 담당하는 팀은 어디야?",
+      "q": "고객사를 제일 많이 끼고 있는 사람이 누구지?",
+      "expected": "knowledge_graph",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "no decisive signal; default fan-out"
+    },
+    {
+      "q": "신미라 직원이 리드하는 건이 뭐가 있어?",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -303,10 +358,10 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal"
+      "rationale": "relation verb LEADS -> graph traversal"
     },
     {
-      "q": "Product-C2 제품을 담당하는 팀은 어디야?",
+      "q": "영업팀 윗선이 누구인지 알려줘",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -316,10 +371,25 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal"
+      "rationale": "type-pair department->employee => BELONGS_TO"
     },
     {
-      "q": "기술지원팀 부서에 소속된 직원 전원을 보여줘",
+      "q": "Product-C3 이거 말썽 많이 나는 편이야?",
+      "expected": "knowledge_graph",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search",
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+    },
+    {
+      "q": "김도윤 직원 지금 무슨 건 붙어 있어?",
       "expected": "knowledge_graph",
       "got": "knowledge_graph",
       "lane": "graph",
@@ -329,73 +399,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
-    },
-    {
-      "q": "데이터플랫폼팀 부서에 소속된 직원 전원을 보여줘",
-      "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
-    },
-    {
-      "q": "Client-B 고객사가 사용하는 제품을 전부 보여줘",
-      "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "relation verb USES -> graph traversal"
-    },
-    {
-      "q": "Client-A 고객사가 사용하는 제품을 전부 보여줘",
-      "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "relation verb USES -> graph traversal"
-    },
-    {
-      "q": "김지훈 직원이 관여하는 프로젝트는 뭐야?",
-      "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "relation verb HAS_PROJECT -> graph traversal"
-    },
-    {
-      "q": "권승호 직원이 관여하는 프로젝트는 뭐야?",
-      "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "relation verb HAS_PROJECT -> graph traversal"
+      "rationale": "type-pair employee->project => LEADS"
     }
   ],
-  "generated_at": "2026-08-16T17:27:52.151Z"
+  "generated_at": "2026-08-16T17:27:52.215Z"
 }

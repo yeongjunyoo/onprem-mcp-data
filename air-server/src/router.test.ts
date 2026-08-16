@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -84,6 +84,61 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
 {
   const d3 = route("주문");
   eq(d3.tools, [SQL_TOOL, VECTOR_TOOL], "앵커 없는 모호 질문은 2레인만");
+}
+
+// ── 타입쌍 추론 ───────────────────────────────────────────────────────
+//
+// 관계 표현은 무한하다("관여하는/연결된/끼고 있는/붙어 있는/창구/윗선"…).
+// 규칙 기반 라우터가 어휘로 그것을 따라잡는 것은 원리적으로 진다. 대신 질문이
+// 지목한 개체의 타입과 질문이 가리키는 타입을 온톨로지에 대조해 엣지를 유도한다.
+// 늘어나는 어휘는 노드 타입 지시어뿐이고 노드 타입은 닫힌 집합이다.
+{
+  const here = dirname(fileURLToPath(import.meta.url));
+  const gdir = resolve(here, "../../datasets/companyx-v1.0/graph");
+  if (existsSync(resolve(gdir, "nodes.json"))) {
+    const nodes = JSON.parse(readFileSync(resolve(gdir, "nodes.json"), "utf8"));
+    const edges = JSON.parse(readFileSync(resolve(gdir, "edges.json"), "utf8"));
+    const inst = installOntology(nodes, edges);
+    ok(inst.entities > 100, `엔티티 사전 적재 (${inst.entities}개)`);
+    ok(inst.typePairs > 0, `타입쌍 사상 유도 (${inst.typePairs}쌍)`);
+    ok(entityLexiconSize() === inst.entities, "사전 크기 일치");
+
+    // 관계어를 하나도 모르는 구어체 질문이 온톨로지로 풀린다
+    const names = (nodes as { name: string; type: string }[]);
+    const emp = names.find((n) => n.type === "employee")!.name;
+    const dept = names.find((n) => n.type === "department")!.name;
+
+    const d4 = route(`${emp} 사원은 어느 조직 사람이야?`);
+    eq(d4.route, "graph", "타입쌍: employee+department -> graph");
+    eq(d4.typePair?.relation, "BELONGS_TO", "타입쌍이 BELONGS_TO를 유도");
+
+    const d5 = route(`${emp} 직원 지금 무슨 건 붙어 있어?`);
+    eq(d5.route, "graph", "타입쌍: employee+project -> graph");
+
+    // 이름이 은/한/인으로 끝나도 개체로 인식해야 한다 (정규식 폴백의 결함)
+    const trickyName = names.find((n) => n.type === "employee" && /[은한인]$/.test(n.name));
+    if (trickyName) {
+      ok(
+        route(`${trickyName.name} 사원은 어느 조직 사람이야?`).entityHits.includes("known_entity"),
+        `이름이 ${trickyName.name.slice(-1)}으로 끝나도 개체로 인식`,
+      );
+    }
+
+    // ★ 컬럼을 물으면 엣지가 아니다 — 타입쌍이 STRUCTURED_SIGNALS에 양보한다.
+    // 이 양보가 없으면 사업자 공개 문항 "기술지원팀 직원 목록과 연봉을 알려줘"가
+    // knowledge_graph로 새서 in-sample 30/30이 깨진다.
+    eq(route(`${dept} 직원 목록과 연봉을 알려줘`).route, "structured", "컬럼 어휘가 타입쌍을 이긴다");
+
+    // 문서 신호도 타입쌍을 이긴다
+    ok(route(`${dept} 인수인계 문서 작성 방법 알려줘`).route !== "graph", "문서 신호가 타입쌍을 이긴다");
+
+    // 사전을 비우면 타입쌍은 발동하지 않는다 (결정론 유지, 사전 없이도 동작)
+    installOntology([], []);
+    ok(route(`${emp} 사원은 어느 조직 사람이야?`).typePair === undefined, "사전 없으면 타입쌍 없음");
+    installOntology(nodes, edges);
+  } else {
+    console.log("  SKIP: 타입쌍 추론 (데이터셋 없음)");
+  }
 }
 
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);

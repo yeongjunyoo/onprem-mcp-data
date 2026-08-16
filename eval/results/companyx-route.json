@@ -26,7 +26,7 @@
     "deterministic_20_runs": true,
     "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
     "misses": [],
-    "generated_at": "2026-08-16T17:14:13.893Z"
+    "generated_at": "2026-08-16T17:27:44.095Z"
   },
   "rows": [
     {
@@ -50,6 +50,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -75,6 +76,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -100,6 +102,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -125,6 +128,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -150,8 +154,14 @@
         "document_signals": [],
         "entity_signals": [
           "org_unit",
-          "person"
+          "person",
+          "known_entity"
         ],
+        "type_pair": {
+          "relation": "BELONGS_TO",
+          "from": "department",
+          "to": "employee"
+        },
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -176,6 +186,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -201,6 +212,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -226,6 +238,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -252,6 +265,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -278,6 +292,7 @@
         "graph_plan": null,
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "only structured signals",
         "deterministic": true
       }
@@ -304,6 +319,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals ops_topic",
         "deterministic": true
       }
@@ -328,8 +344,10 @@
           "doc_artifact"
         ],
         "entity_signals": [
-          "entity_id"
+          "entity_id",
+          "known_entity"
         ],
+        "type_pair": null,
         "rationale": "document signals doc_artifact",
         "deterministic": true
       }
@@ -357,6 +375,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals doc_artifact,ops_topic",
         "deterministic": true
       }
@@ -382,6 +401,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals doc_artifact,ops_topic",
         "deterministic": true
       }
@@ -409,6 +429,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals ops_topic",
         "deterministic": true
       }
@@ -435,6 +456,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals ops_topic",
         "deterministic": true
       }
@@ -459,6 +481,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals ops_topic",
         "deterministic": true
       }
@@ -485,6 +508,7 @@
           "doc_artifact"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals doc_artifact",
         "deterministic": true
       }
@@ -511,6 +535,7 @@
           "doc_artifact"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals doc_artifact",
         "deterministic": true
       }
@@ -537,6 +562,7 @@
           "ops_topic"
         ],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "document signals ops_topic",
         "deterministic": true
       }
@@ -566,8 +592,14 @@
         },
         "document_signals": [],
         "entity_signals": [
-          "entity_id"
+          "entity_id",
+          "known_entity"
         ],
+        "type_pair": {
+          "relation": "USES",
+          "from": "client",
+          "to": "product"
+        },
         "rationale": "relation verb USES -> graph traversal",
         "deterministic": true
       }
@@ -597,8 +629,14 @@
         },
         "document_signals": [],
         "entity_signals": [
-          "entity_id"
+          "entity_id",
+          "known_entity"
         ],
+        "type_pair": {
+          "relation": "USES",
+          "from": "product",
+          "to": "client"
+        },
         "rationale": "relation verb USES -> graph traversal",
         "deterministic": true
       }
@@ -629,8 +667,14 @@
         "document_signals": [],
         "entity_signals": [
           "org_unit",
-          "person"
+          "person",
+          "known_entity"
         ],
+        "type_pair": {
+          "relation": "BELONGS_TO",
+          "from": "department",
+          "to": "employee"
+        },
         "rationale": "relation verb BELONGS_TO -> graph traversal",
         "deterministic": true
       }
@@ -660,6 +704,7 @@
         },
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
         "deterministic": true
       }
@@ -689,9 +734,11 @@
         },
         "document_signals": [],
         "entity_signals": [
-          "entity_id"
+          "entity_id",
+          "known_entity"
         ],
-        "rationale": "relation noun RELATED_TO + entity entity_id",
+        "type_pair": null,
+        "rationale": "relation noun RELATED_TO + entity entity_id,known_entity",
         "deterministic": true
       }
     },
@@ -723,6 +770,7 @@
         },
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "relation noun REPORTED_ISSUE + superlative",
         "deterministic": true
       }
@@ -752,8 +800,14 @@
         },
         "document_signals": [],
         "entity_signals": [
-          "org_unit"
+          "org_unit",
+          "known_entity"
         ],
+        "type_pair": {
+          "relation": "BELONGS_TO",
+          "from": "department",
+          "to": "employee"
+        },
         "rationale": "relation verb HEAD_IS -> graph traversal",
         "deterministic": true
       }
@@ -788,6 +842,7 @@
         },
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "relation verb LEADS -> graph traversal",
         "deterministic": true
       }
@@ -815,14 +870,20 @@
         ],
         "graph_plan": {
           "relTypes": [
-            "REPORTED_ISSUE"
+            "USES"
           ]
         },
         "document_signals": [],
         "entity_signals": [
-          "entity_id"
+          "entity_id",
+          "known_entity"
         ],
-        "rationale": "relation noun REPORTED_ISSUE,RELATED_TO + entity entity_id",
+        "type_pair": {
+          "relation": "USES",
+          "from": "product",
+          "to": "client"
+        },
+        "rationale": "type-pair product->client => USES",
         "deterministic": true
       }
     },
@@ -854,6 +915,7 @@
         },
         "document_signals": [],
         "entity_signals": [],
+        "type_pair": null,
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
         "deterministic": true
       }

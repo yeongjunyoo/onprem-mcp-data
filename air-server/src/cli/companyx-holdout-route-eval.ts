@@ -12,14 +12,31 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
+import { route, installOntology, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
+
+/** 데이터셋 그래프 노드에서 엔티티 사전을 만든다(오프라인 평가 경로).
+ * 운영 경로는 DB에서 만든다 — server.ts 참조. */
+async function installLexiconFromDataset(): Promise<number> {
+  const { loadGraph } = await import("../companyx.js");
+  const { nodes, edges } = await loadGraph();
+  const n = installOntology(nodes, edges).entities;
+  console.log(`entity lexicon: ${n}개 (데이터셋 그래프 노드)`);
+  return n;
+}
+
 
 async function main() {
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
-  const gold = JSON.parse(await readFile(resolve(root, "eval/companyx/holdout_route.json"), "utf8")) as {
+  // 평가셋과 출력 경로는 환경변수로 갈아끼운다. 1차 홀드아웃은 라우터 결함을
+  // 진단하는 데 썼으므로 더 이상 홀드아웃이 아니고, 2차 이후를 같은 도구로 잰다.
+  const goldPath = process.env.HOLDOUT ?? "eval/companyx/holdout_route.json";
+  const outPath = process.env.OUT ?? "eval/results/companyx-holdout-route.json";
+  const gold = JSON.parse(await readFile(resolve(root, goldPath), "utf8")) as {
     items: { q: string; expected: string }[];
   };
+  console.log(`gold=${goldPath}`);
+  const lexSize = await installLexiconFromDataset();
 
   // 라우팅 결과를 기대 라벨로 매핑한다. 라우터가 고른 레인과 평가자가 정한 신호 라벨을
   // 같은 공간에 둔다.
@@ -88,6 +105,8 @@ async function main() {
   const trueMiss = rows.filter((r) => !r.reached).length;
 
   const out = {
+    gold: goldPath,
+    entity_lexicon_size: lexSize,
     note:
       "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. " +
       "라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. " +
@@ -110,7 +129,7 @@ async function main() {
     generated_at: new Date().toISOString(),
   };
   await mkdir(resolve(root, "eval/results"), { recursive: true });
-  await writeFile(resolve(root, "eval/results/companyx-holdout-route.json"), JSON.stringify(out, null, 2) + "\n");
+  await writeFile(resolve(root, outPath), JSON.stringify(out, null, 2) + "\n");
   console.log(`\n${JSON.stringify(out.summary, null, 2)}`);
   console.log(`confusion: ${JSON.stringify(confusion)}`);
 }
