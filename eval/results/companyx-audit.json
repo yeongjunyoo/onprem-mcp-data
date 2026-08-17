@@ -133,7 +133,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+          "preview": "[본문 비공개 — 120자, sha256:a662e709ea8f]"
         },
         {
           "key": "sql#1",
@@ -141,7 +141,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+          "preview": "[본문 비공개 — 120자, sha256:a662e709ea8f]"
         },
         {
           "key": "sql#2",
@@ -149,7 +149,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+          "preview": "[본문 비공개 — 120자, sha256:a662e709ea8f]"
         },
         {
           "key": "sql#3",
@@ -157,7 +157,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP B"
+          "preview": "[본문 비공개 — 120자, sha256:a662e709ea8f]"
         }
       ],
       "context": {
@@ -233,7 +233,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2025-07-01' AND '2025-09-30' →"
+          "preview": "[본문 비공개 — 120자, sha256:56254bf422aa]"
         }
       ],
       "context": {
@@ -309,7 +309,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = '"
+          "preview": "[본문 비공개 — 120자, sha256:6e55ed831a94]"
         }
       ],
       "context": {
@@ -385,7 +385,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active' → count=46"
+          "preview": "[본문 비공개 — 83자, sha256:ecf4ad115e92]"
         }
       ],
       "context": {
@@ -465,7 +465,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+          "preview": "[본문 비공개 — 120자, sha256:5a1f9969ebd6]"
         },
         {
           "key": "sql#1",
@@ -473,7 +473,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+          "preview": "[본문 비공개 — 120자, sha256:5a1f9969ebd6]"
         },
         {
           "key": "sql#2",
@@ -481,7 +481,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+          "preview": "[본문 비공개 — 120자, sha256:5a1f9969ebd6]"
         },
         {
           "key": "sql#3",
@@ -489,7 +489,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name "
+          "preview": "[본문 비공개 — 120자, sha256:5a1f9969ebd6]"
         }
       ],
       "context": {
@@ -564,7 +564,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progr"
+          "preview": "[본문 비공개 — 120자, sha256:e8a25a77a724]"
         }
       ],
       "context": {
@@ -640,7 +640,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#1",
@@ -648,7 +648,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#2",
@@ -656,7 +656,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#3",
@@ -664,7 +664,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#4",
@@ -672,7 +672,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#5",
@@ -680,7 +680,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#6",
@@ -688,7 +688,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#7",
@@ -696,7 +696,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#8",
@@ -704,7 +704,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         },
         {
           "key": "sql#9",
@@ -712,7 +712,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM co"
+          "preview": "[본문 비공개 — 120자, sha256:5acdf859cbc0]"
         }
       ],
       "context": {
@@ -793,7 +793,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#1",
@@ -801,7 +801,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#2",
@@ -809,7 +809,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#3",
@@ -817,7 +817,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#4",
@@ -825,7 +825,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#5",
@@ -833,7 +833,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#6",
@@ -841,7 +841,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#7",
@@ -849,7 +849,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#8",
@@ -857,7 +857,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         },
         {
           "key": "sql#9",
@@ -865,7 +865,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.p"
+          "preview": "[본문 비공개 — 120자, sha256:2f5618bed7cc]"
         }
       ],
       "context": {
@@ -947,7 +947,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at::timestamp) = 2024 → count=8"
+          "preview": "[본문 비공개 — 113자, sha256:729b56e0b530]"
         }
       ],
       "context": {
@@ -1029,7 +1029,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[SQL 결과] SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER B"
+          "preview": "[본문 비공개 — 120자, sha256:f1969c7e1461]"
         }
       ],
       "context": {
@@ -1104,7 +1104,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-B Product-C2 서비스 장애 (2025-04-22) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+          "preview": "[본문 비공개 — 120자, sha256:96e77243d878]"
         },
         {
           "key": "documents#18",
@@ -1112,7 +1112,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-C Product-S1 서비스 장애 (2025-11-08) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+          "preview": "[본문 비공개 — 120자, sha256:dc41ce339362]"
         },
         {
           "key": "documents#60",
@@ -1120,7 +1120,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-I Product-D3 서비스 장애 (2025-03-17) — 원인 분석: ## 원인 분석\n최근 트래픽 증가에 따른 리소스 부족이 근본 원인으로 확인되었습니다. 모니터링 임계값이 적절히 설정"
+          "preview": "[본문 비공개 — 120자, sha256:438cf537a632]"
         },
         {
           "key": "documents#3",
@@ -1128,7 +1128,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27) — 장애 내용: ## 장애 내용\nClient-A에서 운영 중인 Product-C1 서비스에서 디스크 IOPS 한계 초과로 인한 DB"
+          "preview": "[본문 비공개 — 120자, sha256:a548198f160b]"
         },
         {
           "key": "documents#66",
@@ -1136,7 +1136,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-J Product-S3 서비스 장애 (2026-02-16) — 장애 내용: ## 장애 내용\nClient-J에서 운영 중인 Product-S3 서비스에서 DB 연결 풀 고갈로 인한 서비스 응답"
+          "preview": "[본문 비공개 — 120자, sha256:7bf86a1bab9a]"
         }
       ],
       "context": {
@@ -1209,7 +1209,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C1 설치 가이드 — 설치 절차: ## 설치 절차"
+          "preview": "[본문 비공개 — 42자, sha256:189316b01842]"
         },
         {
           "key": "documents#71",
@@ -1217,7 +1217,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C1 설치 가이드 — Product-C1 설치 가이드: # Product-C1 설치 가이드"
+          "preview": "[본문 비공개 — 65자, sha256:8bd3dbca0aee]"
         },
         {
           "key": "documents#74",
@@ -1225,7 +1225,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C1 설치 가이드 — 1단계: 의존성 설치: ### 1단계: 의존성 설치\nDocker와 Docker Compose가 필요합니다. Kubernetes 환경에서는 Helm 차트를 통해 배포할 "
+          "preview": "[본문 비공개 — 120자, sha256:f093903da0f6]"
         },
         {
           "key": "documents#72",
@@ -1233,7 +1233,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C1 설치 가이드 — 시스템 요구사항: ## 시스템 요구사항\n- OS: Ubuntu 22.04+ / RHEL 8+\n- RAM: 최소 5GB\n- CPU: 2코어 이상\n- 디스크: 146GB "
+          "preview": "[본문 비공개 — 120자, sha256:b79de8f428b3]"
         },
         {
           "key": "documents#201",
@@ -1241,7 +1241,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-F Product-C1 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C1을 통해 다음을 달성할 수 있습니다:\n- 대규모 클라우드 마이그레이션 플랫폼. 멀티클라우드 지"
+          "preview": "[본문 비공개 — 120자, sha256:1a98eac40d24]"
         }
       ],
       "context": {
@@ -1316,7 +1316,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-H Product-C4 서비스 장애 (2025-04-26) — 조치 사항: ## 조치 사항\n1. 로드밸런서 설정 복구\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+          "preview": "[본문 비공개 — 120자, sha256:7ce46c1e866f]"
         },
         {
           "key": "documents#19",
@@ -1324,7 +1324,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-C Product-S1 서비스 장애 (2025-11-08) — 조치 사항: ## 조치 사항\n1. 로드밸런서 설정 복구\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+          "preview": "[본문 비공개 — 120자, sha256:2a86e5d0e9c4]"
         },
         {
           "key": "documents#5",
@@ -1332,7 +1332,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27) — 조치 사항: ## 조치 사항\n1. 디스크 확장 및 쿼리 최적화\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 "
+          "preview": "[본문 비공개 — 120자, sha256:ae9fe104ffc9]"
         },
         {
           "key": "documents#103",
@@ -1340,7 +1340,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D2 설치 가이드 — 1단계: 의존성 설치: ### 1단계: 의존성 설치\nDocker와 Docker Compose가 필요합니다. Kubernetes 환경에서는 Helm 차트를 통해 배포할 "
+          "preview": "[본문 비공개 — 120자, sha256:3cbf0b5410e8]"
         },
         {
           "key": "documents#40",
@@ -1348,7 +1348,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-F Product-D2 서비스 장애 (2025-10-19) — 조치 사항: ## 조치 사항\n1. 긴급 스케일아웃 수행\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트"
+          "preview": "[본문 비공개 — 120자, sha256:c0c003d5503c]"
         }
       ],
       "context": {
@@ -1421,7 +1421,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S2 성능 튜닝 가이드 — DB 최적화: ### DB 최적화\n- Connection Pool: 최소 12, 최대 90\n- 인덱스 점검: 슬로우 쿼리 로그 기반으로 월 1회 점검\n- 쿼리 캐"
+          "preview": "[본문 비공개 — 120자, sha256:4e91d4051e69]"
         },
         {
           "key": "documents#120",
@@ -1429,7 +1429,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — DB 최적화: ### DB 최적화\n- Connection Pool: 최소 14, 최대 52\n- 인덱스 점검: 슬로우 쿼리 로그 기반으로 월 1회 점검\n- 쿼리 캐"
+          "preview": "[본문 비공개 — 120자, sha256:2352b988f997]"
         },
         {
           "key": "documents#121",
@@ -1437,7 +1437,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — 애플리케이션 최적화: ### 애플리케이션 최적화\n- JVM 힙: 2GB 설정 권장\n- GC: G1GC 사용, MaxGCPauseMillis=157\n- 스레드풀: "
+          "preview": "[본문 비공개 — 120자, sha256:c68121ba8ddb]"
         },
         {
           "key": "documents#92",
@@ -1445,7 +1445,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S2 성능 튜닝 가이드 — 애플리케이션 최적화: ### 애플리케이션 최적화\n- JVM 힙: 2GB 설정 권장\n- GC: G1GC 사용, MaxGCPauseMillis=102\n- 스레드풀: "
+          "preview": "[본문 비공개 — 120자, sha256:b2c079b7a333]"
         },
         {
           "key": "documents#122",
@@ -1453,7 +1453,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D3 성능 튜닝 가이드 — 네트워크 최적화: ### 네트워크 최적화\n- Keep-Alive 활성화\n- gzip 압축 적용 (1KB 이상)\n- CDN 적용 시 캐시 적중률 91% 달성 가능"
+          "preview": "[본문 비공개 — 119자, sha256:e18cef9b41f3]"
         }
       ],
       "context": {
@@ -1529,7 +1529,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-A 정기 미팅 (2025-04-21) — 1. 성능 개선 방안: ### 1. 성능 개선 방안\n보안 취약점 점검 결과 7건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영할"
+          "preview": "[본문 비공개 — 120자, sha256:6128957786b5]"
         },
         {
           "key": "documents#188",
@@ -1537,7 +1537,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-I 정기 미팅 (2025-07-03) — 1. 프로젝트 진행 상황 공유: ### 1. 프로젝트 진행 상황 공유\n보안 취약점 점검 결과 2건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음"
+          "preview": "[본문 비공개 — 120자, sha256:7d8bd2af0a68]"
         },
         {
           "key": "documents#153",
@@ -1545,7 +1545,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-D 중간 점검 (2026-06-26) — 1. 다음 단계 계획: ### 1. 다음 단계 계획\n보안 취약점 점검 결과 4건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영할"
+          "preview": "[본문 비공개 — 120자, sha256:0d5ce3ef9402]"
         },
         {
           "key": "documents#181",
@@ -1553,7 +1553,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-H 킥오프 미팅 (2025-03-20) — 1. 성능 개선 방안: ### 1. 성능 개선 방안\n보안 취약점 점검 결과 6건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음 스프린트에 반영"
+          "preview": "[본문 비공개 — 120자, sha256:fdd6d9fb31fc]"
         },
         {
           "key": "documents#139",
@@ -1561,7 +1561,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-B 정기 미팅 (2026-02-20) — 1. 프로젝트 진행 상황 공유: ### 1. 프로젝트 진행 상황 공유\n보안 취약점 점검 결과 2건의 개선 사항이 도출되었습니다. 우선순위를 정하여 다음"
+          "preview": "[본문 비공개 — 120자, sha256:ab66ede1ce91]"
         }
       ],
       "context": {
@@ -1636,7 +1636,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 백업: ### 백업\n매일 1:00 AM에 자동 백업이 실행됩니다. 보관 기간은 90일이며, S3 호환 스토리지에 저장됩니다."
+          "preview": "[본문 비공개 — 96자, sha256:bd8f2933b0ee]"
         },
         {
           "key": "documents#86",
@@ -1644,7 +1644,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S1 운영 매뉴얼 — 백업: ### 백업\n매일 2:00 AM에 자동 백업이 실행됩니다. 보관 기간은 26일이며, S3 호환 스토리지에 저장됩니다."
+          "preview": "[본문 비공개 — 96자, sha256:07bfdf9ac341]"
         },
         {
           "key": "documents#88",
@@ -1652,7 +1652,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S1 운영 매뉴얼 — 업데이트: ### 업데이트\n블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다."
+          "preview": "[본문 비공개 — 92자, sha256:1f82281fa8c0]"
         },
         {
           "key": "documents#117",
@@ -1660,7 +1660,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 업데이트: ### 업데이트\n블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다."
+          "preview": "[본문 비공개 — 92자, sha256:4ef7f6f17fc7]"
         },
         {
           "key": "documents#116",
@@ -1668,7 +1668,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C4 운영 매뉴얼 — 로그 관리: ### 로그 관리\nELK 스택을 통해 로그를 수집·분석합니다. 보관 기간은 121일이며, 용량 기반 로테이션이 적용됩니다."
+          "preview": "[본문 비공개 — 102자, sha256:2747a0c9586f]"
         }
       ],
       "context": {
@@ -1741,7 +1741,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D1 API 레퍼런스 — 인증: ### 인증\nBearer 토큰 방식을 사용합니다. /auth/token 엔드포인트에서 발급받습니다."
+          "preview": "[본문 비공개 — 88자, sha256:c4392fc67e77]"
         },
         {
           "key": "documents#125",
@@ -1749,7 +1749,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S3 API 레퍼런스 — 인증: ### 인증\nBearer 토큰 방식을 사용합니다. /auth/token 엔드포인트에서 발급받습니다."
+          "preview": "[본문 비공개 — 88자, sha256:21d3891fb131]"
         },
         {
           "key": "documents#126",
@@ -1757,7 +1757,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S3 API 레퍼런스 — 주요 API: ### 주요 API\n- GET /api/v1/status: 서비스 상태 조회\n- POST /api/v1/data/query: 데이터 질의\n- GET "
+          "preview": "[본문 비공개 — 120자, sha256:8f3ad513c06f]"
         },
         {
           "key": "documents#97",
@@ -1765,7 +1765,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-D1 API 레퍼런스 — 주요 API: ### 주요 API\n- GET /api/v1/status: 서비스 상태 조회\n- POST /api/v1/data/query: 데이터 질의\n- GET "
+          "preview": "[본문 비공개 — 120자, sha256:2d69e1705ff0]"
         },
         {
           "key": "documents#80",
@@ -1773,7 +1773,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-C2 아키텍처 설계서 — 핵심 컴포넌트: ### 핵심 컴포넌트\n- API Gateway: 인증, 라우팅, 레이트리밋 담당\n- Core Service: 비즈니스 로직 처리\n- Data Ser"
+          "preview": "[본문 비공개 — 120자, sha256:03412664d33c]"
         }
       ],
       "context": {
@@ -1848,7 +1848,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-C 정기 미팅 (2025-08-28) — 1. 이슈 사항 논의: ### 1. 이슈 사항 논의\n현재 진행률 40%로 예정대로 진행 중입니다. 일부 기능의 테스트가 지연되고 있으나 전체 일정에는 "
+          "preview": "[본문 비공개 — 120자, sha256:ed2460328804]"
         },
         {
           "key": "documents#133",
@@ -1856,7 +1856,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-A 정기 미팅 (2025-04-21) — 2. 일정 조정: ### 2. 일정 조정\n마일스톤 2가 14일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+          "preview": "[본문 비공개 — 114자, sha256:a490493d5541]"
         },
         {
           "key": "documents#168",
@@ -1864,7 +1864,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-F 중간 점검 (2026-01-27) — 2. 일정 조정: ### 2. 일정 조정\n마일스톤 2가 14일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+          "preview": "[본문 비공개 — 114자, sha256:0aced36643cb]"
         },
         {
           "key": "documents#189",
@@ -1872,7 +1872,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-I 정기 미팅 (2025-07-03) — 2. 기술 검토: ### 2. 기술 검토\n마일스톤 2가 13일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+          "preview": "[본문 비공개 — 114자, sha256:d434b1fcf8bf]"
         },
         {
           "key": "documents#147",
@@ -1880,7 +1880,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[회의록] Client-C 정기 미팅 (2025-08-28) — 2. 기술 검토: ### 2. 기술 검토\n마일스톤 2가 10일 지연되고 있습니다. 크리티컬 패스에 영향이 있으므로 일정 재조정이 필요합니다."
+          "preview": "[본문 비공개 — 114자, sha256:5fa88bd4c906]"
         }
       ],
       "context": {
@@ -1955,7 +1955,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-F Product-C1 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C1을 통해 다음을 달성할 수 있습니다:\n- 대규모 클라우드 마이그레이션 플랫폼. 멀티클라우드 지"
+          "preview": "[본문 비공개 — 120자, sha256:1a98eac40d24]"
         },
         {
           "key": "documents#207",
@@ -1963,7 +1963,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-G Product-C2 도입 제안 — 2. 솔루션 제안: ## 2. 솔루션 제안\nProduct-C2을 통해 다음을 달성할 수 있습니다:\n- 중소기업용 클라우드 마이그레이션 간편 도구.\n- 도입"
+          "preview": "[본문 비공개 — 120자, sha256:f8d81a697958]"
         },
         {
           "key": "documents#200",
@@ -1971,7 +1971,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-F Product-C1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-F은 교육 분야의 대기업으로, 인천에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과제:\n"
+          "preview": "[본문 비공개 — 120자, sha256:8f51a9a74ccf]"
         },
         {
           "key": "documents#224",
@@ -1979,7 +1979,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-J Product-D1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-J은 공공기관 분야의 스타트업으로, 경기에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과"
+          "preview": "[본문 비공개 — 120자, sha256:fe7c06be05aa]"
         },
         {
           "key": "documents#212",
@@ -1987,7 +1987,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[제안서] Client-H Product-S1 도입 제안 — 1. 고객 현황 분석: ## 1. 고객 현황 분석\nClient-H은 에너지 분야의 중견기업으로, 제주에 위치하고 있습니다.\n\n현재 IT 인프라의 주요 과제"
+          "preview": "[본문 비공개 — 120자, sha256:767c3d6cc49c]"
         }
       ],
       "context": {
@@ -2062,7 +2062,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-E Product-D1 서비스 장애 (2024-11-15) — 장애 내용: ## 장애 내용\nClient-E에서 운영 중인 Product-D1 서비스에서 SSL 인증서 만료로 인한 HTTPS "
+          "preview": "[본문 비공개 — 120자, sha256:5b74e8738b4c]"
         },
         {
           "key": "documents#38",
@@ -2070,7 +2070,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-F Product-D2 서비스 장애 (2025-10-19) — 장애 내용: ## 장애 내용\nClient-F에서 운영 중인 Product-D2 서비스에서 SSL 인증서 만료로 인한 HTTPS "
+          "preview": "[본문 비공개 — 120자, sha256:047e420214af]"
         },
         {
           "key": "documents#12",
@@ -2078,7 +2078,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-B Product-C2 서비스 장애 (2025-04-22) — 조치 사항: ## 조치 사항\n1. SSL 인증서 갱신\n2. 모니터링 알림 임계값 재설정\n3. 재발 방지를 위한 자동화 스크립트 "
+          "preview": "[본문 비공개 — 120자, sha256:7d2e7a04c256]"
         },
         {
           "key": "documents#24",
@@ -2086,7 +2086,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[장애보고] Client-D Product-S2 서비스 장애 (2024-08-05) — 장애 내용: ## 장애 내용\nClient-D에서 운영 중인 Product-S2 서비스에서 로드밸런서 헬스체크 실패로 인한 트래픽"
+          "preview": "[본문 비공개 — 120자, sha256:f18a7e500505]"
         },
         {
           "key": "documents#127",
@@ -2094,7 +2094,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[기술문서] Product-S3 API 레퍼런스 — 에러 코드: ### 에러 코드\n- 400: 잘못된 요청 파라미터\n- 401: 인증 실패\n- 403: 권한 없음\n- 429: 요청 한도 초과 (분당 813회)\n- 5"
+          "preview": "[본문 비공개 — 120자, sha256:ec73b2efa1e9]"
         }
       ],
       "context": {
@@ -2170,7 +2170,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-A의 사용 중인 제품: Product-C3 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:70b48833694f]"
         },
         {
           "key": "entity:product#33",
@@ -2178,7 +2178,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-A의 사용 중인 제품: Product-S1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:5fb21f1a7ca6]"
         },
         {
           "key": "entity:client#1",
@@ -2186,7 +2186,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-A (client) — 별칭/이름 매칭 'Client-A'"
+          "preview": "[본문 비공개 — 45자, sha256:2348a37892b9]"
         },
         {
           "key": "entity:client#27",
@@ -2194,7 +2194,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AA (client) — 별칭/이름 매칭 'Client-A'"
+          "preview": "[본문 비공개 — 46자, sha256:a47b1b75ba7b]"
         },
         {
           "key": "entity:client#28",
@@ -2202,7 +2202,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AB (client) — 별칭/이름 매칭 'Client-A'"
+          "preview": "[본문 비공개 — 46자, sha256:098d7e9ed564]"
         },
         {
           "key": "entity:client#29",
@@ -2210,7 +2210,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AC (client) — 별칭/이름 매칭 'Client-A'"
+          "preview": "[본문 비공개 — 46자, sha256:429c348646cf]"
         },
         {
           "key": "entity:client#30",
@@ -2218,7 +2218,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AD (client) — 별칭/이름 매칭 'Client-A'"
+          "preview": "[본문 비공개 — 46자, sha256:29bca3a462eb]"
         }
       ],
       "context": {
@@ -2288,7 +2288,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-H의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:e31931e2b74e]"
         },
         {
           "key": "entity:client#4",
@@ -2296,7 +2296,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-D의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:1b2f5ea6d1c8]"
         },
         {
           "key": "entity:client#20",
@@ -2304,7 +2304,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-T의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:50bd6f827c26]"
         },
         {
           "key": "entity:client#25",
@@ -2312,7 +2312,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-Y의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:660b59053283]"
         },
         {
           "key": "entity:client#17",
@@ -2320,7 +2320,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-Q의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:cbf43c958aa6]"
         },
         {
           "key": "entity:client#22",
@@ -2328,7 +2328,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-V의 사용 중인 제품: Product-C1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:e7dcc5d20e16]"
         },
         {
           "key": "entity:product#31",
@@ -2336,7 +2336,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Product-C1 (product) — 별칭/이름 매칭 'Product-C1'"
+          "preview": "[본문 비공개 — 50자, sha256:35c82f3a9e87]"
         }
       ],
       "context": {
@@ -2406,7 +2406,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 안진우의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:632311149dc2]"
         },
         {
           "key": "entity:employee#49",
@@ -2414,7 +2414,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 강현우의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:e9b317f5254d]"
         },
         {
           "key": "entity:employee#50",
@@ -2422,7 +2422,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 서재원의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:3ea2ed589a04]"
         },
         {
           "key": "entity:employee#52",
@@ -2430,7 +2430,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 김도윤의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:f26f7928ad28]"
         },
         {
           "key": "entity:employee#62",
@@ -2438,7 +2438,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 조동현의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:455442ea40fc]"
         },
         {
           "key": "entity:employee#64",
@@ -2446,7 +2446,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 이지훈의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:a6e46cdbc309]"
         },
         {
           "key": "entity:employee#69",
@@ -2454,7 +2454,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 황다은의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:04a382803cd0]"
         },
         {
           "key": "entity:employee#75",
@@ -2462,7 +2462,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 한은지의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:37528dfecad8]"
         },
         {
           "key": "entity:employee#81",
@@ -2470,7 +2470,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 황재원의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:136a216699f9]"
         },
         {
           "key": "entity:employee#87",
@@ -2478,7 +2478,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 김준혁의 소속 부서: 클라우드사업부 (employee→department, BELONGS_TO)"
+          "preview": "[본문 비공개 — 59자, sha256:6e5f5009c15e]"
         }
       ],
       "context": {
@@ -2554,7 +2554,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 질의에 등장한 대상(서울물산, 누구야)을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다."
+          "preview": "[본문 비공개 — 70자, sha256:07bdf2965e55]"
         }
       ],
       "context": {
@@ -2632,7 +2632,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-Y의 사용 중인 제품: Product-D1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:0cd7cb7a2811]"
         },
         {
           "key": "entity:client#28",
@@ -2640,7 +2640,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AB의 사용 중인 제품: Product-D1 (client→product, USES)"
+          "preview": "[본문 비공개 — 60자, sha256:114093c34865]"
         },
         {
           "key": "entity:client#2",
@@ -2648,7 +2648,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-B의 사용 중인 제품: Product-D1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:2b4e2c9cb2f0]"
         },
         {
           "key": "entity:client#20",
@@ -2656,7 +2656,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-T의 사용 중인 제품: Product-D1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:24a3f47e1fd8]"
         },
         {
           "key": "entity:client#17",
@@ -2664,7 +2664,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-Q의 사용 중인 제품: Product-D1 (client→product, USES)"
+          "preview": "[본문 비공개 — 59자, sha256:cdc24e872cb4]"
         },
         {
           "key": "entity:client#22",
@@ -2672,7 +2672,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-V의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:565931af737d]"
         },
         {
           "key": "entity:client#23",
@@ -2680,7 +2680,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-W의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:ef9bfea78760]"
         },
         {
           "key": "entity:client#27",
@@ -2688,7 +2688,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AA의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 77자, sha256:a04e7a91df93]"
         },
         {
           "key": "entity:client#21",
@@ -2696,7 +2696,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-U의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:e2916efd101b]"
         },
         {
           "key": "entity:client#14",
@@ -2704,7 +2704,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-N의 기술지원 이슈를 제기한 제품: Product-D1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:c39817d39a08]"
         }
       ],
       "context": {
@@ -2782,7 +2782,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] Product-T2 (product) — 기술지원 이슈를 제기한 제품 13건, 1위"
+          "preview": "[본문 비공개 — 55자, sha256:8e9f80945732]"
         },
         {
           "key": "entity:product#34",
@@ -2790,7 +2790,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] Product-S2 (product) — 기술지원 이슈를 제기한 제품 12건, 2위"
+          "preview": "[본문 비공개 — 55자, sha256:67995832ae71]"
         },
         {
           "key": "entity:product#35",
@@ -2798,7 +2798,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] Product-D1 (product) — 기술지원 이슈를 제기한 제품 11건, 3위"
+          "preview": "[본문 비공개 — 55자, sha256:fe55d7d49168]"
         },
         {
           "key": "entity:product#40",
@@ -2806,7 +2806,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] Product-S3 (product) — 기술지원 이슈를 제기한 제품 9건, 4위"
+          "preview": "[본문 비공개 — 54자, sha256:8da4cba7ef6b]"
         },
         {
           "key": "entity:product#33",
@@ -2814,7 +2814,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] Product-S1 (product) — 기술지원 이슈를 제기한 제품 8건, 공동 5위"
+          "preview": "[본문 비공개 — 57자, sha256:92e12b8175be]"
         },
         {
           "key": "entity:employee#47",
@@ -2822,7 +2822,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 박소연 (employee) — 별칭/이름 매칭 '기술'"
+          "preview": "[본문 비공개 — 36자, sha256:ec0a60b05ea7]"
         },
         {
           "key": "entity:employee#56",
@@ -2830,7 +2830,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 권승호 (employee) — 별칭/이름 매칭 '기술'"
+          "preview": "[본문 비공개 — 36자, sha256:8cb48d55421d]"
         },
         {
           "key": "entity:employee#74",
@@ -2838,7 +2838,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 조예진 (employee) — 별칭/이름 매칭 '기술'"
+          "preview": "[본문 비공개 — 36자, sha256:0301a3ca1713]"
         },
         {
           "key": "entity:employee#83",
@@ -2846,7 +2846,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 임우진 (employee) — 별칭/이름 매칭 '기술'"
+          "preview": "[본문 비공개 — 36자, sha256:5a3049f3e35f]"
         },
         {
           "key": "entity:department#132",
@@ -2854,7 +2854,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 기술지원팀 (department) — 별칭/이름 매칭 '기술'"
+          "preview": "[본문 비공개 — 40자, sha256:0799ca7cb68f]"
         }
       ],
       "context": {
@@ -2930,7 +2930,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 경영지원팀의 부서장: 윤소연 (department→employee, HEAD_IS)"
+          "preview": "[본문 비공개 — 52자, sha256:0d31cb651553]"
         },
         {
           "key": "entity:department#128",
@@ -2938,7 +2938,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 경영지원팀 (department) — 별칭/이름 매칭 '경영지원팀'"
+          "preview": "[본문 비공개 — 43자, sha256:9864295a1d15]"
         },
         {
           "key": "entity:employee#51",
@@ -2946,7 +2946,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 홍서연 (employee) — 별칭/이름 매칭 '경영지원팀'"
+          "preview": "[본문 비공개 — 39자, sha256:d1356688f622]"
         },
         {
           "key": "entity:employee#65",
@@ -2954,7 +2954,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 서지현 (employee) — 별칭/이름 매칭 '경영지원팀'"
+          "preview": "[본문 비공개 — 39자, sha256:537d57ef8163]"
         },
         {
           "key": "entity:employee#68",
@@ -2962,7 +2962,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 정혜원 (employee) — 별칭/이름 매칭 '경영지원팀'"
+          "preview": "[본문 비공개 — 39자, sha256:4f505328f51c]"
         }
       ],
       "context": {
@@ -3032,7 +3032,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 강현우의 이끄는 프로젝트: Client-J 모니터링 시스템 도입 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 67자, sha256:4b1a53abafe4]"
         },
         {
           "key": "entity:project#91",
@@ -3040,7 +3040,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 조동현의 이끄는 프로젝트: Client-O 클라우드 마이그레이션 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 67자, sha256:c60b508cd3e2]"
         },
         {
           "key": "entity:project#93",
@@ -3048,7 +3048,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 한태호의 이끄는 프로젝트: Client-N K8s 클러스터 구축 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 67자, sha256:22cacecd96ce]"
         },
         {
           "key": "entity:project#98",
@@ -3056,7 +3056,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 장미라의 이끄는 프로젝트: Client-V 하이브리드 클라우드 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 66자, sha256:7fa27189670e]"
         },
         {
           "key": "entity:project#101",
@@ -3064,7 +3064,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 김준혁의 이끄는 프로젝트: Client-U AI 예측 모델 구축 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 67자, sha256:7f5a581489f5]"
         },
         {
           "key": "entity:project#102",
@@ -3072,7 +3072,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 김준혁의 이끄는 프로젝트: Client-AC 로그 분석 시스템 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 66자, sha256:f333b5a18bed]"
         },
         {
           "key": "entity:project#103",
@@ -3080,7 +3080,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 장미라의 이끄는 프로젝트: Client-E 로그 분석 시스템 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 65자, sha256:7363caabcf29]"
         },
         {
           "key": "entity:project#104",
@@ -3088,7 +3088,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 한태호의 이끄는 프로젝트: Client-AA 재해 복구 시스템 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 66자, sha256:b43ce2f437b6]"
         },
         {
           "key": "entity:project#106",
@@ -3096,7 +3096,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 서재원의 이끄는 프로젝트: Client-M 하이브리드 클라우드 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 66자, sha256:24362aaf2731]"
         },
         {
           "key": "entity:project#107",
@@ -3104,7 +3104,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] 안진우의 이끄는 프로젝트: Client-C DB 마이그레이션 (employee→project, LEADS)"
+          "preview": "[본문 비공개 — 65자, sha256:14ef1f5048c4]"
         }
       ],
       "context": {
@@ -3183,7 +3183,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-D의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:296fe895e5f3]"
         },
         {
           "key": "entity:client#10",
@@ -3191,7 +3191,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-J의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:d6a05ac90401]"
         },
         {
           "key": "entity:client#24",
@@ -3199,7 +3199,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-X의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:b13109e8012f]"
         },
         {
           "key": "entity:client#22",
@@ -3207,7 +3207,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-V의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:fee89a5c193a]"
         },
         {
           "key": "entity:client#15",
@@ -3215,7 +3215,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-O의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:de20875e79c4]"
         },
         {
           "key": "entity:client#19",
@@ -3223,7 +3223,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-S의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:0e5d6bfbd37c]"
         },
         {
           "key": "entity:client#27",
@@ -3231,7 +3231,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-AA의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 77자, sha256:c1f8961272aa]"
         },
         {
           "key": "entity:client#5",
@@ -3239,7 +3239,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Client-E의 기술지원 이슈를 제기한 제품: Product-S1 (client→product, REPORTED_ISSUE)"
+          "preview": "[본문 비공개 — 76자, sha256:87901c604e61]"
         },
         {
           "key": "entity:product#33",
@@ -3247,7 +3247,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프] Product-S1 (product) — 별칭/이름 매칭 'Product-S1'"
+          "preview": "[본문 비공개 — 50자, sha256:4983ad354eaf]"
         }
       ],
       "context": {
@@ -3325,7 +3325,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] 안소연 (employee) — 담당 고객사 4건, 공동 1위"
+          "preview": "[본문 비공개 — 42자, sha256:897761e06218]"
         },
         {
           "key": "entity:employee#85",
@@ -3333,7 +3333,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] 조현우 (employee) — 담당 고객사 4건, 공동 1위"
+          "preview": "[본문 비공개 — 42자, sha256:ae2996935375]"
         },
         {
           "key": "entity:employee#87",
@@ -3341,7 +3341,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] 김준혁 (employee) — 담당 고객사 4건, 공동 1위"
+          "preview": "[본문 비공개 — 42자, sha256:1711ec00c15f]"
         },
         {
           "key": "entity:employee#55",
@@ -3349,7 +3349,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] 권소연 (employee) — 담당 고객사 3건, 공동 4위"
+          "preview": "[본문 비공개 — 42자, sha256:953328ea69a1]"
         },
         {
           "key": "entity:employee#57",
@@ -3357,7 +3357,7 @@
           "sources": [
             "0"
           ],
-          "preview": "[그래프 집계] 한태호 (employee) — 담당 고객사 3건, 공동 4위"
+          "preview": "[본문 비공개 — 42자, sha256:2d58d7a39b05]"
         }
       ],
       "context": {
@@ -3377,6 +3377,6 @@
       }
     }
   ],
-  "note": "감사 레코드는 순수 변환이다(auditrecord.ts). 지문은 둘로 나뉜다. routing_fingerprint는 규칙 구간(라우팅과 정책)만 덮으므로 같은 질의에서 항상 같아야 한다. pipeline_fingerprint는 모델이 만든 SQL까지 덮으므로 로컬 7B의 실행 간 변동이 그대로 드러난다. 두 값을 나눈 이유는 무엇이 결정론이고 무엇이 아닌지를 숨기지 않기 위해서다. broken_rows는 큐레이터의 구조 보존 계약이라 0이 아니면 결함이다.",
+  "note": "감사 레코드는 순수 변환이다(auditrecord.ts). 지문은 둘로 나뉜다. routing_fingerprint는 규칙 구간(라우팅과 정책)만 덮으므로 같은 질의에서 항상 같아야 한다. pipeline_fingerprint는 모델이 만든 SQL까지 덮으므로 로컬 7B의 실행 간 변동이 그대로 드러난다. 두 값을 나눈 이유는 무엇이 결정론이고 무엇이 아닌지를 숨기지 않기 위해서다. broken_rows는 큐레이터의 구조 보존 계약이라 0이 아니면 결함이다. 융합 preview 는 사업자 데이터셋 재배포 금지 조건에 따라 본문을 가리고 길이·해시만 남긴다. 런타임 감사 레코드에는 preview 가 그대로 있다.",
   "generated_at": "2026-07-29T14:39:23.237Z"
 }

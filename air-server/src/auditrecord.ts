@@ -85,6 +85,27 @@ export function outsideContextMentions(answer: string, context: string): string[
   return [...candidates].filter((c) => !context.includes(c));
 }
 
+/**
+ * 저장소에 커밋할 산출물에서 사업자 문서 본문을 가린다.
+ *
+ * 배포 조건이 "대회 목적 사용 한정, 재배포 금지" 이므로 문서 본문을 공개
+ * 저장소에 남기면 형태만 다른 재배포다. 실제로 `eval/results/companyx-audit.json`
+ * 이 `fusion[].preview` 로 본문 28줄을 담고 있었다(2026-08-17 실측).
+ *
+ * ★ 런타임 preview 는 지운다는 뜻이 아니다.
+ *   호스트가 무엇이 융합됐는지 보는 것은 이 제품의 가치다. 가리는 것은 **파일로
+ *   남길 때**뿐이고, 대신 길이와 해시 앞자리를 남겨 재현·대조는 계속 가능하다.
+ */
+export function redactForPublication(record: AuditRecord): AuditRecord {
+  return {
+    ...record,
+    fusion: record.fusion.map((f) => ({
+      ...f,
+      preview: `[본문 비공개 — ${f.preview.length}자, sha256:${fingerprint(f.preview).slice(0, 12)}]`,
+    })),
+  };
+}
+
 export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
   const a = r.audit;
   const routeAudit = a.route as Record<string, unknown>;

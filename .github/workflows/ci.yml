@@ -72,6 +72,10 @@ jobs:
       - name: 실패 경로가 조용히 다른 것을 주지 않는지
         working-directory: .
         run: node scripts/verify-loud-failure.mjs
+      # 데이터셋 없이도 도는 구조 검사 — 산출물이 코퍼스를 실어 나르지 않는지.
+      - name: 사업자 데이터셋을 재배포하지 않는지
+        working-directory: .
+        run: node scripts/verify-no-dataset-redistribution.mjs
 
   sbom:
     name: SBOM drift check
