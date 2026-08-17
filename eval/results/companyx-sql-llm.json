@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:49:17.972Z"
+    "generated_at": "2026-08-17T20:20:15.279Z"
   },
   "rows": [
     {
@@ -52,11 +52,11 @@
       "tax": "join+group+top-k",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE s.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 701
+      "ms": 24347
     },
     {
       "id": "CX-SQL-02",
@@ -67,18 +67,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 660
+      "ms": 6342
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT p.name AS product_name, AVG(s.amount) AS average_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
+      "pred": "SELECT p.name AS product, AVG(s.amount) AS avg_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 718
+      "ms": 6825
     },
     {
       "id": "CX-SQL-04",
@@ -89,7 +89,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 716
+      "ms": 10328
     },
     {
       "id": "CX-SQL-05",
@@ -100,7 +100,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 608
+      "ms": 7643
     },
     {
       "id": "CX-SQL-06",
@@ -111,7 +111,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 683
+      "ms": 6662
     },
     {
       "id": "CX-SQL-07",
@@ -122,7 +122,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 1132
+      "ms": 11837
     },
     {
       "id": "CX-SQL-08",
@@ -133,18 +133,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 681
+      "ms": 6834
     },
     {
       "id": "CX-SQL-09",
       "tax": "time-filter+count",
       "ok": true,
       "repaired": true,
-      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at::timestamp) = 2024",
+      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at) = 2024",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 962
+      "ms": 13112
     },
     {
       "id": "CX-SQL-10",
@@ -155,7 +155,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 630
+      "ms": 7063
     }
   ]
 }
