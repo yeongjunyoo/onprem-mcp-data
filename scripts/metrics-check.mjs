@@ -406,7 +406,9 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
 {
   const nrCorrect = Number(canonical.nl2sql_norepair.split("/")[0]);
   const rpCorrect = Number(canonical.nl2sql_repair.split("/")[0]);
-  const RANGE_DOCS = ["README.md", "README.en.md", "docs/submission-report.md"];
+  // 산문 검사 대상은 DOCS 하나다. 목록을 따로 두면 어느 문서가 어느 검사의
+  // 사각인지 아무도 모르게 된다 — CONTRIBUTING 의 낡은 수치가 그렇게 살았다.
+  const RANGE_DOCS = DOCS;
 
   for (const doc of RANGE_DOCS) {
     if (!existsSync(resolve(ROOT, doc))) continue;
@@ -478,7 +480,7 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
 //
 // 정본이 아닌 지연값이 문서에 있으면 실패시킨다. 과거 서술이 필요하면
 // "이전 측정" 처럼 맥락을 붙이지 말고 아예 값을 빼거나 표에 metric-ok 로 남긴다.
-const LATENCY_DOCS = ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"];
+const LATENCY_DOCS = DOCS;
 const liveLatency = new Set([canonical.ask_median_ms, canonical.ask_median_ms_host]);
 
 for (const doc of LATENCY_DOCS) {
