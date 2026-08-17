@@ -24,7 +24,7 @@
   "embedder": "ollama:bge-m3@768",
   "embedded_chunks": 258,
   "embedding_dim_actual": 768,
-  "ms_load": 1006,
-  "ms_embed": 85072,
-  "generated_at": "2026-08-17T03:26:32.516Z"
+  "ms_load": 995,
+  "ms_embed": 60531,
+  "generated_at": "2026-08-17T10:20:25.048Z"
 }

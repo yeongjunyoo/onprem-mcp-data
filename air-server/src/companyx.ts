@@ -379,11 +379,15 @@ export async function embedCompanyXChunks(
   let updated = 0;
   for (const r of rows.rows) {
     const vec = toVectorLiteral(await embedder.embed(`${r.title}\n${r.body}`));
-    await pool.query(`UPDATE ${schema}.document_chunks SET embedding = $1::vector WHERE id = $2`, [vec, r.id]);
+    // ★ 읽은 테이블에 쓴다. 종전에는 documents 에서 읽고 document_chunks 에 썼다 —
+    // 두 테이블이 분리된 뒤로 이 함수는 **코퍼스를 복원한다면서 비워 왔다.**
+    // 벡터 평가가 이 함수로 "복원"을 호출하므로, 평가를 돌릴 때마다 검색이 죽었다
+    // (실측: 종단 근거 포함 17/19 -> 13/19, vector 후보 0건).
+    await pool.query(`UPDATE ${schema}.documents SET embedding = $1::vector WHERE id = $2`, [vec, r.id]);
     updated++;
   }
   const dimRow = await pool.query<{ d: number }>(
-    `SELECT vector_dims(embedding) AS d FROM ${schema}.document_chunks WHERE embedding IS NOT NULL LIMIT 1`,
+    `SELECT vector_dims(embedding) AS d FROM ${schema}.documents WHERE embedding IS NOT NULL LIMIT 1`,
   );
   return { updated, dim: Number(dimRow.rows[0]?.d ?? 0) };
 }

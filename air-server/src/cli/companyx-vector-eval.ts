@@ -11,10 +11,11 @@
 // THIS corpus instead of citing a generic benchmark.
 //
 // Run: EMBEDDER=ollama npm run companyx:vector
+import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getPool, closePool } from "../db.js";
+import { getPool, closePool, type Pool } from "../db.js";
 import { getEmbedder, HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
 import { embedCompanyXChunks, datasetDir, CX_SCHEMA } from "../companyx.js";
@@ -23,6 +24,37 @@ interface GoldItem {
   q: string;
   type: string | null;
   keywords: string[];
+}
+
+/** 결과가 자기 입력의 내용 해시를 들고 다니게 한다. 줄바꿈은 정규화한다 —
+ * git 이 OS 마다 CRLF/LF 를 바꾸므로 원시 바이트를 해시하면 같은 내용이 다른
+ * 해시가 된다. 재려는 것은 인코딩이 아니라 내용이다. */
+async function inputHashes(root: string, files: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const f of files) {
+    try {
+      const text = await readFile(resolve(root, f), "utf8");
+      out[f] = createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
+    } catch {
+      /* 없는 입력은 기록하지 않는다 — 검사가 부재를 따로 잡는다 */
+    }
+  }
+  return out;
+}
+
+/** 코퍼스를 주 임베더로 되돌린다.
+ *
+ * ★ 이 복원은 **반드시** 돌아야 한다. 종전에는 루프 뒤 평범한 문장이라, 비교
+ * 변종 하나가 죽으면(예: 컨테이너에 nomic-embed-text 가 없어 404) 복원에 도달하지
+ * 못한 채 종료했고 **코퍼스가 비워진 상태로 남았다.** 그 뒤 ask/demo 의 벡터 후보가
+ * 0건이 됐다(실측: 종단 근거 포함 17/19 -> 13/19).
+ *
+ * 평가 도구는 자기가 건드린 상태를 원위치시켜야 한다. 그러지 않으면 그 도구는
+ * 측정 도구가 아니라 부작용이다. */
+async function restoreCorpus(pool: Pool, primary: Embedder) {
+  const restored = await embedCompanyXChunks(pool, primary, CX_SCHEMA);
+  console.log(`\n코퍼스를 주 임베더로 복원: ${primary.name} ${JSON.stringify(restored)}`);
+  return restored;
 }
 
 async function main() {
@@ -63,71 +95,80 @@ async function main() {
   }
 
   const results: Record<string, unknown> = {};
+  const skipped: string[] = [];
   for (const emb of embedders) {
-    // Each embedder needs the corpus embedded with ITS OWN vectors.
-    // Each embedder needs its own column width; realign before backfilling.
-    // The read view depends on the column, so drop and recreate it around the widen.
-    await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
-    await pool.query(
-      `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
-    );
-    await pool.query(
-      `CREATE VIEW ${CX_SCHEMA}.documents AS
-         SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
-                content AS body, embedding
-           FROM ${CX_SCHEMA}.document_chunks`,
-    );
-    const backfill = await embedCompanyXChunks(pool, emb, CX_SCHEMA);
-    const rows = [];
-    let hits = 0,
-      scoredHit = 0,
-      typeSum = 0,
-      typeScored = 0;
-    for (const item of goldFile.items) {
-      const res = await vectorSearch(pool, emb, item.q, k, `${CX_SCHEMA}.documents`);
-      if (!res.ok) throw new Error(`vector search failed: ${res.error}`);
-      // chunk title is "<doc title> — <section>"; recover the doc id via the chunk row
-      const ids = await pool.query<{ id: number; doc_id: string }>(
-        `SELECT id, doc_id FROM ${CX_SCHEMA}.document_chunks WHERE id = ANY($1::int[])`,
-        [res.hits.map((h) => h.id)],
+    // 변종 하나가 죽어도 나머지 비교와 복원은 계속 간다. 컨테이너에 특정
+    // 모델이 없을 수 있고(실측: nomic-embed-text 404), 그 하나 때문에 코퍼스를
+    // 잃는 것은 측정이 아니라 사고다.
+    try {
+      // Each embedder needs the corpus embedded with ITS OWN vectors.
+      // Each embedder needs its own column width; realign before backfilling.
+      // The read view depends on the column, so drop and recreate it around the widen.
+      await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
+      await pool.query(
+        `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
       );
-      const docOf = new Map(ids.rows.map((r) => [r.id, r.doc_id]));
-      const retrieved = res.hits.map((h) => docOf.get(h.id)!).filter(Boolean);
-      const gold = goldDocs(item);
-      const hit = gold.length ? retrieved.some((d) => gold.includes(d)) : null;
-      if (hit !== null) {
-        scoredHit++;
-        if (hit) hits++;
-      }
-      let typeAcc: number | null = null;
-      if (item.type) {
-        typeAcc = retrieved.filter((d) => typeOf.get(d) === item.type).length / Math.max(1, retrieved.length);
-        typeSum += typeAcc;
-        typeScored++;
-      }
-      rows.push({
-        q: item.q,
-        gold_n: gold.length,
-        gold,
-        retrieved,
-        top_scores: res.hits.map((h) => Number(h.score.toFixed(3))),
-        [`hit@${k}`]: hit,
-        expected_type: item.type,
-        type_precision: typeAcc === null ? null : Number(typeAcc.toFixed(2)),
-      });
-      console.log(
-        `[${emb.name}] ${hit === null ? "----" : hit ? "HIT " : "MISS"} type_p=${typeAcc?.toFixed(2) ?? "-"} :: ${item.q}`,
+      await pool.query(
+        `CREATE VIEW ${CX_SCHEMA}.documents AS
+           SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
+                  content AS body, embedding
+             FROM ${CX_SCHEMA}.document_chunks`,
       );
+      const backfill = await embedCompanyXChunks(pool, emb, CX_SCHEMA);
+      const rows = [];
+      let hits = 0,
+        scoredHit = 0,
+        typeSum = 0,
+        typeScored = 0;
+      for (const item of goldFile.items) {
+        const res = await vectorSearch(pool, emb, item.q, k, `${CX_SCHEMA}.documents`);
+        if (!res.ok) throw new Error(`vector search failed: ${res.error}`);
+        // chunk title is "<doc title> — <section>"; recover the doc id via the chunk row
+        const ids = await pool.query<{ id: number; doc_id: string }>(
+          `SELECT id, doc_id FROM ${CX_SCHEMA}.document_chunks WHERE id = ANY($1::int[])`,
+          [res.hits.map((h) => h.id)],
+        );
+        const docOf = new Map(ids.rows.map((r) => [r.id, r.doc_id]));
+        const retrieved = res.hits.map((h) => docOf.get(h.id)!).filter(Boolean);
+        const gold = goldDocs(item);
+        const hit = gold.length ? retrieved.some((d) => gold.includes(d)) : null;
+        if (hit !== null) {
+          scoredHit++;
+          if (hit) hits++;
+        }
+        let typeAcc: number | null = null;
+        if (item.type) {
+          typeAcc = retrieved.filter((d) => typeOf.get(d) === item.type).length / Math.max(1, retrieved.length);
+          typeSum += typeAcc;
+          typeScored++;
+        }
+        rows.push({
+          q: item.q,
+          gold_n: gold.length,
+          gold,
+          retrieved,
+          top_scores: res.hits.map((h) => Number(h.score.toFixed(3))),
+          [`hit@${k}`]: hit,
+          expected_type: item.type,
+          type_precision: typeAcc === null ? null : Number(typeAcc.toFixed(2)),
+        });
+        console.log(
+          `[${emb.name}] ${hit === null ? "----" : hit ? "HIT " : "MISS"} type_p=${typeAcc?.toFixed(2) ?? "-"} :: ${item.q}`,
+        );
+      }
+      results[emb.name] = {
+        embedder: emb.name,
+        dim: backfill.dim,
+        chunks: backfill.updated,
+        [`hit@${k}`]: scoredHit ? Number((hits / scoredHit).toFixed(3)) : null,
+        scored_questions: scoredHit,
+        mean_type_precision: typeScored ? Number((typeSum / typeScored).toFixed(3)) : null,
+        rows,
+      };
+    } catch (e) {
+      skipped.push(`${emb.name}: ${String(e).split("\n")[0].slice(0, 120)}`);
+      console.error(`[skip] ${emb.name} — ${String(e).split("\n")[0]}`);
     }
-    results[emb.name] = {
-      embedder: emb.name,
-      dim: backfill.dim,
-      chunks: backfill.updated,
-      [`hit@${k}`]: scoredHit ? Number((hits / scoredHit).toFixed(3)) : null,
-      scored_questions: scoredHit,
-      mean_type_precision: typeScored ? Number((typeSum / typeScored).toFixed(3)) : null,
-      rows,
-    };
   }
 
   // ── 코퍼스를 주 임베더로 되돌린다 ─────────────────────────────────────
@@ -139,11 +180,12 @@ async function main() {
   // 평가 도구는 자기가 건드린 상태를 원위치시켜야 한다. 그러지 않으면 그 도구는
   // 측정 도구가 아니라 부작용이다.
   const primary = getEmbedder();
-  const restored = await embedCompanyXChunks(pool, primary, CX_SCHEMA);
-  console.log(`\n코퍼스를 주 임베더로 복원: ${primary.name} ${JSON.stringify(restored)}`);
+  const restored = await restoreCorpus(pool, primary);
 
   const out = {
+    input_hashes: await inputHashes(root, ["eval/companyx/vector_gold.json"]),
     corpus_restored_to: primary.name,
+    skipped_embedders: skipped,
     dataset: "companyx-dataset-v1.0 / documents (40 docs, 258 chunks)",
     top_k: k,
     oracle: goldFile.oracle,

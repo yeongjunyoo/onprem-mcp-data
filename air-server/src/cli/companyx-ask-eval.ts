@@ -19,6 +19,7 @@
 //      not a plausible engineer.
 //
 // Run: DATASET=companyx EMBEDDER=ollama npm run companyx:ask
+import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,6 +47,22 @@ function entityMentions(text: string, names: Set<string>): string[] {
     if (n.length >= 2 && text.includes(n)) found.add(n);
   }
   return [...found];
+}
+
+/** 결과가 자기 입력의 내용 해시를 들고 다니게 한다. 줄바꿈은 정규화한다 —
+ * git 이 OS 마다 CRLF/LF 를 바꾸므로 원시 바이트를 해시하면 같은 내용이 다른
+ * 해시가 된다. 재려는 것은 인코딩이 아니라 내용이다. */
+async function inputHashes(root: string, files: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const f of files) {
+    try {
+      const text = await readFile(resolve(root, f), "utf8");
+      out[f] = createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
+    } catch {
+      /* 없는 입력은 기록하지 않는다 — 검사가 부재를 따로 잡는다 */
+    }
+  }
+  return out;
 }
 
 async function main() {
@@ -172,6 +189,11 @@ async function main() {
   const summary = {
     dataset: "companyx-dataset-v1.0 / questions.json (end-to-end ask)",
     profile: ds.name,
+    input_hashes: await inputHashes(root, [
+      "eval/companyx/vector_gold.json",
+      "eval/companyx/kg_gold.json",
+      "eval/companyx/sql_gold.jsonl",
+    ]),
     model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
     embedder: embedder.name,
     // ★ 지연은 환경에 종속된다. 같은 코드가 GPU 호스트 Ollama에서 약 0.8초,

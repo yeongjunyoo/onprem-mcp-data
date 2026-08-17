@@ -101,14 +101,18 @@ for (const { result, inputs } of FRESHNESS) {
     fails.push(`신선도: 결과가 없다 ${result} — 평가를 돌려야 한다`);
     continue;
   }
-  const recorded = readJson(result).input_hashes;
+  // 평가기마다 최상위에 두기도 하고 summary 안에 두기도 한다. 둘 다 본다.
+  const rj = readJson(result);
+  const recorded = rj.input_hashes ?? rj.summary?.input_hashes;
   for (const i of inputs) {
     if (!existsSync(resolve(ROOT, i))) {
       fails.push(`신선도: 입력이 없다 ${i} — 평가셋이 사라졌다`);
       continue;
     }
     if (!recorded) {
-      staleNotes.push(`${result} 에 input_hashes 가 없다 — 다음 실행 때 기록된다`);
+      // 이제 모든 평가기가 해시를 기록한다. 없다는 것은 그 결과가 해시 도입 이전의
+      // 낡은 산출물이라는 뜻이므로 통과시키지 않는다 — 경고로 두면 영영 안 채워진다.
+      fails.push(`신선도: ${result} 에 input_hashes 가 없다 — 평가를 다시 돌려야 한다`);
       break;
     }
     if (recorded[i] !== sha(i)) {
