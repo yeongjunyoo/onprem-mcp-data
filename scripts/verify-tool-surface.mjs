@@ -9,6 +9,7 @@
 // 도구를 부르면 그 자리에서 깨진다.
 //
 // 이 검사는 DB 없이 소스만 읽는다 — CI 에서 돈다.
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,6 +114,47 @@ if (fails.length) {
   for (const f of fails) console.error(`  - ${f}`);
   console.error("\n기능테스트에서 심사자가 문서를 보고 없는 도구를 부르면 그 자리에서 깨진다.\n");
   process.exit(1);
+}
+
+// ── 버전 정본 ────────────────────────────────────────────────────────────
+//
+// 종전에는 셋이 갈려 있었다 — git 태그 v0.1.0, package.json 0.1.3, server.ts 0.2.0.
+// 심사자가 MCP 로 붙으면 서버가 말하는 값을 보고 저장소에서는 package.json 을 본다.
+// 어느 것이 이 프로젝트의 버전인지 아무도 답할 수 없었다.
+//
+// 코드는 이제 package.json 을 읽으므로 갈릴 수 없다. 그 규칙이 지켜지는지 보고,
+// 태그가 뒤처지면 **조용히 두지 않고 말한다** — 릴리스 페이지가 현재를 대변하지
+// 못하면 심사자는 옛 버전을 현재로 읽는다.
+const pkgJson = JSON.parse(readFileSync(resolve(ROOT, "air-server", "package.json"), "utf8"));
+const hardcoded = readFileSync(resolve(ROOT, "air-server", "src", "server.ts"), "utf8").match(
+  /version:\s*"(\d+\.\d+\.\d+)"/,
+);
+if (hardcoded) {
+  console.error(
+    `\n실패: server.ts 가 버전을 하드코딩했다(${hardcoded[1]}). package.json 을 읽어야 한다.\n`,
+  );
+  process.exit(1);
+}
+
+let latestTag = "";
+try {
+  latestTag = execFileSync("git", ["describe", "--tags", "--abbrev=0"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  }).trim();
+} catch {
+  /* 태그 없는 저장소 — 검사 대상이 아니다 */
+}
+if (latestTag && latestTag.replace(/^v/, "") !== pkgJson.version) {
+  const behind = execFileSync("git", ["rev-list", `${latestTag}..HEAD`, "--count"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  }).trim();
+  console.log(
+    `주의: 최신 태그 ${latestTag} 가 package.json ${pkgJson.version} 보다 뒤처졌다 (${behind}커밋).`,
+  );
+} else if (latestTag) {
+  console.log(`버전 정본: package.json ${pkgJson.version} = 태그 ${latestTag}.`);
 }
 
 console.log("\nOK: 문서의 도구 개수·목록이 소스 등록과 일치한다.");

@@ -21,6 +21,10 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema, loadOntologyForRouter } from "./graph.js";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { z } from "zod";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
@@ -120,11 +124,22 @@ export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: num
   return { type: "stdio" };
 }
 
+/** 버전 정본은 package.json 하나다.
+ *
+ * 종전에는 셋이 갈려 있었다 — git 태그 v0.1.0, package.json 0.1.3, 여기 0.2.0.
+ * 심사자가 MCP 로 붙으면 서버가 말하는 값을 보고, 저장소에서는 package.json 을
+ * 본다. 어느 것이 이 프로젝트의 버전인지 아무도 답할 수 없었다.
+ *
+ * 하드코딩을 지우고 한 곳에서만 읽는다. 문서끼리 합의하게 두면 또 갈린다. */
+const PACKAGE_VERSION: string = JSON.parse(
+  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
+).version;
+
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
     name: "onprem-mcp-data",
-    version: "0.2.0",
+    version: PACKAGE_VERSION,
     description:
       `온프렘 PostgreSQL+pgvector MCP 데이터 플랫폼 — 결정론 라우터(MCP Parallel) + 구조보존 큐레이션. 데이터셋: ${ds.description}`,
 
