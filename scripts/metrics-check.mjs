@@ -156,6 +156,23 @@ canonical.ask_median_ms = String(ask.summary.median_ms);
 const askHost = readJson("eval/results/companyx-ask-host-gpu.json");
 canonical.ask_median_ms_host = String(askHost.summary.median_ms);
 
+// 장애주입은 "운영 안정성" 기둥이고 시연영상 2:15-2:42 가 화면에 띄운다.
+// 그런데 문서의 4/4/4 가 정본과 대조되지 않고 있었다 — 주입 시나리오가 늘거나
+// 하나가 깨져도 문서는 그대로 4/4/4 라고 적었을 것이다.
+const faults = readJson("eval/results/faults.json");
+const fs_ = faults.summary;
+if (fs_.noCrashRate !== 1 || fs_.partialRate !== 1 || fs_.errorVisibleRate !== 1 || fs_.pass !== true) {
+  fails.push(
+    `장애주입: 정본이 통과 상태가 아니다 (no-crash ${fs_.noCrashRate}, partial ${fs_.partialRate}, ` +
+      `error-visible ${fs_.errorVisibleRate}, pass ${fs_.pass})`,
+  );
+}
+// 한 칸에 같은 값이 여러 번 나오면 하나만 바꿔도 통과한다(실측: 4/4 가 셋이라
+// 무중단만 3/4 로 바꿔도 검사가 못 잡았다). 세 지표를 각각 자기 행으로 결속한다.
+canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
+canonical.faults_partial = `${Math.round(fs_.partialRate * fs_.total)}/${fs_.total}`;
+canonical.faults_errvis = `${Math.round(fs_.errorVisibleRate * fs_.total)}/${fs_.total}`;
+
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
 
@@ -261,6 +278,12 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "test_total" },
+  { doc: "README.md", metric: "faults_nocrash" },
+  { doc: "README.md", metric: "faults_partial" },
+  { doc: "README.md", metric: "faults_errvis" },
+  { doc: "README.en.md", metric: "faults_nocrash" },
+  { doc: "README.en.md", metric: "faults_partial" },
+  { doc: "README.en.md", metric: "faults_errvis" },
   { doc: "README.md", metric: "ask_median_ms_host" },
   { doc: "README.en.md", metric: "ask_median_ms_host" },
   { doc: "README.en.md", metric: "test_total" },
