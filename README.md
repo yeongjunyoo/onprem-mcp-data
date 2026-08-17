@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml/badge.svg)](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-7%20tools-informational)](docs/architecture.md)
+[![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
 
 **사내 데이터베이스에 자연어로 묻고, 근거와 함께 답을 받는 온프렘 MCP 서버.** 질문 하나를 벡터 검색, NL2SQL, 지식그래프 세 갈래로 자동 분기해 동시에 조회하고, 결과를 합쳐 로컬 소형 모델이 답합니다. 모델은 전부 로컬에서 돌고 **외부 API를 호출하지 않습니다.**
@@ -20,13 +20,24 @@
 
 ```bash
 git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
-docker compose up -d                                    # PostgreSQL 16 + pgvector
-ollama pull qwen2.5:7b && ollama pull bge-m3            # 로컬 모델 2종
+docker compose up -d                                     # PostgreSQL 16 + pgvector, Ollama
+docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
-npm run gen:bench && EMBEDDER=ollama npm run embed:bench # 결정론 시드 데이터 적재
-EMBEDDER=ollama npm run demo                            # 도구 8종부터 장애 주입까지 한 번에
+export OLLAMA_HOST=http://localhost:11435                # 컨테이너 Ollama
+npm run gen:bench && EMBEDDER=ollama npm run embed:bench  # 결정론 시드 데이터 적재
+EMBEDDER=ollama npm run demo                             # 도구 8종부터 장애 주입까지 한 번에
 ```
+
+> **포트가 11435인 이유.** 컨테이너 Ollama를 11434로 게시하면 호스트에 이미 설치된
+> Ollama와 충돌하는데, Docker는 이때 **조용히 게시를 포기한다**(`PublishedPort: 0`).
+> 컨테이너는 `running`이고 에러도 없으며, 앱은 호스트 데몬에 붙는다 — 그 데몬이 어떤
+> 모델을 갖고 있든. 포트를 갈라 두면 어느 쪽에 붙었는지가 항상 명시적이다.
+> 호스트 Ollama를 쓰고 싶다면 `OLLAMA_HOST`를 `http://localhost:11434`로 두면 된다.
+>
+> 실행 시작 시 **실제로 붙은 엔드포인트와 그 모델 목록**을 찍는다. 필요한 모델이
+> 없으면 무엇을 실행해야 하는지 알려주고 멈춘다.
 
 `npm run demo`는 네트워크 없이 돕니다. 도구 호출, 3레인 합의, 로컬 7B 답변, 장애 주입 후 응답까지 한 화면에서 확인할 수 있습니다.
 
