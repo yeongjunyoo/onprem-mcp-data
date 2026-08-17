@@ -57,14 +57,16 @@ async function main() {
     if (!gen.ok) {
       console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
       console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다.\n`);
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     {
       const serving = await probeServing(probe.host, "bge-m3");
       if (!serving.ok) {
         console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
         console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인한다.\n`);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     }
   }

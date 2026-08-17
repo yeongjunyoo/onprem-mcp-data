@@ -8,42 +8,65 @@
 // preserving curation + the 7B answer step. The server wiring lives in
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
+import { closePool } from "./db.js";
+import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
 import { buildServer, loadRouterOntology } from "./server.js";
-import { probeOllama, reportOllama, probeServing, probeGeneration } from "./preflight.js";
 
-// 라우터 온톨로지를 먼저 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서
-// 측정한 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18). 실패해도 서버는
-// 뜨고 폴백으로 동작하되, 경고를 남긴다.
-// 환경 프리플라이트를 서버에도 건다. 데모에만 걸면 서버는 여전히 조용히 틀린
-// Ollama에 붙을 수 있고, 기능테스트는 데모가 아니라 서버를 띄워 시연시킨다.
-{
+/** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
+ *
+ * 반환값으로 실패를 알린다 — 여기서 곧바로 `process.exit()`을 부르면 아직 열려
+ * 있는 DB 풀 핸들 때문에 Windows libuv가 assertion을 내고 종료코드가 9로 바뀐다
+ * (QA 재현). 핸들을 정리한 뒤 자연 종료시키는 편이 종료코드를 정확하게 만든다. */
+async function preflight(): Promise<boolean> {
   const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b"];
   if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
+
   const probe = await probeOllama();
-  if (!reportOllama(probe, need)) process.exit(1);
-  // 태그에 있다고 서빙되는 것은 아니다. 실제로 한 번씩 불러본다.
-  // 생성은 EMBEDDER 설정과 무관하게 항상 쓰이므로 무조건 확인한다.
+  if (!reportOllama(probe, need)) return false;
+
+  // 태그에 있다고 서빙되는 것은 아니다. 생성은 EMBEDDER 설정과 무관하게 항상
+  // 쓰이므로(`ask`, `audit.explain`) 무조건 확인한다.
   const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
   if (!gen.ok) {
     console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
     console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다.\n`);
-    process.exit(1);
+    return false;
   }
+
+  // 서버의 기본 임베더는 해시라, Ollama 임베딩은 실제로 쓸 때만 확인한다.
   if ((process.env.EMBEDDER ?? "") === "ollama") {
     const serving = await probeServing(probe.host, process.env.EMBED_MODEL ?? "bge-m3");
     if (!serving.ok) {
-      console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
-      console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인한다.\n`);
-      process.exit(1);
+      console.error(`\n[환경] 임베딩 모델이 태그에는 있으나 서빙되지 않는다: ${serving.error}`);
+      console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다.\n`);
+      return false;
     }
   }
+  return true;
 }
 
-const ont = await loadRouterOntology();
-console.error(
-  ont.error
-    ? `[router] 온톨로지 미적재(${ont.error}) — 폴백 경로로 동작한다`
-    : `[router] 온톨로지 적재: 개체 ${ont.entities}개, 타입쌍 ${ont.typePairs}개`,
-);
+async function main(): Promise<void> {
+  if (!(await preflight())) {
+    process.exitCode = 1;
+    await closePool();
+    return;
+  }
 
-buildServer().start();
+  // 라우터 온톨로지를 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서 측정한
+  // 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18). 실패해도 서버는 뜨고
+  // 폴백으로 동작하되, 경고를 남긴다.
+  const ont = await loadRouterOntology();
+  console.error(
+    ont.error
+      ? `[router] 온톨로지 미적재(${ont.error}) — 폴백 경로로 동작한다`
+      : `[router] 온톨로지 적재: 개체 ${ont.entities}개, 타입쌍 ${ont.typePairs}개`,
+  );
+
+  buildServer().start();
+}
+
+main().catch(async (e) => {
+  console.error(e);
+  process.exitCode = 1;
+  await closePool();
+});

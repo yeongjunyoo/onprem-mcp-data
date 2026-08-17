@@ -7,6 +7,11 @@
 //
 // 그래서 실행 전에 **실제로 붙은 엔드포인트와 그 모델 목록**을 찍는다.
 
+// ★ 프리플라이트는 시점 검사다 (TOCTOU).
+// 프로브가 통과한 뒤 엔드포인트가 죽으면 실행 중에 실패한다 — QA가 재현했다.
+// 이 검사는 "기동 시점에 쓸 수 있었다"를 증명하지, 계속 쓸 수 있음을 보장하지
+// 않는다. 런타임 오류 처리는 별도로 필요하고, 실제로 파이프라인은
+// Promise.allSettled + branch_errors 로 부분 실패를 견딘다.
 export interface OllamaProbe {
   host: string;
   reachable: boolean;
@@ -54,7 +59,8 @@ export async function probeServing(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: embedModel, prompt: "ok" }),
-      signal: AbortSignal.timeout(30_000),
+      // 기동을 30초씩 세우지 않는다. 살아 있으면 이 안에 답한다.
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = (await res.json()) as { embedding?: unknown[] };
@@ -84,7 +90,8 @@ export async function probeGeneration(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model, prompt: "ok", stream: false, options: { num_predict: 1 } }),
-      signal: AbortSignal.timeout(60_000),
+      // 첫 생성은 모델 적재가 있어 임베딩보다 넉넉히 준다.
+      signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = (await res.json()) as { response?: unknown };
