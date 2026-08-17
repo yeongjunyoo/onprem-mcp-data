@@ -3,6 +3,7 @@
 // canonical 3-way RRF agreement, on-prem 7B answer, and graceful fault degradation.
 // Run (network may be OFF after models cached): EMBEDDER=ollama npm run demo
 import { buildServer } from "../server.js";
+import { shutdown } from "../exit.js";
 import { probeOllama, reportOllama, probeServing, probeGeneration } from "../preflight.js";
 import { getPool, closePool } from "../db.js";
 import { OllamaEmbedder, type Embedder } from "../embedder.js";
@@ -56,8 +57,7 @@ async function main() {
     if (!gen.ok) {
       console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
       console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다. 느린 환경이면 PREFLIGHT_GEN_TIMEOUT_MS 를 올린다.\n`);
-      process.exitCode = 1;
-      return;
+      await shutdown(1);
     }
     {
       const serving = await probeServing(probe.host, "bge-m3");
@@ -91,16 +91,14 @@ async function main() {
     };
     const orders = await count("SELECT count(*)::int AS n FROM bench.orders");
     if (orders === null) {
-      process.exitCode = 1;
-      return;
+      await shutdown(1);
     }
     if (orders === 0) need.push("npm run gen:bench");
     const embedded = await count(
       "SELECT count(*)::int AS n FROM bench.documents WHERE embedding IS NOT NULL",
     );
     if (embedded === null) {
-      process.exitCode = 1;
-      return;
+      await shutdown(1);
     }
     if (embedded === 0) need.push("EMBEDDER=ollama npm run embed:bench");
 
@@ -165,8 +163,7 @@ async function main() {
     // 그런데도 미가용이면 그 사이에 죽은 것이므로 성공으로 끝내지 않는다.
     console.error("\n생성 모델이 프리플라이트 이후 사용 불가가 됐다 — 답변 단계를 수행하지 못했다.");
     console.error(`  ${process.env.OLLAMA_HOST ?? "http://localhost:11434"} 상태를 확인한다.\n`);
-    process.exitCode = 1;
-    return;
+    await shutdown(1);
   }
 
   hr("7) 장애주입 → graceful degradation");

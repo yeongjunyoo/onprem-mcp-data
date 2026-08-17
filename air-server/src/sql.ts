@@ -60,7 +60,21 @@ export async function sqlQuery(pool: Pool, sql: string): Promise<SqlResult> {
     };
   }
   const text = normalize(sql);
-  const client = await pool.connect();
+  // 연결 실패도 결과로 돌려준다. 여기서 예외가 새면 호출부의 가드가 통째로
+  // 건너뛰어지고, DB 불통이 "시드 없음" 같은 엉뚱한 진단이나 크래시로 나타난다.
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (e) {
+    return {
+      ok: false,
+      rows: [],
+      rowCount: 0,
+      columns: [],
+      truncated: false,
+      error: `연결 실패: ${(e as Error).message.split("\n")[0]}`,
+    };
+  }
   try {
     // Check role existence BEFORE the tx (a failed stmt inside a tx aborts it).
     const useRole = await hasRoRole(client);

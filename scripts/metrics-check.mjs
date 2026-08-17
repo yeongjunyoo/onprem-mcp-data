@@ -58,7 +58,14 @@ function hasExactValue(text, want) {
   const esc = want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(?<![\\d.])${esc}(?![\\d.])`).test(text);
 }
-const readJson = (p) => JSON.parse(read(p));
+const readJson = (p) => {
+  // 없으면 크래시가 아니라 진단으로 끝낸다. 크래시는 무엇이 없는지 안 알려준다.
+  if (!existsSync(resolve(ROOT, p))) {
+    console.error(`\n정본이 없다: ${p} — 해당 평가를 돌려야 한다`);
+    process.exit(1);
+  }
+  return JSON.parse(read(p));
+};
 const fails = [];
 
 // ── A. 신선도 ───────────────────────────────────────────────────────────
@@ -118,6 +125,11 @@ canonical.test_total = String(counts.total);
 // 지연은 환경 종속이라 정본 자체가 어느 엔드포인트에서 쟀는지 들고 있어야 한다.
 // 같은 코드가 GPU 호스트에서 약 0.8초, CPU 컨테이너에서 약 10초다.
 canonical.ask_median_ms = String(ask.summary.median_ms);
+
+// 호스트 GPU 비교치도 자기 artifact 에 결속한다. 문서에 적으면서 원자료가 없으면
+// 그것은 측정이 아니라 기억이다(QA 지적: 864 를 999 로 바꿔도 통과했다).
+const askHost = readJson("eval/results/companyx-ask-host-gpu.json");
+canonical.ask_median_ms_host = String(askHost.summary.median_ms);
 
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
@@ -224,6 +236,8 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "test_total" },
+  { doc: "README.md", metric: "ask_median_ms_host" },
+  { doc: "README.en.md", metric: "ask_median_ms_host" },
   { doc: "README.en.md", metric: "test_total" },
   { doc: "README.en.md", metric: "vector_hit5" },
   { doc: "README.en.md", metric: "holdout1_strict" },
