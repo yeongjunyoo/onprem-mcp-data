@@ -80,6 +80,10 @@ jobs:
       - name: 실행되는 파일이 LF 인지
         working-directory: .
         run: node scripts/verify-line-endings.mjs
+      # 녹화 대본이 띄우는 수치는 영상에 그대로 찍힌다.
+      - name: 시연 대본이 약속하는 수치가 실물과 같은지
+        working-directory: .
+        run: node scripts/verify-demo-script.mjs
 
   sbom:
     name: SBOM drift check
