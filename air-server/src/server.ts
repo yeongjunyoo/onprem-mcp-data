@@ -103,7 +103,10 @@ export function buildServer(): AirServer {
       timeoutPlugin(120_000),
       queuePlugin({ concurrency: { "*": 8, ask: 2, retrieve: 2 } }), // 7B 경로만 좁게
       dedupPlugin(),
-      cachePlugin({ ttlMs: 60_000 }),
+      // audit.explain은 캐시에서 제외한다. 감사의 목적은 "지금 이 순간
+      // 파이프라인이 무엇을 하는가"인데, 캐시된 레코드는 60초 전의 실행 기록이다.
+      // 그것은 감사가 아니라 과거 기록의 재생이다. (이슈 #12)
+      cachePlugin({ ttlMs: 60_000, exclude: ["audit.explain"] }),
       retryPlugin({ maxRetries: 2, delayMs: 150 }),
       circuitBreakerPlugin(),
     ],
@@ -233,8 +236,11 @@ export function buildServer(): AirServer {
         layer: 7,
         tags: ["audit", "explainability", "provenance", "pylon7:L7"],
         handler: async ({ query, format }) => {
+          const executed_at = new Date().toISOString();
           const r = await ask(query as string, { pool: getReadPool(), embedder: getEmbedder() });
-          const record = buildAuditRecord(r);
+          // 이 레코드가 실시간 실행에서 나왔다는 사실을 레코드 자신이 말하게 한다.
+          // 캐시 우회는 보이지 않는 성질이라, 보이게 하지 않으면 누가 되돌려도 모른다.
+          const record = { ...buildAuditRecord(r), executed_at, cache_bypassed: true as const };
           return format === "text" ? { text: renderAudit(record) } : record;
         },
       }),
