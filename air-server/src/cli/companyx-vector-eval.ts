@@ -48,16 +48,30 @@ async function inputHashes(root: string, files: string[]): Promise<Record<string
  * 컬럼 이름이 실제 스키마와 달라, 복원 중 DROP VIEW 뒤 CREATE 가 실패하면서
  * 뷰가 통째로 사라졌다(실측: relation "companyx.documents" does not exist). */
 async function realign(pool: Pool, dim: number): Promise<void> {
-  await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
-  await pool.query(
-    `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${dim}) USING NULL`,
-  );
-  await pool.query(
-    `CREATE VIEW ${CX_SCHEMA}.documents AS
-       SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
-              content AS body, embedding
-         FROM ${CX_SCHEMA}.document_chunks`,
-  );
+  // ★ 한 트랜잭션으로 묶는다. 세 문장을 따로 커밋하면 그 사이에 프로세스가 죽었을 때
+  // 뷰가 사라진 채(또는 임베딩이 NULL 인 채) 남는다 — QA 가 DROP VIEW 직후 kill 로
+  // `relation "companyx.documents" does not exist` 를 재현했다.
+  // PostgreSQL 은 DDL 도 트랜잭션이므로 중간에 죽으면 통째로 롤백된다.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
+    await client.query(
+      `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${dim}) USING NULL`,
+    );
+    await client.query(
+      `CREATE VIEW ${CX_SCHEMA}.documents AS
+         SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
+                content AS body, embedding
+           FROM ${CX_SCHEMA}.document_chunks`,
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 /** 코퍼스를 주 임베더로 되돌린다.
