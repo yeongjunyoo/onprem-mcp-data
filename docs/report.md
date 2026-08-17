@@ -546,6 +546,24 @@ CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서
 했다. 정확도 지표는 하나도 흔들리지 않았다. 결정론 구간(라우터·RRF·큐레이션)과 모델
 구간이 갈려 있다는 §3 의 설계 주장이 여기서 부수적으로 확인된다.
 
+### 클론하면 바로 돈다 (Windows 확인)
+
+셸 스크립트가 CRLF 로 체크아웃되면 `bash` 가 첫 줄에서 죽는다
+(`set: pipefail\r: invalid option name`). shebang 파일도 인터프리터 이름에 `\r` 이
+붙어 실행되지 않는다. `.gitattributes` 가 없으면 Windows 클론이 정확히 그 상태가 된다.
+
+`* text=auto` + `*.sh|*.py|*.mjs|*.ts` 에 `eol=lf` 를 못 박고, **새로 클론해서** 확인했다.
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 로컬 저장소에서 `git clone` | 실행 파일 12개 전부 LF |
+| **GitHub 에서 `git clone`** | 실행 파일 12개 전부 LF |
+| `bash -n scripts/replica-spike.sh` | 문법 통과 |
+| `bash -n scripts/fetch-companyx-dataset.sh` | 문법 통과 |
+
+작업 트리를 고친 것과 새 클론이 정상인 것은 다른 주장이라 둘 다 확인했다.
+`node scripts/verify-line-endings.mjs` 가 CI 에서 재발을 막는다.
+
 ### 실행 순서가 결과를 바꾸지 않는다
 
 위 명령은 어느 순서로 돌려도 된다. 평가와 데모는 자기가 읽는 데이터를 남겨 두고 나온다.
