@@ -8,6 +8,7 @@
 // 라우터는 질문 문장만 보고 어떤 도구를 호출할지 고른다.
 //
 // 사용: DATASET=companyx node dist/cli/companyx-holdout-route-eval.js
+import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,7 +105,19 @@ async function main() {
   const conservativeFanout = rows.filter((r) => !r.hit && r.reached).length;
   const trueMiss = rows.filter((r) => !r.reached).length;
 
+  // 결과가 자기 입력의 내용 해시를 들고 다닌다. 입력이 바뀌면 이 결과는 더 이상
+  // 그 입력에 대한 측정이 아니다 — mtime 과 달리 clone·복사·touch 에 흔들리지 않는다.
+  const input_hashes: Record<string, string> = {
+    // 줄바꿈을 정규화하고 해시한다 — git 이 OS 마다 CRLF/LF 를 바꾸므로 원시 바이트를
+    // 해시하면 같은 내용이 다른 해시가 된다. 재려는 것은 인코딩이 아니라 내용이다.
+    [goldPath]: createHash("sha256")
+      .update((await readFile(resolve(root, goldPath), "utf8")).replace(/\r\n/g, "\n"))
+      .digest("hex")
+      .slice(0, 16),
+  };
+
   const out = {
+    input_hashes,
     gold: goldPath,
     entity_lexicon_size: lexSize,
     note:
