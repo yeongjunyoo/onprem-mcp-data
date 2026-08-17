@@ -1,4 +1,7 @@
 {
+  "input_hashes": {
+    "eval/companyx/holdout_route.json": "bd582d50716ffc78"
+  },
   "gold": "eval/companyx/holdout_route.json",
   "entity_lexicon_size": 131,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
@@ -397,5 +400,5 @@
       "rationale": "relation verb HAS_PROJECT -> graph traversal"
     }
   ],
-  "generated_at": "2026-08-16T17:27:52.151Z"
+  "generated_at": "2026-08-17T09:29:55.046Z"
 }

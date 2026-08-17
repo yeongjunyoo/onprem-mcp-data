@@ -8,6 +8,7 @@
 // 라우터는 질문 문장만 보고 어떤 도구를 호출할지 고른다.
 //
 // 사용: DATASET=companyx node dist/cli/companyx-holdout-route-eval.js
+import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,7 +105,14 @@ async function main() {
   const conservativeFanout = rows.filter((r) => !r.hit && r.reached).length;
   const trueMiss = rows.filter((r) => !r.reached).length;
 
+  // 결과가 자기 입력의 내용 해시를 들고 다닌다. 입력이 바뀌면 이 결과는 더 이상
+  // 그 입력에 대한 측정이 아니다 — mtime 과 달리 clone·복사·touch 에 흔들리지 않는다.
+  const input_hashes: Record<string, string> = {
+    [goldPath]: createHash("sha256").update(await readFile(resolve(root, goldPath))).digest("hex").slice(0, 16),
+  };
+
   const out = {
+    input_hashes,
     gold: goldPath,
     entity_lexicon_size: lexSize,
     note:

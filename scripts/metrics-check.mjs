@@ -29,7 +29,8 @@
 //   이 검사의 전제다. 규약을 어기면 검사는 막지 못한다 — 알려진 한계다.
 //
 // 사용: node scripts/metrics-check.mjs
-import { readFileSync, statSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -68,9 +69,21 @@ const readJson = (p) => {
 };
 const fails = [];
 
-// ── A. 신선도 ───────────────────────────────────────────────────────────
-// 결과는 자기 입력보다 새로워야 한다. 입력이 바뀌었는데 결과를 안 돌리면
-// 그 결과는 더 이상 그 입력에 대한 측정이 아니다.
+// ── A. 신선도 — 입력의 내용 해시로 본다 ─────────────────────────────────
+//
+// 종전에는 파일 mtime 을 비교했다. **git 은 mtime 을 보존하지 않는다.** 새로 clone
+// 하면 checkout 순서가 곧 mtime 순서라, 그 검사는 평가 순서가 아니라 파일이 어떤
+// 순서로 쓰였는지를 봤을 뿐이다. `touch` 로도 뒤집혔다.
+//
+// 대신 결과가 **자기 입력의 내용 해시를 들고 다니게** 한다. 입력이 바뀌면 해시가
+// 달라지고, 그러면 그 결과는 그 입력에 대한 측정이 아니다. clone 해도, 복사해도,
+// touch 해도 같은 판정이 나온다.
+//
+// 아직 해시를 안 들고 있는 결과는 "기록 없음"으로 실패시키지 않는다 — 그러면 모든
+// 평가를 지금 당장 다시 돌려야 한다. 대신 경고로 남겨 다음 실행 때 채우게 한다.
+// 덮지 못하는 것을 덮은 척하지 않되, 검사 도입이 작업을 멈추게 하지도 않는다.
+const sha = (p) => createHash("sha256").update(readFileSync(resolve(ROOT, p))).digest("hex").slice(0, 16);
+
 const FRESHNESS = [
   { result: "eval/results/companyx-ask.json", inputs: ["eval/companyx/vector_gold.json", "eval/companyx/kg_gold.json", "eval/companyx/sql_gold.jsonl"] },
   { result: "eval/results/companyx-vector.json", inputs: ["eval/companyx/vector_gold.json"] },
@@ -78,20 +91,24 @@ const FRESHNESS = [
   { result: "eval/results/companyx-holdout2-route.json", inputs: ["eval/companyx/holdout2_route.json"] },
 ];
 
+const staleNotes = [];
 for (const { result, inputs } of FRESHNESS) {
-  // 결과가 없으면 통과가 아니라 실패다. 없는 파일을 건너뛰면 삭제로 검사를 끌 수 있다.
   if (!existsSync(resolve(ROOT, result))) {
     fails.push(`신선도: 결과가 없다 ${result} — 평가를 돌려야 한다`);
     continue;
   }
-  const rt = statSync(resolve(ROOT, result)).mtimeMs;
+  const recorded = readJson(result).input_hashes;
   for (const i of inputs) {
     if (!existsSync(resolve(ROOT, i))) {
       fails.push(`신선도: 입력이 없다 ${i} — 평가셋이 사라졌다`);
       continue;
     }
-    if (statSync(resolve(ROOT, i)).mtimeMs > rt) {
-      fails.push(`신선도: ${i} 가 ${result} 보다 새롭다 — 평가를 다시 돌려야 한다`);
+    if (!recorded) {
+      staleNotes.push(`${result} 에 input_hashes 가 없다 — 다음 실행 때 기록된다`);
+      break;
+    }
+    if (recorded[i] !== sha(i)) {
+      fails.push(`신선도: ${i} 가 ${result} 이 기록한 해시와 다르다 — 평가를 다시 돌려야 한다`);
     }
   }
 }
