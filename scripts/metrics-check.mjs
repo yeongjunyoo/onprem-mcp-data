@@ -102,6 +102,10 @@ if (existsSync(resolve(ROOT, "eval/results/companyx-holdout2-route.json"))) {
 const ask = readJson("eval/results/companyx-ask.json");
 canonical.ask_evidence = ask.summary.evidence_in_context_full;
 canonical.ask_evidence_pct = String(ask.summary.evidence_pct);
+canonical.ask_grounded_pct = String(ask.summary.grounded_pct);
+// 지연은 환경 종속이라 정본 자체가 어느 엔드포인트에서 쟀는지 들고 있어야 한다.
+// 같은 코드가 GPU 호스트에서 약 0.8초, CPU 컨테이너에서 약 10초다.
+canonical.ask_median_ms = String(ask.summary.median_ms);
 
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
@@ -206,6 +210,7 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "holdout2_strict" },
   { doc: "README.md", metric: "ask_evidence" },
   { doc: "README.md", metric: "ask_evidence_pct" },
+  { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.en.md", metric: "vector_hit5" },
   { doc: "README.en.md", metric: "holdout1_strict" },
   { doc: "README.en.md", metric: "holdout2_strict" },
