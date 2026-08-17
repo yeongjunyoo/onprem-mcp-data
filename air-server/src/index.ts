@@ -29,7 +29,7 @@ async function preflight(): Promise<boolean> {
   const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
   if (!gen.ok) {
     console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
-    console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다.\n`);
+    console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다. 느린 환경이면 PREFLIGHT_GEN_TIMEOUT_MS 를 올린다.\n`);
     return false;
   }
 

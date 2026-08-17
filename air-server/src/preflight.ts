@@ -12,6 +12,16 @@
 // 이 검사는 "기동 시점에 쓸 수 있었다"를 증명하지, 계속 쓸 수 있음을 보장하지
 // 않는다. 런타임 오류 처리는 별도로 필요하고, 실제로 파이프라인은
 // Promise.allSettled + branch_errors 로 부분 실패를 견딘다.
+// 프로브 마감 시간. 기본값은 기동을 오래 세우지 않도록 짧게 두되, **설정 가능**하게
+// 한다. CPU만 있는 배포에서 7B를 처음 적재하면 30초를 넘길 수 있고, 그때 프리플라이트가
+// 정상 환경을 거부하면 검사가 방해물이 된다(리뷰 권고). 느린 환경은 값을 올려서 쓴다.
+const num = (v: string | undefined, dflt: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : dflt;
+};
+const embedTimeoutMs = () => num(process.env.PREFLIGHT_EMBED_TIMEOUT_MS, 10_000);
+const genTimeoutMs = () => num(process.env.PREFLIGHT_GEN_TIMEOUT_MS, 60_000);
+
 export interface OllamaProbe {
   host: string;
   reachable: boolean;
@@ -59,8 +69,7 @@ export async function probeServing(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: embedModel, prompt: "ok" }),
-      // 기동을 30초씩 세우지 않는다. 살아 있으면 이 안에 답한다.
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(embedTimeoutMs()),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = (await res.json()) as { embedding?: unknown[] };
@@ -90,8 +99,7 @@ export async function probeGeneration(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model, prompt: "ok", stream: false, options: { num_predict: 1 } }),
-      // 첫 생성은 모델 적재가 있어 임베딩보다 넉넉히 준다.
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(genTimeoutMs()),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = (await res.json()) as { response?: unknown };
