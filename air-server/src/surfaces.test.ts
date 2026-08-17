@@ -70,6 +70,24 @@ async function main() {
   // routing_fingerprint / pipeline_fingerprint 둘이 있다. 그 분리는 "무엇이
   // 결정론이고 무엇이 아닌가" 를 보여 주는 설계인데 문서에서 사라져 있었고,
   // branch_errors(우아한 저하 근거)와 generated_at 도 빠져 있었다.
+  // ★ 증거 목록 리소스는 **증거 절**을 줘야 한다.
+  //
+  // 종전 구현은 "## 9. Evidence manifest" 를 문자열로 찾고 못 찾으면 보고서 앞
+  // 4000자를 대신 돌려줬다. 절을 하나 끼워 넣어 번호가 밀리기만 해도, 이 리소스는
+  // "개발보고서 증거 목록" 이라는 이름으로 서론을 준다. 조용한 오답이다.
+  const evidenceRes = resources.find((r) => r.uri === "docs://report/evidence")!;
+  const evidenceText = String(
+    await evidenceRes.handler(evidenceRes.uri, { requestId: "t", serverName: "s" }),
+  );
+  ok(
+    /^##\s+\d+\.\s*Evidence manifest/i.test(evidenceText.trim()),
+    "증거 목록 리소스가 Evidence manifest 절로 시작한다",
+  );
+  ok(
+    !evidenceText.includes("찾지 못했습니다"),
+    "증거 절을 실제로 찾았다(못 찾으면 조용히 다른 것을 주지 않고 그렇게 말한다)",
+  );
+
   const auditRes = resources.find((r) => r.uri === "audit://schema/v1")!;
   const auditDoc = JSON.parse(
     String(await auditRes.handler(auditRes.uri, { requestId: "t", serverName: "s" })),

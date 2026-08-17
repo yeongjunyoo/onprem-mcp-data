@@ -1,11 +1,11 @@
 {
   "note": "테스트 단언 수는 러너 출력에서 집계한다. 문서끼리 합의하는지가 아니라 실제로 몇 개가 통과했는지가 정본이다.",
   "dataset_dependence": "사업자 데이터셋은 배포 조건상 저장소에 없다. router.test 의 온톨로지 커버리지 단언 11건은 datasets/companyx-v1.0/graph/edges.json 이 있을 때만 돈다 — 그래서 오프라인 합계가 데이터셋 유무로 갈린다. 감추지 않고 두 값을 다 적는다.",
-  "offline_with_dataset": 288,
-  "offline_ci": 277,
+  "offline_with_dataset": 290,
+  "offline_ci": 279,
   "integration": 127,
-  "total": 415,
-  "total_ci_verifiable": 277,
+  "total": 417,
+  "total_ci_verifiable": 279,
   "suites": {
     "offline": [
       "claims",
