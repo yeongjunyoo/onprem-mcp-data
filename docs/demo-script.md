@@ -29,10 +29,12 @@
 - [ ] 네트워크 차단 후 `npm run demo:ollama` 1회 리허설(캐시된 모델로 통과, 20분 내). 기반 데이터나 모델이 없으면 데모가 **성공으로 끝내지 않고** 무엇을 해야 하는지 알리고 멈춘다 — 녹화 전에 이 상태를 없애 둔다.
 - [ ] 시드/데모 쿼리만 사용(라이브 7B 할루시네이션 방지).
 - [ ] `bash scripts/replica-spike.sh` 사전 1회 → `eval/results/replica-spike.log` 화면 준비.
-      **★ 이 스크립트만 최근 실행 확인이 안 됐다.** 현행 로그는 2026-06-30 자다.
-      실행하면 primary 를 잠깐 정지시키므로(kill drill) 녹화 직전이 아니라 **여유 있을 때**
-      먼저 돌려 보고, 실패하면 그 장면(2:15-2:42 의 replica 부분)을 빼고 장애주입만 쓴다.
-      `trap cleanup EXIT` 가 pg_hba 임시 줄·replica 컨테이너·probe 테이블을 되돌린다.
+      **2026-08-17 재확인:** 이 절차를 같은 순서로 실제 스택에서 밟아 전부 재현했다 —
+      pg_basebackup 36.7MB 성공, standby `in_recovery=t`, 복제 반영 확인,
+      replica 쓰기 거부(`cannot execute INSERT in a read-only transaction`),
+      `pg_stat_replication = streaming/async`, **primary 정지 중 replica 가 orders 2000 서빙**,
+      재기동 후 2000 복구. 정리 후 부작용 0(pg_hba 잔여 0, replica 컨테이너 없음, probe 없음).
+      실행하면 primary 를 잠깐 정지시키므로 녹화 직전보다 **여유 있을 때** 먼저 돌린다.
 - [ ] raw 로그(`eval/results/*`, demo stdout) 별도 저장 → 모든 수치 추적 가능.
 - [ ] 하드웨어/OS 표시, 네트워크 off 표시 상시 노출.
 - [ ] **지연은 환경에 종속된다.** GPU 호스트 Ollama는 중앙값 864ms, GPU 패스스루 없는 컨테이너는 약 12초다. 화면에 뜨는 대기 시간이 문서 수치와 다르면 어느 환경인지 자막으로 밝힌다.
