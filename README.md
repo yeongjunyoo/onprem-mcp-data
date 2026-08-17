@@ -26,13 +26,15 @@ docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
 export OLLAMA_HOST=http://localhost:11435                # 컨테이너 Ollama
-npm run gen:bench && EMBEDDER=ollama npm run embed:bench  # 결정론 시드 데이터 적재
-EMBEDDER=ollama npm run demo                             # 도구 8종부터 장애 주입까지 한 번에
+npm run gen:bench && npm run embed:bench:ollama          # 결정론 시드 데이터 적재
+npm run demo:ollama                                      # 도구 8종부터 장애 주입까지 한 번에
 ```
 
 > **Windows(cmd/PowerShell)에서는** `export` 대신 `set OLLAMA_HOST=http://localhost:11435`
-> 또는 `$env:OLLAMA_HOST="http://localhost:11435"` 를 씁니다. 이 저장소는 Windows에서
-> 개발·검증됐고 `npm run test:integration` 도 그 환경에서 끝까지 돕니다.
+> 또는 `$env:OLLAMA_HOST="http://localhost:11435"` 를 씁니다. 그 외 명령에는 셸 전용
+> 문법이 없습니다 — `npm run demo:ollama` 처럼 환경변수를 스크립트가 직접 넘깁니다.
+> 이 저장소는 Windows에서 개발·검증됐고 `npm run test:integration` 도 그 환경에서
+> 끝까지 돕니다.
 >
 > **포트가 11435인 이유.** 컨테이너 Ollama를 11434로 게시하면 호스트에 이미 설치된
 > Ollama와 충돌하는데, Docker는 이때 **조용히 게시를 포기한다**(`PublishedPort: 0`).
@@ -87,7 +89,7 @@ MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, 
 | 종단 답변 근거 포함 | **17/19 = 89.5%** (5회 중 4회, 1회 18/19) | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | 접지 위반 | **0건** (answers_grounded 100%) | 답변이 명명한 데이터셋 개체가 전부 컨텍스트 안에 있다 | 실측 |  <!--metric:ask_grounded_pct-->
 | 답변 접지 위반 | 0건 (17/17) | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사 | 컨텍스트 집합 |
-| 응답 지연 중앙값 | **12823ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
+| 응답 지연 중앙값 | **11264ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
 | 응답 지연 (호스트 GPU) | **864ms** | GPU가 붙은 호스트 Ollama 기준 같은 30문항. 원자료 `eval/results/companyx-ask-host-gpu.json` | 실측 |  <!--metric:ask_median_ms_host-->
 | 장애 주입 | 무중단 4/4, 부분 응답 4/4, 오류 가시성 4/4 | DB 정지, 지연, 부분 실패 주입 | 실측 |
 | 감사 레코드 정책 발동 | 예산 절감 17, SQL 허용 10, 자기수정 2, 미해소 차단 1 | 사업자 공개 30문항 | 실측 |
