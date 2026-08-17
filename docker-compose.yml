@@ -49,8 +49,14 @@ services:
       OLLAMA_MODEL: qwen2.5:7b
       EMBEDDER: ollama              # 문서에 적힌 기본값과 같게 둔다. hash는 오프라인 CI 폴백 전용이다.
       EMBED_MODEL: bge-m3
-    ports:
-      - "8080:8080"
+    # ★ 포트를 게시하지 않는다. 이 서버는 **stdio 전송**이라 TCP 를 듣지 않는다.
+    # 8080 을 열어 두면 "붙을 수 있다"는 거짓 신호가 되고, 실제로 붙으면 아무것도
+    # 응답하지 않는다. HTTP 전송은 다음 증분이며, 그때 포트를 연다.
+    #
+    # MCP 클라이언트는 이 컨테이너를 stdio 로 실행해 붙인다:
+    #   docker compose --profile full run --rm -T mcp
+    stdin_open: true
+    tty: false
 
 volumes:
   pgdata:
