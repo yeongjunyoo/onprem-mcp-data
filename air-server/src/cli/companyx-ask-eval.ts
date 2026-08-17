@@ -174,6 +174,10 @@ async function main() {
     profile: ds.name,
     model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
     embedder: embedder.name,
+    // ★ 지연은 환경에 종속된다. 같은 코드가 GPU 호스트 Ollama에서 약 0.8초,
+    // GPU 패스스루가 없는 컨테이너 Ollama에서 약 10초다(13배). 어느 엔드포인트에서
+    // 쟀는지 결과가 스스로 말하지 않으면 그 수치는 재현 불가능한 주장이 된다.
+    ollama_host: process.env.OLLAMA_HOST ?? "http://localhost:11434",
     n: rows.length,
     evidence_in_context_full: `${evidenceOk}/${evidenceScored}`,
     evidence_pct: evidenceScored ? Number(((evidenceOk / evidenceScored) * 100).toFixed(1)) : null,
