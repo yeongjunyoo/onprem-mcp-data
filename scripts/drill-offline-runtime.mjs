@@ -21,6 +21,7 @@
 // 실행: node scripts/drill-offline-runtime.mjs
 // 필요: docker compose up -d, 모델 2종, companyx 데이터셋. Windows(netstat/tasklist).
 import { execFileSync, spawn } from "node:child_process";
+import { copyFileSync, existsSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -75,6 +76,20 @@ const timer = setInterval(() => {
   if (sampling) sampleOnce();
 }, 150);
 
+// ★ 드릴은 네트워크를 보는 것이 목적이지 지표를 재는 게 아니다.
+//
+// `companyx:ask` 는 `companyx-ask.json` 을 쓰고, 그 안의 지연은 머신 부하에 따라
+// 매번 달라진다. 그대로 두면 **드릴을 돌릴 때마다 정본 지연이 바뀐다**
+// (2026-08-17 실측: 11674 -> 9719 -> 10606).
+//
+// 이 저장소는 같은 형태로 두 번 당했다 — 벡터 평가가 코퍼스를 파괴했고(PR #44),
+// 홀드아웃2 가 홀드아웃1 정본을 덮었다(PR #96). 평가는 자기가 읽는 것도, 남의
+// 정본도 남겨 두고 나와야 한다.
+const CANON = resolve(ROOT, "eval", "results", "companyx-ask.json");
+const BACKUP = `${CANON}.drill-backup`;
+const hadCanon = existsSync(CANON);
+if (hadCanon) copyFileSync(CANON, BACKUP);
+
 // LLM 을 가장 많이 부르는 경로. 외부 호출이 있다면 여기서 난다.
 const child = spawn("npm", ["run", "companyx:ask"], {
   cwd: resolve(ROOT, "air-server"),
@@ -86,6 +101,13 @@ const child = spawn("npm", ["run", "companyx:ask"], {
 const code = await new Promise((res) => child.on("close", res));
 sampling = false;
 clearInterval(timer);
+
+// 정본을 되돌리고 **되돌렸다고 말한다** (조용한 복원은 조용한 파괴와 구분이 안 된다).
+if (hadCanon) {
+  copyFileSync(BACKUP, CANON);
+  unlinkSync(BACKUP);
+  console.log("정본 복원: eval/results/companyx-ask.json (드릴은 지표를 갱신하지 않는다)");
+}
 
 console.log(`companyx:ask 종료 코드 ${code} · TCP 표본 ${samples.size}종`);
 
