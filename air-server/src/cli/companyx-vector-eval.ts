@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { getPool, closePool, type Pool } from "../db.js";
 import { getEmbedder, HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
-import { embedCompanyXChunks, datasetDir, CX_SCHEMA } from "../companyx.js";
+import { computeCompanyXVectors, datasetDir, CX_SCHEMA } from "../companyx.js";
 
 interface GoldItem {
   q: string;
@@ -42,22 +42,21 @@ async function inputHashes(root: string, files: string[]): Promise<Record<string
   return out;
 }
 
-/** 임베딩 컬럼 폭을 임베더 차원에 맞추고 읽기 뷰를 다시 만든다.
+
+/** 폭 재정렬과 백필을 **한 트랜잭션**으로 한다.
  *
- * 루프와 복원이 **같은 정의**를 써야 한다. 종전에는 복원이 뷰 정의를 따로 적었고
- * 컬럼 이름이 실제 스키마와 달라, 복원 중 DROP VIEW 뒤 CREATE 가 실패하면서
- * 뷰가 통째로 사라졌다(실측: relation "companyx.documents" does not exist). */
-async function realign(pool: Pool, dim: number): Promise<void> {
-  // ★ 한 트랜잭션으로 묶는다. 세 문장을 따로 커밋하면 그 사이에 프로세스가 죽었을 때
-  // 뷰가 사라진 채(또는 임베딩이 NULL 인 채) 남는다 — QA 가 DROP VIEW 직후 kill 로
-  // `relation "companyx.documents" does not exist` 를 재현했다.
-  // PostgreSQL 은 DDL 도 트랜잭션이므로 중간에 죽으면 통째로 롤백된다.
+ * 둘을 나누면 그 사이에 프로세스가 죽었을 때 코퍼스가 비거나 부분만 채워진 채
+ * 남는다(QA 재현: 0/258, 83/258). 부분 채움은 빈 것과 같다 — 검색이 조용히
+ * 나빠지고 아무도 모른다. 느린 임베딩 계산은 트랜잭션 밖에서 끝내고 안에서는
+ * DDL 과 UPDATE 만 한다. */
+async function realignAndBackfill(pool: Pool, emb: Embedder): Promise<{ updated: number; dim: number }> {
+  const vectors = await computeCompanyXVectors(pool, emb, CX_SCHEMA);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
     await client.query(
-      `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${dim}) USING NULL`,
+      `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
     );
     await client.query(
       `CREATE VIEW ${CX_SCHEMA}.documents AS
@@ -65,6 +64,9 @@ async function realign(pool: Pool, dim: number): Promise<void> {
                 content AS body, embedding
            FROM ${CX_SCHEMA}.document_chunks`,
     );
+    for (const [id, vec] of vectors) {
+      await client.query(`UPDATE ${CX_SCHEMA}.documents SET embedding = $1::vector WHERE id = $2`, [vec, id]);
+    }
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
@@ -72,6 +74,7 @@ async function realign(pool: Pool, dim: number): Promise<void> {
   } finally {
     client.release();
   }
+  return { updated: vectors.length, dim: emb.dim };
 }
 
 /** 코퍼스를 주 임베더로 되돌린다.
@@ -84,8 +87,7 @@ async function realign(pool: Pool, dim: number): Promise<void> {
  * 평가 도구는 자기가 건드린 상태를 원위치시켜야 한다. 그러지 않으면 그 도구는
  * 측정 도구가 아니라 부작용이다. */
 async function restoreCorpus(pool: Pool, primary: Embedder) {
-  await realign(pool, primary.dim);
-  const restored = await embedCompanyXChunks(pool, primary, CX_SCHEMA);
+  const restored = await realignAndBackfill(pool, primary);
   console.log(`\n코퍼스를 주 임베더로 복원: ${primary.name} ${JSON.stringify(restored)}`);
   return restored;
 }
@@ -145,11 +147,9 @@ async function main() {
     // 모델이 없을 수 있고(실측: nomic-embed-text 404), 그 하나 때문에 코퍼스를
     // 잃는 것은 측정이 아니라 사고다.
     try {
-      // Each embedder needs the corpus embedded with ITS OWN vectors.
-      // Each embedder needs its own column width; realign before backfilling.
-      // The read view depends on the column, so drop and recreate it around the widen.
-      await realign(pool, emb.dim);
-      const backfill = await embedCompanyXChunks(pool, emb, CX_SCHEMA);
+      // 변종마다 자기 벡터로 코퍼스를 채운다. 폭 정렬과 백필은 한 트랜잭션이라
+      // 중간에 죽어도 부분 상태가 남지 않는다.
+      const backfill = await realignAndBackfill(pool, emb);
       const rows = [];
       let hits = 0,
         scoredHit = 0,

@@ -367,6 +367,26 @@ export async function loadCompanyX(
 }
 
 /** Backfill companyx.document_chunks.embedding. Embeds "title — section\ncontent". */
+/** 코퍼스 임베딩을 **계산만** 한다(쓰기 없음).
+ *
+ * 느린 임베딩 호출을 트랜잭션 밖에 두기 위해 계산과 적용을 나눈다. 호출부가
+ * DDL 재정렬과 백필을 한 트랜잭션으로 묶을 수 있게 된다. */
+export async function computeCompanyXVectors(
+  pool: Pool,
+  embedder: Embedder,
+  schema = CX_SCHEMA,
+): Promise<[number, string][]> {
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error(`unsafe schema: ${schema}`);
+  const rows = await pool.query<{ id: number; title: string; body: string }>(
+    `SELECT id, title, body FROM ${schema}.documents ORDER BY id`,
+  );
+  const out: [number, string][] = [];
+  for (const r of rows.rows) {
+    out.push([r.id, toVectorLiteral(await embedder.embed(`${r.title}\n${r.body}`))]);
+  }
+  return out;
+}
+
 export async function embedCompanyXChunks(
   pool: Pool,
   embedder: Embedder,
@@ -376,15 +396,34 @@ export async function embedCompanyXChunks(
   const rows = await pool.query<{ id: number; title: string; body: string }>(
     `SELECT id, title, body FROM ${schema}.documents ORDER BY id`,
   );
-  let updated = 0;
+  // ★ 임베딩을 **먼저 전부 계산**하고, 쓰기는 한 트랜잭션으로 묶는다.
+  //
+  // 종전에는 계산과 UPDATE 를 번갈아 하며 각각 자동커밋했다. 그래서 중간에
+  // 프로세스가 죽으면 코퍼스가 **부분만 채워진 채** 남았다(QA 재현: 83/258).
+  // 부분 채움은 빈 것과 같다 — 검색이 조용히 나빠지고 아무도 모른다.
+  // 임베딩 호출이 느리므로 트랜잭션 밖에서 계산하고 안에서 쓰기만 한다.
+  //
+  // 읽은 테이블에 쓴다. 종전에는 documents 에서 읽고 document_chunks 에 썼는데,
+  // 두 테이블이 분리된 뒤로 이 함수는 복원한다면서 아무것도 채우지 않았다.
+  const vectors: [number, string][] = [];
   for (const r of rows.rows) {
-    const vec = toVectorLiteral(await embedder.embed(`${r.title}\n${r.body}`));
-    // ★ 읽은 테이블에 쓴다. 종전에는 documents 에서 읽고 document_chunks 에 썼다 —
-    // 두 테이블이 분리된 뒤로 이 함수는 **코퍼스를 복원한다면서 비워 왔다.**
-    // 벡터 평가가 이 함수로 "복원"을 호출하므로, 평가를 돌릴 때마다 검색이 죽었다
-    // (실측: 종단 근거 포함 17/19 -> 13/19, vector 후보 0건).
-    await pool.query(`UPDATE ${schema}.documents SET embedding = $1::vector WHERE id = $2`, [vec, r.id]);
-    updated++;
+    vectors.push([r.id, toVectorLiteral(await embedder.embed(`${r.title}\n${r.body}`))]);
+  }
+
+  let updated = 0;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const [id, vec] of vectors) {
+      await client.query(`UPDATE ${schema}.documents SET embedding = $1::vector WHERE id = $2`, [vec, id]);
+      updated++;
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
   }
   const dimRow = await pool.query<{ d: number }>(
     `SELECT vector_dims(embedding) AS d FROM ${schema}.documents WHERE embedding IS NOT NULL LIMIT 1`,
