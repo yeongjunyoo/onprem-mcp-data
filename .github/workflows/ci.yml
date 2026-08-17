@@ -61,3 +61,6 @@ jobs:
           node scripts/sbom.mjs > /tmp/sbom.generated.md
           diff <(grep -v '^> 생성 시각' docs/sbom.md) <(grep -v '^> 생성 시각' /tmp/sbom.generated.md)
         shell: bash
+
+      - name: 문서 수치가 측정 결과와 어긋나면 실패 (한국어/영어 대역 포함)
+        run: node scripts/metrics-check.mjs
