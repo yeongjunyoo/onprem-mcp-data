@@ -76,6 +76,13 @@ const CLAIMS = [
     label: "벡터 hit@5",
   },
   {
+    metric: "holdout1_strict",
+    // "라우팅 일반화 (홀드아웃)" 행. 구어체(holdout2)와 구분하기 위해 구어체 표기가
+    // 없는 홀드아웃 행만 본다.
+    re: /홀드아웃(?![^\n]*구어체)[^\n]*?(0\.\d{3})/g,
+    label: "홀드아웃1 strict",
+  },
+  {
     metric: "holdout2_strict",
     re: /(?:구어체|colloquial)[^\n]{0,60}?(0\.\d{3})/g,
     label: "홀드아웃 2차(구어체) strict",
