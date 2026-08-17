@@ -68,6 +68,10 @@ jobs:
       - name: 지표를 말하는 자리가 정본과 일치하는지
         working-directory: .
         run: node scripts/verify-doc-metrics.mjs
+      # 폴백이 있는 게 아니라 폴백이 말을 안 하는 게 문제다.
+      - name: 실패 경로가 조용히 다른 것을 주지 않는지
+        working-directory: .
+        run: node scripts/verify-loud-failure.mjs
 
   sbom:
     name: SBOM drift check
