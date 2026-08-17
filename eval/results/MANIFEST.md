@@ -17,15 +17,15 @@
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
 | `companyx-ask-host-gpu.json` | 22,170 | `33944f8ce99163f7` | 2026-08-17T08:14:06 |
-| `companyx-ask.json` | 22,798 | `3329a64ebdbdbe3b` | 2026-08-17T12:39:39 |
+| `companyx-ask.json` | 22,535 | `1ad349193e91834d` | 2026-08-17T20:11:50 |
 | `companyx-audit.json` | 85,011 | `9f26ee08fe290e7d` | 2026-07-29T14:39:23 |
 | `companyx-holdout-route.json` | 11,104 | `8f702f06b98c38d5` | 2026-08-17T09:32:04 |
 | `companyx-holdout2-route.json` | 11,103 | `88d8905dd92a4463` | 2026-08-17T09:32:04 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
-| `companyx-kg.json` | 6,369 | `24051290517eb8e6` | 2026-08-17T01:38:57 |
+| `companyx-kg.json` | 6,369 | `de69ff3d634f4ffa` | 2026-08-17T20:05:13 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,132 | `319a96696d0dd072` | 2026-07-29T15:13:52 |
-| `companyx-route.json` | 23,256 | `df5baace783aa922` | 2026-08-17T14:52:16 |
+| `companyx-route.json` | 23,256 | `86f32ce72b3da1de` | 2026-08-17T20:00:25 |
 | `companyx-sql-llm-norepair.json` | 4,972 | `cfd9d08c70a15248` | 2026-07-29T12:48:18 |
 | `companyx-sql-llm.json` | 4,871 | `1692988d8ac28c44` | 2026-07-29T12:49:17 |
 | `companyx-sql-naive-norepair.json` | 5,340 | `141152e4ade6bb89` | 2026-07-29T12:49:47 |
@@ -34,7 +34,7 @@
 | `companyx-sql-repeat-llm.json` | 1,211 | `76d7d6a2377c348c` | 2026-07-29T12:49:17 |
 | `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 |
 | `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 |
-| `companyx-vector.json` | 170,890 | `604f20c1d8cd115e` | 2026-08-17T12:33:19 |
+| `companyx-vector.json` | 170,890 | `65208a8612871236` | 2026-08-17T20:05:11 |
 | `external-bird-raw.json` | 9,878 | `cfe1dc452172c024` | — |
 | `external-bird-rescore.json` | 8,863 | `bb10a5d137f00ebe` | 2026-08-17T06:13:28 |
 | `external-bird-summary.json` | 680 | `8f4c2b484a0f59f3` | — |
