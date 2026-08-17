@@ -54,6 +54,11 @@ jobs:
       - name: 증거 매니페스트 드리프트 검사
         working-directory: .
         run: node scripts/evidence-manifest.mjs
+      # "외부 API를 호출하지 않는다" 는 이 프로젝트 피치의 핵심이다.
+      # 주장으로 두지 않고 런타임 소스의 네트워크 대상을 검사한다.
+      - name: 외부 API 호출이 없는지
+        working-directory: .
+        run: node scripts/verify-no-external-api.mjs
 
   sbom:
     name: SBOM drift check

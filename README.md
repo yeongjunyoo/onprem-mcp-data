@@ -5,7 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
 
-**사내 데이터베이스에 자연어로 묻고, 근거와 함께 답을 받는 온프렘 MCP 서버.** 질문 하나를 벡터 검색, NL2SQL, 지식그래프 세 갈래로 자동 분기해 동시에 조회하고, 결과를 합쳐 로컬 소형 모델이 답합니다. 모델은 전부 로컬에서 돌고 **외부 API를 호출하지 않습니다.**
+**사내 데이터베이스에 자연어로 묻고, 근거와 함께 답을 받는 온프렘 MCP 서버.** 질문 하나를 벡터 검색, NL2SQL, 지식그래프 세 갈래로 자동 분기해 동시에 조회하고, 결과를 합쳐 로컬 소형 모델이 답합니다. 모델은 전부 로컬에서 돌고 **외부 API를 호출하지 않습니다.** 이 주장은 CI가 검사합니다 — `node scripts/verify-no-external-api.mjs`가 런타임 소스의 네트워크 호출 대상과 관련 환경변수 기본값을 훑어, 루프백과 compose 형제 서비스가 아닌 곳이 하나라도 있으면 실패합니다.
 
 | | |
 | --- | --- |
