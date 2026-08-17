@@ -68,6 +68,10 @@ for (const f of tracked.filter((f) => f.startsWith("eval/results/") && f.endsWit
     }
   }
 }
+if (previewsChecked === 0) {
+  console.error("\n실패: 검사한 preview 가 0개다 — eval/results 를 못 읽었거나 필터가 잘못됐다.\n");
+  process.exit(1);
+}
 console.log(`구조 검사: 커밋된 preview ${previewsChecked}개가 전부 가려져 있는지 확인.`);
 
 // ── 3. 본문 대조 — 데이터셋이 로컬에 있을 때만 ──────────────────────────
