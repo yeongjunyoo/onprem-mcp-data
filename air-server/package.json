@@ -78,5 +78,11 @@
     "@types/node": "^26.0.1",
     "@types/pg": "^8.20.0",
     "typescript": "^5.5.0"
+  },
+  "overrides": {
+    "hono": ">=4.12.34",
+    "ip-address": ">=10.3.1",
+    "fast-uri": ">=3.1.5",
+    "@hono/node-server": ">=1.19.15"
   }
 }
