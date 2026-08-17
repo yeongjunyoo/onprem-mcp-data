@@ -1,10 +1,14 @@
-# Replica spike — 2026-06-30T16:22:56Z
+# Replica spike — 2026-08-17T15:11:32Z
+
 ## streaming replication
 primary pg_stat_replication: streaming/async
 
 ## app-level READ_DATABASE_URL routing (getReadPool -> replica :5434)
   getPool()    -> in_recovery=false (primary :5433)
   getReadPool()-> in_recovery=true orders=2000 (replica :5434)
+
+## replica is read-only
+  write attempt: ERROR:  cannot execute CREATE TABLE in a read-only transaction
 
 ## KILL DRILL: stop primary, replica must still serve reads
   primary STOPPED
