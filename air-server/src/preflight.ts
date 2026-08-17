@@ -58,9 +58,37 @@ export async function probeServing(
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = (await res.json()) as { embedding?: unknown[] };
-    if (!Array.isArray(body.embedding) || body.embedding.length === 0) {
-      return { ok: false, error: "빈 임베딩 응답" };
+    const v = body.embedding;
+    if (!Array.isArray(v) || v.length === 0) return { ok: false, error: "빈 임베딩 응답" };
+    // 배열이 비지 않았다고 임베딩인 것은 아니다. [null] 과 ["not-a-number"] 가
+    // 정상으로 통과했다(QA 재현). 좌표가 유한한 수인지까지 본다.
+    if (!v.every((x) => typeof x === "number" && Number.isFinite(x))) {
+      return { ok: false, error: "임베딩 좌표가 유한한 수가 아니다" };
     }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 120) };
+  }
+}
+
+/** 생성 모델도 실제로 서빙되는지 본다.
+ *
+ * 임베더를 안 쓰는 구성(EMBEDDER 미설정)에서도 `ask`는 여전히 로컬 7B로 답을
+ * 만든다. 임베딩만 확인하면 그 경로가 죽어 있어도 서버가 뜬다(QA 재현). */
+export async function probeGeneration(
+  host: string,
+  model: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${host.replace(/\/$/, "")}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, prompt: "ok", stream: false, options: { num_predict: 1 } }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const body = (await res.json()) as { response?: unknown };
+    if (typeof body.response !== "string") return { ok: false, error: "생성 응답 형식이 아니다" };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e).slice(0, 120) };
