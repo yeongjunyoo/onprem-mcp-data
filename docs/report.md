@@ -502,6 +502,39 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 - 데모: `air-server/src/cli/demo.ts` 실행 로그. 토폴로지: `docs/architecture.md`.
 - **공식 데이터셋(Company-X):** 무결성·출처 `datasets/MANIFEST.md`(SHA-256 고정), 취득 `scripts/fetch-companyx-dataset.sh`, 적재 `air-server/src/companyx.ts`. 결과 `eval/results/companyx-{load,route,sql-llm,sql-naive,kg,vector}.json`. 오라클 정의 `eval/companyx/{sql_gold.jsonl,kg_gold.json,vector_gold.json}`. 회귀 `air-server/src/companyx.test.ts`(46 단언, `npm run test:companyx`). end-to-end `air-server/src/cli/companyx-ask-eval.ts` → `eval/results/companyx-ask.json`. 프로파일 `air-server/src/profile.ts`.
 - 라이선스/모델: `LICENSE`(Apache-2.0), `NOTICE`, `docs/model-cards/{qwen2.5-7b,bge-m3}.md`.
+### 다시 뽑는 법
+
+파일이 있다는 것과 다시 만들 수 있다는 것은 다르다. 아래는 각 수치를 실제로 내는 명령이다.
+
+```bash
+docker compose up -d                                  # PostgreSQL 16 + pgvector, Ollama
+docker compose exec ollama ollama pull qwen2.5:7b     # 생성 모델
+docker compose exec ollama ollama pull bge-m3         # 임베딩 모델
+cd air-server && npm ci && npx tsc
+
+npm run gen:bench && npm run embed:bench:ollama       # 결정론 시드
+npm run companyx:load                                 # 공식 데이터셋 적재(8테이블 818행)
+npm run companyx:route                                # 라우팅 in-sample 30/30
+npm run companyx:vector                               # 벡터 hit@5
+npm run companyx:kg                                   # KG 재현율
+npm run companyx:ask                                  # 종단 근거포함·접지·지연
+npm run companyx:multistep                            # 다단계
+npm run fault:inject                                  # 장애 주입 4/4/4
+```
+
+### 수치가 어긋나면 무엇이 잡는가
+
+원자료를 다시 뽑았는데 문서를 안 고치면 아래가 실패한다. 손으로 맞추지 않는다.
+
+```bash
+node scripts/metrics-check.mjs                 # 표 행 marker 대 원자료
+node scripts/verify-doc-metrics.mjs            # marker 없는 표·산문까지
+node scripts/verify-test-counts.mjs            # 러너 출력에서 단언 수 재계수
+node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드리프트
+```
+
+전체 목록과 각 검사가 막는 것은 README 「주장을 지키는 검사」에 있다.
+
 - 하드웨어: Apple M4 / macOS 25.5 (초기 빌드·내부 벤치). 공식 데이터셋 실측은 Windows 11 + RTX 4070 SUPER, PostgreSQL 16.14 + pgvector 0.6.0(WSL2 Ubuntu 24.04), Ollama 0.32.4 — 실행 환경이 바뀌어도 같은 커맨드로 재현되는지까지 확인한 결과다.
 
 ---

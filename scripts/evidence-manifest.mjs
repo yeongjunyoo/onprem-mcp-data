@@ -11,7 +11,7 @@
 //   node scripts/evidence-manifest.mjs           # 검사 (드리프트면 exit 1)
 //   node scripts/evidence-manifest.mjs --write   # 재생성
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -127,3 +127,37 @@ if (current !== body) {
   process.exit(1);
 }
 console.log(`OK: 매니페스트가 실제 아티팩트와 일치한다 (${rows.length}개, 자체 시각 ${selfStamped}개).`);
+
+// ── §9 의 재현 명령이 실재하는가 ──────────────────────────────────────────
+//
+// 이 절은 "모든 수치 = raw + 커맨드로 추적" 을 표방한다. 그런데 파일 경로만
+// 나열돼 있으면 심사자는 "이 수치를 다시 뽑으려면 뭘 치나" 에 답을 못 얻는다.
+// 파일이 있다는 것과 다시 만들 수 있다는 것은 다르다.
+//
+// 명령을 적었으면 그 명령이 실재해야 한다. 스크립트 이름은 실제로 바뀐다 —
+// 이 저장소에서 companyx:* 9개를 한 번에 정정한 적이 있다.
+const reportPath = resolve(ROOT, "docs", "report.md");
+if (existsSync(reportPath)) {
+  const report = readFileSync(reportPath, "utf8");
+  const at = report.indexOf("Evidence manifest");
+  if (at >= 0) {
+    const until = report.indexOf("\n## ", at);
+    const section = report.slice(at, until > 0 ? until : undefined);
+    const pkgScripts = new Set(
+      Object.keys(
+        JSON.parse(readFileSync(resolve(ROOT, "air-server", "package.json"), "utf8")).scripts ?? {},
+      ),
+    );
+    const named = [...new Set([...section.matchAll(/npm run ([a-z0-9:._-]+)/g)].map((m) => m[1]))];
+    const gone = named.filter((n) => !pkgScripts.has(n));
+    const checks = [...new Set([...section.matchAll(/node (scripts\/[a-z0-9-]+\.mjs)/g)].map((m) => m[1]))];
+    const absent = checks.filter((c) => !existsSync(resolve(ROOT, c)));
+    if (gone.length || absent.length) {
+      if (gone.length) console.error(`\n실패: Evidence manifest 가 없는 스크립트를 부른다 — ${gone.join(", ")}`);
+      if (absent.length) console.error(`실패: Evidence manifest 가 없는 검사를 부른다 — ${absent.join(", ")}`);
+      console.error("");
+      process.exit(1);
+    }
+    console.log(`재현 명령: npm ${named.length}종 · 검사 ${checks.length}종 전부 실재한다.`);
+  }
+}
