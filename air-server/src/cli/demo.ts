@@ -3,6 +3,7 @@
 // canonical 3-way RRF agreement, on-prem 7B answer, and graceful fault degradation.
 // Run (network may be OFF after models cached): EMBEDDER=ollama npm run demo
 import { buildServer } from "../server.js";
+import { probeOllama, reportOllama } from "../preflight.js";
 import { getPool, closePool } from "../db.js";
 import { OllamaEmbedder, type Embedder } from "../embedder.js";
 import { route, audit } from "../router.js";
@@ -20,6 +21,17 @@ async function main() {
   const pool = getPool();
   const emb: Embedder = new OllamaEmbedder("bge-m3");
   const haveLLM = await isAvailable();
+
+  // ── 환경 프리플라이트 ───────────────────────────────────────────────
+  //
+  // 어느 Ollama에 붙었는지 먼저 밝힌다. 호스트와 컨테이너가 둘 다 있을 때
+  // 조용히 엉뚱한 쪽에 붙는 사고를 막는다(docker-compose.yml의 11435 주석 참조).
+  {
+    const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b"];
+    if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
+    const probe = await probeOllama();
+    if (!reportOllama(probe, need)) process.exit(1);
+  }
 
   // ── 기반 데이터 확인 게이트 ─────────────────────────────────────────
   //

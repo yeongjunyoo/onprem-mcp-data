@@ -22,7 +22,12 @@ services:
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      # host 11435. 11434로 게시하면 호스트에 이미 설치된 Ollama와 충돌하는데,
+      # Docker는 이때 **조용히 게시를 포기한다**(PublishedPort: 0). 컨테이너는
+      # "running"이고 에러도 없으며, 앱은 호스트 데몬에 붙는다 — 그 데몬이 어떤
+      # 모델을 갖고 있든. 그 상태로 측정하면 문서가 말하는 환경과 실제가 다르다.
+      # 포트를 갈라 두면 어느 쪽에 붙었는지가 항상 명시적이다.
+      - "11435:11434"
     volumes:
       - ollama:/root/.ollama
     # GPU optional; on Apple Silicon Ollama runs on host metal better than in-container.
@@ -40,7 +45,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata
-      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_HOST: http://ollama:11434   # 컨테이너 네트워크 안에서는 그대로 11434
       OLLAMA_MODEL: qwen2.5:7b
       EMBEDDER: ollama              # 문서에 적힌 기본값과 같게 둔다. hash는 오프라인 CI 폴백 전용이다.
       EMBED_MODEL: bge-m3
