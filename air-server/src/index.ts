@@ -9,10 +9,20 @@
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
 import { buildServer, loadRouterOntology } from "./server.js";
+import { probeOllama, reportOllama } from "./preflight.js";
 
 // 라우터 온톨로지를 먼저 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서
 // 측정한 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18). 실패해도 서버는
 // 뜨고 폴백으로 동작하되, 경고를 남긴다.
+// 환경 프리플라이트를 서버에도 건다. 데모에만 걸면 서버는 여전히 조용히 틀린
+// Ollama에 붙을 수 있고, 기능테스트는 데모가 아니라 서버를 띄워 시연시킨다.
+{
+  const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b"];
+  if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
+  const probe = await probeOllama();
+  if (!reportOllama(probe, need)) process.exit(1);
+}
+
 const ont = await loadRouterOntology();
 console.error(
   ont.error

@@ -76,6 +76,10 @@ export async function loadRouterOntology(): Promise<Readonly<typeof ontologyStat
   return ontologyState;
 }
 
+/** 캐시에서 제외하는 도구. 감사 레코드가 이 목록을 직접 읽어 정책을 적으므로,
+ * 여기서 빼면 레코드 표기도 함께 바뀐다 — 선언과 표기가 갈리지 않는다. */
+const CACHE_EXCLUDED = ["audit.explain"];
+
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
@@ -106,7 +110,7 @@ export function buildServer(): AirServer {
       // audit.explain은 캐시에서 제외한다. 감사의 목적은 "지금 이 순간
       // 파이프라인이 무엇을 하는가"인데, 캐시된 레코드는 60초 전의 실행 기록이다.
       // 그것은 감사가 아니라 과거 기록의 재생이다. (이슈 #12)
-      cachePlugin({ ttlMs: 60_000, exclude: ["audit.explain"] }),
+      cachePlugin({ ttlMs: 60_000, exclude: CACHE_EXCLUDED }),
       retryPlugin({ maxRetries: 2, delayMs: 150 }),
       circuitBreakerPlugin(),
     ],
@@ -238,9 +242,17 @@ export function buildServer(): AirServer {
         handler: async ({ query, format }) => {
           const executed_at = new Date().toISOString();
           const r = await ask(query as string, { pool: getReadPool(), embedder: getEmbedder() });
-          // 이 레코드가 실시간 실행에서 나왔다는 사실을 레코드 자신이 말하게 한다.
-          // 캐시 우회는 보이지 않는 성질이라, 보이게 하지 않으면 누가 되돌려도 모른다.
-          const record = { ...buildAuditRecord(r), executed_at, cache_bypassed: true as const };
+          // 이 레코드가 언제 실행됐는지를 레코드 자신이 말하게 한다. 캐시 우회는
+          // 보이지 않는 성질이라, 보이게 하지 않으면 누가 되돌려도 모른다.
+          //
+          // cache_policy는 **관측값이 아니라 정책 선언**이다. 실제 캐시 적중 여부를
+          // 미들웨어에서 읽어 오는 것이 아니므로 "우회했다"고 주장하지 않는다.
+          // 설정에서 실제로 제외돼 있는지를 그 자리에서 확인해 적는다.
+          const record = {
+            ...buildAuditRecord(r),
+            executed_at,
+            cache_policy: CACHE_EXCLUDED.includes("audit.explain") ? ("excluded" as const) : ("cached" as const),
+          };
           return format === "text" ? { text: renderAudit(record) } : record;
         },
       }),

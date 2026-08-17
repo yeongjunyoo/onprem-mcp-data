@@ -32,7 +32,7 @@ async function main() {
   await sleep(1100); // executed_at이 초 단위로도 갈리도록
   const a2 = JSON.parse(await server.callTool("audit.explain", { query: q }));
 
-  ok(a1.cache_bypassed === true, "감사 레코드가 캐시 우회를 선언한다");
+  ok(a1.cache_policy === "excluded", "감사 레코드가 캐시 정책을 선언한다");
   ok(typeof a1.executed_at === "string", "감사 레코드에 실행 시각이 있다");
   ok(
     a1.executed_at !== a2.executed_at,
@@ -45,12 +45,28 @@ async function main() {
     "캐시를 우회해도 라우팅 지문은 동일하다(결정론 유지)",
   );
 
-  // ── 대조군: 캐시가 켜진 도구는 실제로 캐시된다 ──────────────────────
-  // route는 exclude에 없으므로 같은 인스턴스가 돌아온다. 이 대조가 없으면
-  // "우회됐다"가 아니라 "애초에 캐시가 안 돈다"일 수도 있다.
-  const r1 = await server.callTool("route", { query: q });
-  const r2 = await server.callTool("route", { query: q });
-  ok(r1 === r2, "대조군: 캐시 대상 도구는 같은 응답 문자열을 돌려준다");
+  // ── 대조군 ──────────────────────────────────────────────────────────
+  //
+  // ★ 이 대조군은 한 번 무효였다. 처음에는 `route`를 두 번 불러 같은 문자열이
+  // 나오는지 봤는데, route는 결정론이라 **캐시가 꺼져 있어도 같은 문자열**이
+  // 나온다. 실제로 cachePlugin의 exclude에 route를 임시로 추가해도 그 단언은
+  // 그대로 통과했다(QA 레드팀 재현). 즉 아무것도 증명하지 못했다.
+  //
+  // 캐시를 증명하려면 **호출마다 값이 달라지는** 관측점이 필요하다.
+  // `ask`는 exclude에 없고 응답에 7B가 만든 답이 실려 지연이 실측 가능하다.
+  // 캐시가 돌면 2회차가 1회차보다 확연히 빠르다.
+  const t1 = Date.now();
+  const k1 = await server.callTool("ask", { query: q });
+  const d1 = Date.now() - t1;
+  const t2 = Date.now();
+  const k2 = await server.callTool("ask", { query: q });
+  const d2 = Date.now() - t2;
+
+  ok(k1 === k2, "대조군: 캐시 대상 도구는 같은 응답을 돌려준다");
+  ok(
+    d2 * 5 < d1 || d2 < 50,
+    `대조군: 2회차가 캐시로 훨씬 빠르다 (1회차 ${d1}ms, 2회차 ${d2}ms)`,
+  );
 
   console.log(`\nauditcache.test: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

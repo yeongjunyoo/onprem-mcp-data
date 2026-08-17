@@ -22,6 +22,24 @@ async function main() {
   const emb: Embedder = new OllamaEmbedder("bge-m3");
   const haveLLM = await isAvailable();
 
+  // ── 프로파일 게이트 ─────────────────────────────────────────────────
+  //
+  // 이 데모는 bench 시드 전용이다. 질의도 테이블도 bench에 하드코딩돼 있다.
+  // 그런데 DATASET=companyx로 실행해도 조용히 bench 숫자를 찍고 DEMO OK로 끝났다.
+  // 활성 프로파일과 실제로 조회하는 데이터가 다르면 그 출력은 거짓말이다.
+  {
+    const requested = process.env.DATASET;
+    if (requested && requested !== "bench") {
+      console.error(
+        `\n이 데모는 bench 시드 전용인데 DATASET=${requested} 로 실행됐다.\n` +
+          "  질의와 테이블이 bench에 고정돼 있어 다른 프로파일의 데이터를 보여주지 못한다.\n\n" +
+          "  DATASET을 지우고 실행하거나, 해당 데이터셋 전용 평가 CLI를 쓴다:\n" +
+          `    DATASET=${requested} node dist/cli/companyx-ask-eval.js\n`,
+      );
+      process.exit(1);
+    }
+  }
+
   // ── 환경 프리플라이트 ───────────────────────────────────────────────
   //
   // 어느 Ollama에 붙었는지 먼저 밝힌다. 호스트와 컨테이너가 둘 다 있을 때
