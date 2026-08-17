@@ -20,7 +20,6 @@ const hr = (t: string) => line(`\n=== ${t} ===`);
 async function main() {
   const pool = getPool();
   const emb: Embedder = new OllamaEmbedder("bge-m3");
-  const haveLLM = await isAvailable();
 
   // ── 프로파일 게이트 ─────────────────────────────────────────────────
   //
@@ -78,15 +77,31 @@ async function main() {
   // 텅 빈 데모가 성공했다고 말하게 된다. 거짓 성공은 실패보다 나쁘므로 여기서 막는다.
   {
     const need: string[] = [];
-    const count = async (sql: string): Promise<number> => {
+    // 조회 실패와 "정말 0행"은 다르다. 둘을 같은 0으로 뭉개면 DB가 죽었을 때
+    // "시드가 없다"는 엉뚱한 안내를 하게 된다 — 이 저장소가 계속 잡아 온 실패 위장이다.
+    const count = async (sql: string): Promise<number | null> => {
       const r = await sqlQuery(pool, sql);
-      return r.ok && r.rows.length ? Number(r.rows[0].n) : 0;
+      if (!r.ok) {
+        console.error(`\n기반 데이터를 확인하지 못했다: ${r.error}`);
+        console.error(`  질의: ${sql}`);
+        console.error("  PostgreSQL이 떠 있는지 확인한다: docker compose up -d db\n");
+        return null;
+      }
+      return r.rows.length ? Number(r.rows[0].n) : 0;
     };
     const orders = await count("SELECT count(*)::int AS n FROM bench.orders");
+    if (orders === null) {
+      process.exitCode = 1;
+      return;
+    }
     if (orders === 0) need.push("npm run gen:bench");
     const embedded = await count(
       "SELECT count(*)::int AS n FROM bench.documents WHERE embedding IS NOT NULL",
     );
+    if (embedded === null) {
+      process.exitCode = 1;
+      return;
+    }
     if (embedded === 0) need.push("EMBEDDER=ollama npm run embed:bench");
 
     if (need.length) {
@@ -134,6 +149,9 @@ async function main() {
   if (agree) line(`  합의 엔티티: ${agree.canonicalKey} sources=${JSON.stringify(agree.sources)} rank=${agree.rank}`);
 
   hr("6) 온프렘 7B 최종 답변 (Qwen2.5)");
+  // 프리플라이트가 생성 서빙까지 확인한 **뒤**에 잰다. 예전에는 프리플라이트보다
+  // 먼저 재서, 그 사이 상태가 달라져도 답변을 조용히 건너뛰고 DEMO OK 로 끝났다.
+  const haveLLM = await isAvailable();
   if (haveLLM) {
     const q = "전체 주문은 몇 건이야?";
     const sql = await benchNL2SQL(q);
@@ -143,7 +161,12 @@ async function main() {
     line(`  Q: ${q}`);
     line(`  A: ${ans}`);
   } else {
-    line("  (Ollama/qwen2.5:7b 미가용 — 답변 단계 스킵)");
+    // 여기까지 왔다는 것은 프리플라이트가 생성 서빙을 확인했다는 뜻이다.
+    // 그런데도 미가용이면 그 사이에 죽은 것이므로 성공으로 끝내지 않는다.
+    console.error("\n생성 모델이 프리플라이트 이후 사용 불가가 됐다 — 답변 단계를 수행하지 못했다.");
+    console.error(`  ${process.env.OLLAMA_HOST ?? "http://localhost:11434"} 상태를 확인한다.\n`);
+    process.exitCode = 1;
+    return;
   }
 
   hr("7) 장애주입 → graceful degradation");

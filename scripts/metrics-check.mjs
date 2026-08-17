@@ -72,10 +72,17 @@ const FRESHNESS = [
 ];
 
 for (const { result, inputs } of FRESHNESS) {
-  if (!existsSync(resolve(ROOT, result))) continue;
+  // 결과가 없으면 통과가 아니라 실패다. 없는 파일을 건너뛰면 삭제로 검사를 끌 수 있다.
+  if (!existsSync(resolve(ROOT, result))) {
+    fails.push(`신선도: 결과가 없다 ${result} — 평가를 돌려야 한다`);
+    continue;
+  }
   const rt = statSync(resolve(ROOT, result)).mtimeMs;
   for (const i of inputs) {
-    if (!existsSync(resolve(ROOT, i))) continue;
+    if (!existsSync(resolve(ROOT, i))) {
+      fails.push(`신선도: 입력이 없다 ${i} — 평가셋이 사라졌다`);
+      continue;
+    }
     if (statSync(resolve(ROOT, i)).mtimeMs > rt) {
       fails.push(`신선도: ${i} 가 ${result} 보다 새롭다 — 평가를 다시 돌려야 한다`);
     }
@@ -103,6 +110,11 @@ const ask = readJson("eval/results/companyx-ask.json");
 canonical.ask_evidence = ask.summary.evidence_in_context_full;
 canonical.ask_evidence_pct = String(ask.summary.evidence_pct);
 canonical.ask_grounded_pct = String(ask.summary.grounded_pct);
+
+// 테스트 단언 수는 문서끼리 합의하는지가 아니라 **러너가 낸 값**을 본다.
+// 종전 대역 일치 검사는 두 문서가 나란히 틀려도 통과했다(둘 다 388인데 실측 394).
+const counts = readJson("eval/results/test-counts.json");
+canonical.test_total = String(counts.total);
 // 지연은 환경 종속이라 정본 자체가 어느 엔드포인트에서 쟀는지 들고 있어야 한다.
 // 같은 코드가 GPU 호스트에서 약 0.8초, CPU 컨테이너에서 약 10초다.
 canonical.ask_median_ms = String(ask.summary.median_ms);
@@ -211,11 +223,15 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_evidence" },
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
+  { doc: "README.md", metric: "test_total" },
+  { doc: "README.en.md", metric: "test_total" },
   { doc: "README.en.md", metric: "vector_hit5" },
   { doc: "README.en.md", metric: "holdout1_strict" },
   { doc: "README.en.md", metric: "holdout2_strict" },
   { doc: "README.en.md", metric: "ask_evidence" },
   { doc: "README.en.md", metric: "ask_evidence_pct" },
+  { doc: "README.en.md", metric: "ask_grounded_pct" },
+  { doc: "README.md", metric: "ask_grounded_pct" },
 ];
 
 for (const { doc, metric } of REQUIRED_CLAIMS) {
