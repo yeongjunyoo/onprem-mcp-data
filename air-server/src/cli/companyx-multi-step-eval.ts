@@ -8,6 +8,7 @@
 // 순서대로 호출한다. 각 단계는 독립 판정되고 하나가 끊기면 그 뒤는 실행하지 않는다.
 //
 // 사용: DATASET=companyx node dist/cli/companyx-multi-step-eval.js
+import { requireCompanyxProfile } from "../companyx.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -96,6 +97,9 @@ const TASKS: Task[] = [
 ];
 
 async function main() {
+  // 이 평가는 companyx 전용이다. 다른 프로파일로 돌리면 거절 없이 실행돼
+  // companyx 정본 결과 파일을 잘못된 값으로 덮는다(2026-08-17 실측).
+  requireCompanyxProfile();
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   const pool = getPool();

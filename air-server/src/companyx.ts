@@ -44,6 +44,24 @@ export function datasetDir(): string {
  * 무엇이 잘못됐는지도 무엇을 하면 되는지도 말하지 않는다.
  *
  * 없는 것을 없다고 말하는 것과, 스택 트레이스를 던지는 것은 다르다. */
+/**
+ * companyx 전용 평가가 다른 프로파일로 도는 것을 막는다.
+ *
+ * `requireDataset()` 는 파일이 있는지만 본다. 그것과 **지금 어떤 프로파일로
+ * 도는가**는 다른 문제다. 실측(2026-08-17): `DATASET=bench` 로 홀드아웃 평가를
+ * 돌리니 거절 없이 실행돼 companyx 정본 파일을 덮었다. 값이 우연히 같아 눈에
+ * 안 띄었을 뿐이다.
+ *
+ * 이 도구들은 설정으로 대상을 고르는 게 아니라 **대상이 정해진 도구**다.
+ */
+export function requireCompanyxProfile(): void {
+  if ((process.env.DATASET ?? "") === "companyx") return;
+  console.error("\n이 평가는 DATASET=companyx 로 실행해야 한다.");
+  console.error("  다른 프로파일로 돌리면 companyx 정본 결과 파일을 잘못된 값으로 덮는다.");
+  console.error("  npm 스크립트를 쓰면 프로파일이 자동으로 전달된다 — 예: npm run companyx:holdout\n");
+  process.exit(1);
+}
+
 export function requireDataset(dir = datasetDir()): string {
   if (existsSync(resolve(dir, "documents", "index.json"))) return dir;
   console.error(`\n사업자 데이터셋이 없다: ${dir}`);

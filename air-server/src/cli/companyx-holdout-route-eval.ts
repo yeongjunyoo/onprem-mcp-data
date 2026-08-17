@@ -8,6 +8,7 @@
 // 라우터는 질문 문장만 보고 어떤 도구를 호출할지 고른다.
 //
 // 사용: DATASET=companyx node dist/cli/companyx-holdout-route-eval.js
+import { requireCompanyxProfile } from "../companyx.js";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -27,6 +28,9 @@ async function installLexiconFromDataset(): Promise<number> {
 
 
 async function main() {
+  // 이 평가는 companyx 전용이다. 다른 프로파일로 돌리면 거절 없이 실행돼
+  // companyx 정본 결과 파일을 잘못된 값으로 덮는다(2026-08-17 실측).
+  requireCompanyxProfile();
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   // 평가셋과 출력 경로는 환경변수로 갈아끼운다. 1차 홀드아웃은 라우터 결함을
