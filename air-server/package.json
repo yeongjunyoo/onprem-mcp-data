@@ -66,7 +66,7 @@
     "companyx:hybrid": "node dist/cli/companyx-hybrid-eval.js",
     "companyx:audit": "node dist/cli/companyx-audit-export.js",
     "companyx:multistep": "node dist/cli/companyx-multi-step-eval.js",
-    "test:integration": "tsc && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js && node dist/graph.test.js && node dist/kgretrieve.test.js && node dist/auditcache.test.js && DATASET=companyx node dist/companyx.test.js && DATASET=companyx node dist/ontologyload.test.js"
+    "test:integration": "tsc && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js && node dist/graph.test.js && node dist/kgretrieve.test.js && node dist/auditcache.test.js && node scripts/with-dataset.mjs companyx dist/companyx.test.js && node scripts/with-dataset.mjs companyx dist/ontologyload.test.js"
   },
   "dependencies": {
     "@airmcp-dev/core": "^0.2.0",

@@ -20,7 +20,7 @@
 표집이라 대표성이 없다 — 데이터베이스 하나가 통째로 빠지고 난이도가 편중된다.
 숨기면 그 수치는 다시 오독된다.
 
-사용: python eval/external/rescore_bird.py
+사용: python scripts/rescore_bird.py
 """
 from __future__ import annotations
 

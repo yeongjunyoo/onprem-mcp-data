@@ -38,7 +38,7 @@
 - 데이터 저장소: PostgreSQL 16, pgvector 0.6.0, primary와 streaming replica 구성
 - 모델 런타임: Ollama 0.32.4. 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
 - 컨테이너: Docker Compose로 데이터베이스와 복제본을 기동, 서버 Dockerfile 빌드 검증 완료
-- 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 로컬 Ollama(`localhost:11434`)뿐이다.
+- 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
 - 테스트: 자체 러너 기반 단위와 통합 테스트 223단언 전량 통과
 
 ### 시스템 구성 및 아키텍처

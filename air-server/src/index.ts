@@ -9,7 +9,7 @@
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
 import { buildServer, loadRouterOntology } from "./server.js";
-import { probeOllama, reportOllama } from "./preflight.js";
+import { probeOllama, reportOllama, probeServing } from "./preflight.js";
 
 // 라우터 온톨로지를 먼저 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서
 // 측정한 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18). 실패해도 서버는
@@ -21,6 +21,15 @@ import { probeOllama, reportOllama } from "./preflight.js";
   if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
   const probe = await probeOllama();
   if (!reportOllama(probe, need)) process.exit(1);
+  // 태그에 있다고 서빙되는 것은 아니다. 임베더를 쓸 때만 실제로 한 번 불러본다.
+  if ((process.env.EMBEDDER ?? "") === "ollama") {
+    const serving = await probeServing(probe.host, process.env.EMBED_MODEL ?? "bge-m3");
+    if (!serving.ok) {
+      console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
+      console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인한다.\n`);
+      process.exit(1);
+    }
+  }
 }
 
 const ont = await loadRouterOntology();

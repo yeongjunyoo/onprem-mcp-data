@@ -68,6 +68,10 @@ if (existsSync(resolve(ROOT, "eval/results/companyx-holdout2-route.json"))) {
   canonical.holdout2_strict = h2.summary.strict_accuracy.toFixed(3);
 }
 
+// 종단 근거 포함은 공개 헤드라인인데 정본에서 읽지 않아 drift가 재발할 수 있었다(H3).
+const ask = readJson("eval/results/companyx-ask.json");
+canonical.ask_evidence = ask.summary.evidence_in_context_full;
+
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
 
@@ -147,33 +151,56 @@ for (const doc of ["README.en.md"]) {
   }
 }
 
-// ── D. 필수 claim 존재 ──────────────────────────────────────────────────
+// ── D. 필수 claim: marker로 지표와 값을 결합한다 ────────────────────────
 //
-// 정규식 회피가 가능한 이유는 **어긋난 값을 찾는 검사**만 있었기 때문이다.
-// 용어를 바꾸면("두 번째 검증 세트") 어느 정규식에도 안 걸리고 통과했다(QA 재현).
-// 그래서 반대 방향도 건다 — 필수 지표는 **문서에 반드시 한 번 이상 정확히** 있어야 한다.
-// 없으면 실패다. 표기를 바꾸려면 이 목록도 같이 고쳐야 하므로 조용한 회피가 막힌다.
+// 앞선 두 세대에서 이 검사는 두 번 뚫렸다.
+//   1세대: 어긋난 값만 찾아서, 라벨을 바꾸면("두 번째 검증 세트") 아무 정규식에도
+//          안 걸리고 통과했다.
+//   2세대: 존재 검사를 붙였더니, **어느 행이든** 그 숫자가 있으면 만족돼
+//          holdout1/2 값을 서로 바꿔도 통과했다. metric-ok 마커도 여전히
+//          거짓 행을 침묵시켰다.
+//
+// 근본 원인은 하나다 — **문서의 어느 행이 어느 지표를 주장하는지 계약이 없었다.**
+// 그래서 행에 기계가 읽는 marker를 박고, marker가 붙은 행의 값만 본다.
+// 라벨 문구는 자유롭게 바꿔도 되고, marker를 지우면 "필수 claim 없음"으로 실패한다.
+//
+//   | 벡터 검색 hit@5 | **0.986** | ... |   <!--metric:vector_hit5-->
+//
+// metric-ok는 **과거 표본의 참고표**에만 쓰는 면제이지 필수 claim을 침묵시키는
+// 수단이 아니다. marker가 붙은 행에서는 metric-ok를 무시한다.
 const REQUIRED_CLAIMS = [
-  { doc: "README.md", metric: "vector_hit5", label: "벡터 hit@5" },
-  { doc: "README.md", metric: "holdout1_strict", label: "홀드아웃1 strict" },
-  { doc: "README.md", metric: "holdout2_strict", label: "홀드아웃2 strict" },
-  { doc: "README.en.md", metric: "vector_hit5", label: "vector hit@5" },
-  { doc: "README.en.md", metric: "holdout1_strict", label: "holdout1 strict" },
-  { doc: "README.en.md", metric: "holdout2_strict", label: "holdout2 strict" },
+  { doc: "README.md", metric: "vector_hit5" },
+  { doc: "README.md", metric: "holdout1_strict" },
+  { doc: "README.md", metric: "holdout2_strict" },
+  { doc: "README.md", metric: "ask_evidence" },
+  { doc: "README.en.md", metric: "vector_hit5" },
+  { doc: "README.en.md", metric: "holdout1_strict" },
+  { doc: "README.en.md", metric: "holdout2_strict" },
+  { doc: "README.en.md", metric: "ask_evidence" },
 ];
 
-for (const { doc, metric, label } of REQUIRED_CLAIMS) {
+for (const { doc, metric } of REQUIRED_CLAIMS) {
   if (!existsSync(resolve(ROOT, doc))) continue;
   const want = canonical[metric];
-  if (want === undefined) continue;
-  // **표 행 안에서** 찾는다. 산문은 이력("0.433에서 0.633으로")을 정당하게 담으므로
-  // 산문에 값이 있다는 이유로 통과시키면, 표 행 라벨을 바꿔 거짓 값을 숨기는 우회가
-  // 그대로 남는다(QA 재현). 정합성 검사와 같은 표면을 본다.
-  const inTable = read(doc)
+  if (want === undefined) {
+    fails.push(`필수 claim: 정본에 ${metric} 이 없다 — 지표 산출을 확인하라`);
+    continue;
+  }
+  const marker = `<!--metric:${metric}-->`;
+  const rows = read(doc)
     .split("\n")
-    .some((l) => l.trimStart().startsWith("|") && !l.includes("<!--metric-ok-->") && l.includes(want));
-  if (!inTable) {
-    fails.push(`필수 claim: ${doc} 표에 ${label} 값 ${want} 가 없다 — 라벨을 바꿨다면 REQUIRED_CLAIMS도 같이 고쳐라`);
+    .filter((l) => l.includes(marker));
+
+  if (rows.length !== 1) {
+    fails.push(
+      `필수 claim: ${doc} 에 ${marker} 가 붙은 행이 ${rows.length}개다 (정확히 1개여야 한다). ` +
+        `라벨은 자유롭게 바꿔도 되지만 marker는 유지해야 한다`,
+    );
+    continue;
+  }
+  // marker가 붙은 행은 metric-ok로 면제되지 않는다. 필수 claim은 침묵시킬 수 없다.
+  if (!rows[0].includes(want)) {
+    fails.push(`필수 claim: ${doc} 의 ${marker} 행에 측정값 ${want} 가 없다 (…${rows[0].trim().slice(0, 70)}…)`);
   }
 }
 

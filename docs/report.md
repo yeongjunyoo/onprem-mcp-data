@@ -438,7 +438,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
   **2026-08-17 정정.** 이 항목의 이전 표기 `7/32 = 21.9%`는 **BIRD 공식 execution accuracy가 아니었다.** 우리 비교기는 행 튜플의 **다중집합** 동등(중복 개수까지 일치)을 요구하는데, 공식은 `set(pred) == set(gold)`로 **중복을 무시**한다. 같은 이름을 쓰는 다른 지표였다.
 
-  저장된 예측 SQL을 재실행해(모델 재추론 없음) 두 의미로 각각 채점했다 — `eval/external/rescore_bird.py`, 원자료 `eval/results/external-bird-rescore.json`.
+  저장된 예측 SQL을 재실행해(모델 재추론 없음) 두 의미로 각각 채점했다 — `scripts/rescore_bird.py`, 원자료 `eval/results/external-bird-rescore.json`.
 
   | 비교 의미 | 결과 |
   |---|---|
