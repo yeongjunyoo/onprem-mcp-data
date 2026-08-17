@@ -62,7 +62,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | Grounding violations | **0** (answers_grounded 100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
 | Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
-| Median latency | **11264 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |
+| Median latency | **11989 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
 | Fault injection | no-crash 4/4, partial 4/4, error-visible 4/4 | database stop, delay, partial failure |
 | Tests | **394 assertions passing** | 267 offline + 127 requiring database and models, including `npm run test:integration`. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->

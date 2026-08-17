@@ -13,14 +13,14 @@
     "n": 30,
     "evidence_in_context_full": "17/19",
     "evidence_pct": 89.5,
-    "answers_grounded": "18/18",
+    "answers_grounded": "19/19",
     "grounded_pct": 100,
     "abstained_on_absent_entity": true,
     "lane_agreement": 30,
     "branch_error_questions": 0,
-    "median_ms": 11264,
+    "median_ms": 11989,
     "note": "No LLM judge. evidence_in_context = gold values (SQL gold rows / KG gold entities / vector gold keywords) present in the curated context. answers_grounded = every dataset entity named in the answer also appears in the context (invented entity = hallucination).",
-    "generated_at": "2026-08-17T12:01:19.463Z"
+    "generated_at": "2026-08-17T12:39:39.636Z"
   },
   "rows": [
     {
@@ -51,7 +51,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11434
+      "ms": 33764
     },
     {
       "q": "2025년 3분기 총 매출액은 얼마야?",
@@ -73,14 +73,14 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 7417
+      "ms": 8175
     },
     {
       "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "보안 솔루션 카테고리 제품들의 월 평균 매출은 Product-S1의 763.07, Product-S2의 544.27, Product-S3의 457.90입니다.",
-      "context_chars": 785,
+      "answer": "보안 솔루션 카테고리 제품들의 월 평균 매출은 Product-S1: 763.07, Product-S2: 544.27, Product-S3: 457.90입니다.",
+      "context_chars": 755,
       "candidates": {
         "sql": 3,
         "vector": 0,
@@ -99,7 +99,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 17907
+      "ms": 18652
     },
     {
       "q": "현재 활성 상태인 계약 수는 몇 개야?",
@@ -121,7 +121,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 10813
+      "ms": 10818
     },
     {
       "q": "기술지원팀 직원 목록과 연봉을 알려줘",
@@ -151,7 +151,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14909
+      "ms": 15112
     },
     {
       "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
@@ -175,7 +175,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 7057
+      "ms": 7107
     },
     {
       "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
@@ -201,7 +201,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 20376
+      "ms": 20740
     },
     {
       "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
@@ -235,7 +235,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 18001
+      "ms": 17840
     },
     {
       "q": "2024년에 등록된 고객사는 몇 개야?",
@@ -257,7 +257,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13037
+      "ms": 12880
     },
     {
       "q": "평균 연봉이 가장 높은 부서는 어디야?",
@@ -281,7 +281,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 8491
+      "ms": 8535
     },
     {
       "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -312,7 +312,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 22065
+      "ms": 22361
     },
     {
       "q": "Product-C1 설치 방법이 궁금해",
@@ -335,7 +335,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9701
+      "ms": 10084
     },
     {
       "q": "Kubernetes 관련 장애 대응 방법은?",
@@ -355,7 +355,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11615
+      "ms": 11856
     },
     {
       "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
@@ -377,7 +377,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 16159
+      "ms": 16366
     },
     {
       "q": "보안 취약점 점검 관련 내용이 있어?",
@@ -397,7 +397,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11264
+      "ms": 11989
     },
     {
       "q": "백업 정책은 어떻게 되어 있어?",
@@ -419,7 +419,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13583
+      "ms": 13965
     },
     {
       "q": "API 인증 방식은 뭐야?",
@@ -439,7 +439,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 10162
+      "ms": 9943
     },
     {
       "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
@@ -463,7 +463,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15965
+      "ms": 15705
     },
     {
       "q": "클라우드 마이그레이션 제안서 내용 보여줘",
@@ -488,13 +488,13 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15324
+      "ms": 24096
     },
     {
       "q": "SSL 인증서 관련 장애가 있었어?",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "네, SSL 인증서 만료로 인한 HTTPS 통신 실패 현상이 발생한 장애가 있습니다.",
+      "answer": "네, SSL 인증서 관련 장애가 있었습니다. Client-E와 Client-F의 Product-D1, Product-D2 서비스에서 SSL 인증서 만료로 인한 HTTPS 통신 실패 현상이 발생하였습니다.",
       "context_chars": 673,
       "candidates": {
         "sql": 0,
@@ -507,10 +507,15 @@
         "SSL"
       ],
       "evidence_in_context": 1,
-      "answer_entities": [],
+      "answer_entities": [
+        "Client-E",
+        "Client-F",
+        "Product-D1",
+        "Product-D2"
+      ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 3339
+      "ms": 13244
     },
     {
       "q": "Client-A가 사용 중인 제품 목록은?",
@@ -536,7 +541,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 4373
+      "ms": 4659
     },
     {
       "q": "Product-C1을 사용하는 고객사는 어디야?",
@@ -569,7 +574,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 5413
+      "ms": 5404
     },
     {
       "q": "클라우드사업부 소속 직원들은 누구야?",
@@ -606,7 +611,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 10967
+      "ms": 11040
     },
     {
       "q": "서울물산 담당 엔지니어는 누구야?",
@@ -626,7 +631,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": true,
-      "ms": 2453
+      "ms": 2563
     },
     {
       "q": "Product-D1 제품과 관련된 프로젝트는?",
@@ -661,7 +666,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14620
+      "ms": 14821
     },
     {
       "q": "기술 지원 이슈가 가장 많은 제품은?",
@@ -683,7 +688,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 6301
+      "ms": 6318
     },
     {
       "q": "경영지원팀 팀장은 누구야?",
@@ -707,7 +712,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 3306
+      "ms": 3297
     },
     {
       "q": "진행 중인 프로젝트를 이끄는 직원 목록",
@@ -737,7 +742,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13904
+      "ms": 13973
     },
     {
       "q": "Product-S1 관련 고객 이슈 현황은?",
@@ -772,7 +777,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9172
+      "ms": 9522
     },
     {
       "q": "가장 많은 고객을 담당하는 직원은?",
@@ -796,7 +801,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 4313
+      "ms": 4563
     }
   ]
 }
