@@ -180,6 +180,17 @@ if (rs.deterministic_20_runs !== true) {
   fails.push(`결정론: companyx-route.json 의 deterministic_20_runs 가 ${rs.deterministic_20_runs} 다`);
 }
 
+// KG 재현율은 이미 결속됐지만 접지 위반(0건)과 다단계 완료율은 아니었다.
+// 접지는 "근거 없으면 답하지 않는다" 는 안전 주장의 핵심 수치다.
+canonical.ask_grounded_ratio = ask.summary.answers_grounded;
+
+// 다단계 작업 완료율 — "레인이 따로 잘돼도 연결이 안 되면 질문은 못 푼다" 를
+// 보이려고 만든 지표다. 헤드라인인데 결속돼 있지 않았다.
+const multi = readJson("eval/results/companyx-multi-step.json");
+const mus = multi.summary ?? multi;
+canonical.multistep = `${mus.completed}/6`;
+canonical.multistep_steps = `${mus.steps_passed}/${mus.steps_total}`;
+
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
 canonical.faults_partial = `${Math.round(fs_.partialRate * fs_.total)}/${fs_.total}`;
 canonical.faults_errvis = `${Math.round(fs_.errorVisibleRate * fs_.total)}/${fs_.total}`;
@@ -290,6 +301,8 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "test_total" },
   { doc: "README.md", metric: "route_insample" },
+  { doc: "README.md", metric: "ask_grounded_ratio" },
+  { doc: "README.md", metric: "multistep" },
   { doc: "README.en.md", metric: "route_insample" },
   { doc: "README.en.md", metric: "kg_recall" },
   { doc: "README.md", metric: "faults_nocrash" },
