@@ -15,7 +15,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
-import { HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
+import { getEmbedder, HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
 import { embedCompanyXChunks, datasetDir, CX_SCHEMA } from "../companyx.js";
 
@@ -130,7 +130,20 @@ async function main() {
     };
   }
 
+  // ── 코퍼스를 주 임베더로 되돌린다 ─────────────────────────────────────
+  //
+  // 위 루프는 변종마다 코퍼스를 재임베딩한다. 그대로 끝내면 DB에는 마지막
+  // 변종(기본 순서상 nomic-embed-text, hit@5 0.380)의 벡터가 남고, 이후의
+  // ask/demo가 조용히 무너진다. 실측: 종단 근거 포함 89.5% -> 68.4%.
+  //
+  // 평가 도구는 자기가 건드린 상태를 원위치시켜야 한다. 그러지 않으면 그 도구는
+  // 측정 도구가 아니라 부작용이다.
+  const primary = getEmbedder();
+  const restored = await embedCompanyXChunks(pool, primary, CX_SCHEMA);
+  console.log(`\n코퍼스를 주 임베더로 복원: ${primary.name} ${JSON.stringify(restored)}`);
+
   const out = {
+    corpus_restored_to: primary.name,
     dataset: "companyx-dataset-v1.0 / documents (40 docs, 258 chunks)",
     top_k: k,
     oracle: goldFile.oracle,

@@ -1,4 +1,5 @@
 {
+  "corpus_restored_to": "ollama:bge-m3@768",
   "dataset": "companyx-dataset-v1.0 / documents (40 docs, 258 chunks)",
   "top_k": 5,
   "oracle": "Gold sets are computed by a DETERMINISTIC LEXICAL RULE over the raw documents (a doc is gold iff it contains every keyword in `keywords`, case-insensitive) and/or by the document type declared in documents/index.json. The retriever never sees the keywords - it only embeds the natural-language question - so lexical gold + semantic retrieval keeps the oracle independent of the system under test. Questions whose sponsor hint names only a document TYPE are scored on type accuracy alone. `style` marks whether the question repeats the keywords (entity) or avoids them entirely (paraphrase); paraphrase items are the ones that actually test semantic retrieval.",
@@ -9011,5 +9012,5 @@
       ]
     }
   },
-  "generated_at": "2026-08-17T01:52:12.029Z"
+  "generated_at": "2026-08-17T03:09:36.879Z"
 }
