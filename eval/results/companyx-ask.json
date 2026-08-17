@@ -18,9 +18,9 @@
     "abstained_on_absent_entity": true,
     "lane_agreement": 30,
     "branch_error_questions": 0,
-    "median_ms": 11989,
+    "median_ms": 11674,
     "note": "No LLM judge. evidence_in_context = gold values (SQL gold rows / KG gold entities / vector gold keywords) present in the curated context. answers_grounded = every dataset entity named in the answer also appears in the context (invented entity = hallucination).",
-    "generated_at": "2026-08-17T12:39:39.636Z"
+    "generated_at": "2026-08-17T20:11:50.520Z"
   },
   "rows": [
     {
@@ -51,7 +51,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 33764
+      "ms": 34352
     },
     {
       "q": "2025년 3분기 총 매출액은 얼마야?",
@@ -73,7 +73,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 8175
+      "ms": 7773
     },
     {
       "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
@@ -99,7 +99,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 18652
+      "ms": 16939
     },
     {
       "q": "현재 활성 상태인 계약 수는 몇 개야?",
@@ -121,7 +121,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 10818
+      "ms": 10401
     },
     {
       "q": "기술지원팀 직원 목록과 연봉을 알려줘",
@@ -151,7 +151,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15112
+      "ms": 14540
     },
     {
       "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
@@ -175,7 +175,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 7107
+      "ms": 7000
     },
     {
       "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
@@ -201,7 +201,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 20740
+      "ms": 20437
     },
     {
       "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
@@ -235,7 +235,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 17840
+      "ms": 17825
     },
     {
       "q": "2024년에 등록된 고객사는 몇 개야?",
@@ -257,7 +257,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 12880
+      "ms": 12679
     },
     {
       "q": "평균 연봉이 가장 높은 부서는 어디야?",
@@ -281,7 +281,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 8535
+      "ms": 8692
     },
     {
       "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -312,7 +312,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 22361
+      "ms": 22002
     },
     {
       "q": "Product-C1 설치 방법이 궁금해",
@@ -335,7 +335,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 10084
+      "ms": 9598
     },
     {
       "q": "Kubernetes 관련 장애 대응 방법은?",
@@ -355,7 +355,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11856
+      "ms": 11674
     },
     {
       "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
@@ -377,7 +377,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 16366
+      "ms": 16847
     },
     {
       "q": "보안 취약점 점검 관련 내용이 있어?",
@@ -397,7 +397,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11989
+      "ms": 11488
     },
     {
       "q": "백업 정책은 어떻게 되어 있어?",
@@ -419,7 +419,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13965
+      "ms": 13405
     },
     {
       "q": "API 인증 방식은 뭐야?",
@@ -439,7 +439,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9943
+      "ms": 9389
     },
     {
       "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
@@ -463,7 +463,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15705
+      "ms": 15507
     },
     {
       "q": "클라우드 마이그레이션 제안서 내용 보여줘",
@@ -488,7 +488,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 24096
+      "ms": 23375
     },
     {
       "q": "SSL 인증서 관련 장애가 있었어?",
@@ -515,7 +515,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13244
+      "ms": 13289
     },
     {
       "q": "Client-A가 사용 중인 제품 목록은?",
@@ -541,7 +541,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 4659
+      "ms": 4497
     },
     {
       "q": "Product-C1을 사용하는 고객사는 어디야?",
@@ -574,7 +574,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 5404
+      "ms": 5407
     },
     {
       "q": "클라우드사업부 소속 직원들은 누구야?",
@@ -611,7 +611,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11040
+      "ms": 10997
     },
     {
       "q": "서울물산 담당 엔지니어는 누구야?",
@@ -631,7 +631,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": true,
-      "ms": 2563
+      "ms": 3140
     },
     {
       "q": "Product-D1 제품과 관련된 프로젝트는?",
@@ -666,7 +666,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14821
+      "ms": 17769
     },
     {
       "q": "기술 지원 이슈가 가장 많은 제품은?",
@@ -688,7 +688,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 6318
+      "ms": 6996
     },
     {
       "q": "경영지원팀 팀장은 누구야?",
@@ -712,7 +712,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 3297
+      "ms": 3566
     },
     {
       "q": "진행 중인 프로젝트를 이끄는 직원 목록",
@@ -742,7 +742,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13973
+      "ms": 15821
     },
     {
       "q": "Product-S1 관련 고객 이슈 현황은?",
@@ -777,7 +777,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9522
+      "ms": 11527
     },
     {
       "q": "가장 많은 고객을 담당하는 직원은?",
@@ -801,8 +801,8 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 4563
+      "ms": 5090
     }
   ],
-  "redaction_note": "answer 는 시스템이 생성한 출력이며 접지 근거로서 보존한다. 원문 인용이 포함될 수 있으나 문서 전문이 아니라 답변에 필요한 범위다. 원본 코퍼스는 저장소에 재배포하지 않는다."
+  "redaction_note": "answer 는 시스템이 생성한 출력이며 접지 근거로서 보존한다. 원문 인용이 포함될 수 있으나 문서 전문이 아니라 답변에 필요한 범위다. 원본 코퍼스는 저장소에 재배포하지 않으며, 감사 산출물의 원문 스니펫은 redactForPublication 으로 가린다."
 }

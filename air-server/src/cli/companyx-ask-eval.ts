@@ -216,6 +216,12 @@ async function main() {
     branch_error_questions: rows.filter((x) => x.branch_errors.length).length,
     median_ms: rows.map((x) => x.ms).sort((a, b) => a - b)[Math.floor(rows.length / 2)],
     note: "No LLM judge. evidence_in_context = gold values (SQL gold rows / KG gold entities / vector gold keywords) present in the curated context. answers_grounded = every dataset entity named in the answer also appears in the context (invented entity = hallucination).",
+    // 배포 조건(대회 목적 한정, 재배포 금지)에 대한 표기. **기록 시점에 넣는다** —
+    // 산출물에 손으로 붙이면 다음 실행에서 지워진다(2026-08-17 실측).
+    redaction_note:
+      "answer 는 시스템이 생성한 출력이며 접지 근거로서 보존한다. 원문 인용이 포함될 수 있으나 " +
+      "문서 전문이 아니라 답변에 필요한 범위다. 원본 코퍼스는 저장소에 재배포하지 않으며, " +
+      "감사 산출물의 원문 스니펫은 redactForPublication 으로 가린다.",
     generated_at: new Date().toISOString(),
   };
 

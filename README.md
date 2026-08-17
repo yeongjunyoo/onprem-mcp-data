@@ -93,7 +93,7 @@ MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, 
 | 종단 답변 근거 포함 | **17/19 = 89.5%** (5회 중 4회, 1회 18/19) | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | 접지 위반 | **0건** (answers_grounded 100%) | 답변이 명명한 데이터셋 개체가 전부 컨텍스트 안에 있다 | 실측 |  <!--metric:ask_grounded_pct-->
 | 답변 접지 위반 | **0건 (19/19 접지)** | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사. 채점 가능한 답변 전부가 접지됐다 | 컨텍스트 집합 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | **11989ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
+| 응답 지연 중앙값 | **11674ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
 | 응답 지연 (호스트 GPU) | **864ms** | GPU가 붙은 호스트 Ollama 기준 같은 30문항. 원자료 `eval/results/companyx-ask-host-gpu.json` | 실측 |  <!--metric:ask_median_ms_host-->
 | 장애 주입 — 무중단 | **4/4** | DB 정지, 지연, 부분 실패 주입. 원자료 `eval/results/faults.json` | 실측 |  <!--metric:faults_nocrash-->
 | 장애 주입 — 부분 응답 | **4/4** | 벡터 브랜치를 죽여도 그래프로 부분 컨텍스트 반환 | 실측 |  <!--metric:faults_partial-->
