@@ -212,7 +212,16 @@ canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
 // ── B. 정합성 ───────────────────────────────────────────────────────────
 // 문서에서 지표가 쓰인 자리를 찾아, 거기 적힌 값이 정본과 같은지 본다.
 // "언급되어야 한다"가 아니라 "어긋나면 안 된다"를 검사한다.
-const DOCS = ["README.md", "README.en.md", "docs/report.md"];
+// 심사자와 기여자가 읽는 문서를 전부 본다. 목록이 좁으면 문서를 하나 늘릴
+// 때마다 사각이 하나 생긴다 — CONTRIBUTING 의 낡은 단언 수 120·223 이
+// 살아남은 이유가 정확히 그것이었다(2026-08-17).
+const DOCS = [
+  "README.md",
+  "README.en.md",
+  "docs/report.md",
+  "docs/submission-report.md",
+  "CONTRIBUTING.md",
+];
 const CLAIMS = [
   {
     metric: "vector_hit5",
@@ -431,7 +440,9 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
     String(readJson("eval/results/test-counts.json").offline_ci),
     String(readJson("eval/results/test-counts.json").integration),
   ]);
-  const COUNT_DOCS = ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"];
+  // 위 DOCS 와 따로 두지 않는다. 목록이 둘이면 하나만 고치고 고쳤다고 믿게 된다
+  // — CONTRIBUTING 의 낡은 223단언이 그렇게 살아남았다.
+  const COUNT_DOCS = DOCS;
   for (const doc of COUNT_DOCS) {
     if (!existsSync(resolve(ROOT, doc))) continue;
     for (const line of prose(doc)) {
@@ -441,7 +452,7 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
       // "테스트 N단언" 처럼 총계를 주장하는 자리.
       //
       // 오탐이 있는 검사는 사람이 꺼버린다. 좁게 물되 무는 곳에서는 확실히 문다.
-      for (const m2 of line.matchAll(/(?:전체|총|오프라인|통합|테스트)\s*(\d{2,4})\s*단언/g)) {
+      for (const m2 of line.matchAll(/(?:전체|총|오프라인|통합|테스트|스위트 기준)\s*(\d{2,4})\s*단언/g)) {
         if (!liveCounts.has(m2[1])) {
           fails.push(
             `폐기된 테스트 수: ${doc} 에 ${m2[1]}단언 이 총계로 적혀 있다 (현행 ${[...liveCounts].join(" / ")})`,

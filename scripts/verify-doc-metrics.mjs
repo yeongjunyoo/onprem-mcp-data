@@ -21,7 +21,15 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DOCS = ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"];
+const DOCS = [
+  "README.md",
+  "README.en.md",
+  "docs/report.md",
+  "docs/submission-report.md",
+  // 기여자가 처음 밟는 문서. 여기 수치가 틀리면 "돌려 봤는데 다른데" 가 되고
+  // 그 순간 문서 전체의 신뢰가 깎인다.
+  "CONTRIBUTING.md",
+];
 
 // 정본은 metrics-check 가 이미 계산한다. 두 곳에서 따로 읽으면 갈린다.
 const out = execFileSync(process.execPath, [resolve(ROOT, "scripts/metrics-check.mjs")], {

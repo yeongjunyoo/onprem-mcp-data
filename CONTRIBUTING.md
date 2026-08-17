@@ -28,11 +28,11 @@ cd air-server && npm ci && npx tsc     # 의존성 설치와 빌드
 
 | 층 | 명령 | 필요한 것 | CI |
 | --- | --- | --- | --- |
-| 오프라인 단위 | `node dist/router.test.js`, `curator`, `rrf`, `evalmatch` | 없음 | 돕니다 (120 단언) |
+| 오프라인 단위 | `node dist/<이름>.test.js` — `claims`, `normalize`, `auditrecord`, `surfaces`, `router`, `curator`, `rrf`, `evalmatch` | 없음 | 돕니다 (290 단언. 사업자 데이터셋이 없는 CI 에서는 279 — 온톨로지 커버리지 단언이 `edges.json` 을 필요로 합니다) |
 | DB 통합 | `npm test` (db, server, pipeline 포함), `npm run test:kg`, `npm run test:companyx` | PostgreSQL + pgvector, 시드 적재 | 안 돕니다 |
 | 모델 평가 | `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`, `npm run bench:internal`, `fault:inject` | 위 + Ollama 모델 2종 | 안 돕니다 |
 
-전 스위트 기준 223단언이 통과 상태이며, 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
+전 스위트 기준 417단언이 통과 상태입니다(오프라인 290 + DB·모델 통합 127). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
 
 ## 변경 절차
 
