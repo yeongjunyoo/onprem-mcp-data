@@ -1,0 +1,119 @@
+// 공개 문서가 말하는 MCP 도구 목록이 소스의 등록과 일치하는지 검사한다.
+//
+// 이 저장소는 이번에 도구 표면 때문에 두 번 데였다.
+//   - `server.test.ts` 의 기대 목록이 7종에 멈춰 조용히 깨져 있었다(audit.explain 누락)
+//   - 심사자용 제출보고서가 "도구 7개" 라며 내부 단계인 kgRetrieve 를 노출 도구로 적었다
+//
+// `server.test.ts` 가 등록 목록을 강제하지만 **DB 가 있어야 돌아 CI 에서는 안 돈다.**
+// 문서와의 일치는 아무도 보지 않았다. 기능테스트에서 심사자가 문서를 보고 없는
+// 도구를 부르면 그 자리에서 깨진다.
+//
+// 이 검사는 DB 없이 소스만 읽는다 — CI 에서 돈다.
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const read = (p) => readFileSync(resolve(ROOT, p), "utf8");
+
+// 소스 전체 목록 — 상수 해석에 쓴다.
+const srcFiles = [];
+(function walk(dir) {
+  for (const n of readdirSync(dir)) {
+    const p = resolve(dir, n);
+    if (statSync(p).isDirectory()) walk(p);
+    else if (n.endsWith(".ts")) srcFiles.push(p);
+  }
+})(resolve(ROOT, "air-server/src"));
+
+// ── 1. 소스에서 등록 도구를 뽑는다 ──────────────────────────────────────
+const serverSrc = read("air-server/src/server.ts");
+
+// defineTool("name", ...) 또는 defineTool(CONST, ...)
+const names = [];
+for (const m of serverSrc.matchAll(/defineTool\(\s*(?:"([^"]+)"|([A-Z_]+))\s*,/g)) {
+  if (m[1]) {
+    names.push(m[1]);
+    continue;
+  }
+  // 상수면 그 값을 찾아 푼다 (SQL_TOOL = "sql.query" 등).
+  // 파일 목록을 고정하지 않고 소스 전체를 훑는다 — 상수가 다른 파일로 옮겨져도
+  // 검사가 조용히 깨지지 않는다(실측: SQL_TOOL 이 router.ts 에 있었다).
+  const constName = m[2];
+  let value = null;
+  const re = new RegExp(`export const ${constName}\\s*=\\s*"([^"]+)"`);
+  for (const f of srcFiles) {
+    const v = re.exec(readFileSync(f, "utf8"));
+    if (v) {
+      value = v[1];
+      break;
+    }
+  }
+  if (!value) {
+    console.error(`\ndefineTool 의 상수 ${constName} 값을 찾지 못했다 — 검사가 도구를 놓친다.`);
+    process.exit(1);
+  }
+  names.push(value);
+}
+const registered = [...new Set(names)].sort();
+
+if (registered.length === 0) {
+  console.error("\nserver.ts 에서 등록 도구를 하나도 못 찾았다 — 검사 정규식을 확인한다.");
+  process.exit(1);
+}
+
+console.log(`소스 등록 도구 ${registered.length}종:`);
+console.log(`  ${registered.join(", ")}`);
+
+// ── 2. 문서의 주장과 대조 ───────────────────────────────────────────────
+// 각 문서는 (a) 도구 개수를 정확히 말하고 (b) 모든 도구 이름을 담아야 한다.
+const DOCS = ["README.md", "README.en.md", "docs/submission-report.md"];
+const fails = [];
+
+for (const doc of DOCS) {
+  let text;
+  try {
+    text = read(doc);
+  } catch {
+    continue;
+  }
+
+  // 배지도 본다. 심사자가 저장소에서 **가장 먼저** 보는 숫자인데, 실제로
+  // 영문 README 배지가 7 tools 에 멈춰 있었다(한글은 8).
+  for (const m of text.matchAll(/badge\/MCP-(\d+)%20tools/g)) {
+    if (Number(m[1]) !== registered.length) {
+      fails.push(`${doc}: MCP 배지가 ${m[1]} tools 인데 실제는 ${registered.length}종이다`);
+    }
+  }
+
+  // "도구는 8종" / "도구 8종" / "8 MCP tools" / "8개를 노출"
+  const counts = [...text.matchAll(/(?:도구[^\n]{0,12}?(\d+)\s*(?:종|개)|\*\*(\d+) MCP tools\*\*|(\d+)\s+MCP tools)/g)]
+    .map((m) => Number(m[1] ?? m[2] ?? m[3]))
+    .filter((n) => n > 0 && n < 100);
+
+  if (counts.length === 0) {
+    fails.push(`${doc}: 도구 개수를 말하지 않는다 — 심사자가 표면을 알 수 없다`);
+  } else {
+    const wrong = counts.filter((c) => c !== registered.length);
+    if (wrong.length) {
+      fails.push(`${doc}: 도구 개수를 ${[...new Set(wrong)].join("/")}로 적었는데 실제는 ${registered.length}종이다`);
+    }
+  }
+
+  // 이름을 하나라도 열거한 문서라면 전부 담아야 한다
+  const listed = registered.filter((n) => text.includes(`\`${n}\``));
+  if (listed.length > 0 && listed.length !== registered.length) {
+    const missing = registered.filter((n) => !listed.includes(n));
+    fails.push(`${doc}: 도구 이름을 열거하면서 ${missing.join(", ")} 를 빠뜨렸다`);
+  }
+}
+
+if (fails.length) {
+  console.error("\n문서의 도구 표면이 소스와 어긋난다:");
+  for (const f of fails) console.error(`  - ${f}`);
+  console.error("\n기능테스트에서 심사자가 문서를 보고 없는 도구를 부르면 그 자리에서 깨진다.\n");
+  process.exit(1);
+}
+
+console.log("\nOK: 문서의 도구 개수·목록이 소스 등록과 일치한다.");
+console.log("    (등록 자체의 동작은 server.test 가 검증한다 — DB 가 필요해 CI 밖에서 돈다.)");
