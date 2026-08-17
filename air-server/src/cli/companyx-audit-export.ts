@@ -12,7 +12,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildAuditRecord, type AuditRecord } from "../auditrecord.js";
+import { buildAuditRecord, redactForPublication, type AuditRecord } from "../auditrecord.js";
 import { datasetDir, requireDataset } from "../companyx.js";
 import { closePool, getPool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
@@ -82,7 +82,9 @@ async function main() {
       pipeline_stable: determinism.filter((d) => d.pipeline_same).length,
     },
     determinism,
-    records,
+    // 저장소에 남는 산출물에서는 사업자 문서 본문을 가린다(재배포 금지 조건).
+    // 런타임 감사에는 preview 가 그대로 있다 — 가리는 것은 파일뿐이다.
+    records: records.map(redactForPublication),
     note:
       "감사 레코드는 순수 변환이다(auditrecord.ts). 지문은 둘로 나뉜다. routing_fingerprint는 규칙 구간(라우팅과 정책)만 " +
       "덮으므로 같은 질의에서 항상 같아야 한다. pipeline_fingerprint는 모델이 만든 SQL까지 덮으므로 로컬 7B의 실행 간 " +
