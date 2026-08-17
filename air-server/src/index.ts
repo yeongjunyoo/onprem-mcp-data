@@ -9,6 +9,7 @@
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
 import { closePool } from "./db.js";
+import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
 import { buildServer, loadRouterOntology } from "./server.js";
 
@@ -66,7 +67,10 @@ async function main(): Promise<void> {
 }
 
 main().catch(async (e) => {
-  console.error(e);
-  process.exitCode = 1;
-  await closePool();
+  console.error(e instanceof Error ? `Error: ${e.message}` : e);
+  // 자연 종료에 기대지 않는다. 기동 중 던지면 preflight 가 열어둔 소켓과 풀
+  // 핸들이 이벤트 루프를 붙잡아 **에러를 찍고도 프로세스가 매달린다**(실측 90초
+  // 타임아웃). 매달리는 것은 실패보다 나쁘다 — 호출자는 성공도 실패도 못 읽는다.
+  // shutdown() 이 정확히 이 문제를 위해 있다.
+  await shutdown(1);
 });
