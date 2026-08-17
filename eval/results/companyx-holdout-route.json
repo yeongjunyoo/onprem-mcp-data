@@ -1,6 +1,6 @@
 {
   "input_hashes": {
-    "eval/companyx/holdout_route.json": "bd582d50716ffc78"
+    "eval/companyx/holdout_route.json": "79031d568953c15a"
   },
   "gold": "eval/companyx/holdout_route.json",
   "entity_lexicon_size": 131,
@@ -400,5 +400,5 @@
       "rationale": "relation verb HAS_PROJECT -> graph traversal"
     }
   ],
-  "generated_at": "2026-08-17T09:29:55.046Z"
+  "generated_at": "2026-08-17T09:32:04.249Z"
 }

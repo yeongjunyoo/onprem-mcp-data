@@ -82,7 +82,11 @@ const fails = [];
 // 아직 해시를 안 들고 있는 결과는 "기록 없음"으로 실패시키지 않는다 — 그러면 모든
 // 평가를 지금 당장 다시 돌려야 한다. 대신 경고로 남겨 다음 실행 때 채우게 한다.
 // 덮지 못하는 것을 덮은 척하지 않되, 검사 도입이 작업을 멈추게 하지도 않는다.
-const sha = (p) => createHash("sha256").update(readFileSync(resolve(ROOT, p))).digest("hex").slice(0, 16);
+// 줄바꿈을 정규화하고 해시한다. git 이 Windows 체크아웃에서 LF 를 CRLF 로 바꾸므로,
+// 원시 바이트를 해시하면 같은 내용이 OS 마다 다른 해시가 된다(CI 에서 실제로 깨졌다).
+// 우리가 재려는 것은 인코딩이 아니라 내용이다.
+const sha = (p) =>
+  createHash("sha256").update(readFileSync(resolve(ROOT, p), "utf8").replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
 
 const FRESHNESS = [
   { result: "eval/results/companyx-ask.json", inputs: ["eval/companyx/vector_gold.json", "eval/companyx/kg_gold.json", "eval/companyx/sql_gold.jsonl"] },

@@ -108,7 +108,12 @@ async function main() {
   // 결과가 자기 입력의 내용 해시를 들고 다닌다. 입력이 바뀌면 이 결과는 더 이상
   // 그 입력에 대한 측정이 아니다 — mtime 과 달리 clone·복사·touch 에 흔들리지 않는다.
   const input_hashes: Record<string, string> = {
-    [goldPath]: createHash("sha256").update(await readFile(resolve(root, goldPath))).digest("hex").slice(0, 16),
+    // 줄바꿈을 정규화하고 해시한다 — git 이 OS 마다 CRLF/LF 를 바꾸므로 원시 바이트를
+    // 해시하면 같은 내용이 다른 해시가 된다. 재려는 것은 인코딩이 아니라 내용이다.
+    [goldPath]: createHash("sha256")
+      .update((await readFile(resolve(root, goldPath), "utf8")).replace(/\r\n/g, "\n"))
+      .digest("hex")
+      .slice(0, 16),
   };
 
   const out = {

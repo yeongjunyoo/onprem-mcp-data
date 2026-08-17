@@ -1,6 +1,6 @@
 {
   "input_hashes": {
-    "eval/companyx/holdout2_route.json": "95c350311c110f8a"
+    "eval/companyx/holdout2_route.json": "6353f029efcea1e9"
   },
   "gold": "eval/companyx/holdout2_route.json",
   "entity_lexicon_size": 131,
@@ -405,5 +405,5 @@
       "rationale": "type-pair employee->project => LEADS"
     }
   ],
-  "generated_at": "2026-08-17T09:29:55.103Z"
+  "generated_at": "2026-08-17T09:32:04.305Z"
 }
