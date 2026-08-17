@@ -80,6 +80,44 @@ export async function loadRouterOntology(): Promise<Readonly<typeof ontologyStat
  * 여기서 빼면 레코드 표기도 함께 바뀐다 — 선언과 표기가 갈리지 않는다. */
 const CACHE_EXCLUDED = ["audit.explain"];
 
+/** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. */
+const TRANSPORTS = ["stdio", "sse"] as const;
+
+/**
+ * MCP_TRANSPORT 를 해석하되, **모르는 값은 소리내어 거절한다.**
+ *
+ * 왜 이러는가. 종전에는 `=== "sse"` 이외가 전부 stdio 로 떨어졌다. 바로 위 주석은
+ * `stdio / sse / http` 를 지원한다고 적어둔 채였으므로, `MCP_TRANSPORT=http` 를 준
+ * 사람은 **에러 없이 stdio 서버를 받고 성공한 줄 안다.**
+ *
+ * 이 저장소는 README 에서 정확히 이 형태를 규탄한다 — Docker 가 포트 충돌 시
+ * `PublishedPort: 0` 으로 **조용히 게시를 포기**하고 컨테이너는 `running` 이라
+ * 어느 쪽에 붙었는지 모르게 되는 문제. 같은 잣대를 우리 코드에도 댄다.
+ *
+ * 잘못 다룬 설정은 기본값으로 메꾸는 것보다 기동을 멈추는 편이 싸다.
+ */
+export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: number } {
+  const raw = process.env.MCP_TRANSPORT?.trim();
+  if (!raw) return { type: "stdio" };
+
+  if (!(TRANSPORTS as readonly string[]).includes(raw)) {
+    throw new Error(
+      `MCP_TRANSPORT="${raw}" 는 지원하지 않는다. 가능한 값: ${TRANSPORTS.join(" | ")}.\n` +
+        `  조용히 stdio 로 떨어뜨리면 어느 전송으로 돌고 있는지 알 수 없게 된다 — 그래서 멈춘다.`,
+    );
+  }
+
+  if (raw === "sse") {
+    const port = Number(process.env.MCP_PORT ?? 3510);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
+    }
+    return { type: "sse", port };
+  }
+
+  return { type: "stdio" };
+}
+
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
@@ -115,12 +153,9 @@ export function buildServer(): AirServer {
       circuitBreakerPlugin(),
     ],
 
-    // stdio(기본) / sse / http — air가 설정 한 줄로 바꾼다. 심사자가 Claude Desktop에
-    // 붙일 때는 stdio, 컨테이너로 띄울 때는 MCP_TRANSPORT=sse.
-    transport:
-      process.env.MCP_TRANSPORT === "sse"
-        ? { type: "sse" as const, port: Number(process.env.MCP_PORT ?? 3510) }
-        : { type: "stdio" as const },
+    // stdio(기본) / sse — 심사자가 Claude Desktop에 붙일 때는 stdio, 컨테이너로
+    // 띄울 때는 MCP_TRANSPORT=sse. 그 둘뿐이며, 모르는 값은 위에서 이미 막았다.
+    transport: resolveTransport(),
 
     // MCP 표준 표면. 도구는 "실행", 리소스는 "열람", 프롬프트는 "재사용 템플릿"이다.
     // 스키마 카드와 평가 원자료를 도구 뒤에 숨기면 호스트도 심사자도 근거를 볼 수 없다.

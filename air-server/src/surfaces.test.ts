@@ -4,6 +4,7 @@
 // 프롬프트 핸들러는 문자열을 만들 뿐이다. 그래서 CI에서 그대로 검증된다.
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
+import { resolveTransport } from "./server.js";
 
 let pass = 0,
   fail = 0;
@@ -75,6 +76,65 @@ async function main() {
   const grounded = prompts.find((p) => p.name === "grounded-answer")!;
   const gm = await grounded.handler({ question: "질문", context: "근거" });
   ok(gm[0].content.includes("컨텍스트에 없는"), "근거 기반 템플릿이 접지 규칙을 담는다");
+
+  // --- transport 해석 ---
+  //
+  // 종전에는 `=== "sse"` 이외가 전부 stdio 로 조용히 떨어졌다. 주석은 http 도
+  // 지원한다고 적어둔 채였으므로, MCP_TRANSPORT=http 를 준 사람은 에러 없이
+  // stdio 서버를 받고 성공한 줄 안다. 잘못 다룬 설정은 기본값으로 메꾸는 것보다
+  // 기동을 멈추는 편이 싸다.
+  const savedTransport = process.env.MCP_TRANSPORT;
+  const savedPort = process.env.MCP_PORT;
+  try {
+    delete process.env.MCP_TRANSPORT;
+    ok(resolveTransport().type === "stdio", "미지정이면 stdio");
+
+    process.env.MCP_TRANSPORT = "stdio";
+    ok(resolveTransport().type === "stdio", "stdio 명시");
+
+    process.env.MCP_TRANSPORT = "sse";
+    delete process.env.MCP_PORT;
+    const sse = resolveTransport();
+    ok(sse.type === "sse" && sse.port === 3510, "sse 기본 포트 3510");
+
+    process.env.MCP_PORT = "3600";
+    const sse2 = resolveTransport();
+    ok(sse2.type === "sse" && sse2.port === 3600, "MCP_PORT 반영");
+
+    // ★ 핵심 — 모르는 값은 조용히 넘어가지 않는다.
+    // 공백만 있는 값은 "미지정"으로 본다 — 셸에서 빈 변수를 넘기는 흔한 형태다.
+    // 결정이라면 테스트가 그 결정을 말해야 한다.
+    process.env.MCP_TRANSPORT = "   ";
+    ok(resolveTransport().type === "stdio", "공백만 있는 값은 미지정과 같다");
+
+    for (const bad of ["http", "HTTP", "websocket", "sse2", "stdio2"]) {
+      process.env.MCP_TRANSPORT = bad;
+      let threw = false;
+      try {
+        resolveTransport();
+      } catch {
+        threw = true;
+      }
+      ok(threw, `MCP_TRANSPORT=${JSON.stringify(bad)} 는 거절한다`);
+    }
+
+    process.env.MCP_TRANSPORT = "sse";
+    for (const badPort of ["0", "70000", "abc", "-1"]) {
+      process.env.MCP_PORT = badPort;
+      let threw = false;
+      try {
+        resolveTransport();
+      } catch {
+        threw = true;
+      }
+      ok(threw, `MCP_PORT=${badPort} 는 거절한다`);
+    }
+  } finally {
+    if (savedTransport === undefined) delete process.env.MCP_TRANSPORT;
+    else process.env.MCP_TRANSPORT = savedTransport;
+    if (savedPort === undefined) delete process.env.MCP_PORT;
+    else process.env.MCP_PORT = savedPort;
+  }
 
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
