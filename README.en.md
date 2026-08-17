@@ -65,7 +65,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Grounding violations | **0** (answers_grounded 100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
 | Median latency | **11989 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms-->
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
-| Tests | **412 assertions passing** | 285 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 274, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
+| Tests | **415 assertions passing** | 288 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 277, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
 | Fault injection — partial context | **4/4** | killing the vector branch still returns graph context |  <!--metric:faults_partial-->
 | Fault injection — error visible | **4/4** | failed branches are recorded in `branch_errors` |  <!--metric:faults_errvis-->
