@@ -17,7 +17,7 @@
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
 | `companyx-ask-host-gpu.json` | 22,170 | `33944f8ce99163f7` | 2026-08-17T08:14:06 |
-| `companyx-ask.json` | 22,535 | `1ad349193e91834d` | 2026-08-17T20:11:50 |
+| `companyx-ask.json` | 22,877 | `e67de57d82548531` | 2026-08-17T20:11:50 |
 | `companyx-audit.json` | 85,011 | `9f26ee08fe290e7d` | 2026-07-29T14:39:23 |
 | `companyx-holdout-route.json` | 11,104 | `8f702f06b98c38d5` | 2026-08-17T09:32:04 |
 | `companyx-holdout2-route.json` | 11,103 | `88d8905dd92a4463` | 2026-08-17T09:32:04 |
