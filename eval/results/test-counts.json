@@ -1,0 +1,34 @@
+{
+  "note": "테스트 단언 수는 러너 출력에서 집계한다. 문서끼리 합의하는지가 아니라 실제로 몇 개가 통과했는지가 정본이다.",
+  "offline": 267,
+  "integration": 127,
+  "total": 394,
+  "suites": {
+    "offline": [
+      "claims",
+      "normalize",
+      "auditrecord",
+      "surfaces",
+      "router",
+      "curator",
+      "rrf",
+      "evalmatch"
+    ],
+    "integration": [
+      "db",
+      "server",
+      "pipeline",
+      "llm",
+      "graph",
+      "kgretrieve",
+      "companyx",
+      "ontologyload",
+      "auditcache"
+    ]
+  },
+  "environment": {
+    "postgres": "16 + pgvector (docker compose, host 5433)",
+    "ollama": "http://localhost:11435 (docker compose)"
+  },
+  "generated_at": "2026-08-17T07:00:00Z"
+}
