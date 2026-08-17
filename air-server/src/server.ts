@@ -21,6 +21,8 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema, loadOntologyForRouter } from "./graph.js";
+import { z } from "zod";
+
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
@@ -173,10 +175,14 @@ export function buildServer(): AirServer {
         outputSchema: {
           route: { type: "string", description: "structured | semantic | graph | hybrid" },
           lane: { type: "string", description: "사람이 읽는 레인 이름" },
-          tools: { type: "object", description: "호출할 도구 이름 목록(문자열 배열)" },
-          structured_signals: { type: "object", description: "관계형 레인을 고르게 한 어휘(문자열 배열)" },
-          semantic_signals: { type: "object", description: "의미 검색 레인을 고르게 한 어휘(문자열 배열)" },
-          graph_signals: { type: "object", description: "그래프 레인을 고르게 한 어휘(문자열 배열)" },
+          // 배열은 배열로 선언한다. 종전에는 넷 다 `type: "object"` 였고, MCP 출력
+          // 검증이 "Expected object, received array" 로 **도구 호출 자체를 거부**했다.
+          // demo 는 내부 호출이라 이 검증을 안 거쳐서 초록이었다 — 전선까지 가 보기
+          // 전에는 보이지 않는 결함이다.
+          tools: z.array(z.string()).describe("호출할 도구 이름 목록"),
+          structured_signals: z.array(z.string()).describe("관계형 레인을 고르게 한 어휘"),
+          semantic_signals: z.array(z.string()).describe("의미 검색 레인을 고르게 한 어휘"),
+          graph_signals: z.array(z.string()).describe("그래프 레인을 고르게 한 어휘"),
           rationale: { type: "string", description: "결정 근거 한 줄" },
           deterministic: { type: "boolean", description: "항상 true. LLM 호출 없이 규칙으로만 결정한다" },
         },

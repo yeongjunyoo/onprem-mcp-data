@@ -49,7 +49,7 @@ npm run demo:ollama                                      # 도구 8종부터 장
 
 MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP_TRANSPORT=sse`로 전송 방식을 바꿀 수 있습니다.
 
-그 전환이 실제로 되는지는 `node scripts/verify-sse-transport.mjs` 로 확인합니다 — 포트가 열리는 것이 아니라 **MCP 핸드셰이크가 끝까지 가고 도구 8종이 열거되는지**를 봅니다.
+주 경로인 stdio 는 `node scripts/verify-stdio-tools.mjs` 가 도구 8종을 **실제로 호출해** 확인합니다(열거가 아니라 호출입니다 — `demo` 는 내부 호출이라 MCP 스키마 검증을 거치지 않습니다). sse 전환이 실제로 되는지는 `node scripts/verify-sse-transport.mjs` 로 확인합니다 — 포트가 열리는 것이 아니라 **MCP 핸드셰이크가 끝까지 가고 도구 8종이 열거되는지**를 봅니다.
 
 ## 동작 방식
 
