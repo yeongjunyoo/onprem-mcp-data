@@ -53,5 +53,22 @@
     "postgres": "16 + pgvector (docker compose, host 5433)",
     "ollama": "http://localhost:11435 (docker compose)"
   },
-  "generated_at": "2026-08-17T16:40:00Z"
+  "generated_at": "2026-08-17T16:40:00Z",
+  "integration_verified": {
+    "at": "2026-08-17",
+    "passed": 127,
+    "failed": 0,
+    "per_suite": {
+      "db": 22,
+      "server": 5,
+      "pipeline": 14,
+      "llm": 5,
+      "graph": 12,
+      "kgretrieve": 7,
+      "companyx": 46,
+      "ontologyload": 10,
+      "auditcache": 6
+    },
+    "note": "DB·모델이 있는 환경에서 9스위트를 각자 올바른 프로파일로 실행해 집계했다. companyx·ontologyload 만 DATASET=companyx 이고 나머지는 벤치 시드다 — 전부에 companyx 를 물리면 db.test 가 2건 실패한다. CI 는 여전히 재현할 수 없고, 그 사실은 verify-test-counts 가 출력에 밝힌다."
+  }
 }

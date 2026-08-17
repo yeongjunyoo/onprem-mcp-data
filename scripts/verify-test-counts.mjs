@@ -93,4 +93,17 @@ if (fails.length) {
 }
 
 console.log("\nOK: 정본의 오프라인 단언 수가 러너 실측과 일치한다.");
-console.log("    (통합 127건은 DB·모델이 필요해 CI 에서 재현할 수 없다 — 선언으로 남는다.)");
+// CI 가 못 보는 것과 아무도 확인한 적 없는 것은 다르다. 후자였다가 전자가 됐으면
+// 출력이 그 사실을 말해야 한다 — 안 그러면 읽는 사람은 계속 미확인으로 읽는다.
+const iv = canonical.integration_verified;
+if (iv) {
+  console.log(
+    `    (통합 ${canonical.integration}건은 DB·모델이 필요해 CI 에서 재현할 수 없다. ` +
+      `다만 미확인이 아니다 — ${iv.at} 에 9스위트를 각자 올바른 프로파일로 돌려 ` +
+      `${iv.passed}/${canonical.integration} 통과를 확인했고 기록은 eval/results/test-counts.json 에 있다.)`,
+  );
+} else {
+  console.log(
+    `    (통합 ${canonical.integration}건은 DB·모델이 필요해 CI 에서 재현할 수 없다 — 선언으로 남는다.)`,
+  );
+}
