@@ -127,6 +127,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-sse-transport` | sse 전환 주장이 실제로는 안 되는 것 | DB·모델 필요 |
 | `verify-security-claims` | 보안 문단이 실제 DB 설정과 어긋나는 것 | DB 필요 |
 | `drill-readonly-defense` | 2층 방어가 장식인 것(1층을 우회해 확인) | DB 필요 |
+| `drill-corpus-restore` | 벡터 평가가 코퍼스를 되돌리지 않는 것 | DB·모델 필요 |
 | `verify-security-policy` | SECURITY.md 가 안내하는 신고 경로가 닫혀 있는 것 | 토큰 필요 |
 
 각 검사는 자기가 **덮지 못하는 것**도 스스로 말합니다. 예를 들어 `verify-test-counts`
