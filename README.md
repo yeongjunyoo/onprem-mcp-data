@@ -10,7 +10,7 @@
 | | |
 | --- | --- |
 | 무엇을 푸는가 | 사내 데이터는 밖으로 못 내보내는데, 문서 검색과 통계 조회와 관계 추적은 서로 다른 시스템에 흩어져 있다 |
-| 어떻게 | MCP 도구 7종 뒤에서 3레인 라우팅, 병렬 조회, RRF 융합, 구조 보존 큐레이션, 로컬 7B 답변 |
+| 어떻게 | MCP 도구 8종 뒤에서 3레인 라우팅, 병렬 조회, RRF 융합, 구조 보존 큐레이션, 로컬 7B 답변 |
 | 무엇을 안 하는가 | 외부 상용 API 호출, 쓰기 작업, 컨텍스트 밖 추측 |
 | 실행 환경 | PostgreSQL 16 + pgvector, Ollama, Node.js 20 이상. GPU 없이 CPU로 동작 |
 
@@ -25,7 +25,7 @@ ollama pull qwen2.5:7b && ollama pull bge-m3            # 로컬 모델 2종
 
 cd air-server && npm ci && npx tsc
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # 결정론 시드 데이터 적재
-EMBEDDER=ollama npm run demo                            # 도구 7종부터 장애 주입까지 한 번에
+EMBEDDER=ollama npm run demo                            # 도구 8종부터 장애 주입까지 한 번에
 ```
 
 `npm run demo`는 네트워크 없이 돕니다. 도구 호출, 3레인 합의, 로컬 7B 답변, 장애 주입 후 응답까지 한 화면에서 확인할 수 있습니다.
@@ -54,7 +54,7 @@ flowchart LR
 
 MCP 표면은 도구 8종, 리소스 6종, 프롬프트 4종입니다. `audit.explain`은 한 질의를 끝까지 실행하고 **왜 그 답이 나왔는지**를 기계가 읽을 감사 레코드로 돌려줍니다. 라우팅 근거, 거부된 SQL과 사유, 융합에 합의한 소스, 정책 판정 다섯 가지, 접지 검사까지 한 레코드에 담깁니다. 리소스는 스키마 카드, 데이터셋 매니페스트, 평가 원자료 색인, 활성 프로파일, 증거 목록을 도구 호출 없이 열람하게 합니다. 프롬프트는 서버가 실제로 쓰는 근거 기반 답변과 NL2SQL 템플릿을 그대로 노출합니다.
 
-MCP 도구는 7종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `ontology.search`, `graph.expand`. 지식그래프 3-way 검색(`kgRetrieve`)은 `retrieve`와 `ask` 안에서 동작합니다. 각 도구에는 위험도 계층 힌트가 붙어 있습니다.
+MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `audit.explain`, `ontology.search`, `graph.expand`. 지식그래프 3-way 검색(`kgRetrieve`)은 `retrieve`와 `ask` 안에서 동작합니다. 각 도구에는 위험도 계층 힌트가 붙어 있습니다.
 
 ## 측정 결과
 

@@ -16,7 +16,9 @@ async function main() {
   const server = buildServer();
 
   const tools = server.tools().map((t) => t.name).sort();
-  ok(JSON.stringify(tools) === JSON.stringify(["ask", "graph.expand", "ontology.search", "retrieve", "route", "sql.query", "vector.search"]),
+  // 도구는 8종이다. audit.explain이 추가됐는데 이 목록이 7종에 멈춰 있어서
+  // 테스트가 조용히 깨져 있었다(DB가 필요해 오프라인 CI가 잡지 못했다).
+  ok(JSON.stringify(tools) === JSON.stringify(["ask", "audit.explain", "graph.expand", "ontology.search", "retrieve", "route", "sql.query", "vector.search"]),
     `tools registered (got ${JSON.stringify(tools)})`);
 
   const r = JSON.parse(await server.callTool("route", { query: "최근 주문 건수 알려줘" }));

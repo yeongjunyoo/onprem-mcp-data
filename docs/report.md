@@ -19,7 +19,7 @@
 | **튜닝 없음 (설정 민감성↓)** | 라우터·RRF·큐레이션·벡터정렬 = **LLM 호출 0, 튜닝 파라미터 0, run-to-run 분산 0** (테스트 단언) |
 | **장애 지점↓ (운영 안정성)** | 장애주입 스위트 **no-crash 4/4·partial 4/4·error-visible 4/4**; air 플러그인(timeout/retry/circuit); 클러스터 read-endpoint fallback + **라이브 streaming-replica kill-drill** |
 | **품질 유지 (단순해도 정확)** | 내부 SQL execution-match **83/100=83.0%**; 구조보존 큐레이션이 정확도의 결정 레버임을 ablation으로 실증(**Δ +53.0pp**) |
-| **MCP·air 규격 준수** | air `defineServer/defineTool` 위 **7 MCP 도구**; Pylon-7 layer 힌트; 전현우 2026 TACC 논문을 설계 근거로 구현 |
+| **MCP·air 규격 준수** | air `defineServer/defineTool` 위 **8 MCP 도구**; Pylon-7 layer 힌트; 전현우 2026 TACC 논문을 설계 근거로 구현 |
 
 핵심 한 줄: **"튜닝 0·장애 지점 최소화로 운영을 단순화하되, 구조보존 큐레이션으로 품질(83%)을 지킨 온프렘 MCP 데이터 플랫폼."**
 
@@ -373,7 +373,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 | 리원에이스 요구 (과제 예시) | 구현 | 증거 |
 |---|---|---|
 | PostgreSQL + pgvector 벡터 DB | L1 PG17+pgvector, `bench` 격리 스키마 | `eval/internal/schema.sql` |
-| MCP 프로토콜 기반 AI 도구 설계·구현 | air 위 7 MCP 도구 | `air-server/src/server.ts` |
+| MCP 프로토콜 기반 AI 도구 설계·구현 | air 위 8 MCP 도구 | `air-server/src/server.ts` |
 | 규칙 기반 라우터 (MCP Parallel) | `route` 결정론 라우터 + 병렬 fan-out | `air-server/src/router.ts` |
 | 온프렘 소형 LLM(7B) 연동 (Ollama) | `ask` = Qwen2.5-7B, 근거 없으면 거부 | `air-server/src/llm.ts` |
 | 선택적 컨텍스트 큐레이션 (TACC) | L4 구조보존 큐레이션(`broken_rows=0`) | `air-server/src/curator.ts` |

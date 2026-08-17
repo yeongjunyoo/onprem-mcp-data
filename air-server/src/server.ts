@@ -14,13 +14,13 @@ import {
   jsonLoggerPlugin,
   type AirServer,
 } from "@airmcp-dev/core";
-import { route, audit, SQL_TOOL, VECTOR_TOOL } from "./router.js";
-import { getReadPool } from "./db.js";
+import { route, audit, installOntology, SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
-import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
+import { ontologySearch, graphExpand, kgSchema, loadOntologyForRouter } from "./graph.js";
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
@@ -45,6 +45,37 @@ import { profile } from "./profile.js";
  * NOLOGIN `mcp_ro` role, so the two highest-risk layers of the Descent Cost
  * Principle are never entered at all.
  */
+/** 라우터 온톨로지 적재 상태. 시연·감사에서 확인할 수 있게 노출한다. */
+let ontologyState: { entities: number; typePairs: number; error?: string } = {
+  entities: 0,
+  typePairs: 0,
+  error: "not loaded",
+};
+
+export function routerOntologyState(): Readonly<typeof ontologyState> {
+  return ontologyState;
+}
+
+/** 기동 시 1회. 실패해도 서버는 뜨고, 라우터는 폴백 정규식으로 계속 돈다.
+ *
+ * 이것이 없으면 평가에서 잰 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18).
+ * 그래서 실패를 조용히 삼키지 않고 경고와 상태로 남긴다. */
+export async function loadRouterOntology(): Promise<Readonly<typeof ontologyState>> {
+  try {
+    const { nodes, edges } = await loadOntologyForRouter(getPool());
+    const r = installOntology(nodes, edges);
+    ontologyState = { entities: r.entities, typePairs: r.typePairs };
+    if (r.entities === 0) {
+      ontologyState.error = "empty";
+      console.warn("[router] 온톨로지가 비어 있다 — 타입쌍 추론 없이 폴백으로 동작한다");
+    }
+  } catch (e) {
+    ontologyState = { entities: 0, typePairs: 0, error: String(e).slice(0, 200) };
+    console.warn(`[router] 온톨로지 적재 실패 — 폴백으로 동작한다: ${ontologyState.error}`);
+  }
+  return ontologyState;
+}
+
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
@@ -110,7 +141,11 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
-        handler: async ({ query }) => audit(route(query as string)),
+        handler: async ({ query }) => ({
+          ...audit(route(query as string)),
+          // 사전이 적재됐는지 시연 중에 바로 보이게 한다. 0이면 폴백 경로다.
+          entity_lexicon: ontologyState.entities,
+        }),
       }),
 
       defineTool(SQL_TOOL, {
