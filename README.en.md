@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml/badge.svg)](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-7%20tools-informational)](docs/architecture.md)
+[![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
 
 **An on-premise MCP server that answers natural-language questions over your own database, with citations.** One question is routed into three lanes at once (vector search, NL2SQL, knowledge graph), the results are fused, and a local 7B model answers from the curated context only. **No external API calls.** Every model runs locally through Ollama.
@@ -36,7 +36,9 @@ npm run demo:ollama                                      # offline end-to-end de
 > Both the server and the demo print the Ollama endpoint they actually reached and its
 > model list on startup, and refuse to run when a required model is missing.
 
-`npm run demo` runs without network access and walks through tool calls, three-lane agreement, a local 7B answer, and fault injection.
+The server exposes **8 MCP tools**: `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `audit.explain`, `ontology.search`, `graph.expand`. Three-way knowledge-graph retrieval (`kgRetrieve`) runs inside `retrieve` and `ask` rather than being exposed as its own tool.
+
+`npm run demo:ollama` runs without network access and walks through tool calls, three-lane agreement, a local 7B answer, and fault injection.
 
 ## How it works
 

@@ -59,6 +59,11 @@ jobs:
       - name: 외부 API 호출이 없는지
         working-directory: .
         run: node scripts/verify-no-external-api.mjs
+      # 문서가 말하는 도구 표면이 소스 등록과 다르면 실패한다.
+      # 기능테스트에서 심사자가 문서를 보고 없는 도구를 부르면 그 자리에서 깨진다.
+      - name: 도구 표면이 문서와 일치하는지
+        working-directory: .
+        run: node scripts/verify-tool-surface.mjs
 
   sbom:
     name: SBOM drift check
