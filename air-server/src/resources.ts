@@ -181,10 +181,22 @@ export function buildResources() {
       handler: async () => {
         const raw = await readIfExists(join(repoRoot, "docs", "report.md"));
         if (!raw) return "docs/report.md 를 찾지 못했습니다.";
-        // Evidence manifest 절만 잘라 준다. 전문은 저장소에서 읽는다.
-        const start = raw.indexOf("## 9. Evidence manifest");
-        if (start < 0) return raw.slice(0, 4000);
-        const rest = raw.slice(start);
+
+        // 절 번호를 하드코딩하지 않는다. 종전 코드는 "## 9. Evidence manifest" 를
+        // 그대로 찾고, 못 찾으면 **보고서 앞 4000자를 대신 돌려줬다.** 절을 하나만
+        // 끼워 넣어도 번호가 밀리는데, 그때 이 리소스는 "개발보고서 증거 목록"
+        // 이라는 이름으로 서론을 준다. 심사자는 그게 증거 목록인 줄 안다.
+        const heading = raw
+          .split("\n")
+          .find((line) => /^##\s+\d+\.\s*Evidence manifest/i.test(line));
+        if (!heading) {
+          // 조용히 다른 것을 주느니 없다고 말한다.
+          return (
+            "docs/report.md 에서 Evidence manifest 절을 찾지 못했습니다.\n" +
+            "절 제목이 바뀌었다면 이 리소스와 함께 고쳐야 합니다."
+          );
+        }
+        const rest = raw.slice(raw.indexOf(heading));
         const end = rest.indexOf("\n## ", 3);
         return end > 0 ? rest.slice(0, end) : rest;
       },
