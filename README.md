@@ -107,6 +107,32 @@ MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, 
 
 재현 명령은 `docs/report.md`의 evidence manifest에 측정별로 적혀 있습니다.
 
+## 주장을 지키는 검사
+
+이 저장소의 수치와 문장은 사람이 지키지 않습니다. 검사가 지킵니다. 전부 **일부러 깨뜨려
+exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아무것도 보장하지 않습니다.
+
+| 검사 | 무엇을 막는가 | CI |
+| --- | --- | --- |
+| `metrics-check` | 문서 수치가 `eval/results` 원자료와 어긋나는 것 | 예 |
+| `verify-doc-metrics` | marker 없는 표 행·산문에 낡은 값이 남는 것 | 예 |
+| `verify-test-counts` | 테스트 단언 수를 손으로 적는 것(러너 출력에서 재계수) | 예 |
+| `verify-tool-surface` | 문서가 없는 도구를 부르게 하는 것, 버전이 갈리는 것 | 예 |
+| `verify-no-external-api` | "외부 API 0" 주장이 코드와 어긋나는 것 | 예 |
+| `verify-loud-failure` | 실패 경로가 조용히 다른 값을 돌려주는 것 | 예 |
+| `verify-no-dataset-redistribution` | 산출물이 사업자 코퍼스를 실어 나르는 것 | 예 |
+| `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
+| `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
+| `verify-stdio-tools` | 도구가 **열거만 되고 호출은 안 되는** 것 | DB·모델 필요 |
+| `verify-sse-transport` | sse 전환 주장이 실제로는 안 되는 것 | DB·모델 필요 |
+| `verify-security-claims` | 보안 문단이 실제 DB 설정과 어긋나는 것 | DB 필요 |
+| `drill-readonly-defense` | 2층 방어가 장식인 것(1층을 우회해 확인) | DB 필요 |
+| `verify-security-policy` | SECURITY.md 가 안내하는 신고 경로가 닫혀 있는 것 | 토큰 필요 |
+
+각 검사는 자기가 **덮지 못하는 것**도 스스로 말합니다. 예를 들어 `verify-test-counts`
+는 통합 127건이 DB·모델을 요구해 CI 에서 재현 불가임을 출력에 적습니다 — 덮지 못하는
+것을 덮은 척하지 않습니다.
+
 ## 스스로 반증한 것
 
 이 프로젝트는 자기 주장을 무너뜨린 기록을 지우지 않습니다. 검증 비용을 낮추는 것이 목적이기 때문입니다.
