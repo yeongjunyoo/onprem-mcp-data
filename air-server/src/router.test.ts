@@ -95,7 +95,9 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
 {
   const here = dirname(fileURLToPath(import.meta.url));
   const gdir = resolve(here, "../../datasets/companyx-v1.0/graph");
-  if (existsSync(resolve(gdir, "nodes.json"))) {
+  // 둘 다 있어야 한다. nodes.json 만 보고 edges.json 을 무조건 읽으면, 한쪽만 있는
+  // 상태에서 스킵이 아니라 크래시가 난다(부분 데이터셋 프로브에서 실측).
+  if (existsSync(resolve(gdir, "nodes.json")) && existsSync(resolve(gdir, "edges.json"))) {
     const nodes = JSON.parse(readFileSync(resolve(gdir, "nodes.json"), "utf8"));
     const edges = JSON.parse(readFileSync(resolve(gdir, "edges.json"), "utf8"));
     const inst = installOntology(nodes, edges);

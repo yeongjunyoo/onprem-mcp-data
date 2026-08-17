@@ -12,7 +12,7 @@
 //   그 값(integration)은 여전히 선언이고, 로컬 실행 기록으로만 뒷받침된다.
 //   즉 이 검사는 오프라인 부분의 위조를 막고, 통합 부분은 막지 못한다.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,17 +62,27 @@ for (const suite of OFFLINE) {
 
 const canonical = JSON.parse(readFileSync(resolve(ROOT, "eval/results/test-counts.json"), "utf8"));
 
+// ★ 데이터셋 유무로 합계가 갈린다. 사업자 데이터셋은 배포 조건상 저장소에 없고,
+// router.test 의 온톨로지 커버리지 단언 11건은 edges.json 이 있을 때만 돈다.
+// 그래서 "오프라인 267" 은 데이터셋이 있을 때의 값이고 CI 에서는 256 이다.
+// 하나의 숫자로 뭉개면 그 문서는 어느 환경에서도 정확하지 않다.
+const hasDataset = existsSync(resolve(ROOT, "datasets/companyx-v1.0/graph/edges.json"));
+const expected = hasDataset ? canonical.offline_with_dataset : canonical.offline_ci;
+const label = hasDataset ? "offline_with_dataset" : "offline_ci (데이터셋 없음)";
+
 console.log("러너 실측 (오프라인):");
 console.log("  " + perSuite.join(" "));
 console.log(`  합계 ${counted}`);
-console.log(`정본 test-counts.json: offline=${canonical.offline} integration=${canonical.integration} total=${canonical.total}`);
+console.log(`정본 test-counts.json: ${label}=${expected} integration=${canonical.integration} total=${canonical.total}`);
 
 const fails = [];
-if (canonical.offline !== counted) {
-  fails.push(`정본 offline=${canonical.offline} 인데 러너 실측은 ${counted} 이다`);
+if (expected !== counted) {
+  fails.push(`정본 ${label}=${expected} 인데 러너 실측은 ${counted} 이다`);
 }
-if (canonical.offline + canonical.integration !== canonical.total) {
-  fails.push(`정본 합계가 어긋난다: ${canonical.offline} + ${canonical.integration} != ${canonical.total}`);
+if (canonical.offline_with_dataset + canonical.integration !== canonical.total) {
+  fails.push(
+    `정본 합계가 어긋난다: ${canonical.offline_with_dataset} + ${canonical.integration} != ${canonical.total}`,
+  );
 }
 
 if (fails.length) {
