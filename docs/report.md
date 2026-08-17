@@ -434,7 +434,22 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
   - **결정 레버 = 구조보존 큐레이션: naive→curated Δ +53.0pp.** thesis 실증. 재현 `BENCH_STRATEGY={template|naive} npm run bench:internal`.
 - **의미검색 정량(BGE-M3 vs hash, 동일 랭킹경로·gold 오라클):** 저-어휘겹침 16질의(암호↔비밀번호 등). hash recall@5=0.500/MRR=0.304 → **BGE recall@5=1.000/MRR=0.906** (Δ recall@5 +50.0pp·top1 +68.8pp·MRR +0.602). `npm run recall:eval`.
 - **canonical 3-way RRF:** "전자제품 환불 규정" → `entity:policy#1001`이 vector+graph 양쪽에서 나와 2 source 누적·rank 1 (`kgretrieve.test`).
-- **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행, BIRD-style execution accuracy **7/32 = 21.9%**(stride 샘플; simple 3/6·moderate 4/19·challenging 0/7, 샘플 moderate/challenging 편중). **⚠️ 다른·더 어려운 데이터셋·샘플 → 내부 83.0%와 직접 비교 불가, 별도 열.** 참고: 풀 BIRD-dev GPT-4 ≈46%·7B급 ≈20~35% → 동일 7B가 공개 벤치에 난이도 비례로 일반화됨을 객관 입증. `EXT_LIMIT=32 npm run external:bird`.
+- **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행.
+
+  **2026-08-17 정정.** 이 항목의 이전 표기 `7/32 = 21.9%`는 **BIRD 공식 execution accuracy가 아니었다.** 우리 비교기는 행 튜플의 **다중집합** 동등(중복 개수까지 일치)을 요구하는데, 공식은 `set(pred) == set(gold)`로 **중복을 무시**한다. 같은 이름을 쓰는 다른 지표였다.
+
+  저장된 예측 SQL을 재실행해(모델 재추론 없음) 두 의미로 각각 채점했다 — `eval/external/rescore_bird.py`, 원자료 `eval/results/external-bird-rescore.json`.
+
+  | 비교 의미 | 결과 |
+  |---|---|
+  | **공식 set 동등** (BIRD `evaluation_ex` 의미) | **9/32 = 0.281** |
+  | 운영 multiset 동등 (이 저장소 내부 지표) | 7/32 = 0.219 |
+
+  갈린 2건은 전부 `card_games`에서 예측이 중복 행을 많이 반환했지만 **distinct 집합은 gold와 동일**했던 경우다(5429행 vs gold 3행, distinct 3=3 / 66행 vs gold 2행, distinct 2=2). gold 실행 실패 0건.
+
+  **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 83.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
+
+  참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현: `EXT_LIMIT=32 npm run external:bird` → `python eval/external/rescore_bird.py`.
 - **테스트:** 스모크 156(router/curator/rrf/evalmatch/db 22/server/pipeline/llm) + KG 19(graph/kgretrieve) = **175** 그린. tsc strict clean.
 
 ---
