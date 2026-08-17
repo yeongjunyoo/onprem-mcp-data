@@ -32,7 +32,18 @@ async function main() {
   // 평가셋과 출력 경로는 환경변수로 갈아끼운다. 1차 홀드아웃은 라우터 결함을
   // 진단하는 데 썼으므로 더 이상 홀드아웃이 아니고, 2차 이후를 같은 도구로 잰다.
   const goldPath = process.env.HOLDOUT ?? "eval/companyx/holdout_route.json";
-  const outPath = process.env.OUT ?? "eval/results/companyx-holdout-route.json";
+  // 출력 경로는 **입력에서 유도한다.** OUT 기본값을 고정해 두면 HOLDOUT 만 바꿔
+  // 돌렸을 때 다른 홀드아웃의 정본을 덮어쓴다 — 실제로 그렇게 홀드아웃1 정본이
+  // 구어체 결과로 덮였고 metrics-check 가 "0.900 인데 측정값 0.633" 으로 잡았다.
+  //
+  // 평가가 남의 정본을 망가뜨리는 것은 이 저장소에서 두 번째다(벡터 평가가 코퍼스를
+  // 파괴한 건이 첫 번째). 사람이 OUT 을 기억해야 하는 설계는 언젠가 잊는다.
+  const goldStem = goldPath.replace(/^.*[/\\]/, "").replace(/\.json$/, "");
+  const derivedOut =
+    goldStem === "holdout_route"
+      ? "eval/results/companyx-holdout-route.json"
+      : `eval/results/companyx-${goldStem.replace(/_route$/, "")}-route.json`;
+  const outPath = process.env.OUT ?? derivedOut;
   const gold = JSON.parse(await readFile(resolve(root, goldPath), "utf8")) as {
     items: { q: string; expected: string }[];
   };

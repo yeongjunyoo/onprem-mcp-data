@@ -519,6 +519,8 @@ npm run companyx:vector                               # 벡터 hit@5
 npm run companyx:kg                                   # KG 재현율
 npm run companyx:ask                                  # 종단 근거포함·접지·지연
 npm run companyx:multistep                            # 다단계
+npm run companyx:holdout                              # 홀드아웃1(템플릿 문형) 0.900
+npm run companyx:holdout2                             # 홀드아웃2(구어체) 0.633
 npm run fault:inject                                  # 장애 주입 4/4/4
 ```
 
@@ -535,6 +537,8 @@ npm run fault:inject                                  # 장애 주입 4/4/4
 | `npm run companyx:ask` | 근거포함 17/19, 접지 19/19 | 일치 |
 | `npm run companyx:sql` | 재시도 포함 7/10 | 일치 |
 | `npm run companyx:multistep` | 5/6 완료, 14/15 단계 | 일치 |
+| `npm run companyx:holdout` | strict 0.900 | 일치 |
+| `npm run companyx:holdout2` | strict 0.633 (구어체) | 일치 |
 | `npm run fault:inject` | no-crash 4/4, partial 4/4, error-visible 4/4 | 일치 |
 
 **움직인 값은 하나다** — 종단 중앙 지연이 11989 → 11674ms 로 바뀌었다. 같은 컨테이너
