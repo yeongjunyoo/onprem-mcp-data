@@ -527,16 +527,16 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(Δ +40pp/+53pp), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
-| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 커밋 히스토리는 있으나 **공개 저장소가 없어 issues/PR/review 흔적이 0**이다 | **미충족 (최대 갭)** |
+| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 169, PR 79(병합 74), 이슈 12(열림 2), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고·Dependabot 활성. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
 
 ### 2차 발표 70점
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
 | 작품발표 PT (10) — 오픈소스SW 활용 라이브러리 표기 명시 | 발표자료 미작성. 라이브러리 표기 재료는 `docs/sbom.md`로 준비됨 | 미작성(2차 진출 시) |
-| 활용성 (15) | 온프렘 적용 가능 도메인, CPU 7B 기준 실측, MCP 클라이언트 호환 | 있음 |
+| 활용성 (15) | 온프렘 적용 가능 도메인, CPU 7B 기준 실측, MCP 클라이언트 호환 — **주장이 아니라 실측**이다: stdio 로 도구 8종 실호출·프롬프트 4종 `get`·리소스 6종 `read`, sse 로 핸드셰이크 완주(`scripts/verify-stdio-tools.mjs`, `verify-sse-transport.mjs`) | 있음 |
 | 작품 데모 완성도 (10) | `npm run demo` 오프라인 종단 시연. (아래 지연 수치는 데모가 아니라 Company-X 종단 30문항 평가의 값이다) | 있음 |
-| 커뮤니티 확장 가능성 (10) | 품질관리 체계(테스트·평가 재현), 개발 로드맵은 있으나 **커뮤니티 참여 흔적 없음** | 부분 |
+| 커뮤니티 확장 가능성 (10) | 품질관리 체계(테스트·평가 재현), 개발 로드맵, `CONTRIBUTING`·`CODE_OF_CONDUCT`·이슈/PR 템플릿·Discussions, good first issue 보존(#7), 비공개 취약점 신고 활성. **문은 열려 있으나 외부 참여(star·fork·외부 PR)는 아직 0** | 부분 |
 | 오픈소스SW 적절성 (10) | 의존성 110개 전부 허용형, 카피레프트 0건, air/pgvector/Ollama 적재적소 사용 | 있음 |
 | 기능테스트 (10) | 장애주입 무중단 4/4, 부분응답 4/4, 오류가시성 4/4, replica kill drill 로그 | 있음(외부기관 재검증 대상) |
 | 라이선스 검증 (5) | SBOM 자동생성, 충돌 0건. **NIPA 오픈업 사전 컨설팅으로 채점 전 확인 가능** | 있음(사전 컨설팅 미신청) |
