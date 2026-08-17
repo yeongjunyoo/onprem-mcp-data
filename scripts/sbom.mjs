@@ -67,6 +67,32 @@ const transitive = installed.filter(p => !direct.has(p.name));
 const licenseCount = new Map();
 for (const p of installed) licenseCount.set(p.license, (licenseCount.get(p.license) ?? 0) + 1);
 
+// ★ 카피레프트 0건은 **주장이 아니라 검사 결과여야 한다.**
+//
+// 종전에는 이 문장을 그냥 적었다. 배점 5점이 걸린 라이선스 검증 항목인데, 새
+// 의존성이 GPL 을 들고 들어와도 SBOM 은 태연히 "0건" 이라고 적었을 것이다.
+// 실제 설치 트리를 훑어 카피레프트를 찾고, 있으면 생성 자체를 실패시킨다.
+const COPYLEFT = ["GPL", "AGPL", "LGPL", "MPL", "EPL", "CDDL", "SSPL", "OSL", "EUPL"];
+const copyleft = installed.filter((p) => {
+  const up = String(p.license).toUpperCase();
+  // "GPL" 은 "LGPL"·"AGPL" 의 부분문자열이라 각각이 아니라 전체 토큰으로 본다.
+  return COPYLEFT.some((k) => new RegExp(`(^|[^A-Z])${k}([^A-Z]|$)`).test(up));
+});
+const unlicensed = installed.filter((p) => p.license === "미표기");
+
+if (copyleft.length > 0) {
+  console.error("\n카피레프트 의존성이 발견됐다 — SBOM 의 '0건' 주장을 그대로 둘 수 없다:");
+  for (const p of copyleft) console.error(`  ${p.name}@${p.version}  ${p.license}`);
+  console.error("\n라이선스 충돌 여부를 판단하고 문구를 고친 뒤 다시 생성한다.\n");
+  process.exit(1);
+}
+if (unlicensed.length > 0) {
+  console.error(`\n라이선스 미표기 패키지 ${unlicensed.length}건 — 검증 없이 '전부 허용형' 이라 적을 수 없다:`);
+  for (const p of unlicensed.slice(0, 10)) console.error(`  ${p.name}@${p.version}`);
+  console.error("\n각 패키지의 실제 라이선스를 확인하고 매니페스트를 고친다.\n");
+  process.exit(1);
+}
+
 const out = [];
 out.push('# 붙임1 SBOM (소프트웨어 자재명세서)');
 out.push('');
@@ -74,7 +100,7 @@ out.push(`> 생성 = \`node scripts/sbom.mjs\`. 근거 = \`air-server/node_modul
 out.push(`> 생성 시각 ${new Date().toISOString()}`);
 out.push(`> npm 패키지 ${installed.length}개(직접 ${directRows.length} / 전이 ${transitive.length}) + 런타임 구성요소 ${RUNTIME.length}개.`);
 out.push(`> 라이선스 분포: ${[...licenseCount.entries()].sort((a, b) => b[1] - a[1]).map(([l, c]) => `${l} ${c}`).join(' · ')}.`);
-out.push(`> 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 \`LICENSE\`). 카피레프트(GPL/AGPL/LGPL) 의존성 **0건** → 라이선스 충돌 없음.`);
+out.push(`> 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 \`LICENSE\`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(\`node scripts/sbom.mjs\`).`);
 out.push('');
 out.push('## 1. 직접 의존성 및 런타임 구성요소');
 out.push('');
