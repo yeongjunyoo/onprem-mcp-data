@@ -558,10 +558,12 @@ CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서
 | --- | --- |
 | 로컬 저장소에서 `git clone` | 실행 파일 12개 전부 LF |
 | **GitHub 에서 `git clone`** | 실행 파일 12개 전부 LF |
-| `bash -n scripts/replica-spike.sh` | 문법 통과 |
-| `bash -n scripts/fetch-companyx-dataset.sh` | 문법 통과 |
+| `npm ci` → `npx tsc` | 통과 |
+| 데이터셋 없이 게이트 9종 | 전원 `rc=0` |
+| `bash scripts/fetch-companyx-dataset.sh` | 다운로드 → **SHA-256 일치** → 해제, 문서 40건 |
+| `bash -n` (셸 스크립트 2종) | 문법 통과 |
 
-작업 트리를 고친 것과 새 클론이 정상인 것은 다른 주장이라 둘 다 확인했다.
+작업 트리를 고친 것과 새 클론이 정상인 것은 다른 주장이라 둘 다 확인했고, 거기서 멈추지 않고 **심사자가 아무 준비 없이 밟는 범위 전체**(클론 → 빌드 → 게이트 → 데이터셋 취득)를 새 클론에서 한 번에 돌렸다.
 `node scripts/verify-line-endings.mjs` 가 CI 에서 재발을 막는다.
 
 ### 실행 순서가 결과를 바꾸지 않는다
