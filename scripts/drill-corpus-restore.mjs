@@ -64,14 +64,41 @@ try {
 const after = await snapshot();
 console.log(`실행 후: ${JSON.stringify(after)}`);
 
-const drift = Object.keys(before).filter((k) => before[k] !== after[k]);
+// 데모도 같은 성질을 지켜야 한다. §9 가 "npm run demo 는 DB 에 쓰지 않는다" 고
+// 적었고, 심사자가 가장 먼저 돌리는 것이 데모다. 적었으면 검사가 지킨다.
+try {
+  // 데모는 bench 시드 전용이고 스스로 그걸 확인한다. DATASET 을 물려주면
+  // 정당하게 거절당한다 — 드릴이 그 거절을 데모 실패로 오해하지 않도록 비운다.
+  const demoEnv = { ...process.env };
+  delete demoEnv.DATASET;
+  execFileSync("npm", ["run", "demo"], {
+    cwd: resolve(ROOT, "air-server"),
+    env: demoEnv,
+    stdio: "ignore",
+    shell: true,
+    timeout: 10 * 60 * 1000,
+  });
+} catch (e) {
+  console.error(`\n데모가 실패했다: ${e.message}\n`);
+  process.exit(1);
+}
+const afterDemo = await snapshot();
+console.log(`데모 후: ${JSON.stringify(afterDemo)}`);
+
+const drift = Object.keys(before).filter(
+  (k) => before[k] !== after[k] || before[k] !== afterDemo[k],
+);
 if (drift.length) {
   console.error("\n실패: 평가가 코퍼스를 바꿨다.");
-  for (const k of drift) console.error(`  - ${k}: ${before[k]} -> ${after[k]}`);
+  for (const k of drift) {
+    const who = before[k] !== after[k] ? "벡터 평가" : "데모";
+    const got = before[k] !== after[k] ? after[k] : afterDemo[k];
+    console.error(`  - ${k}: ${before[k]} -> ${got} (${who})`);
+  }
   console.error("\n평가는 자기가 읽는 데이터를 남겨 두고 나와야 한다.\n");
   process.exit(1);
 }
 
-console.log("\nOK: 벡터 평가 후 코퍼스가 실행 전과 동일하다.");
+console.log("\nOK: 벡터 평가와 데모 후에도 코퍼스가 실행 전과 동일하다.");
 console.log('    ("고쳤다" 와 "고쳐졌다" 는 다르다 — 이 저장소는 그것 때문에 한 번 당했다.)');
 process.exit(0);
