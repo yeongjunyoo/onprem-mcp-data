@@ -300,6 +300,15 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "test_total" },
+  // ★ 심사자가 실제로 채점하는 문서다. README 만 묶고 여기를 두면, 정작 점수가
+  // 매겨지는 표가 낡아도 아무도 모른다.
+  { doc: "docs/submission-report.md", metric: "route_insample" },
+  { doc: "docs/submission-report.md", metric: "kg_recall" },
+  { doc: "docs/submission-report.md", metric: "vector_hit5" },
+  { doc: "docs/submission-report.md", metric: "ask_evidence" },
+  { doc: "docs/submission-report.md", metric: "ask_grounded_ratio" },
+  { doc: "docs/submission-report.md", metric: "ask_median_ms_host" },
+
   { doc: "README.md", metric: "route_insample" },
   { doc: "README.md", metric: "ask_grounded_ratio" },
   { doc: "README.md", metric: "multistep" },
@@ -360,6 +369,31 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
       `필수 claim: ${doc} 의 ${marker} **결과 칸**에 측정값 ${want} 가 없다 ` +
         `(결과 칸 = "${resultCell.trim().slice(0, 50)}")`,
     );
+  }
+}
+
+// ── E. 폐기된 지연값이 어디에도 남아 있지 않은지 ──────────────────────────
+//
+// 지연은 재측정할 때마다 바뀌는데 문서 곳곳(표가 아닌 산문 포함)에 박힌다.
+// 표 검사는 파이프 행만 보므로 산문에 남은 옛 값을 못 잡는다 — 실제로
+// docs/report.md 에 18472ms 가 남아 있었다.
+//
+// 정본이 아닌 지연값이 문서에 있으면 실패시킨다. 과거 서술이 필요하면
+// "이전 측정" 처럼 맥락을 붙이지 말고 아예 값을 빼거나 표에 metric-ok 로 남긴다.
+const LATENCY_DOCS = ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"];
+const liveLatency = new Set([canonical.ask_median_ms, canonical.ask_median_ms_host]);
+
+for (const doc of LATENCY_DOCS) {
+  if (!existsSync(resolve(ROOT, doc))) continue;
+  for (const line of prose(doc)) {
+    if (line.includes("<!--metric-ok-->")) continue;
+    for (const m2 of line.matchAll(/(\d{3,6})\s*ms/g)) {
+      if (!liveLatency.has(m2[1])) {
+        fails.push(
+          `폐기된 지연값: ${doc} 에 ${m2[1]}ms 가 남아 있다 (현행 ${[...liveLatency].join(" / ")}ms)`,
+        );
+      }
+    }
   }
 }
 
