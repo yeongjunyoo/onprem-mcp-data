@@ -224,9 +224,18 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
     );
     continue;
   }
-  // marker가 붙은 행은 metric-ok로 면제되지 않는다. 필수 claim은 침묵시킬 수 없다.
-  if (!hasExactValue(rows[0], want)) {
-    fails.push(`필수 claim: ${doc} 의 ${marker} 행에 측정값 ${want} 가 없다 (…${rows[0].trim().slice(0, 70)}…)`);
+  // ★ 행 전체가 아니라 **결과 셀**에서 찾는다.
+  //
+  // 행 전체를 보면 `| 라벨 | **0.001** | 참고 0.900 | <!--marker-->` 가 통과한다.
+  // 값은 비고 칸에 있고 정작 보이는 결과는 틀렸는데도 만족된다(4세대 리뷰 지적).
+  // 이 저장소의 지표 표는 `| 지표 | 값 | 비고 … |` 규약이므로 두 번째 칸이 결과다.
+  const cells = rows[0].split("|").slice(1, -1);
+  const resultCell = cells[1] ?? "";
+  if (!hasExactValue(resultCell, want)) {
+    fails.push(
+      `필수 claim: ${doc} 의 ${marker} **결과 칸**에 측정값 ${want} 가 없다 ` +
+        `(결과 칸 = "${resultCell.trim().slice(0, 50)}")`,
+    );
   }
 }
 
