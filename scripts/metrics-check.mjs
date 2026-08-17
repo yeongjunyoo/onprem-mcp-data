@@ -169,6 +169,17 @@ if (fs_.noCrashRate !== 1 || fs_.partialRate !== 1 || fs_.errorVisibleRate !== 1
 }
 // 한 칸에 같은 값이 여러 번 나오면 하나만 바꿔도 통과한다(실측: 4/4 가 셋이라
 // 무중단만 3/4 로 바꿔도 검사가 못 잡았다). 세 지표를 각각 자기 행으로 결속한다.
+// in-sample 라우팅 30/30 은 헤드라인인데 결속돼 있지 않았다. 라우터가 바뀌어
+// 29/30 이 돼도 문서는 30/30 이라고 적었을 것이다.
+const route = readJson("eval/results/companyx-route.json");
+const rs = route.summary;
+canonical.route_insample = `${rs.exact_lane_match}/${rs.n}`;
+// 결정론은 "튜닝 0" 주장의 뼈대다. 플래그가 false 로 뒤집히면 문서만 고쳐서는
+// 안 되고 라우터를 봐야 한다 — 여기서 막는다.
+if (rs.deterministic_20_runs !== true) {
+  fails.push(`결정론: companyx-route.json 의 deterministic_20_runs 가 ${rs.deterministic_20_runs} 다`);
+}
+
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
 canonical.faults_partial = `${Math.round(fs_.partialRate * fs_.total)}/${fs_.total}`;
 canonical.faults_errvis = `${Math.round(fs_.errorVisibleRate * fs_.total)}/${fs_.total}`;
@@ -278,6 +289,9 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "test_total" },
+  { doc: "README.md", metric: "route_insample" },
+  { doc: "README.en.md", metric: "route_insample" },
+  { doc: "README.en.md", metric: "kg_recall" },
   { doc: "README.md", metric: "faults_nocrash" },
   { doc: "README.md", metric: "faults_partial" },
   { doc: "README.md", metric: "faults_errvis" },
