@@ -141,13 +141,23 @@ export function buildResources() {
           {
             schema: "onprem-mcp-data/audit/v1",
             fields: {
-              fingerprint: "답변을 제외한 결정론 구간의 해시. 같은 질의는 같은 값을 낸다",
+              schema: "이 레코드의 스키마 식별자",
+              query: "감사 대상이 된 원 질의",
+              // 지문이 둘인 것은 설계다. 하나로 적으면 "무엇이 결정론이고 무엇이
+              // 아닌가" 라는 이 프로젝트의 논지가 레코드에서 사라진다.
+              routing_fingerprint:
+                "라우팅 규칙 구간만 덮는 해시. 모델과 무관하므로 같은 질의는 항상 같은 값을 낸다",
+              pipeline_fingerprint:
+                "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
               retrieval: "레인별 실행 결과와 후보 수",
               fusion: "RRF 상위 항목과 합의한 소스",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",
-              grounding: "답변이 컨텍스트 밖 개체를 만들었는지",
+              grounding:
+                "답변이 컨텍스트 밖 개체를 만들었는지. **ask 처럼 답변을 만드는 경로에서만 붙는다** — retrieve 감사에는 없다",
+              branch_errors: "레인별로 실패한 내용. 일부가 죽어도 나머지로 답했다는 근거가 된다",
+              generated_at: "레코드 생성 시각(ISO 8601)",
             },
             policies: {
               "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",

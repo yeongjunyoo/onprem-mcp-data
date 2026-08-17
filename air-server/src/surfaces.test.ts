@@ -5,6 +5,7 @@
 import { buildPrompts } from "./prompts.js";
 import { buildAnswerPrompt } from "./llm.js";
 import { buildCompanyxSqlPrompt } from "./nl2sql.js";
+import { buildAuditRecord } from "./auditrecord.js";
 import { buildResources } from "./resources.js";
 import { resolveTransport } from "./server.js";
 
@@ -59,6 +60,62 @@ async function main() {
     ["smoke", "bench", "companyx"].some((n) => card.split("\n")[0].includes(n)),
     "밝힌 프로파일 이름이 유효하다",
   );
+
+  // ★ 감사 스키마 리소스는 실물과 필드가 같아야 한다.
+  //
+  // 설명이 "감사 결과를 파싱하려는 쪽이 먼저 읽을 문서다" 라고 말한다. 즉 호스트가
+  // 이걸 계약으로 삼는다. 계약이 실물과 다르면 파싱이 조용히 깨진다.
+  //
+  // 실제로 갈려 있었다 — 리소스는 `fingerprint` 하나를 적었는데 레코드에는
+  // routing_fingerprint / pipeline_fingerprint 둘이 있다. 그 분리는 "무엇이
+  // 결정론이고 무엇이 아닌가" 를 보여 주는 설계인데 문서에서 사라져 있었고,
+  // branch_errors(우아한 저하 근거)와 generated_at 도 빠져 있었다.
+  const auditRes = resources.find((r) => r.uri === "audit://schema/v1")!;
+  const auditDoc = JSON.parse(
+    String(await auditRes.handler(auditRes.uri, { requestId: "t", serverName: "s" })),
+  );
+  const sampleRecord = buildAuditRecord({
+    query: "표면 테스트",
+    route: "structured",
+    sql: { text: "SELECT 1", result: undefined, repaired: false },
+    fused: [],
+    curated: { kept: [], dropped: [], tokensUsed: 0, budget: 256, brokenRows: 0, notes: [] },
+    context: "",
+    audit: {
+      route: {
+        route: "structured",
+        lane: "관계형",
+        tools: ["sql.query"],
+        structured_signals: [],
+        semantic_signals: [],
+        graph_signals: [],
+        rationale: "",
+        deterministic: true,
+      },
+      candidates: { sql: 0, vector: 0, graph: 0, fused: 0 },
+      branch_errors: [],
+      curate: {
+        kept: [],
+        dropped: [],
+        tokens_used: 0,
+        budget: 256,
+        broken_rows: 0,
+        structure_preserved: true,
+      },
+    },
+  } as never);
+  const documentedFields = Object.keys(auditDoc.fields ?? {}).sort();
+  const actualFields = Object.keys(sampleRecord).sort();
+  // 답변을 만드는 경로에서만 붙는 선택 필드. 그냥 예외로 빼면 다음에 진짜 유령이
+  // 생겨도 못 잡으므로, 타입에서 선택인 것만 이름으로 못박아 둔다.
+  const OPTIONAL_FIELDS = ["grounding"];
+  const undocumented = actualFields.filter((f) => !documentedFields.includes(f));
+  const phantom = documentedFields.filter(
+    (f) => !actualFields.includes(f) && !OPTIONAL_FIELDS.includes(f),
+  );
+  ok(undocumented.length === 0, `감사 레코드의 모든 필드가 문서화됨 (누락: ${undocumented})`);
+  ok(phantom.length === 0, `문서에 없는 필드를 지어내지 않음 (유령: ${phantom})`);
+  ok(auditDoc.schema === sampleRecord.schema, "스키마 식별자가 실물과 같다");
 
   const prof = resources.find((r) => r.uri === "profile://dataset/active")!;
   const profJson = JSON.parse(String(await prof.handler(prof.uri, { requestId: "t", serverName: "s" })));
