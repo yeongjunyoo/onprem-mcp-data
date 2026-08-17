@@ -236,11 +236,14 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
   // 행 전체를 보면 `| 라벨 | **0.001** | 참고 0.900 | <!--marker-->` 가 통과한다.
   // 값은 비고 칸에 있고 정작 보이는 결과는 틀렸는데도 만족된다(4세대 리뷰 지적).
   // 이 저장소의 지표 표는 `| 지표 | 값 | 비고 … |` 규약이므로 두 번째 칸이 결과다.
-  // 이스케이프된 파이프(`\\|`)는 셀 구분자가 아니다. 먼저 치환해 두고 나눈다.
-  // QA가 `**73/74 \\| 0.986**` 로 오탐(false fail)을 재현했다.
+  // 이스케이프된 파이프는 셀 구분자가 아니다. 단 **백슬래시 패리티**를 봐야 한다 —
+  // `\\|` 처럼 백슬래시가 짝수 개면 서로를 이스케이프하고 파이프는 구조적이다.
+  // 홀수 개일 때만 파이프가 escape 된다. QA가 짝수 케이스로 우회를 재현했다.
   const SENTINEL = "\u0000";
-  const cells = rows[0].replace(/\\\|/g, SENTINEL).split("|").slice(1, -1)
-    .map((c) => c.split(SENTINEL).join("|"));
+  const masked = rows[0].replace(/(\\*)\|/g, (_m, bs) =>
+    bs.length % 2 === 1 ? `${bs.slice(0, -1)}${SENTINEL}` : `${bs}|`,
+  );
+  const cells = masked.split("|").slice(1, -1).map((c) => c.split(SENTINEL).join("\\|"));
   const resultCell = cells[1] ?? "";
   if (!hasExactValue(resultCell, want)) {
     fails.push(
