@@ -43,7 +43,7 @@
   "scripts": {
     "prepack": "node scripts/prepack.mjs && node node_modules/typescript/bin/tsc",
     "dev": "air dev",
-    "start": "air start",
+    "start": "node dist/index.js",
     "build": "tsc",
     "test": "tsc && node dist/claims.test.js && node dist/normalize.test.js && node dist/auditrecord.test.js && node dist/surfaces.test.js && node dist/router.test.js && node dist/curator.test.js && node dist/rrf.test.js && node dist/evalmatch.test.js && node dist/db.test.js && node dist/server.test.js && node dist/pipeline.test.js && node dist/llm.test.js",
     "test:kg": "tsc && node dist/cli/gen-bench.js && EMBEDDER=ollama EMBED_MODEL=bge-m3 node dist/cli/embed-bench.js && node dist/graph.test.js && node dist/kgretrieve.test.js",
