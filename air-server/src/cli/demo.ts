@@ -45,8 +45,10 @@ async function main() {
   // 어느 Ollama에 붙었는지 먼저 밝힌다. 호스트와 컨테이너가 둘 다 있을 때
   // 조용히 엉뚱한 쪽에 붙는 사고를 막는다(docker-compose.yml의 11435 주석 참조).
   {
-    const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b"];
-    if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
+    // 이 데모는 위에서 OllamaEmbedder를 **무조건** 만든다. 그러므로 임베딩 모델도
+    // EMBEDDER 설정과 무관하게 항상 필요하고 항상 확인해야 한다. 설정 플래그가
+    // 아니라 실제로 만드는 객체가 의존 관계를 정한다(4세대 리뷰 지적).
+    const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b", "bge-m3"];
     const probe = await probeOllama();
     if (!reportOllama(probe, need)) process.exit(1);
     // 태그에 있다고 서빙되는 것은 아니다. 실제로 한 번씩 불러본다.
@@ -57,8 +59,8 @@ async function main() {
       console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다.\n`);
       process.exit(1);
     }
-    if ((process.env.EMBEDDER ?? "") === "ollama") {
-      const serving = await probeServing(probe.host, process.env.EMBED_MODEL ?? "bge-m3");
+    {
+      const serving = await probeServing(probe.host, "bge-m3");
       if (!serving.ok) {
         console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
         console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인한다.\n`);
