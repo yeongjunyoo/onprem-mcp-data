@@ -9,6 +9,10 @@
 // 새로 만들지 않는다.
 import { definePrompt } from "@airmcp-dev/core";
 
+// 노출본을 손으로 베끼지 않는다. 실행 경로가 쓰는 바로 그 함수를 부른다.
+import { buildAnswerPrompt } from "./llm.js";
+import { buildCompanyxSqlPrompt } from "./nl2sql.js";
+
 import { profile } from "./profile.js";
 
 export function buildPrompts() {
@@ -22,21 +26,14 @@ export function buildPrompts() {
         { name: "question", description: "사용자 질문", required: true },
         { name: "context", description: "검색으로 모은 근거 묶음", required: true },
       ],
+      // ask 도구가 실제로 쓰는 프롬프트를 그대로 돌려준다. 종전에는 여기에
+      // 손으로 줄인 사본이 있었고, 실제에만 있던 언어 고정·그래프 트리플 해석·
+      // SQL 결과 인용 규칙이 빠져 있었다. "서버가 쓰는 규칙과 같다" 는 설명이
+      // 사실이 아니었던 것이다.
       handler: (args) => [
         {
           role: "user",
-          content: [
-            "아래 컨텍스트만 근거로 한국어로 답하세요.",
-            "규칙:",
-            "- 컨텍스트에 없는 개체(고객사, 제품, 사람, 부서)를 답에 넣지 않습니다.",
-            "- 근거가 없으면 추측하지 말고 주어진 정보로는 알 수 없다고 답합니다.",
-            "- id가 아니라 이름으로 답합니다. 동점이면 전부 나열합니다.",
-            "",
-            "[컨텍스트]",
-            args.context ?? "",
-            "",
-            `[질문] ${args.question ?? ""}`,
-          ].join("\n"),
+          content: buildAnswerPrompt(String(args.question ?? ""), String(args.context ?? "")),
         },
       ],
     }),
@@ -47,20 +44,12 @@ export function buildPrompts() {
         "값 어휘까지 담은 스키마 카드를 주고 단일 읽기 전용 SQL을 생성하게 하는 템플릿. " +
         "이 카드의 유무가 정확도를 가른다는 것이 이 프로젝트의 실증 논지다(개발보고서 0.6, 0.10).",
       arguments: [{ name: "question", description: "자연어 질문", required: true }],
+      // companyx NL2SQL 경로가 실제로 쓰는 프롬프트. 사본을 두면
+      // "테이블은 반드시 companyx. 접두사" 같은 규칙이 조용히 빠진다.
       handler: (args) => [
         {
           role: "user",
-          content: [
-            "다음은 PostgreSQL 스키마입니다.",
-            profile().schemaCard,
-            "",
-            "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
-            "설명, 주석, 코드펜스, 세미콜론 없이 SQL만 출력합니다.",
-            "사람이 읽을 답을 돌려주세요. 부서, 고객사, 제품, 직원을 물으면 id가 아니라 name을 조인해 반환합니다.",
-            "",
-            `질문: ${args.question ?? ""}`,
-            "SQL:",
-          ].join("\n"),
+          content: buildCompanyxSqlPrompt(String(args.question ?? "")),
         },
       ],
     }),
