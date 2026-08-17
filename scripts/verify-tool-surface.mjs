@@ -135,6 +135,25 @@ if (gateStart >= 0) {
   if (phantom.length) fails.push(`README 검사 표에 실물 없는 항목: ${phantom.join(", ")}`);
   if (unlisted.length) fails.push(`검사를 만들고 README 표에 안 적었다: ${unlisted.join(", ")}`);
   console.log(`검사 표: README ${listed.length}개 = scripts ${gateFiles.length}개.`);
+  // 표의 「CI」 열이 워크플로와 맞는가.
+  //
+  // 이름만 맞추면 절반이다. 심사자는 이 열을 보고 **무엇이 자동으로 지켜지는지**를
+  // 읽는다. "예" 라고 적힌 검사가 실제로는 CI 밖이면, 자동이라고 믿는 것이 수동인
+  // 상태다 — 오늘 잡은 결함 대부분이 이 형태였다.
+  const workflow = readFileSync(resolve(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  const inCi = new Set([...workflow.matchAll(/node scripts\/([a-z0-9-]+)\.mjs/g)].map((m) => m[1]));
+  if (workflow.includes("sbom")) inCi.add("sbom");
+  for (const row of table.matchAll(/^\| `([a-z0-9-]+)` \| .+? \| (.+?) \|$/gm)) {
+    const [, name, ciCol] = row;
+    const claimsCi = ciCol.trim() === "예";
+    if (claimsCi !== inCi.has(name)) {
+      fails.push(
+        `README 검사 표의 CI 열이 틀렸다: ${name} 은 "${ciCol.trim()}" 인데 워크플로에는 ` +
+          `${inCi.has(name) ? "있다" : "없다"}`,
+      );
+    }
+  }
+
 }
 
 // ── 버전 정본 ────────────────────────────────────────────────────────────
