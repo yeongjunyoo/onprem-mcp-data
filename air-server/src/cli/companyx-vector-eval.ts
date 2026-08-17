@@ -42,6 +42,24 @@ async function inputHashes(root: string, files: string[]): Promise<Record<string
   return out;
 }
 
+/** 임베딩 컬럼 폭을 임베더 차원에 맞추고 읽기 뷰를 다시 만든다.
+ *
+ * 루프와 복원이 **같은 정의**를 써야 한다. 종전에는 복원이 뷰 정의를 따로 적었고
+ * 컬럼 이름이 실제 스키마와 달라, 복원 중 DROP VIEW 뒤 CREATE 가 실패하면서
+ * 뷰가 통째로 사라졌다(실측: relation "companyx.documents" does not exist). */
+async function realign(pool: Pool, dim: number): Promise<void> {
+  await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
+  await pool.query(
+    `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${dim}) USING NULL`,
+  );
+  await pool.query(
+    `CREATE VIEW ${CX_SCHEMA}.documents AS
+       SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
+              content AS body, embedding
+         FROM ${CX_SCHEMA}.document_chunks`,
+  );
+}
+
 /** 코퍼스를 주 임베더로 되돌린다.
  *
  * ★ 이 복원은 **반드시** 돌아야 한다. 종전에는 루프 뒤 평범한 문장이라, 비교
@@ -52,6 +70,7 @@ async function inputHashes(root: string, files: string[]): Promise<Record<string
  * 평가 도구는 자기가 건드린 상태를 원위치시켜야 한다. 그러지 않으면 그 도구는
  * 측정 도구가 아니라 부작용이다. */
 async function restoreCorpus(pool: Pool, primary: Embedder) {
+  await realign(pool, primary.dim);
   const restored = await embedCompanyXChunks(pool, primary, CX_SCHEMA);
   console.log(`\n코퍼스를 주 임베더로 복원: ${primary.name} ${JSON.stringify(restored)}`);
   return restored;
@@ -81,6 +100,17 @@ async function main() {
       ? index.map((e) => e.id).filter((id) => item.keywords.every((kw) => text.get(id)!.includes(kw.toLowerCase())))
       : [];
 
+  // 이 평가는 companyx 전용이다. 다른 프로파일로 돌리면 주 임베더의 차원이
+  // companyx 스키마와 어긋나 복원이 실패하고 코퍼스가 빈 채 남는다(QA 재현).
+  // 설정이 아니라 대상이 정해진 도구이므로 여기서 못 박는다.
+  if ((process.env.DATASET ?? "") !== "companyx") {
+    console.error("\n이 평가는 DATASET=companyx 로 실행해야 한다.");
+    console.error("  다른 프로파일에서는 임베딩 차원이 어긋나 복원이 실패하고 코퍼스가 비워진다.\n");
+    console.error("  DATASET=companyx EMBEDDER=ollama OLLAMA_HOST=... node dist/cli/companyx-vector-eval.js\n");
+    process.exitCode = 1;
+    return;
+  }
+
   const pool = getPool();
   const k = Number(process.env.CX_TOPK ?? 5);
   // Compared head to head because the choice decides whether the sponsor's
@@ -104,16 +134,7 @@ async function main() {
       // Each embedder needs the corpus embedded with ITS OWN vectors.
       // Each embedder needs its own column width; realign before backfilling.
       // The read view depends on the column, so drop and recreate it around the widen.
-      await pool.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
-      await pool.query(
-        `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
-      );
-      await pool.query(
-        `CREATE VIEW ${CX_SCHEMA}.documents AS
-           SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
-                  content AS body, embedding
-             FROM ${CX_SCHEMA}.document_chunks`,
-      );
+      await realign(pool, emb.dim);
       const backfill = await embedCompanyXChunks(pool, emb, CX_SCHEMA);
       const rows = [];
       let hits = 0,
