@@ -49,6 +49,11 @@ jobs:
       - name: 테스트 단언 수가 러너 실측과 일치하는지
         working-directory: .
         run: node scripts/verify-test-counts.mjs
+      # 증거 매니페스트가 실제 아티팩트와 어긋나면 실패한다.
+      # 매니페스트 자체가 낡으면 그것이 다음 번 낡은 아티팩트다.
+      - name: 증거 매니페스트 드리프트 검사
+        working-directory: .
+        run: node scripts/evidence-manifest.mjs
 
   sbom:
     name: SBOM drift check
