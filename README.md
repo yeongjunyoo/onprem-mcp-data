@@ -68,6 +68,7 @@ flowchart LR
 
 - **라우터는 모델을 부르지 않습니다.** 질의 어휘를 스키마와 그래프 온톨로지에 대조하는 규칙 기반이라 튜닝 파라미터가 없고, 같은 질문에 같은 분기를 냅니다.
 - **SQL은 읽기 전용으로 강등된 롤에서만 실행됩니다.** 쓰기 구문, 다중 구문 연결, 수퍼유저 함수는 거부되고 statement와 lock에 타임아웃이 걸립니다.
+  이 문단의 주장은 `node scripts/verify-security-claims.mjs` 가 실제 DB 에 물어 확인합니다 — 실측 `current_user=mcp_ro` · `statement_timeout=8s` · `lock_timeout=2s` · `pg_read_file`/`pg_ls_dir` 거부. **보안 주장은 그렇게 짰다가 아니라 그렇게 도는가로만 증명됩니다.**
   방어는 2층입니다 — 문자열 가드와 `READ ONLY` 트랜잭션. **위층을 일부러 우회해 아래층만 남긴 상태**로 `node scripts/drill-readonly-defense.mjs` 를 돌려 데이터가 그대로임을 확인합니다(실측: orders 5행 → DELETE·UPDATE·INSERT 시도 → 5행). 층을 둘 쌓아 놓고 위층만 시험하면 아래층은 장식입니다.
 - **큐레이션은 구조를 깨지 않습니다.** 표는 표로, 관계는 관계 문장으로 컨텍스트에 들어갑니다.
 - **질문이 지목한 개체를 못 찾으면 컨텍스트를 비웁니다.** 관계를 통째로 밀어 넣으면 소형 모델은 그럴듯한 답을 지어냅니다. 그래서 미해소 개체는 0건과 not found로 만듭니다.
