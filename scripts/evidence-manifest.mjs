@@ -11,7 +11,6 @@
 //   node scripts/evidence-manifest.mjs           # 검사 (드리프트면 exit 1)
 //   node scripts/evidence-manifest.mjs --write   # 재생성
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,20 +24,6 @@ const WRITE = process.argv.includes("--write");
  * 해시하면 같은 내용이 플랫폼마다 다른 해시가 된다(CI 에서 실제로 깨졌다). */
 const sha = (buf) =>
   createHash("sha256").update(buf.toString("utf8").replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
-
-const lastCommit = (rel) => {
-  try {
-    // %cI 는 로컬 타임존이라 환경마다 다른 문자열이 된다(실측: +09:00 vs UTC).
-    // %cd + iso-strict-local + TZ=UTC 대신 %cI 를 UTC 로 강제한다.
-    return execFileSync("git", ["log", "-1", "--date=iso-strict-local", "--format=%cd", "--", rel], {
-      env: { ...process.env, TZ: "UTC" },
-      cwd: ROOT,
-      encoding: "utf8",
-    }).trim().slice(0, 19);
-  } catch {
-    return "";
-  }
-};
 
 const stampOf = (name, text) => {
   if (name.endsWith(".json")) {
@@ -67,7 +52,7 @@ const rows = readdirSync(DIR)
     // 크기도 해시와 같은 기준으로 센다. 원시 바이트는 CRLF/LF 로 갈려
     // Windows 작업본과 Linux CI 가 다른 값을 낸다(실측: 22,701 vs 21,907).
     const normalized = Buffer.byteLength(text.replace(/\r\n/g, "\n"), "utf8");
-    return { n, size: normalized, digest: sha(buf), stamp: stampOf(n, text), commit: lastCommit(`eval/results/${n}`) };
+    return { n, size: normalized, digest: sha(buf), stamp: stampOf(n, text) };
   });
 
 const selfStamped = rows.filter((r) => r.stamp).length;
@@ -78,17 +63,20 @@ const body = [
   "문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.",
   "",
   `**${selfStamped}/${rows.length} 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어`,
-  "마지막 커밋 시각으로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.",
+  "`git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.",
   "없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.",
+  "",
+  "커밋 시각 열은 두지 않는다. CI 는 얕은 클론이라 `git log` 가 이력 대신 checkout",
+  "시각을 주므로 환경마다 값이 달라진다 — 재현 가능한 값만 남긴다.",
   "",
   "해시는 줄바꿈을 정규화한 SHA-256 앞 16자다(git 이 OS 마다 CRLF/LF 를 바꾸므로).",
   "",
   "이 파일은 `node scripts/evidence-manifest.mjs --write` 로 생성하고, CI 가 재생성해도",
   "달라지지 않는지 검사한다. **매니페스트 자체가 낡으면 그것이 다음 번 낡은 아티팩트다.**",
   "",
-  "| 파일 | 크기 | sha256(16) | 자체 생성시각 | 마지막 커밋 |",
-  "|---|---:|---|---|---|",
-  ...rows.map((r) => `| \`${r.n}\` | ${r.size.toLocaleString("en-US")} | \`${r.digest}\` | ${r.stamp || "—"} | ${r.commit || "—"} |`),
+  "| 파일 | 크기 | sha256(16) | 자체 생성시각 |",
+  "|---|---:|---|---|",
+  ...rows.map((r) => `| \`${r.n}\` | ${r.size.toLocaleString("en-US")} | \`${r.digest}\` | ${r.stamp || "—"} |`),
   "",
   "## 재생성",
   "",
