@@ -144,7 +144,7 @@ air는 **19개 플러그인**을 제공하는데 본 구현은 timeout/retry/cir
 
 쓰지 않은 것에도 근거를 둔다: auth/cors/rateLimit은 stdio 로컬 배포에 불필요하고, transform/i18n은 응답 계약을 흐리며, dryrun은 개발 전용이다.
 
-또한 이전 문서가 "stdio→HTTP transport는 후속"이라고 적어둔 항목은 **air가 설정 한 줄로 지원**한다(`transport: { type: 'sse', port }`). `MCP_TRANSPORT=sse`로 전환된다.
+또한 이전 문서가 "stdio→HTTP transport는 후속"이라고 적어둔 항목은 **air가 설정 한 줄로 지원**한다(`transport: { type: 'sse', port }`). `MCP_TRANSPORT=sse`로 전환된다. 다만 **소스에 분기가 있다는 것과 그 분기가 도는 것은 다르다** — stdio 는 데모가 매번 종단으로 밟지만 sse 는 띄워본 기록이 없었다. `scripts/verify-sse-transport.mjs` 로 initialize → tools/list 까지 실행해 도구 8종 열거를 확인했다(2026-08-17).
 
 ### 0.8.5 남은 최대 갭 — 키워드 검색
 
