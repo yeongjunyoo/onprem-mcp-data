@@ -29,6 +29,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 프리플라이트 — 우리가 보는 데몬에 컨테이너가 있는가.
+#
+# 이 머신에는 docker 가 둘 있을 수 있다(Docker Desktop / Engine Community). 셸이
+# 어느 쪽에 붙느냐에 따라 compose 컨테이너가 안 보이고, 그때 docker 는
+# "No such container" 라고 답한다 — **컨테이너가 없다는 뜻이 아니라 내가 보는
+# 데몬에 없다는 뜻**이다. 받는 사람은 컨테이너를 다시 띄우려 하고 같은 에러를 본다.
+if ! docker inspect "$P" >/dev/null 2>&1; then
+  echo "실패: 컨테이너 $P 를 이 docker 데몬에서 찾지 못했다." >&2
+  echo "  현재 context : $(docker context show 2>/dev/null || echo unknown)" >&2
+  echo "  보이는 컨테이너: $(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ' ')" >&2
+  echo "" >&2
+  echo "  컨테이너가 정말 없다면:  docker compose up -d" >&2
+  echo "  띄웠는데도 안 보인다면 셸이 다른 docker 데몬에 붙어 있다:" >&2
+  echo "    docker context ls          # 어떤 것이 있는지" >&2
+  echo "    docker context use desktop-linux   # Docker Desktop 을 쓰는 경우" >&2
+  exit 1
+fi
+
 mkdir -p "$ROOT/eval/results"
 {
 echo "# Replica spike — $(date -u +%FT%TZ)"

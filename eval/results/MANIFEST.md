@@ -48,7 +48,7 @@
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
 | `recall-compare.json` | 545 | `fe6b533844c9b0a2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
-| `replica-spike.log` | 593 | `1249589cd8a28839` | 2026-08-17T15:11:32 |
+| `replica-spike.log` | 166 | `4c5545e73e814737` | 2026-08-17T21:33:07 |
 | `test-counts.json` | 1,533 | `ebb4d1d8db1ea346` | 2026-08-17T16:40:00 |
 
 ## 재생성
