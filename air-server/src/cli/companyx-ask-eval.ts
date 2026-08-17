@@ -28,7 +28,7 @@ import { getEmbedder } from "../embedder.js";
 import { ask } from "../pipeline.js";
 import { profile } from "../profile.js";
 import { isAvailable } from "../llm.js";
-import { loadQuestions, loadGraph, datasetDir, type CxQuestion } from "../companyx.js";
+import { loadQuestions, loadGraph, datasetDir, type CxQuestion, requireDataset } from "../companyx.js";
 
 interface SqlGold {
   id: string;
@@ -66,6 +66,7 @@ async function inputHashes(root: string, files: string[]): Promise<Record<string
 }
 
 async function main() {
+  requireDataset();
   const ds = profile();
   if (ds.name !== "companyx") {
     console.error(`FAIL: DATASET=companyx 로 실행해야 한다 (현재 ${ds.name})`);

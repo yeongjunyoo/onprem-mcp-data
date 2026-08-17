@@ -16,7 +16,7 @@ import { closePool, getPool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
 import { keywordIndexReady, keywordSearch } from "../keyword.js";
 import { rrfMerge, type Ranked } from "../rrf.js";
-import { datasetDir } from "../companyx.js";
+import { datasetDir, requireDataset } from "../companyx.js";
 import { vectorSearch } from "../vector.js";
 
 interface GoldItem {
@@ -40,6 +40,7 @@ function wilson(k: number, n: number): [number, number] {
 }
 
 async function main() {
+  requireDataset();
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   const goldFile = JSON.parse(

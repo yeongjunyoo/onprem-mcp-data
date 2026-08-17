@@ -10,9 +10,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
-import { loadCompanyX, embedCompanyXChunks, datasetDir, CX_SCHEMA } from "../companyx.js";
+import { loadCompanyX, embedCompanyXChunks, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
 
 async function main() {
+  requireDataset();
   const pool = getPool();
   const emb = getEmbedder();
   const t0 = Date.now();

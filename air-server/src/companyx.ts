@@ -21,6 +21,7 @@
 //     what makes cross-lane (SQL ∥ vector ∥ graph) canonical agreement measurable.
 
 import { readFile, readdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Pool } from "./db.js";
@@ -33,6 +34,24 @@ export function datasetDir(): string {
   if (process.env.DATASET_DIR) return resolve(process.env.DATASET_DIR);
   const here = dirname(fileURLToPath(import.meta.url));
   return resolve(here, "..", "..", "datasets", "companyx-v1.0");
+}
+
+/** 데이터셋이 실제로 있는지 확인하고, 없으면 **무엇을 해야 하는지** 알려주고 멈춘다.
+ *
+ * 사업자 데이터셋은 배포 조건상 저장소에 포함하지 않는다. 그래서 갓 clone 한
+ * 사람이 companyx 평가를 돌리면 raw `ENOENT: ... documents/index.json` 이 뜬다
+ * (실측: 신선한 clone 에서 재현). 심사자가 가장 먼저 만날 실패인데, 그 메시지는
+ * 무엇이 잘못됐는지도 무엇을 하면 되는지도 말하지 않는다.
+ *
+ * 없는 것을 없다고 말하는 것과, 스택 트레이스를 던지는 것은 다르다. */
+export function requireDataset(dir = datasetDir()): string {
+  if (existsSync(resolve(dir, "documents", "index.json"))) return dir;
+  console.error(`\n사업자 데이터셋이 없다: ${dir}`);
+  console.error("  배포 조건상 저장소에 포함하지 않는다. 받아서 무결성까지 확인하려면:");
+  console.error("    bash scripts/fetch-companyx-dataset.sh");
+  console.error("  출처와 SHA-256 명세는 datasets/MANIFEST.md 에 있다.");
+  console.error("  데이터셋 없이도 도는 것: npm run gen:bench + npm run demo:ollama (bench 시드)\n");
+  process.exit(1);
 }
 
 // ---------- documents: structure-preserving Markdown chunking ----------

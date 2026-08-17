@@ -13,12 +13,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildAuditRecord, type AuditRecord } from "../auditrecord.js";
-import { datasetDir } from "../companyx.js";
+import { datasetDir, requireDataset } from "../companyx.js";
 import { closePool, getPool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
 import { ask } from "../pipeline.js";
 
 async function main() {
+  requireDataset();
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   const questions = JSON.parse(await readFile(join(datasetDir(), "questions.json"), "utf8")) as {
