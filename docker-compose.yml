@@ -30,6 +30,17 @@ services:
       - "11435:11434"
     volumes:
       - ollama:/root/.ollama
+    # ★ 준비 상태를 알려야 한다. mcp 서버는 기동 시 Ollama 엔드포인트와 모델을
+    # 프리플라이트로 확인하고, 실패하면 뜨지 않는다(그래야 조용히 틀린 데몬에
+    # 붙지 않는다). 그런데 준비 신호가 없으면 full 프로파일에서 mcp 가 Ollama 보다
+    # 먼저 떠 프리플라이트가 경쟁에서 지고 죽는다. 그건 환경 결함이 아니라
+    # 기동 순서 문제인데 사용자에게는 같은 실패로 보인다.
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
     # GPU optional; on Apple Silicon Ollama runs on host metal better than in-container.
     # For dev, can point the app at a host-run `ollama serve` via OLLAMA_HOST instead.
 
@@ -42,6 +53,8 @@ services:
     build: ./air-server
     depends_on:
       db:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata

@@ -1,0 +1,86 @@
+// 테스트 단언 수를 **러너 출력에서 직접 집계**해 정본과 대조한다.
+//
+// `eval/results/test-counts.json` 은 손으로 고칠 수 있는 파일이다. QA 레드팀이
+// 그 값과 문서를 함께 999 로 위조하면 지표 검사가 통과하는 것을 실증했다.
+// 문서가 정본과 일치하는지만 보면, 정본 자체가 거짓일 때 아무도 못 잡는다.
+//
+// 그래서 CI 가 **실제로 돌릴 수 있는 것**은 실제로 돌려서 센다. 오프라인 스위트는
+// DB 도 모델도 필요 없으므로 여기서 전량 실행해 합계를 낸다.
+//
+// ★ 범위 한계 (덮지 못하는 것을 덮은 척하지 않는다).
+//   통합 스위트 9종은 PostgreSQL 과 Ollama 가 있어야 돌아서 CI 에서 재현할 수 없다.
+//   그 값(integration)은 여전히 선언이고, 로컬 실행 기록으로만 뒷받침된다.
+//   즉 이 검사는 오프라인 부분의 위조를 막고, 통합 부분은 막지 못한다.
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const SERVER = resolve(ROOT, "air-server");
+
+const OFFLINE = [
+  "claims",
+  "normalize",
+  "auditrecord",
+  "surfaces",
+  "router",
+  "curator",
+  "rrf",
+  "evalmatch",
+];
+
+let counted = 0;
+const perSuite = [];
+
+for (const suite of OFFLINE) {
+  let out;
+  try {
+    out = execFileSync(process.execPath, [`dist/${suite}.test.js`], {
+      cwd: SERVER,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (e) {
+    console.error(`\n${suite}.test 가 실패했다 — 단언 수를 세기 전에 통과해야 한다.`);
+    console.error(String(e.stdout ?? e).slice(-800));
+    process.exit(1);
+  }
+  const m = /(\d+) passed, (\d+) failed/.exec(out);
+  if (!m) {
+    console.error(`\n${suite}.test 출력에서 "N passed, M failed" 를 찾지 못했다.`);
+    process.exit(1);
+  }
+  const [, passed, failed] = m;
+  if (Number(failed) !== 0) {
+    console.error(`\n${suite}.test 에 실패가 있다: ${failed}건`);
+    process.exit(1);
+  }
+  counted += Number(passed);
+  perSuite.push(`${suite}=${passed}`);
+}
+
+const canonical = JSON.parse(readFileSync(resolve(ROOT, "eval/results/test-counts.json"), "utf8"));
+
+console.log("러너 실측 (오프라인):");
+console.log("  " + perSuite.join(" "));
+console.log(`  합계 ${counted}`);
+console.log(`정본 test-counts.json: offline=${canonical.offline} integration=${canonical.integration} total=${canonical.total}`);
+
+const fails = [];
+if (canonical.offline !== counted) {
+  fails.push(`정본 offline=${canonical.offline} 인데 러너 실측은 ${counted} 이다`);
+}
+if (canonical.offline + canonical.integration !== canonical.total) {
+  fails.push(`정본 합계가 어긋난다: ${canonical.offline} + ${canonical.integration} != ${canonical.total}`);
+}
+
+if (fails.length) {
+  console.error("\n실패:");
+  for (const f of fails) console.error(`  - ${f}`);
+  console.error("\n테스트 수는 손으로 적는 값이 아니라 러너가 낸 값이다.");
+  process.exit(1);
+}
+
+console.log("\nOK: 정본의 오프라인 단언 수가 러너 실측과 일치한다.");
+console.log("    (통합 127건은 DB·모델이 필요해 CI 에서 재현할 수 없다 — 선언으로 남는다.)");

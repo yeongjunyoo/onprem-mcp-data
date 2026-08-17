@@ -43,6 +43,12 @@ jobs:
           node dist/curator.test.js
           node dist/rrf.test.js
           node dist/evalmatch.test.js
+      # 문서가 주장하는 단언 수를 **러너 출력에서 다시 세어** 대조한다.
+      # 정본 JSON 은 손으로 고칠 수 있으므로, 문서-정본 일치만으로는 정본 자체의
+      # 거짓을 못 잡는다(QA 레드팀 실증). CI 가 돌릴 수 있는 부분은 CI 가 센다.
+      - name: 테스트 단언 수가 러너 실측과 일치하는지
+        working-directory: .
+        run: node scripts/verify-test-counts.mjs
 
   sbom:
     name: SBOM drift check
