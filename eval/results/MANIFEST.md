@@ -22,10 +22,10 @@
 | `companyx-holdout-route.json` | 11,104 | `c6cd1289f3458e54` | 2026-08-17T20:34:56 |
 | `companyx-holdout2-route.json` | 11,103 | `c55c094d6969e623` | 2026-08-17T20:27:33 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
-| `companyx-kg.json` | 6,369 | `de69ff3d634f4ffa` | 2026-08-17T20:05:13 |
+| `companyx-kg.json` | 6,369 | `c19656bb01cf15b6` | 2026-08-17T22:05:02 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `215dc20923c9222d` | 2026-08-17T20:34:57 |
-| `companyx-route.json` | 23,256 | `86f32ce72b3da1de` | 2026-08-17T20:00:25 |
+| `companyx-route.json` | 23,256 | `08a77f3d61c5367e` | 2026-08-17T22:05:04 |
 | `companyx-sql-llm-norepair.json` | 4,972 | `cfd9d08c70a15248` | 2026-07-29T12:48:18 |
 | `companyx-sql-llm.json` | 4,864 | `4ad7afdcb2ec0a8f` | 2026-08-17T20:20:15 |
 | `companyx-sql-naive-norepair.json` | 5,340 | `141152e4ade6bb89` | 2026-07-29T12:49:47 |

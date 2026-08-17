@@ -507,4 +507,21 @@ if (fails.length) {
   console.error("\n문서의 수치는 손으로 적는 값이 아니라 측정 결과다. 결과를 다시 돌리거나 문서를 고쳐라.");
   process.exit(1);
 }
+// 자기가 본 규모를 말한다.
+//
+// 다른 게이트는 전부 "27곳", "158개" 처럼 규모를 말하는데 이것만 안 했다. 규모를
+// 안 말하면 **입력이 비어도 통과했는지 알 수 없다.** 2026-08-17 에 위조 테스트와
+// 적재 스냅샷이 각각 "아무것도 안 보고 초록" 으로 통과한 적이 있다.
+if (REQUIRED_CLAIMS.length === 0) {
+  console.error("\n실패: 필수 claim 목록이 비어 있다 — 검사가 아무것도 대조하지 않는다.\n");
+  process.exit(1);
+}
+if (Object.keys(canonical).length === 0) {
+  console.error("\n실패: 정본 지표가 하나도 없다 — eval/results 를 확인하라.\n");
+  process.exit(1);
+}
+console.log(
+  `\n대조 규모: 정본 ${Object.keys(canonical).length}지표 · 필수 claim ${REQUIRED_CLAIMS.length}행 · 문서 ${DOCS.length}개.`,
+);
+
 console.log("\nOK: 문서 수치가 측정 결과와 일치하고, 결과가 입력보다 새롭다.");

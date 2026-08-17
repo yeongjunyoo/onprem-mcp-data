@@ -67,6 +67,10 @@ for (const root of ROOTS) {
 }
 
 const scanned = ROOTS.flatMap((r) => walk(r)).length;
+if (scanned === 0) {
+  console.error("\n실패: 훑을 소스가 0개다 — 경로나 필터가 잘못됐다. 검사가 아무것도 안 봤다.\n");
+  process.exit(1);
+}
 console.log(`소스 ${scanned}개에서 조용한 대체를 찾았다.`);
 
 if (findings.length) {

@@ -53,6 +53,10 @@ for (const rel of tracked) {
   );
 }
 
+if (scanned === 0) {
+  console.error("\n실패: 실행되는 파일이 0개다 — git ls-files 나 필터를 확인하라.\n");
+  process.exit(1);
+}
 console.log(`실행되는 파일 ${scanned}개의 줄바꿈을 확인했다.`);
 
 if (offenders.length) {
