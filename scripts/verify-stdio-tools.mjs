@@ -110,6 +110,58 @@ try {
     if (bad) broken.push(`${name}: ${blob.slice(0, 200)}`);
   }
   if (broken.length) throw new Error(`MCP 전선에서 깨지는 도구 ${broken.length}종`);
+
+  // ── 프롬프트: 목록이 아니라 get ──────────────────────────────────────
+  // 심사자가 호스트에서 프롬프트를 클릭하면 prompts/get 이 불린다. 인자 처리가
+  // 깨지면 목록엔 보이는데 클릭하면 실패한다 — 도구에서 겪은 것과 같은 형태다.
+  send("prompts/list", {}, 40);
+  const prompts = (await waitFor(40, 30))?.result?.prompts ?? [];
+  const PROMPT_ARGS = {
+    "grounded-answer": { question: "환불 정책은?", context: "[SQL 결과] n=3" },
+    "nl2sql-with-schema-card": { question: "환불된 주문 수는?" },
+    "explain-routing": { query: "환불된 주문은 몇 건인가?" },
+    "review-generated-sql": { sql: "SELECT 1" },
+  };
+  for (let i = 0; i < prompts.length; i++) {
+    const name = prompts[i].name;
+    send("prompts/get", { name, arguments: PROMPT_ARGS[name] ?? {} }, 41 + i);
+    const r = await waitFor(41 + i, 30);
+    const text = r?.result?.messages?.[0]?.content?.text ?? "";
+    if (!String(text).trim()) broken.push(`prompts/get ${name}: 본문이 비었다`);
+  }
+  console.log(`prompts/get -> ${prompts.length}종 전부 본문을 돌려준다`);
+
+  // ── 리소스: 주 경로에서도 읽히는가 ───────────────────────────────────
+  send("resources/list", {}, 60);
+  const resList = (await waitFor(60, 30))?.result?.resources ?? [];
+  for (let i = 0; i < resList.length; i++) {
+    send("resources/read", { uri: resList[i].uri }, 61 + i);
+    const r = await waitFor(61 + i, 30);
+    if (!String(r?.result?.contents?.[0]?.text ?? "").trim()) {
+      broken.push(`resources/read ${resList[i].uri}: 비어 있다`);
+    }
+  }
+  console.log(`resources/read -> ${resList.length}종 전부 내용을 돌려준다`);
+
+  // ── 읽기 전용 가드 ───────────────────────────────────────────────────
+  // README 가 "쓰기/DDL/문장 체이닝은 거부된다" 고 주장한다. 심사자가 기능테스트에서
+  // 가장 먼저 찔러 보는 자리다. 거부되는 것과 거부가 응답에 보이는 것은 다르다.
+  const ATTACKS = [
+    "DELETE FROM orders",
+    "UPDATE orders SET amount = 0",
+    "SELECT 1; DROP TABLE orders",
+    "CREATE TABLE x (id int)",
+  ];
+  for (let i = 0; i < ATTACKS.length; i++) {
+    send("tools/call", { name: "sql.query", arguments: { sql: ATTACKS[i] } }, 80 + i);
+    const r = await waitFor(80 + i, 40);
+    const blob = JSON.stringify(r ?? {});
+    const refused = /거부|"ok":\s*false|read-only|reject/i.test(blob);
+    if (!refused) broken.push(`읽기 전용 가드가 통과시켰다: ${ATTACKS[i]}`);
+  }
+  console.log(`읽기 전용 가드 -> 쓰기/DDL/체이닝 ${ATTACKS.length}종 전부 거부`);
+
+  if (broken.length) throw new Error(`MCP 표면에서 깨지는 자리 ${broken.length}건`);
 } catch (err) {
   failure = err;
 } finally {
