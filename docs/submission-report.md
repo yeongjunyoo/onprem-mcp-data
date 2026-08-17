@@ -65,9 +65,9 @@ MCP 도구는 7개를 노출한다. route, vector.search, retrieve, kgRetrieve, 
 
 **구동 및 시연**
 
-- `docker compose up`으로 PostgreSQL과 복제본을 올리고, `ollama pull qwen2.5:7b bge-m3`로 모델을 받는다.
+- `docker compose up -d`로 PostgreSQL(5433)과 Ollama(11435)를 올리고, `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3`로 모델을 받는다. 호스트에 Ollama가 이미 있으면 포트가 충돌하므로 컨테이너는 11435로 분리했다.
 - `npm run companyx:load`가 공식 데이터셋을 원본 DDL 그대로 적재한다. 8테이블 818행, 문서 40건을 258청크로 분할, 그래프 133노드 354엣지, 그래프 노드와 관계형 행을 잇는 브릿지 133건이다. 데이터셋은 배포 조건상 저장소에 포함하지 않고 취득 스크립트와 SHA-256 명세로 재현한다.
-- `npm run demo`는 네트워크 없이 도구 8종 호출부터 답변 생성, 장애 주입까지 한 번에 보여준다.
+- `npm run demo:ollama`는 네트워크 없이 도구 8종 호출부터 답변 생성, 장애 주입까지 한 번에 보여준다. 기반 데이터나 모델이 없으면 성공으로 끝내지 않고 무엇을 해야 하는지 알리고 멈춘다.
 - 평가 재현은 `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`로 각각 실행하며 결과는 `eval/results/`에 JSON으로 남는다.
 
 **측정 결과 요약**
