@@ -37,7 +37,7 @@
 - MCP 프레임워크: air(@airmcp-dev/core 0.2.0), 도구 정의는 defineServer와 defineTool
 - 데이터 저장소: PostgreSQL 16, pgvector 0.6.0, primary와 streaming replica 구성
 - 모델 런타임: Ollama 0.32.4. 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
-- 컨테이너: Docker Compose로 데이터베이스와 복제본을 기동, 서버 Dockerfile 빌드 검증 완료
+- 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
 - 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
 - 테스트: 자체 러너 기반 단위와 통합 테스트 394단언 전량 통과(오프라인 267 + DB·모델 127). 집계 원자료 `eval/results/test-counts.json`
 
@@ -51,7 +51,7 @@
 4. **큐레이션**: 후보를 구조를 보존한 형태로 잘라 컨텍스트를 만든다. 표는 표로, 관계는 관계 문장으로 남긴다.
 5. **생성**: 로컬 7B 모델이 컨텍스트 안의 근거만으로 한국어 답변을 만든다. 컨텍스트에 없는 개체가 답에 등장하지 않도록 접지 규칙을 강제하고, 질문이 지목한 개체를 온톨로지에서 해소하지 못하면 컨텍스트를 비우고 모른다고 답하게 한다.
 
-MCP 도구는 7개를 노출한다. route, vector.search, retrieve, kgRetrieve, ask를 포함하며 도구별로 위험도 계층을 표기했다. 계층 구분은 지정과제 필수 참조인 Pylon-7 연구의 정의를 따랐다.
+MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `audit.explain`, `ontology.search`, `graph.expand`. 도구별로 위험도 계층을 표기했고, 계층 구분은 지정과제 필수 참조인 Pylon-7 연구의 정의를 따랐다. (KG 검색은 `retrieve`/`ask` 안에서 도는 내부 단계이지 별도 노출 도구가 아니다.)
 
 ### 프로젝트 주요기능
 
