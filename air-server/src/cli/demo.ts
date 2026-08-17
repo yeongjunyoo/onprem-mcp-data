@@ -21,6 +21,36 @@ async function main() {
   const emb: Embedder = new OllamaEmbedder("bge-m3");
   const haveLLM = await isAvailable();
 
+  // ── 기반 데이터 확인 게이트 ─────────────────────────────────────────
+  //
+  // 시드 데이터가 없으면 모든 레인이 0건을 돌려주는데, 그래도 아래 흐름은 끝까지
+  // 돌아 "DEMO OK"를 찍는다. 저장소를 clone한 심사자가 준비 명령을 건너뛰면
+  // 텅 빈 데모가 성공했다고 말하게 된다. 거짓 성공은 실패보다 나쁘므로 여기서 막는다.
+  {
+    const need: string[] = [];
+    const count = async (sql: string): Promise<number> => {
+      const r = await sqlQuery(pool, sql);
+      return r.ok && r.rows.length ? Number(r.rows[0].n) : 0;
+    };
+    const orders = await count("SELECT count(*)::int AS n FROM bench.orders");
+    if (orders === 0) need.push("npm run gen:bench");
+    const embedded = await count(
+      "SELECT count(*)::int AS n FROM bench.documents WHERE embedding IS NOT NULL",
+    );
+    if (embedded === 0) need.push("EMBEDDER=ollama npm run embed:bench");
+
+    if (need.length) {
+      console.error("\n데모를 실행할 기반 데이터가 없다. 아래를 먼저 실행한다:\n");
+      for (const c of need) console.error(`  ${c}`);
+      console.error(
+        "\n(PostgreSQL이 떠 있어야 한다: docker compose up -d db)\n" +
+          `실측: bench.orders=${orders}행, 임베딩된 문서=${embedded}건\n`,
+      );
+      process.exit(1);
+    }
+    line(`기반 데이터 확인: bench.orders ${orders}행, 임베딩된 문서 ${embedded}건`);
+  }
+
   hr("0) air MCP 서버 — 등록된 도구");
   const tools = buildServer().tools().map((t) => t.name).sort();
   line(`tools(${tools.length}): ${tools.join(", ")}`);
