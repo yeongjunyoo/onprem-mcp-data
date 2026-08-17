@@ -109,11 +109,32 @@ for (const doc of DOCS) {
   }
 }
 
-if (fails.length) {
-  console.error("\n문서의 도구 표면이 소스와 어긋난다:");
-  for (const f of fails) console.error(`  - ${f}`);
-  console.error("\n기능테스트에서 심사자가 문서를 보고 없는 도구를 부르면 그 자리에서 깨진다.\n");
-  process.exit(1);
+
+// ── 검사 표 ──────────────────────────────────────────────────────────────
+//
+// README 「주장을 지키는 검사」 표가 실물과 맞는지 본다. 두 방향 다 문제다.
+//   없는 검사를 적으면  심사자가 그 자리에서 깨뜨린다(도구 표면에서 겪은 형태다)
+//   만든 검사를 안 적으면 안 만든 것과 같다 — 아무도 저장소를 뒤지지 않는다
+const readmeFull = readFileSync(resolve(ROOT, "README.md"), "utf8");
+const gateStart = readmeFull.indexOf("## 주장을 지키는 검사");
+if (gateStart >= 0) {
+  const gateEnd = readmeFull.indexOf("\n## ", gateStart + 3);
+  const table = readmeFull.slice(gateStart, gateEnd > 0 ? gateEnd : undefined);
+  const listed = [...new Set([...table.matchAll(/^\| `([a-z0-9-]+)`/gm)].map((m) => m[1]))];
+  const files = readdirSync(resolve(ROOT, "scripts"))
+    .filter((f) => f.endsWith(".mjs"))
+    .map((f) => f.slice(0, -4));
+  const gateFiles = files.filter(
+    (f) =>
+      f.startsWith("verify-") ||
+      f.startsWith("drill-") ||
+      ["metrics-check", "sbom", "evidence-manifest"].includes(f),
+  );
+  const phantom = listed.filter((n) => !files.includes(n));
+  const unlisted = gateFiles.filter((n) => !listed.includes(n));
+  if (phantom.length) fails.push(`README 검사 표에 실물 없는 항목: ${phantom.join(", ")}`);
+  if (unlisted.length) fails.push(`검사를 만들고 README 표에 안 적었다: ${unlisted.join(", ")}`);
+  console.log(`검사 표: README ${listed.length}개 = scripts ${gateFiles.length}개.`);
 }
 
 // ── 버전 정본 ────────────────────────────────────────────────────────────
@@ -155,6 +176,15 @@ if (latestTag && latestTag.replace(/^v/, "") !== pkgJson.version) {
   );
 } else if (latestTag) {
   console.log(`버전 정본: package.json ${pkgJson.version} = 태그 ${latestTag}.`);
+}
+
+// 판정은 **모든 검사 뒤**에 온다. 앞에 두면 그 뒤에 추가한 검사가
+// 조용히 아무 일도 안 한다 — 검사 표 대조를 넣고 실제로 그랬다.
+if (fails.length) {
+  console.error("\n문서의 도구 표면이 소스와 어긋난다:");
+  for (const f of fails) console.error(`  - ${f}`);
+  console.error("\n기능테스트에서 심사자가 문서를 보고 없는 도구를 부르면 그 자리에서 깨진다.\n");
+  process.exit(1);
 }
 
 console.log("\nOK: 문서의 도구 개수·목록이 소스 등록과 일치한다.");
