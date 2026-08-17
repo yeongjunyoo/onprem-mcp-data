@@ -19,8 +19,8 @@
 | `companyx-ask-host-gpu.json` | 22,170 | `33944f8ce99163f7` | 2026-08-17T08:14:06 |
 | `companyx-ask.json` | 22,877 | `e67de57d82548531` | 2026-08-17T20:11:50 |
 | `companyx-audit.json` | 85,011 | `9f26ee08fe290e7d` | 2026-07-29T14:39:23 |
-| `companyx-holdout-route.json` | 11,104 | `8f702f06b98c38d5` | 2026-08-17T09:32:04 |
-| `companyx-holdout2-route.json` | 11,103 | `88d8905dd92a4463` | 2026-08-17T09:32:04 |
+| `companyx-holdout-route.json` | 11,104 | `9ab611e88bb68e3c` | 2026-08-17T20:27:16 |
+| `companyx-holdout2-route.json` | 11,103 | `c55c094d6969e623` | 2026-08-17T20:27:33 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
 | `companyx-kg.json` | 6,369 | `de69ff3d634f4ffa` | 2026-08-17T20:05:13 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
