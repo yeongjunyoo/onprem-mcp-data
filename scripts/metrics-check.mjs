@@ -282,6 +282,28 @@ if (kr.length && en.length) {
     fails.push(`대역 일치: 테스트 단언 수가 한국어 [${krSet}] vs 영어 [${enSet}] 로 다르다`);
   }
 }
+// ── 대역: 정본 지표가 양쪽에 다 있는가 ─────────────────────────────────────
+//
+// 종전 대역 검사는 단언 수 하나만 봤다. 그래서 영문에 **리소스 6종·프롬프트 4종
+// 서술이 통째로 없는데도** 아무도 안 잡았다(2026-08-17 실측). 영문 README 는
+// 국제 심사자와 OSS 커뮤니티가 보는 문서다.
+//
+// 오탐을 피하려고 문구가 아니라 **정본 지표 값**으로 본다 — 값이 기준이면 번역
+// 차이에 안 흔들린다. 한쪽에만 있는 지표는 번역이 빠진 것이다.
+{
+  const koText = read("README.md");
+  const enText = existsSync(resolve(ROOT, "README.en.md")) ? read("README.en.md") : null;
+  if (enText) {
+    // 한쪽에만 등장하는 지표. 둘 다 없는 것은 의도적 생략일 수 있어 보지 않는다.
+    const lopsided = Object.entries(canonical)
+      .filter(([, v]) => koText.includes(v) !== enText.includes(v))
+      .map(([k, v]) => `${k}(${v}) — ${koText.includes(v) ? "한국어에만" : "영어에만"}`);
+    if (lopsided.length) {
+      fails.push(`대역 지표: 한쪽 README 에만 있는 지표 ${lopsided.length}개 — ${lopsided.join(", ")}`);
+    }
+  }
+}
+
 for (const doc of ["README.en.md"]) {
   if (!existsSync(resolve(ROOT, doc))) continue;
   const text = read(doc);
