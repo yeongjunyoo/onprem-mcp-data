@@ -156,6 +156,31 @@ if (gateStart >= 0) {
 
 }
 
+// ── README 가 말하는 "검사 N종" ────────────────────────────────────────
+//
+// 산문 안의 목록이라 지표 검사가 못 본다. 실제로 "10종" 이라 쓰고 9개만 나열한
+// 적이 있다(2026-08-17) — 하루 종일 "주장하는 수와 실제가 다르다" 를 잡으면서
+// 그걸 고치는 문장에서 같은 실수를 했다.
+//
+// 주장한 수 · 괄호 안 나열 수 · 워크플로가 부르는 수, 셋이 같아야 한다.
+{
+  const ci = readFileSync(resolve(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  const ciCount = new Set(
+    [...ci.matchAll(/node scripts\/([a-z0-9-]+)\.mjs/g)].map((m) => m[1]),
+  ).size;
+  const koClaim = readmeFull.match(/\*\*검사 (\d+)종\*\*\(([^)]+)\)/);
+  if (koClaim) {
+    const claimed = Number(koClaim[1]);
+    const listed = koClaim[2].split("·").length;
+    if (claimed !== listed) {
+      fails.push(`README 검사 수: "${claimed}종" 이라 쓰고 ${listed}개만 나열했다`);
+    }
+    if (claimed !== ciCount) {
+      fails.push(`README 검사 수: "${claimed}종" 인데 워크플로는 ${ciCount}종을 부른다`);
+    }
+  }
+}
+
 // ── 버전 정본 ────────────────────────────────────────────────────────────
 //
 // 종전에는 셋이 갈려 있었다 — git 태그 v0.1.0, package.json 0.1.3, server.ts 0.2.0.
