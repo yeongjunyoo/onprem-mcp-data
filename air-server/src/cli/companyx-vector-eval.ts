@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { getPool, closePool, type Pool } from "../db.js";
 import { getEmbedder, HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
-import { computeCompanyXVectors, datasetDir, CX_SCHEMA } from "../companyx.js";
+import { computeCompanyXVectors, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
 
 interface GoldItem {
   q: string;
@@ -93,6 +93,7 @@ async function restoreCorpus(pool: Pool, primary: Embedder) {
 }
 
 async function main() {
+  requireDataset();
   const dir = datasetDir();
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");

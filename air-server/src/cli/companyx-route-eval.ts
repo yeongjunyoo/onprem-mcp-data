@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { installOntology, route, audit, LANE_LABEL, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
-import { loadQuestions, datasetDir, type CxQuestion } from "../companyx.js";
+import { loadQuestions, datasetDir, type CxQuestion, requireDataset } from "../companyx.js";
 
 const TOOL_OF_LABEL: Record<CxQuestion["tool"], string[]> = {
   nl2sql: [SQL_TOOL],
@@ -20,6 +20,7 @@ const TOOL_OF_LABEL: Record<CxQuestion["tool"], string[]> = {
 };
 
 async function main() {
+  requireDataset();
   {
     const { loadGraph } = await import("../companyx.js");
     const { nodes, edges } = await loadGraph();

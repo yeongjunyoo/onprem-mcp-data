@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { graphLane } from "../pipeline.js";
 import { route } from "../router.js";
-import { loadGraph, datasetDir, CX_SCHEMA } from "../companyx.js";
+import { loadGraph, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
 
 type Spec =
   | { kind: "neighbors"; seed: string; rel: string; dir: "in" | "out" }
@@ -32,6 +32,7 @@ interface GoldItem {
 }
 
 async function main() {
+  requireDataset();
   const dir = datasetDir();
   const { nodes, edges } = await loadGraph(dir);
   const byId = new Map(nodes.map((n) => [n.id, n]));
