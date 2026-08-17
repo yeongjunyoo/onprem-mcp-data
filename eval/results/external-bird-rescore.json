@@ -1,0 +1,376 @@
+{
+  "note": "저장된 예측 SQL을 재실행해 두 비교 의미로 각각 채점했다. 모델은 돌리지 않았다(재추론 없음). official_set = BIRD 공식 의미(set(pred)==set(gold), 중복 무시). operational_multiset = 이 저장소의 운영 지표(다중집합 동등, 중복 개수까지 일치). 두 수치의 차이는 비교기 정의의 효과이며 모델 성능 차이가 아니다.",
+  "sample": {
+    "n": 32,
+    "scorable": 32,
+    "gold_failed": 0,
+    "databases_sampled": 10,
+    "databases_total": 11,
+    "databases_missing": [
+      "debit_card_specializing"
+    ],
+    "by_difficulty": {
+      "simple": 6,
+      "moderate": 19,
+      "challenging": 7
+    },
+    "representativeness": "question_id 정렬 후 주기적 stride 표집이라 대표성이 없다. 공식 Mini-Dev 난이도 구성은 30/50/20이고 데이터베이스는 11개다. 이 표본으로 Mini-Dev 성능을 추정할 수 없다."
+  },
+  "official_set": {
+    "correct": 9,
+    "of": 32,
+    "accuracy": 0.281
+  },
+  "operational_multiset": {
+    "correct": 7,
+    "of": 32,
+    "accuracy": 0.219
+  },
+  "diverged": [
+    {
+      "id": 345,
+      "db": "card_games",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 5429,
+      "gold_rows": 3,
+      "pred_distinct": 3,
+      "gold_distinct": 3
+    },
+    {
+      "id": 522,
+      "db": "card_games",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 66,
+      "gold_rows": 2,
+      "pred_distinct": 2,
+      "gold_distinct": 2
+    }
+  ],
+  "rows": [
+    {
+      "id": 5,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: Virtual"
+    },
+    {
+      "id": 40,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 89,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: unrecognized token: \"\"\""
+    },
+    {
+      "id": 129,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: d.A2"
+    },
+    {
+      "id": 192,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 220,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: near \"(\": syntax error"
+    },
+    {
+      "id": 247,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 345,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 402,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 465,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 522,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 565,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 604,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: UserId"
+    },
+    {
+      "id": 687,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 732,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 760,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 790,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: near \"WHERE\": syntax error"
+    },
+    {
+      "id": 846,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: driverRef"
+    },
+    {
+      "id": 879,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: unrecognized token: \"\"\""
+    },
+    {
+      "id": 910,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 955,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: near \"AS\": syntax error"
+    },
+    {
+      "id": 994,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.points"
+    },
+    {
+      "id": 1039,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1092,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1130,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1153,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1192,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1239,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such function: YEAR"
+    },
+    {
+      "id": 1281,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: Birthday"
+    },
+    {
+      "id": 1352,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1390,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.member_id"
+    },
+    {
+      "id": 1432,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    }
+  ],
+  "generated_at": "2026-08-17T05:23:59.995047+00:00"
+}
