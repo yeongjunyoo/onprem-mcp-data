@@ -32,9 +32,26 @@ if [ "$actual" != "$SHA256" ]; then
 fi
 echo "sha256 ok: $actual"
 
+# 아카이브는 최상위에 평평하게 담겨 있다(documents/, graph/, sql/, questions.json).
+# 상위 디렉터리 하나로 감싸져 있지 않으므로 $OUT 안으로 직접 푼다.
+# 실측: `unzip -l` 결과 49 files, 최상위 항목이 곧 documents/... 이다.
 rm -rf "$OUT"
-unzip -q "$ZIP" -d "$DIR"
-test -f "$OUT/questions.json" || { echo "unexpected archive layout" >&2; exit 1; }
+mkdir -p "$OUT"
+
+# unzip 이 없는 환경(Git Bash, 최소 컨테이너)이 흔하다. 안내한 명령이 그 자리에서
+# `unzip: command not found` 로 죽으면 그건 안내가 아니다. Python 으로 폴백한다.
+if command -v unzip >/dev/null 2>&1; then
+  unzip -q "$ZIP" -d "$OUT"
+elif command -v python3 >/dev/null 2>&1; then
+  python3 -c "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ZIP" "$OUT"
+elif command -v python >/dev/null 2>&1; then
+  python -c "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ZIP" "$OUT"
+else
+  echo "압축을 풀 도구가 없다: unzip 또는 python 이 필요하다" >&2
+  exit 1
+fi
+
+test -f "$OUT/questions.json" || { echo "unexpected archive layout: $OUT/questions.json 이 없다" >&2; exit 1; }
 
 docs=$(ls "$OUT/documents"/DOC-*.md | wc -l)
 echo "extracted -> $OUT  (documents: $docs)"
