@@ -457,7 +457,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 ## 6. 벤치마크 프로토콜 (객관·비순환)
 
 - **내부 brief-aligned suite:** `bench` e-commerce 8테이블·수천행(결정론 seed=42), gold NL→SQL 전 taxonomy. 예측 SQL = Qwen NL2SQL, 예측/골드 모두 `mcp_ro`로 실행 후 **strict execution-match**(순서/별칭/컬럼/수치 메타데이터). **DB가 오라클, 자작 LLM-저지 없음.**
-- **외부 calibration:** BIRD Mini-Dev(SQLite) execution accuracy(결과셋 multiset), 헤드라인 별도 열.
+- **외부 calibration:** BIRD Mini-Dev(SQLite). **두 지표를 나눠 적는다** — 공식 set 동등 0.281과 이 저장소의 운영 multiset 동등 0.219(§5 참조). 헤드라인 별도 열이며 내부 수치와 비교 불가.
 - **KOSSA 64.0%는 다른 데이터셋의 contextual reference**이며 same-benchmark beat 주장이 아니다(내부 go/no-go 없음).
 
 ---
