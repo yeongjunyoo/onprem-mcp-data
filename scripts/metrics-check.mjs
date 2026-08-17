@@ -191,6 +191,17 @@ const mus = multi.summary ?? multi;
 canonical.multistep = `${mus.completed}/6`;
 canonical.multistep_steps = `${mus.steps_passed}/${mus.steps_total}`;
 
+// 의존성 수는 SBOM 이 설치 트리에서 세는 값이다. 문서가 따로 적으면 갈린다.
+const sbomHead = read("docs/sbom.md").slice(0, 900);
+const pkgMatch = /npm 패키지 (\d+)개/.exec(sbomHead);
+if (pkgMatch) canonical.dep_packages = pkgMatch[1];
+
+// NL2SQL 은 7B 비결정론이라 범위로 적지만, 마지막 실행값은 정본에 있다.
+const sqlNo = readJson("eval/results/companyx-sql-llm-norepair.json");
+const sqlRe = readJson("eval/results/companyx-sql-llm.json");
+canonical.nl2sql_norepair = `${(sqlNo.summary ?? sqlNo).correct}/10`;
+canonical.nl2sql_repair = `${(sqlRe.summary ?? sqlRe).correct}/10`;
+
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
 canonical.faults_partial = `${Math.round(fs_.partialRate * fs_.total)}/${fs_.total}`;
 canonical.faults_errvis = `${Math.round(fs_.errorVisibleRate * fs_.total)}/${fs_.total}`;
@@ -309,6 +320,9 @@ const REQUIRED_CLAIMS = [
   { doc: "docs/submission-report.md", metric: "ask_grounded_ratio" },
   { doc: "docs/submission-report.md", metric: "ask_median_ms_host" },
 
+  { doc: "README.md", metric: "dep_packages" },
+  { doc: "README.en.md", metric: "dep_packages" },
+  { doc: "README.en.md", metric: "ask_median_ms" },
   { doc: "README.md", metric: "route_insample" },
   { doc: "README.md", metric: "ask_grounded_ratio" },
   { doc: "README.md", metric: "multistep" },
@@ -369,6 +383,39 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
       `필수 claim: ${doc} 의 ${marker} **결과 칸**에 측정값 ${want} 가 없다 ` +
         `(결과 칸 = "${resultCell.trim().slice(0, 50)}")`,
     );
+  }
+}
+
+// ── E2. NL2SQL 범위 표기가 정본을 포함하는지 ────────────────────────────
+//
+// NL2SQL 은 7B 비결정론이라 문서가 "5~7/10" 처럼 **범위**로 적는다. 그래서
+// 단일 값 결속이 맞지 않는다. 대신 **정본 최종 실행값이 그 범위 안에 있는지**를
+// 본다. 범위 밖이면 문서가 낡았거나 성능이 실제로 변한 것이다.
+//
+// 범위로 적는 것은 정직하지만, 범위가 정본을 벗어나도 아무도 모르면 그 정직함은
+// 검사되지 않는 주장이 된다.
+{
+  const nrCorrect = Number(canonical.nl2sql_norepair.split("/")[0]);
+  const rpCorrect = Number(canonical.nl2sql_repair.split("/")[0]);
+  const RANGE_DOCS = ["README.md", "README.en.md", "docs/submission-report.md"];
+
+  for (const doc of RANGE_DOCS) {
+    if (!existsSync(resolve(ROOT, doc))) continue;
+    for (const line of prose(doc)) {
+      if (!/NL2SQL/i.test(line) || line.includes("<!--metric-ok-->")) continue;
+      for (const m of line.matchAll(/\*?\*?(\d)\s*[~-]\s*(\d)\/10/g)) {
+        const lo = Number(m[1]);
+        const hi = Number(m[2]);
+        const isRepair = /재시도|repair/i.test(line);
+        const actual = isRepair ? rpCorrect : nrCorrect;
+        if (actual < lo || actual > hi) {
+          fails.push(
+            `NL2SQL 범위: ${doc} 가 ${lo}~${hi}/10 이라 적었는데 정본 최종 실행값은 ${actual}/10 이다` +
+              `${isRepair ? " (재시도 1회)" : " (재시도 없음)"}`,
+          );
+        }
+      }
+    }
   }
 }
 
