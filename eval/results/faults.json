@@ -10,7 +10,7 @@
       "errorVisible": 1
     },
     "pass": true,
-    "generatedAt": "2026-06-30T17:55:40.431Z"
+    "generatedAt": "2026-08-17T20:18:25.511Z"
   },
   "scenarios": [
     {
@@ -18,7 +18,7 @@
       "crashed": false,
       "partial": true,
       "errorVisible": true,
-      "detail": "vector=0 graph=6 fused=5"
+      "detail": "vector=0 graph=17 fused=5"
     },
     {
       "scenario": "kg.graph_fail",
@@ -39,7 +39,7 @@
       "crashed": false,
       "partial": true,
       "errorVisible": true,
-      "detail": "vec.ok=false sql=1 ctxlen=226"
+      "detail": "vec.ok=false sql=1 ctxlen=212"
     }
   ]
 }

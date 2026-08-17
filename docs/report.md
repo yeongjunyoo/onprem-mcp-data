@@ -522,6 +522,26 @@ npm run companyx:multistep                            # 다단계
 npm run fault:inject                                  # 장애 주입 4/4/4
 ```
 
+### 재현 실측 (2026-08-17, 컨테이너 CPU)
+
+위 명령을 실제로 다시 돌려 문서의 수치가 나오는지 확인했다. 명령이 **있다**는 것과
+그 명령이 **이 수치를 낸다**는 것은 다르다.
+
+| 명령 | 재실행 결과 | 문서 값 |
+| --- | --- | --- |
+| `npm run companyx:route` | 30/30 (nl2sql·vector·kg 각 10/10) | 일치 |
+| `npm run companyx:kg` | mean_recall 1.000 | 일치 |
+| `npm run companyx:vector` | hit@5 0.986 | 일치 |
+| `npm run companyx:ask` | 근거포함 17/19, 접지 19/19 | 일치 |
+| `npm run companyx:sql` | 재시도 포함 7/10 | 일치 |
+| `npm run companyx:multistep` | 5/6 완료, 14/15 단계 | 일치 |
+| `npm run fault:inject` | no-crash 4/4, partial 4/4, error-visible 4/4 | 일치 |
+
+**움직인 값은 하나다** — 종단 중앙 지연이 11989 → 11674ms 로 바뀌었다. 같은 컨테이너
+CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서 4곳을 지목해 갱신하게
+했다. 정확도 지표는 하나도 흔들리지 않았다. 결정론 구간(라우터·RRF·큐레이션)과 모델
+구간이 갈려 있다는 §3 의 설계 주장이 여기서 부수적으로 확인된다.
+
 ### 수치가 어긋나면 무엇이 잡는가
 
 원자료를 다시 뽑았는데 문서를 안 고치면 아래가 실패한다. 손으로 맞추지 않는다.
