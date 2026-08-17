@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.env.MCP_PORT ?? 3513);
+const EXPECTED_RESOURCES = 6;
+const EXPECTED_PROMPTS = 4;
 const EXPECTED_TOOLS = [
   "ask",
   "audit.explain",
@@ -69,7 +71,7 @@ try {
   const decoder = new TextDecoder();
   let buffered = "";
   let postUrl = null;
-  const toolNames = [];
+  const frames = [];
 
   const pump = (async () => {
     while (true) {
@@ -80,12 +82,11 @@ try {
         if (!line.startsWith("data:")) continue;
         const payload = line.slice(5).trim();
         if (!postUrl && payload.startsWith("/")) postUrl = `http://127.0.0.1:${PORT}${payload}`;
-        if (payload.includes('"tools"')) {
-          try {
-            for (const t of JSON.parse(payload).result.tools) toolNames.push(t.name);
-          } catch {
-            /* 부분 프레임 */
-          }
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed?.result) frames.push(parsed.result);
+        } catch {
+          /* 부분 프레임 */
         }
       }
     }
@@ -114,15 +115,60 @@ try {
   );
   await sleep(1500);
   await rpc("tools/list", {}, 2);
-  for (let i = 0; i < 20 && toolNames.length === 0; i++) await sleep(300);
+  const pick = (key) => frames.find((f) => Array.isArray(f?.[key]))?.[key];
 
-  const got = [...new Set(toolNames)].sort();
+  /**
+   * 특정 키가 담긴 프레임이 올 때까지 기다린다.
+   *
+   * 아무 프레임이나 하나 오면 진행하던 초기 구현은 initialize 응답을 보고
+   * 곧바로 tools 를 집으려 해서 **0종**을 읽었다. 비동기 스트림에서 "무언가
+   * 도착했다" 는 "내가 기다린 것이 도착했다" 가 아니다.
+   */
+  async function waitFor(key, tries = 30) {
+    for (let i = 0; i < tries; i++) {
+      const v = pick(key);
+      if (v) return v;
+      await sleep(300);
+    }
+    return undefined;
+  }
+
+  const got = [...new Set(((await waitFor("tools")) ?? []).map((t) => t.name))].sort();
   console.log(`열거된 도구 ${got.length}종: ${got.join(", ")}`);
   const missing = EXPECTED_TOOLS.filter((t) => !got.includes(t));
   const extra = got.filter((t) => !EXPECTED_TOOLS.includes(t));
   if (missing.length || extra.length) {
     throw new Error(`도구 표면 불일치 — 없음: [${missing}] 추가됨: [${extra}]`);
   }
+
+  // ── 리소스와 프롬프트 ────────────────────────────────────────────────
+  //
+  // README 는 "리소스 6종, 프롬프트 4종" 을 "도구 호출 없이 열람하게 합니다" 라고
+  // 주장한다. 도구만 세면 그 주장은 확인되지 않는다.
+  await rpc("resources/list", {}, 3);
+  const resources = (await waitFor("resources")) ?? [];
+  await rpc("prompts/list", {}, 4);
+  const prompts = (await waitFor("prompts")) ?? [];
+  console.log(`열거된 리소스 ${resources.length}종 · 프롬프트 ${prompts.length}종`);
+  if (resources.length !== EXPECTED_RESOURCES) {
+    throw new Error(`리소스 ${EXPECTED_RESOURCES}종이어야 하는데 ${resources.length}종`);
+  }
+  if (prompts.length !== EXPECTED_PROMPTS) {
+    throw new Error(`프롬프트 ${EXPECTED_PROMPTS}종이어야 하는데 ${prompts.length}종`);
+  }
+
+  // ★ 목록에 있는 것과 읽히는 것은 다르다.
+  //   전송 계층에 등록되지 않거나 핸들러가 던지면 단위 테스트는 통과하는데
+  //   심사자 화면에서는 비어 보인다.
+  const empty = [];
+  for (let i = 0; i < resources.length; i++) {
+    frames.length = 0;
+    await rpc("resources/read", { uri: resources[i].uri }, 100 + i);
+    const contents = (await waitFor("contents", 25)) ?? [];
+    if (!String(contents[0]?.text ?? "").trim()) empty.push(resources[i].uri);
+  }
+  if (empty.length) throw new Error(`읽히지 않는 리소스: ${empty.join(", ")}`);
+  console.log(`리소스 ${resources.length}종 전부 실제로 읽힌다.`);
 } catch (err) {
   failure = err;
 } finally {
@@ -143,6 +189,6 @@ if (failure) {
   process.exit(1);
 }
 
-console.log("\nOK: MCP_TRANSPORT=sse 로 핸드셰이크가 끝까지 가고 도구 8종이 열거된다.");
+console.log("\nOK: MCP_TRANSPORT=sse 로 핸드셰이크가 끝까지 가고 도구 8종·리소스 6종·프롬프트 4종이 열린다.");
 console.log("    (포트가 열리는 것이 아니라 클라이언트가 붙는 것을 확인한다.)");
 process.exit(0);
