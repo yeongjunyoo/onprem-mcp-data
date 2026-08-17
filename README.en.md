@@ -53,13 +53,13 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Metric | Result | Sample and conditions |
 | --- | --- | --- |
 | Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |
-| Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |
-| Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |
+| Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |  <!--metric:holdout1_strict-->
+| Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |  <!--metric:holdout2_strict-->
 | NL2SQL execution match | **5-7/10** (2/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
-| Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |
-| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |
+| Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
+| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence-->
 | Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
 | Median latency | 910 ms | local CPU, end to end |
 | Fault injection | no-crash 4/4, partial 4/4, error-visible 4/4 | database stop, delay, partial failure |

@@ -39,6 +39,34 @@ export function missingModels(probe: OllamaProbe, required: string[]): string[] 
   });
 }
 
+/** 태그에 있다고 실제로 서빙되는 것은 아니다.
+ *
+ * QA 레드팀이 재현했다 — `/api/tags`가 요구 모델을 정확히 보고하는데
+ * `/api/embeddings`가 503을 돌려주는 엔드포인트에서 프리플라이트가 통과했다.
+ * 메타데이터만 보면 "붙었다"와 "쓸 수 있다"를 구분하지 못한다.
+ * 그래서 임베딩 모델은 **실제로 한 번 임베딩해 본다.** 토큰 하나면 충분하다. */
+export async function probeServing(
+  host: string,
+  embedModel: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${host.replace(/\/$/, "")}/api/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: embedModel, prompt: "ok" }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const body = (await res.json()) as { embedding?: unknown[] };
+    if (!Array.isArray(body.embedding) || body.embedding.length === 0) {
+      return { ok: false, error: "빈 임베딩 응답" };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 120) };
+  }
+}
+
 /** 사람이 읽을 프리플라이트 리포트. 실패하면 false를 돌려준다(호출부가 멈춘다). */
 export function reportOllama(probe: OllamaProbe, required: string[]): boolean {
   if (!probe.reachable) {

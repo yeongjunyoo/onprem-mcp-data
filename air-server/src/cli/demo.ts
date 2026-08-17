@@ -3,7 +3,7 @@
 // canonical 3-way RRF agreement, on-prem 7B answer, and graceful fault degradation.
 // Run (network may be OFF after models cached): EMBEDDER=ollama npm run demo
 import { buildServer } from "../server.js";
-import { probeOllama, reportOllama } from "../preflight.js";
+import { probeOllama, reportOllama, probeServing } from "../preflight.js";
 import { getPool, closePool } from "../db.js";
 import { OllamaEmbedder, type Embedder } from "../embedder.js";
 import { route, audit } from "../router.js";
@@ -49,6 +49,15 @@ async function main() {
     if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
     const probe = await probeOllama();
     if (!reportOllama(probe, need)) process.exit(1);
+    // 태그에 있다고 서빙되는 것은 아니다. 임베더를 쓸 때만 실제로 한 번 불러본다.
+    if ((process.env.EMBEDDER ?? "") === "ollama") {
+      const serving = await probeServing(probe.host, process.env.EMBED_MODEL ?? "bge-m3");
+      if (!serving.ok) {
+        console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
+        console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인한다.\n`);
+        process.exit(1);
+      }
+    }
   }
 
   // ── 기반 데이터 확인 게이트 ─────────────────────────────────────────
