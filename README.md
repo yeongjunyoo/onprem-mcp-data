@@ -120,6 +120,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-tool-surface` | 문서가 없는 도구를 부르게 하는 것, 버전이 갈리는 것 | 예 |
 | `verify-no-external-api` | "외부 API 0" 주장이 코드와 어긋나는 것 | 예 |
 | `verify-loud-failure` | 실패 경로가 조용히 다른 값을 돌려주는 것 | 예 |
+| `verify-line-endings` | 셸·shebang 파일이 CRLF 로 체크아웃돼 실행이 깨지는 것 | 예 |
 | `verify-no-dataset-redistribution` | 산출물이 사업자 코퍼스를 실어 나르는 것 | 예 |
 | `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
 | `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
