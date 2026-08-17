@@ -34,7 +34,7 @@
 | `companyx-sql-repeat-llm.json` | 1,211 | `76d7d6a2377c348c` | 2026-07-29T12:49:17 |
 | `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 |
 | `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 |
-| `companyx-vector.json` | 170,890 | `65208a8612871236` | 2026-08-17T20:05:11 |
+| `companyx-vector.json` | 170,890 | `5c0f01d04a6c01e2` | 2026-08-17T21:04:42 |
 | `external-bird-raw.json` | 9,878 | `cfe1dc452172c024` | — |
 | `external-bird-rescore.json` | 8,863 | `bb10a5d137f00ebe` | 2026-08-17T06:13:28 |
 | `external-bird-summary.json` | 680 | `8f4c2b484a0f59f3` | — |
