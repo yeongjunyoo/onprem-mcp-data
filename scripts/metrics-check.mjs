@@ -419,6 +419,46 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
   }
 }
 
+// ── E3. 폐기된 테스트 단언 수가 남아 있지 않은지 ────────────────────────
+//
+// 지연과 같은 부류다. 테스트 수는 스위트가 늘 때마다 바뀌는데 표가 아닌 산문과
+// 채점 대응표에도 박힌다 — 실제로 docs/report.md 에 313단언 이 남아 있었다
+// (현행 오프라인 267). 표 검사는 파이프 행만 보므로 못 잡았다.
+{
+  const liveCounts = new Set([
+    canonical.test_total,
+    String(readJson("eval/results/test-counts.json").offline_with_dataset),
+    String(readJson("eval/results/test-counts.json").offline_ci),
+    String(readJson("eval/results/test-counts.json").integration),
+  ]);
+  const COUNT_DOCS = ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"];
+  for (const doc of COUNT_DOCS) {
+    if (!existsSync(resolve(ROOT, doc))) continue;
+    for (const line of prose(doc)) {
+      if (line.includes("<!--metric-ok-->")) continue;
+      // ★ 개별 스위트의 단언 수(예: "normalize.ts, 28단언")는 정당한 서술이다.
+      // 전체를 말하는 문맥에서만 본다 — "전체 N단언", "오프라인 N단언",
+      // "테스트 N단언" 처럼 총계를 주장하는 자리.
+      //
+      // 오탐이 있는 검사는 사람이 꺼버린다. 좁게 물되 무는 곳에서는 확실히 문다.
+      for (const m2 of line.matchAll(/(?:전체|총|오프라인|통합|테스트)\s*(\d{2,4})\s*단언/g)) {
+        if (!liveCounts.has(m2[1])) {
+          fails.push(
+            `폐기된 테스트 수: ${doc} 에 ${m2[1]}단언 이 총계로 적혀 있다 (현행 ${[...liveCounts].join(" / ")})`,
+          );
+        }
+      }
+      for (const m2 of line.matchAll(/(\d{2,4})\s*assertions/g)) {
+        if (!liveCounts.has(m2[1])) {
+          fails.push(
+            `폐기된 테스트 수: ${doc} 에 ${m2[1]} assertions 가 남아 있다 (현행 ${[...liveCounts].join(" / ")})`,
+          );
+        }
+      }
+    }
+  }
+}
+
 // ── E. 폐기된 지연값이 어디에도 남아 있지 않은지 ──────────────────────────
 //
 // 지연은 재측정할 때마다 바뀌는데 문서 곳곳(표가 아닌 산문 포함)에 박힌다.
