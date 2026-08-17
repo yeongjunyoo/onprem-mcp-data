@@ -17,13 +17,24 @@ Company data usually cannot leave the network, yet document search, SQL analytic
 
 ```bash
 git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
-docker compose up -d                                     # PostgreSQL 16 + pgvector
-ollama pull qwen2.5:7b && ollama pull bge-m3             # local models
+docker compose up -d                                     # PostgreSQL 16 + pgvector, Ollama
+docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
+export OLLAMA_HOST=http://localhost:11435                # containerised Ollama
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # deterministic seed data
 EMBEDDER=ollama npm run demo                             # offline end-to-end demo
 ```
+
+> **Why port 11435.** Publishing the container's Ollama on 11434 collides with a
+> host-installed Ollama, and Docker then **silently gives up on the publication**
+> (`PublishedPort: 0`). The container still reports `running`, and the app attaches to
+> the host daemon instead — whatever models it happens to hold. Splitting the port keeps
+> the binding explicit. To use a host Ollama instead, set `OLLAMA_HOST=http://localhost:11434`.
+>
+> Both the server and the demo print the Ollama endpoint they actually reached and its
+> model list on startup, and refuse to run when a required model is missing.
 
 `npm run demo` runs without network access and walks through tool calls, three-lane agreement, a local 7B answer, and fault injection.
 
@@ -42,11 +53,13 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Metric | Result | Sample and conditions |
 | --- | --- | --- |
 | Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |
+| Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |
+| Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |
 | NL2SQL execution match | **5-7/10** (2/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |
-| End-to-end evidence in context | 91.3% (95.7% under a looser gold definition) | 23 scorable of 30 |
+| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |
 | Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
 | Median latency | 910 ms | local CPU, end to end |
 | Fault injection | no-crash 4/4, partial 4/4, error-visible 4/4 | database stop, delay, partial failure |
