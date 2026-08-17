@@ -540,6 +540,7 @@ npm run fault:inject                                  # 장애 주입 4/4/4
 | `npm run companyx:holdout` | strict 0.900 | 일치 |
 | `npm run companyx:holdout2` | strict 0.633 (구어체) | 일치 |
 | `npm run fault:inject` | no-crash 4/4, partial 4/4, error-visible 4/4 | 일치 |
+| 통합 9스위트 (DB·모델 필요) | **127/127 통과** — db 22 · server 5 · pipeline 14 · llm 5 · graph 12 · kgretrieve 7 · companyx 46 · ontologyload 10 · auditcache 6 | 일치 |
 
 **움직인 값은 하나다** — 종단 중앙 지연이 11989 → 11674ms 로 바뀌었다. 같은 컨테이너
 CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서 4곳을 지목해 갱신하게
