@@ -5,7 +5,7 @@
 import { buildServer } from "../server.js";
 import { shutdown } from "../exit.js";
 import { probeOllama, reportOllama, probeServing, probeGeneration } from "../preflight.js";
-import { getPool, closePool } from "../db.js";
+import { getPool } from "../db.js";
 import { OllamaEmbedder, type Embedder } from "../embedder.js";
 import { route, audit } from "../router.js";
 import { sqlQuery } from "../sql.js";
@@ -36,7 +36,7 @@ async function main() {
           "  DATASET을 지우고 실행하거나, 해당 데이터셋 전용 평가 CLI를 쓴다:\n" +
           `    DATASET=${requested} node dist/cli/companyx-ask-eval.js\n`,
       );
-      process.exit(1);
+      await shutdown(1);
     }
   }
 
@@ -50,7 +50,7 @@ async function main() {
     // 아니라 실제로 만드는 객체가 의존 관계를 정한다(4세대 리뷰 지적).
     const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b", "bge-m3"];
     const probe = await probeOllama();
-    if (!reportOllama(probe, need)) process.exit(1);
+    if (!reportOllama(probe, need)) await shutdown(1);
     // 태그에 있다고 서빙되는 것은 아니다. 실제로 한 번씩 불러본다.
     // 생성은 EMBEDDER 설정과 무관하게 항상 쓰이므로 무조건 확인한다.
     const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
@@ -64,8 +64,7 @@ async function main() {
       if (!serving.ok) {
         console.error(`\n[환경] 모델이 태그에는 있으나 실제로 서빙되지 않는다: ${serving.error}`);
         console.error(`  ${probe.host} 의 /api/embeddings 가 응답하지 않는다. 컨테이너 상태를 확인하고, 느리면 PREFLIGHT_EMBED_TIMEOUT_MS 를 올린다.\n`);
-        process.exitCode = 1;
-        return;
+        await shutdown(1);
       }
     }
   }
@@ -109,7 +108,7 @@ async function main() {
         "\n(PostgreSQL이 떠 있어야 한다: docker compose up -d db)\n" +
           `실측: bench.orders=${orders}행, 임베딩된 문서=${embedded}건\n`,
       );
-      process.exit(1);
+      await shutdown(1);
     }
     line(`기반 데이터 확인: bench.orders ${orders}행, 임베딩된 문서 ${embedded}건`);
   }
@@ -173,8 +172,10 @@ async function main() {
   line(`  -> 크래시 없이 그래프 브랜치로 부분 컨텍스트 반환 (graceful degradation)`);
 
   hr("DEMO OK (전 과정 온프렘, 외부 API 없음)");
-  await closePool();
-  process.exit(0);
+  await shutdown(0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  await shutdown(1);
+});
