@@ -1,0 +1,22 @@
+# 줄바꿈 정규화.
+#
+# 셸 스크립트가 CRLF 로 체크아웃되면 bash 가 `set -euo pipefail\r` 을 읽고
+# "invalid option name" 으로 죽는다(2026-08-17 실측). Windows 에서 클론한
+# 심사자가 그대로 만나는 결함이다.
+#
+# 텍스트는 저장소 안에서 LF 로 두고, 실행되는 것은 체크아웃에서도 LF 를 강제한다.
+* text=auto
+
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.ts   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+
+# 바이너리는 건드리지 않는다.
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.docx binary
+*.zip  binary
