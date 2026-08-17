@@ -27,6 +27,50 @@ export function kgSchema(): string {
   return safeSchema(profile().kgSchema);
 }
 
+/** 라우터 엔티티 사전의 원천. entities는 개체명과 타입, relations는 타입쌍을 준다.
+ *
+ * 운영에서 이 목록은 고객사 자신의 DB에 있으므로 별도 배포물이 없다. 실패하면
+ * 빈 결과를 돌려주고, 호출부가 그것을 경고로 남긴다(조용한 성능 저하 금지). */
+export async function loadOntologyForRouter(
+  pool: Pool,
+  schema = kgSchema(),
+): Promise<{
+  nodes: { id: string; name: string; type: string }[];
+  edges: { source: string; target: string; relation: string }[];
+}> {
+  const s = safeSchema(schema);
+  const nodes = (
+    await pool.query(`SELECT id, type, canonical_name FROM ${s}.entities`)
+  ).rows.map((r) => ({ id: String(r.id), name: String(r.canonical_name), type: String(r.type) }));
+
+  // 별칭도 같은 개체를 가리키므로 사전에 넣는다. 없으면 무시한다.
+  try {
+    const aliases = (
+      await pool.query(
+        `SELECT a.entity_id, a.alias, e.type
+           FROM ${s}.aliases a JOIN ${s}.entities e ON e.id = a.entity_id`,
+      )
+    ).rows;
+    for (const r of aliases) {
+      nodes.push({ id: String(r.entity_id), name: String(r.alias), type: String(r.type) });
+    }
+  } catch {
+    /* aliases 테이블이 없는 배포도 있다 — 정본 이름만으로 동작한다 */
+  }
+
+  const edges = (
+    await pool.query(
+      `SELECT src_entity_id, dst_entity_id, rel_type FROM ${s}.relations`,
+    )
+  ).rows.map((r) => ({
+    source: String(r.src_entity_id),
+    target: String(r.dst_entity_id),
+    relation: String(r.rel_type),
+  }));
+
+  return { nodes, edges };
+}
+
 export interface OntologyHit {
   entityId: number;
   type: string;
