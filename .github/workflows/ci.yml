@@ -64,6 +64,10 @@ jobs:
       - name: 도구 표면이 문서와 일치하는지
         working-directory: .
         run: node scripts/verify-tool-surface.mjs
+      # marker 없는 표 행과 산문까지 본다 — metrics-check 의 사각을 덮는다.
+      - name: 지표를 말하는 자리가 정본과 일치하는지
+        working-directory: .
+        run: node scripts/verify-doc-metrics.mjs
 
   sbom:
     name: SBOM drift check
