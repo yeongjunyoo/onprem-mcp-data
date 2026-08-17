@@ -150,9 +150,14 @@ export const COMPANYX_SCHEMA_DDL = [
   "companyx.support_tickets(id, client_id->clients.id, product_id->products.id, assignee_id->employees.id, title, description, priority['critical'|'high'|'medium'|'low'], status['open'|'in_progress'|'resolved'|'closed'], created_at timestamp, resolved_at timestamp)",
 ].join("\n");
 
-/** Qwen2.5-7B NL->SQL over the sponsor's Company-X schema. */
-export async function companyxNL2SQL(query: string): Promise<string | null> {
-  const prompt = [
+/** Company-X NL2SQL 프롬프트 원문.
+ *
+ * MCP 프롬프트 표면(prompts.ts)이 이 함수를 그대로 부른다. 종전에는 저쪽에
+ * 손으로 베낀 요약본이 있었고, 실제 프롬프트에만 있는 "테이블은 반드시
+ * companyx. 접두사" 같은 규칙이 노출본에서 빠져 있었다. 노출본과 실행본이
+ * 갈리면 심사자가 보는 것은 서버가 쓰는 것이 아니다. */
+export function buildCompanyxSqlPrompt(query: string): string {
+  return [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
     COMPANYX_SCHEMA_DDL,
     "",
@@ -168,7 +173,11 @@ export async function companyxNL2SQL(query: string): Promise<string | null> {
     `질문: ${query}`,
     "SQL:",
   ].join("\n");
-  const raw = await generate(prompt);
+}
+
+/** Qwen2.5-7B NL->SQL over the sponsor's Company-X schema. */
+export async function companyxNL2SQL(query: string): Promise<string | null> {
+  const raw = await generate(buildCompanyxSqlPrompt(query));
   return extractSql(raw);
 }
 

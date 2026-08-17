@@ -3,6 +3,8 @@
 // 데이터베이스도 모델도 없이 돈다. 리소스 핸들러는 파일과 상수만 읽고,
 // 프롬프트 핸들러는 문자열을 만들 뿐이다. 그래서 CI에서 그대로 검증된다.
 import { buildPrompts } from "./prompts.js";
+import { buildAnswerPrompt } from "./llm.js";
+import { buildCompanyxSqlPrompt } from "./nl2sql.js";
 import { buildResources } from "./resources.js";
 import { resolveTransport } from "./server.js";
 
@@ -85,9 +87,30 @@ async function main() {
     }
   }
 
+  // ★ 노출 프롬프트는 실행 프롬프트와 **같아야** 한다.
+  //
+  // README 는 "서버가 실제로 쓰는 템플릿을 그대로 노출합니다" 라고 주장하고
+  // prompts.ts 설명도 "ask 도구가 쓰는 규칙과 같다" 고 적혀 있다. 종전에는 저기
+  // 손으로 줄인 사본이 있었고 언어 고정·그래프 트리플 해석·SQL 결과 인용 규칙이
+  // 빠져 있었다. 문구를 부분 일치로 확인하면 그 누락을 못 잡는다 — 그래서
+  // **전문 동일성**을 본다.
   const grounded = prompts.find((p) => p.name === "grounded-answer")!;
   const gm = await grounded.handler({ question: "질문", context: "근거" });
-  ok(gm[0].content.includes("컨텍스트에 없는"), "근거 기반 템플릿이 접지 규칙을 담는다");
+  ok(
+    gm[0].content === buildAnswerPrompt("질문", "근거"),
+    "노출된 근거 기반 프롬프트가 ask 실행 경로와 전문 동일",
+  );
+
+  const sqlPrompt = prompts.find((p) => p.name === "nl2sql-with-schema-card")!;
+  const sm = await sqlPrompt.handler({ question: "질문" });
+  ok(
+    sm[0].content === buildCompanyxSqlPrompt("질문"),
+    "노출된 NL2SQL 프롬프트가 companyx 실행 경로와 전문 동일",
+  );
+  ok(
+    sm[0].content.includes("companyx. 접두사"),
+    "실제 프롬프트에만 있던 스키마 접두사 규칙이 노출본에도 있다",
+  );
 
   // --- transport 해석 ---
   //
