@@ -9,7 +9,7 @@
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
 import { buildServer, loadRouterOntology } from "./server.js";
-import { probeOllama, reportOllama, probeServing } from "./preflight.js";
+import { probeOllama, reportOllama, probeServing, probeGeneration } from "./preflight.js";
 
 // 라우터 온톨로지를 먼저 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서
 // 측정한 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18). 실패해도 서버는
@@ -21,7 +21,14 @@ import { probeOllama, reportOllama, probeServing } from "./preflight.js";
   if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
   const probe = await probeOllama();
   if (!reportOllama(probe, need)) process.exit(1);
-  // 태그에 있다고 서빙되는 것은 아니다. 임베더를 쓸 때만 실제로 한 번 불러본다.
+  // 태그에 있다고 서빙되는 것은 아니다. 실제로 한 번씩 불러본다.
+  // 생성은 EMBEDDER 설정과 무관하게 항상 쓰이므로 무조건 확인한다.
+  const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
+  if (!gen.ok) {
+    console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
+    console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다.\n`);
+    process.exit(1);
+  }
   if ((process.env.EMBEDDER ?? "") === "ollama") {
     const serving = await probeServing(probe.host, process.env.EMBED_MODEL ?? "bge-m3");
     if (!serving.ok) {

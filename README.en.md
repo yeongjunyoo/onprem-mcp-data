@@ -59,7 +59,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
-| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence-->
+| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
 | Median latency | 910 ms | local CPU, end to end |
 | Fault injection | no-crash 4/4, partial 4/4, error-visible 4/4 | database stop, delay, partial failure |

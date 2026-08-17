@@ -28,6 +28,29 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(resolve(ROOT, p), "utf8");
+
+/** 코드펜스를 걷어낸 본문. 펜스 안의 예시는 문서의 주장이 아니다. */
+function prose(doc) {
+  let fenced = false;
+  return read(doc)
+    .split("\n")
+    .filter((l) => {
+      if (/^\s*```/.test(l)) {
+        fenced = !fenced;
+        return false;
+      }
+      return !fenced;
+    });
+}
+
+/** 값이 **토큰 경계**로 일치하는지 본다.
+ *
+ * substring 비교는 두 세대 연속 뚫렸다 — `0.900`이 `0.9001`을, `17/19`가 `17/190`을
+ * 만족했다(QA 재현). 숫자 뒤에 숫자가 더 붙으면 다른 값이다. */
+function hasExactValue(text, want) {
+  const esc = want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\d.])${esc}(?![\\d.])`).test(text);
+}
 const readJson = (p) => JSON.parse(read(p));
 const fails = [];
 
@@ -71,6 +94,7 @@ if (existsSync(resolve(ROOT, "eval/results/companyx-holdout2-route.json"))) {
 // 종단 근거 포함은 공개 헤드라인인데 정본에서 읽지 않아 drift가 재발할 수 있었다(H3).
 const ask = readJson("eval/results/companyx-ask.json");
 canonical.ask_evidence = ask.summary.evidence_in_context_full;
+canonical.ask_evidence_pct = String(ask.summary.evidence_pct);
 
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
@@ -115,6 +139,7 @@ for (const doc of DOCS) {
       for (const m of line.matchAll(claim.re)) {
         const got = m[1] ?? m[2];
         if (!got || got === want) continue;
+        // 경계 일치로 확인한 값은 정상이다(0.9001 같은 더 긴 값만 걸러낸다).
         fails.push(`정합성: ${doc} 표 행의 ${claim.label} = ${got} 인데 측정값은 ${want} (…${line.trim().slice(0, 70)}…)`);
       }
     }
@@ -173,10 +198,12 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "holdout1_strict" },
   { doc: "README.md", metric: "holdout2_strict" },
   { doc: "README.md", metric: "ask_evidence" },
+  { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.en.md", metric: "vector_hit5" },
   { doc: "README.en.md", metric: "holdout1_strict" },
   { doc: "README.en.md", metric: "holdout2_strict" },
   { doc: "README.en.md", metric: "ask_evidence" },
+  { doc: "README.en.md", metric: "ask_evidence_pct" },
 ];
 
 for (const { doc, metric } of REQUIRED_CLAIMS) {
@@ -187,9 +214,8 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
     continue;
   }
   const marker = `<!--metric:${metric}-->`;
-  const rows = read(doc)
-    .split("\n")
-    .filter((l) => l.includes(marker));
+  // 표 행만 본다. 코드펜스 안의 예시나 산문 줄에 marker를 달아도 주장이 되지 않는다.
+  const rows = prose(doc).filter((l) => l.trimStart().startsWith("|") && l.includes(marker));
 
   if (rows.length !== 1) {
     fails.push(
@@ -199,7 +225,7 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
     continue;
   }
   // marker가 붙은 행은 metric-ok로 면제되지 않는다. 필수 claim은 침묵시킬 수 없다.
-  if (!rows[0].includes(want)) {
+  if (!hasExactValue(rows[0], want)) {
     fails.push(`필수 claim: ${doc} 의 ${marker} 행에 측정값 ${want} 가 없다 (…${rows[0].trim().slice(0, 70)}…)`);
   }
 }
