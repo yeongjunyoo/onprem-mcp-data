@@ -23,7 +23,7 @@ async function main() {
 
   const uris = resources.map((r) => r.uri);
   for (const expected of [
-    "schema://companyx/tables",
+    "schema://dataset/tables",
     "dataset://companyx/manifest",
     "eval://results/index",
     "profile://dataset/active",
@@ -42,9 +42,21 @@ async function main() {
     ok(!/password|secret|token|api[_-]?key/i.test(text), `${r.uri}: 자격증명 문자열 없음`);
   }
 
-  const schema = resources.find((r) => r.uri === "schema://companyx/tables")!;
+  const schema = resources.find((r) => r.uri === "schema://dataset/tables")!;
   const card = String(await schema.handler(schema.uri, { requestId: "t", serverName: "s" }));
   ok(card.includes("("), "스키마 카드가 컬럼 목록 형태다");
+  // ★ 카드는 자기가 어느 프로파일의 것인지 스스로 밝혀야 한다.
+  //
+  // 종전 URI 는 schema://companyx/tables 였는데 핸들러는 **활성 프로파일**의
+  // 카드를 돌려준다. DATASET 미설정이면 스모크 시드(orders/documents)가 나온다.
+  // 즉 이름은 companyx 인데 내용은 8테이블이 아니었다 — 심사자가 MCP 로 열어
+  // 보면 이름이 거짓말을 한다. 읽는 사람이 다른 리소스를 열어 봐야 자기가 무엇을
+  // 보고 있는지 아는 상태는 근거 공개가 아니다.
+  ok(card.startsWith("# 프로파일: "), "스키마 카드 첫 줄이 프로파일을 밝힌다");
+  ok(
+    ["smoke", "bench", "companyx"].some((n) => card.split("\n")[0].includes(n)),
+    "밝힌 프로파일 이름이 유효하다",
+  );
 
   const prof = resources.find((r) => r.uri === "profile://dataset/active")!;
   const profJson = JSON.parse(String(await prof.handler(prof.uri, { requestId: "t", serverName: "s" })));

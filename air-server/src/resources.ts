@@ -65,13 +65,26 @@ export function buildResources() {
   const ds = profile();
   return [
     defineResource({
-      uri: "schema://companyx/tables",
-      name: "스키마 카드",
+      // URI 에 companyx 를 박지 않는다. 이 핸들러는 **활성 프로파일**의 카드를
+      // 돌려주므로, DATASET 미설정이면 스모크 시드(orders/documents)를 준다.
+      // 종전 URI 는 `schema://companyx/tables` 였고, 심사자가 그걸 열면 이름은
+      // companyx 인데 내용은 8테이블이 아닌 스모크 스키마였다 — 이름이 거짓말을
+      // 하고 있었다.
+      uri: "schema://dataset/tables",
+      name: "스키마 카드 (활성 프로파일)",
       description:
         "NL2SQL이 실제로 받는 스키마 카드. 테이블, 컬럼, 외래키, 그리고 상태 컬럼의 값 어휘까지 포함한다. " +
-        "이 카드가 정확도를 좌우한다는 것이 이 프로젝트의 실증 논지이므로 카드 원문을 공개한다.",
+        "이 카드가 정확도를 좌우한다는 것이 이 프로젝트의 실증 논지이므로 카드 원문을 공개한다. " +
+        "지금 어느 프로파일의 카드인지는 응답 첫 줄이 스스로 밝힌다.",
       mimeType: "text/plain",
-      handler: () => profile().schemaCard,
+      handler: () => {
+        const p = profile();
+        // 결과가 스스로 출처를 말하게 한다. 이걸 빼면 읽는 사람은 자기가 무엇을
+        // 보고 있는지 다른 리소스를 열어 봐야 안다.
+        return `# 프로파일: ${p.name} — 이 카드는 지금 서버가 바라보는 코퍼스의 것이다.\n` +
+          `# 사업자 공식 데이터셋을 보려면 DATASET=companyx 로 기동한다.\n\n` +
+          p.schemaCard;
+      },
     }),
 
     defineResource({
