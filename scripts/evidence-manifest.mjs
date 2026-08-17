@@ -28,7 +28,10 @@ const sha = (buf) =>
 
 const lastCommit = (rel) => {
   try {
-    return execFileSync("git", ["log", "-1", "--format=%cI", "--", rel], {
+    // %cI 는 로컬 타임존이라 환경마다 다른 문자열이 된다(실측: +09:00 vs UTC).
+    // %cd + iso-strict-local + TZ=UTC 대신 %cI 를 UTC 로 강제한다.
+    return execFileSync("git", ["log", "-1", "--date=iso-strict-local", "--format=%cd", "--", rel], {
+      env: { ...process.env, TZ: "UTC" },
       cwd: ROOT,
       encoding: "utf8",
     }).trim().slice(0, 19);
@@ -61,7 +64,10 @@ const rows = readdirSync(DIR)
   .map((n) => {
     const buf = readFileSync(resolve(DIR, n));
     const text = buf.toString("utf8");
-    return { n, size: buf.length, digest: sha(buf), stamp: stampOf(n, text), commit: lastCommit(`eval/results/${n}`) };
+    // 크기도 해시와 같은 기준으로 센다. 원시 바이트는 CRLF/LF 로 갈려
+    // Windows 작업본과 Linux CI 가 다른 값을 낸다(실측: 22,701 vs 21,907).
+    const normalized = Buffer.byteLength(text.replace(/\r\n/g, "\n"), "utf8");
+    return { n, size: normalized, digest: sha(buf), stamp: stampOf(n, text), commit: lastCommit(`eval/results/${n}`) };
   });
 
 const selfStamped = rows.filter((r) => r.stamp).length;

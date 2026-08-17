@@ -13,40 +13,40 @@
 
 | 파일 | 크기 | sha256(16) | 자체 생성시각 | 마지막 커밋 |
 |---|---:|---|---|---|
-| `companyx-ask-host-gpu.json` | 22,701 | `d97d536ece6307d9` | 2026-08-17T08:14:06 | 2026-08-17T18:15:53 |
-| `companyx-ask.json` | 23,342 | `6b573ad944946f2b` | 2026-08-17T12:39:39 | 2026-08-17T21:40:53 |
-| `companyx-audit.json` | 101,926 | `b2f0d563776486cc` | 2026-07-29T14:39:23 | 2026-07-29T23:43:01 |
-| `companyx-holdout-route.json` | 11,508 | `8f702f06b98c38d5` | 2026-08-17T09:32:04 | 2026-08-17T18:32:24 |
-| `companyx-holdout2-route.json` | 11,512 | `88d8905dd92a4463` | 2026-08-17T09:32:04 | 2026-08-17T18:32:24 |
-| `companyx-hybrid.json` | 117,672 | `93af25bfe935cc98` | 2026-07-29T14:13:17 | 2026-07-29T23:17:18 |
-| `companyx-kg.json` | 6,667 | `24051290517eb8e6` | 2026-08-17T01:38:57 | 2026-08-17T10:41:51 |
-| `companyx-load.json` | 750 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 | 2026-08-17T21:40:53 |
-| `companyx-multi-step.json` | 2,200 | `319a96696d0dd072` | 2026-07-29T15:13:52 | 2026-07-30T00:19:43 |
-| `companyx-route.json` | 24,180 | `df5baace783aa922` | 2026-08-17T14:52:16 | 2026-08-17T23:53:42 |
-| `companyx-sql-llm-norepair.json` | 4,972 | `cfd9d08c70a15248` | 2026-07-29T12:48:18 | 2026-07-29T21:52:54 |
-| `companyx-sql-llm.json` | 4,871 | `1692988d8ac28c44` | 2026-07-29T12:49:17 | 2026-07-29T21:52:54 |
-| `companyx-sql-naive-norepair.json` | 5,340 | `141152e4ade6bb89` | 2026-07-29T12:49:47 | 2026-07-29T21:52:54 |
-| `companyx-sql-naive.json` | 4,817 | `4b9baa585766485f` | 2026-07-29T12:50:21 | 2026-07-29T21:52:54 |
-| `companyx-sql-repeat-llm-norepair.json` | 1,456 | `6ab414c9d7b6b4f0` | 2026-07-29T12:48:18 | 2026-07-29T21:52:54 |
-| `companyx-sql-repeat-llm.json` | 1,211 | `76d7d6a2377c348c` | 2026-07-29T12:49:17 | 2026-07-29T21:52:54 |
-| `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 | 2026-07-29T21:52:54 |
-| `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 | 2026-07-29T21:52:54 |
-| `companyx-vector.json` | 178,111 | `604f20c1d8cd115e` | 2026-08-17T12:33:19 | 2026-08-17T21:40:53 |
-| `external-bird-raw.json` | 9,878 | `cfe1dc452172c024` | — | 2026-07-07T17:11:19 |
-| `external-bird-rescore.json` | 9,239 | `bb10a5d137f00ebe` | 2026-08-17T06:13:28 | 2026-08-17T15:13:50 |
-| `external-bird-summary.json` | 680 | `8f4c2b484a0f59f3` | — | 2026-07-07T17:11:19 |
-| `faults.json` | 1,012 | `9f739ede99b69a6c` | — | 2026-07-07T17:11:19 |
-| `internal-llm-raw.json` | 20,437 | `828515eba18fe4ce` | — | 2026-07-07T17:11:19 |
-| `internal-llm-summary.json` | 1,202 | `c5ad866aa36baddd` | — | 2026-07-07T17:11:19 |
-| `internal-naive-raw.json` | 22,474 | `27211e52b68ea5f0` | — | 2026-07-07T17:11:19 |
-| `internal-naive-summary.json` | 1,203 | `313a1a17bb752b3f` | — | 2026-07-07T17:11:19 |
-| `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — | 2026-07-07T17:11:19 |
-| `internal-template-summary.json` | 1,204 | `2b6c46d67d3766de` | — | 2026-07-07T17:11:19 |
-| `recall-bge.json` | 3,442 | `63919863a632ee66` | — | 2026-07-07T17:11:19 |
-| `recall-compare.json` | 545 | `fe6b533844c9b0a2` | — | 2026-07-07T17:11:19 |
-| `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — | 2026-07-07T17:11:19 |
-| `replica-spike.log` | 610 | `1249589cd8a28839` | 2026-08-17T15:11:32 | 2026-08-18T00:12:42 |
-| `test-counts.json` | 1,590 | `987d354146a08767` | 2026-08-17T14:10:00 | 2026-08-17T23:08:45 |
+| `companyx-ask-host-gpu.json` | 21,907 | `d97d536ece6307d9` | 2026-08-17T08:14:06 | 2026-08-17T09:15:53 |
+| `companyx-ask.json` | 22,535 | `6b573ad944946f2b` | 2026-08-17T12:39:39 | 2026-08-17T12:40:53 |
+| `companyx-audit.json` | 98,544 | `b2f0d563776486cc` | 2026-07-29T14:39:23 | 2026-07-29T14:43:01 |
+| `companyx-holdout-route.json` | 11,104 | `8f702f06b98c38d5` | 2026-08-17T09:32:04 | 2026-08-17T09:32:24 |
+| `companyx-holdout2-route.json` | 11,103 | `88d8905dd92a4463` | 2026-08-17T09:32:04 | 2026-08-17T09:32:24 |
+| `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 | 2026-07-29T14:17:18 |
+| `companyx-kg.json` | 6,369 | `24051290517eb8e6` | 2026-08-17T01:38:57 | 2026-08-17T01:41:51 |
+| `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 | 2026-08-17T12:40:53 |
+| `companyx-multi-step.json` | 2,132 | `319a96696d0dd072` | 2026-07-29T15:13:52 | 2026-07-29T15:19:43 |
+| `companyx-route.json` | 23,256 | `df5baace783aa922` | 2026-08-17T14:52:16 | 2026-08-17T14:53:42 |
+| `companyx-sql-llm-norepair.json` | 4,972 | `cfd9d08c70a15248` | 2026-07-29T12:48:18 | 2026-07-29T12:52:54 |
+| `companyx-sql-llm.json` | 4,871 | `1692988d8ac28c44` | 2026-07-29T12:49:17 | 2026-07-29T12:52:54 |
+| `companyx-sql-naive-norepair.json` | 5,340 | `141152e4ade6bb89` | 2026-07-29T12:49:47 | 2026-07-29T12:52:54 |
+| `companyx-sql-naive.json` | 4,817 | `4b9baa585766485f` | 2026-07-29T12:50:21 | 2026-07-29T12:52:54 |
+| `companyx-sql-repeat-llm-norepair.json` | 1,456 | `6ab414c9d7b6b4f0` | 2026-07-29T12:48:18 | 2026-07-29T12:52:54 |
+| `companyx-sql-repeat-llm.json` | 1,211 | `76d7d6a2377c348c` | 2026-07-29T12:49:17 | 2026-07-29T12:52:54 |
+| `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 | 2026-07-29T12:52:54 |
+| `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 | 2026-07-29T12:52:54 |
+| `companyx-vector.json` | 170,890 | `604f20c1d8cd115e` | 2026-08-17T12:33:19 | 2026-08-17T12:40:53 |
+| `external-bird-raw.json` | 9,878 | `cfe1dc452172c024` | — | 2026-07-07T08:11:19 |
+| `external-bird-rescore.json` | 8,863 | `bb10a5d137f00ebe` | 2026-08-17T06:13:28 | 2026-08-17T06:13:50 |
+| `external-bird-summary.json` | 680 | `8f4c2b484a0f59f3` | — | 2026-07-07T08:11:19 |
+| `faults.json` | 1,012 | `9f739ede99b69a6c` | — | 2026-07-07T08:11:19 |
+| `internal-llm-raw.json` | 20,437 | `828515eba18fe4ce` | — | 2026-07-07T08:11:19 |
+| `internal-llm-summary.json` | 1,202 | `c5ad866aa36baddd` | — | 2026-07-07T08:11:19 |
+| `internal-naive-raw.json` | 22,474 | `27211e52b68ea5f0` | — | 2026-07-07T08:11:19 |
+| `internal-naive-summary.json` | 1,203 | `313a1a17bb752b3f` | — | 2026-07-07T08:11:19 |
+| `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — | 2026-07-07T08:11:19 |
+| `internal-template-summary.json` | 1,204 | `2b6c46d67d3766de` | — | 2026-07-07T08:11:19 |
+| `recall-bge.json` | 3,442 | `63919863a632ee66` | — | 2026-07-07T08:11:19 |
+| `recall-compare.json` | 545 | `fe6b533844c9b0a2` | — | 2026-07-07T08:11:19 |
+| `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — | 2026-07-07T08:11:19 |
+| `replica-spike.log` | 593 | `1249589cd8a28839` | 2026-08-17T15:11:32 | 2026-08-17T15:12:42 |
+| `test-counts.json` | 1,533 | `987d354146a08767` | 2026-08-17T14:10:00 | 2026-08-17T14:08:45 |
 
 ## 재생성
 
