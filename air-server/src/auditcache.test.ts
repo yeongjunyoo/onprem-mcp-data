@@ -9,7 +9,7 @@
 // 없으면 아무도 모른다. 그래서 여기서 명시적으로 잰다.
 //
 // 실행: node dist/auditcache.test.js
-import { closePool } from "./db.js";
+import { shutdown } from "./exit.js";
 import { buildServer } from "./server.js";
 
 let pass = 0,
@@ -76,11 +76,10 @@ async function main() {
   // 다만 자연 종료만으로는 끝나지 않는다 — air 서버 인스턴스가 자체 핸들을 물고
   // 있어 프로세스가 매달린다(실측: 120초 타임아웃). 정리 후 명시적으로 끝낸다.
   // 매달리는 테스트는 실패보다 나쁘다. CI가 무한히 기다린다.
-  await closePool();
-  process.exit(fail ? 1 : 0);
+  await shutdown(fail ? 1 : 0);
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error(e);
-  process.exit(1);
+  await shutdown(1);
 });
