@@ -38,6 +38,14 @@ npm run demo:ollama                                      # offline end-to-end de
 
 The server exposes **8 MCP tools**: `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `audit.explain`, `ontology.search`, `graph.expand`. Three-way knowledge-graph retrieval (`kgRetrieve`) runs inside `retrieve` and `ask` rather than being exposed as its own tool.
 
+The MCP surface is **8 tools, 6 resources, 4 prompts**. Resources let a host read the schema
+card, dataset manifest, evaluation index, active profile, audit-record schema and evidence
+list **without calling a tool**. Prompts expose the exact grounded-answer and NL2SQL templates
+the server itself runs — not a paraphrase; a unit test asserts full-text equality with the
+runtime builders. All three surfaces are exercised over the wire, not just enumerated:
+`node scripts/verify-stdio-tools.mjs` calls every tool, fetches every prompt and reads every
+resource over stdio, and `node scripts/verify-sse-transport.mjs` does the handshake over SSE.
+
 `npm run demo:ollama` runs without network access and walks through tool calls, three-lane agreement, a local 7B answer, and fault injection.
 
 ## How it works
@@ -62,7 +70,8 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
 | End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
-| Grounding violations | **0** (answers_grounded 100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
+| Grounding violations | **0** — 19/19 answers grounded (100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
+| **Multi-step task completion** | **5/6 = 0.833**, 14/15 steps passed | six tasks chaining entity resolution -> relation walk -> aggregation | measured |  <!--metric:multistep-->
 | Median latency | **11674 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms-->
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
 | Tests | **417 assertions passing** | 290 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 279, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
