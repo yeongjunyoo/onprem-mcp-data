@@ -54,19 +54,17 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 | Metric | Result | Sample and conditions |
 | --- | --- | --- |
-| Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |
+| Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |  <!--metric:route_insample-->
 | Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |  <!--metric:holdout1_strict-->
 | Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |  <!--metric:holdout2_strict-->
 | NL2SQL execution match | **5-7/10** (2/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
-| Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |
+| Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
 | End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | Grounding violations | **0** (answers_grounded 100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
-| Grounding violations | 0 (17/17) | entities in the answer must appear in the context |
 | Median latency | **11989 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
-| Fault injection | no-crash 4/4, partial 4/4, error-visible 4/4 | database stop, delay, partial failure |
 | Tests | **394 assertions passing** | 267 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 256, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
 | Fault injection — partial context | **4/4** | killing the vector branch still returns graph context |  <!--metric:faults_partial-->
