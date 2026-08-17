@@ -3,6 +3,41 @@
   "generated_by": "eval/companyx/build_vector_gold.py",
   "items": [
     {
+      "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+      "keywords": [
+        "튜닝"
+      ],
+      "style": "sponsor",
+      "gold_docs": [
+        "DOC-014.md",
+        "DOC-019.md",
+        "index.json"
+      ]
+    },
+    {
+      "q": "백업 정책은 어떻게 되어 있어?",
+      "keywords": [
+        "백업"
+      ],
+      "style": "sponsor",
+      "gold_docs": [
+        "DOC-013.md",
+        "DOC-018.md"
+      ]
+    },
+    {
+      "q": "SSL 인증서 관련 장애가 있었어?",
+      "keywords": [
+        "SSL"
+      ],
+      "style": "sponsor",
+      "gold_docs": [
+        "DOC-002.md",
+        "DOC-005.md",
+        "DOC-006.md"
+      ]
+    },
+    {
       "q": "최근 서버 장애 사례와 원인을 알려줘",
       "type": "incident_report",
       "keywords": [],
@@ -603,5 +638,6 @@
       ],
       "style": "entity"
     }
-  ]
+  ],
+  "note": " 사업자 공개 vector 문항(style=sponsor)을 앞에 둔다 — 68문항 확장이 gold를 교체하면서 이들이 떨어져 나가 종단 평가 denominator가 23에서 16으로 줄었던 것을 되돌린 것이다."
 }
