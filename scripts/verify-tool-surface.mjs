@@ -168,7 +168,10 @@ if (gateStart >= 0) {
   const ciCount = new Set(
     [...ci.matchAll(/node scripts\/([a-z0-9-]+)\.mjs/g)].map((m) => m[1]),
   ).size;
+  // 나열은 " — " 뒤부터다. 괄호 앞부분에 설명("아래 표의 17종 중 ...")이 올 수 있고
+  // 그것까지 세면 나열 수가 부풀려진다 — 실제로 이 문장을 고치다 그렇게 됐다.
   const koClaim = readmeFull.match(/\*\*검사 (\d+)종\*\*\(([^)]+)\)/);
+  if (koClaim) koClaim[2] = koClaim[2].includes(" — ") ? koClaim[2].split(" — ").pop() : koClaim[2];
   if (koClaim) {
     const claimed = Number(koClaim[1]);
     const listed = koClaim[2].split("·").length;
