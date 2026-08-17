@@ -79,7 +79,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 ## Limits
 
-Vector evaluation now uses 68 questions covering all 40 documents, 30 of which never repeat the gold keywords. The 7B model still makes real interpretation errors, listed openly in the engineering report. Automatic failover is out of scope; replica read fallback with a kill drill is what is verified. CI runs offline unit tests and an SBOM drift check only, because database and model suites cannot be honestly reproduced in CI.
+Vector evaluation now uses **74 questions** covering all 40 documents, 30 of which never repeat the gold keywords; 71 are scored by hit@5 and the rest carry a document-type hint only, so they are scored on type accuracy. The 7B model still makes real interpretation errors, listed openly in the engineering report. Automatic failover is out of scope; replica read fallback with a kill drill is what is verified. CI runs offline unit tests and **ten checks** (metrics, test counts, evidence manifest, tool surface, external API, silent fallbacks, dataset redistribution, line endings, SBOM drift). Database and model suites run locally and their raw output is committed — we do not mark them as running in CI. The integration suites (127 assertions) cannot be reproduced by CI but they are not unverified: 127/127 measured on 2026-08-17, recorded in `eval/results/test-counts.json`.
 
 ## Docs
 
