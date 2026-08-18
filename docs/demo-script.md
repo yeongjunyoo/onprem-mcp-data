@@ -1,5 +1,40 @@
 # 3분 시연영상 스크립트 (네트워크 OFF 녹화)
 
+## 촬영 전 준비 (그대로 붙여넣는다)
+
+무엇을 보여줄지는 아래 타임코드에 있고, **띄우는 방법은 여기 있다.** 환경변수 하나가
+빠지면 데모가 프리플라이트에서 멈추고 그 테이크는 버린다.
+
+```bash
+# 1) 스택 (한 번만)
+docker compose up -d                       # db → host 5433, ollama → host 11435
+docker compose exec -T ollama ollama pull qwen2.5:7b
+docker compose exec -T ollama ollama pull bge-m3
+
+# 2) 빌드 (한 번만)
+cd air-server && npm ci && node node_modules/typescript/bin/tsc
+
+# 3) 환경 — 매 셸마다
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mcpdata
+export OLLAMA_HOST=http://localhost:11435
+export EMBEDDER=ollama OLLAMA_MODEL=qwen2.5:7b EMBED_MODEL=bge-m3
+unset DATASET                              # 남아 있으면 데모가 정당하게 거절한다
+
+# 4) 코퍼스 (한 번만)
+npm run companyx:load
+
+# 5) 녹화 — 화면에 섹션 0~7 이 순서대로 찍힌다
+npm run demo
+```
+
+**실행 시간 실측(2026-08-18):** 전체 **13.6초**. 그중 섹션 6(온프렘 7B 답변) 한 번이
+**9.1초**로, 나머지 일곱 섹션은 합쳐 4.5초다. 3분 영상에 172초가 남으므로 서두를 필요가
+없고, 편집에서 잘라 낼 구간은 섹션 6의 대기 하나뿐이다.
+
+**GPU 호스트 Ollama를 쓰면** 그 대기가 864ms로 줄지만 환경이 문서 수치와 달라진다 —
+어느 쪽으로 찍든 자막으로 환경을 밝힌다.
+
+
 > 사전: `docker compose up -d` → `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3` → `npm run gen:bench` → `npm run embed:bench:ollama` → `bash scripts/replica-spike.sh` 1회(로그 확보).
 >
 > `OLLAMA_HOST=http://localhost:11435` (컨테이너 Ollama. 호스트에 Ollama가 떠 있으면 포트가 갈린다). 그 외 명령에는 셸 전용 문법이 없다 — Windows에서도 그대로 된다.
