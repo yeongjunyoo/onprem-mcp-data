@@ -25,18 +25,18 @@ docker compose exec ollama ollama pull qwen2.5:7b
 docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
-export OLLAMA_HOST=http://localhost:11462                # 컨테이너 Ollama
+export OLLAMA_HOST=http://localhost:11435                # 컨테이너 Ollama
 npm run gen:bench && npm run embed:bench:ollama          # 결정론 시드 데이터 적재
 npm run demo:ollama                                      # 도구 8종부터 장애 주입까지 한 번에
 ```
 
-> **Windows(cmd/PowerShell)에서는** `export` 대신 `set OLLAMA_HOST=http://localhost:11462`
-> 또는 `$env:OLLAMA_HOST="http://localhost:11462"` 를 씁니다. 그 외 명령에는 셸 전용
+> **Windows(cmd/PowerShell)에서는** `export` 대신 `set OLLAMA_HOST=http://localhost:11435`
+> 또는 `$env:OLLAMA_HOST="http://localhost:11435"` 를 씁니다. 그 외 명령에는 셸 전용
 > 문법이 없습니다 — `npm run demo:ollama` 처럼 환경변수를 스크립트가 직접 넘깁니다.
 > 이 저장소는 Windows에서 개발·검증됐고 `npm run test:integration` 도 그 환경에서
 > 끝까지 돕니다.
 >
-> **포트가 11462인 이유.** 컨테이너 Ollama를 11434로 게시하면 호스트에 이미 설치된
+> **포트가 11435인 이유.** 컨테이너 Ollama를 11434로 게시하면 호스트에 이미 설치된
 > Ollama와 충돌하는데, Docker는 이때 **조용히 게시를 포기한다**(`PublishedPort: 0`).
 > 컨테이너는 `running`이고 에러도 없으며, 앱은 호스트 데몬에 붙는다 — 그 데몬이 어떤
 > 모델을 갖고 있든. 포트를 갈라 두면 어느 쪽에 붙었는지가 항상 명시적이다.
@@ -59,8 +59,8 @@ MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP
       "command": "node",
       "args": ["<저장소>/air-server/dist/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://mcp:mcp@localhost:5433/mcpdata",
-        "OLLAMA_HOST": "http://localhost:11462",
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5433/mcpdata",
+        "OLLAMA_HOST": "http://localhost:11435",
         "EMBEDDER": "ollama",
         "OLLAMA_MODEL": "qwen2.5:7b",
         "EMBED_MODEL": "bge-m3",
