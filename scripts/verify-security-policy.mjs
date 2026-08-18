@@ -64,6 +64,33 @@ try {
   }
 
   const repo = await api("");
+
+  // ── 오늘 켠 설정 둘. 커밋에 안 남으므로 여기서 붙든다.
+  //
+  // 2026-08-18: `enforce_admins` 가 **false** 여서 필수 상태 검사가 등록돼 있는데도
+  // 관리자(나)가 빨간 PR 을 병합했다. **규칙이 있는 것과 나에게도 적용되는 것은 다르다.**
+  // `delete_branch_on_merge` 는 손으로 지우는 규율이 안 지켜져서 켰다 — 브랜치 100개를
+  // 지운 당일 다음 PR 이 또 하나를 남겼다.
+  if (repo.delete_branch_on_merge !== true) {
+    failures.push("delete_branch_on_merge 가 꺼져 있다 — 병합된 브랜치가 쌓인다");
+  }
+
+  const prot = await api("/branches/main/protection");
+  if (prot?.enforce_admins?.enabled !== true) {
+    failures.push("main 보호의 enforce_admins 가 꺼져 있다 — 관리자가 빨간 PR 을 병합할 수 있다");
+  } else {
+    console.log("  관리자에게도 CI 강제   켜져 있다");
+  }
+  const contexts = prot?.required_status_checks?.contexts ?? [];
+  for (const need of [
+    "typecheck + offline unit tests (20)",
+    "typecheck + offline unit tests (22)",
+    "SBOM drift check",
+  ]) {
+    if (!contexts.includes(need)) {
+      failures.push(`main 보호의 필수 상태 검사에 「${need}」 가 없다`);
+    }
+  }
   const sa = repo.security_and_analysis ?? {};
   for (const [key, label] of [
     ["secret_scanning", "비밀 스캔"],
