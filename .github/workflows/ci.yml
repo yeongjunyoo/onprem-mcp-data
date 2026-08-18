@@ -84,6 +84,10 @@ jobs:
       - name: 시연 대본이 약속하는 수치가 실물과 같은지
         working-directory: .
         run: node scripts/verify-demo-script.mjs
+      # 심사자는 링크를 타고 들어온다. 404 는 나머지 서술까지 의심받게 한다.
+      - name: 문서의 내부 링크가 실제 파일을 가리키는지
+        working-directory: .
+        run: node scripts/verify-doc-links.mjs
 
   sbom:
     name: SBOM drift check
