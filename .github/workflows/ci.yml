@@ -122,6 +122,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/verify-repo-stats.mjs
+      # 저장소 페이지 표면(빈 Wiki·Projects 탭, 토픽, 릴리스). 심사자가 제일 먼저
+      # 보는 화면이고, 설정은 커밋에 안 남아 사람이 기억할 수 없다.
+      # /topics·/releases·저장소 메타만 읽으므로 contents: read 로 충분하다.
+      - name: 저장소 페이지 표면
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-repo-presentation.mjs
 
   sbom:
     name: SBOM drift check
