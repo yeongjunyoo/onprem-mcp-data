@@ -80,6 +80,30 @@ console.log(`  합계 ${counted}`);
 console.log(`정본 test-counts.json: ${label}=${expected} integration=${canonical.integration} total=${canonical.total}`);
 
 const fails = [];
+
+// ★ 항목까지 대조한다. 합계만 보면 **같은 파일 안에서 모순**이 자란다.
+//   2026-08-18 실측: 합계는 335 로 맞는데 per_suite_offline 은 surfaces 53(실제 76)
+//   에 errors·degraded 가 아예 없어 항목 합이 267 이었다.
+//
+//   이 파일은 결과보고서가 "집계 원자료" 로 지목하는 곳이다. 심사자가 항목을 더해
+//   총계와 안 맞으면 낡은 수치보다 나쁘다 — **자기 안에서 모순인 증거는 증거가
+//   아니라 반증이다.**
+//
+//   러너에서 per-suite 를 이미 세어 놓고 찍기만 했었다. **세어 놓고 안 쓰면 세지
+//   않은 것과 같다.**
+const mapKey = hasDataset ? "per_suite_offline" : "per_suite_offline_ci";
+const canonMap = canonical[mapKey] ?? {};
+const liveMap = Object.fromEntries(perSuite.map((s) => s.split("=")).map(([k, v]) => [k, Number(v)]));
+for (const k of new Set([...Object.keys(canonMap), ...Object.keys(liveMap)])) {
+  if (canonMap[k] !== liveMap[k]) {
+    fails.push(`${mapKey}.${k}: 정본 ${canonMap[k] ?? "(없음)"} 인데 러너 실측은 ${liveMap[k] ?? "(안 돌았다)"} 이다`);
+  }
+}
+const mapSum = Object.values(canonMap).reduce((a, b) => a + b, 0);
+if (mapSum !== expected) {
+  fails.push(`${mapKey} 항목 합 ${mapSum} 이 ${label}=${expected} 과 다르다 — 한 파일 안에서 모순이다`);
+}
+
 if (expected !== counted) {
   fails.push(`정본 ${label}=${expected} 인데 러너 실측은 ${counted} 이다`);
 }
