@@ -115,6 +115,13 @@ jobs:
       - name: 의존성 갱신 정책이 저장소 안에 있는지
         working-directory: .
         run: node scripts/verify-dependabot-config.mjs
+      # 배점 대응표의 저장소 활동 수치. 시간이 지나기만 해도 벌어지는 값이라
+      # 사람이 기억해서 고칠 수 없다 — 허용 오차를 넘으면 CI 가 말한다.
+      - name: 저장소 활동 수치가 문서와 맞는지
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-repo-stats.mjs
 
   sbom:
     name: SBOM drift check
