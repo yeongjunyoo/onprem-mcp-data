@@ -25,6 +25,6 @@
     },
     "mrr": 0.304
   },
-  "generatedAt": "2026-06-30T14:42:04.066Z",
+  "generatedAt": "2026-08-18T08:17:47.800Z",
   "note": "BGE-M3 vs deterministic hash on identical ranking path; low-lexical-overlap gold; no LLM judge."
 }
