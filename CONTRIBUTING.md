@@ -35,7 +35,7 @@ mydata: {
 
 **그래프 레인은 아직 안 해 봤습니다.** `<스키마>.entities / aliases / relations` 를 채우면 되지만, 그 적재를 하는 `npm run companyx:load` 는 그 데이터셋의 파일 구조를 읽습니다. 여러분의 데이터로 돌려 본 적이 없으므로 **명령만 가리키고 절차를 지어내지 않습니다.**
 
-`llmNL2SQL` 은 스키마 카드 텍스트만 보고 SQL 을 만듭니다. `companyx`/`bench` 처럼
+`llmNL2SQL` 은 **활성 프로파일의 스키마 카드**를 프롬프트에 넣어 SQL 을 만듭니다(2026-08-18 실측: `DATASET=mydata` 로 "열려 있는 티켓이 몇 건인가" 를 물으면 `SELECT COUNT(*) FROM mydata.tickets WHERE status = 'open'` 이 나옵니다). `companyx`/`bench` 처럼
 전용 전략을 쓰지 않아도 되고, 카드가 곧 모델이 아는 전부입니다 — 컬럼 의미가
 애매하면 카드에 주석을 답니다.
 
