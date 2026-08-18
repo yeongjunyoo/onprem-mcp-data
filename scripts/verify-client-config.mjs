@@ -17,6 +17,61 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// ────────────────────────────────────────────────────────────────────────────
+// 1단: 정적 대조 (스택 없이도 돈다 → CI 에서 표류를 잡는다)
+//
+// 아래 실행 검사는 정확하지만 DB·모델이 있어야 돌아 CI 에서 못 돈다. 그 사이에
+// 문서의 Ollama 포트가 11449 → 11462 로 표류했고 compose 는 줄곧 11435 였다.
+// **CI 밖 검사는 아무도 안 돌린 날부터 없는 것과 같다.**
+//
+// compose 가 게시하는 포트와 sql/init 이 만드는 로그인 role 은 파일만 읽어도 안다.
+function staticDrift() {
+  const bad = [];
+  const compose = readFileSync(resolve(ROOT, "docker-compose.yml"), "utf8");
+  const port = compose.match(/"(\d+):11434"/)?.[1];
+  if (!port) return ["docker-compose.yml 에서 Ollama 게시 포트를 못 찾았다"];
+
+  // 로그인 가능한 role. NOLOGIN 으로 만든 것은 접속 설정에 쓸 수 없다.
+  const roles = new Set(["postgres"]);
+  const init = resolve(ROOT, "sql/init/02_roles.sql");
+  if (existsSync(init)) {
+    const sql = readFileSync(init, "utf8");
+    for (const m of sql.matchAll(/CREATE ROLE (\w+)([^;]*)/g)) {
+      if (!/NOLOGIN/i.test(m[2])) roles.add(m[1]);
+    }
+  }
+
+  for (const doc of ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"]) {
+    const p = resolve(ROOT, doc);
+    if (!existsSync(p)) continue;
+    const t = readFileSync(p, "utf8");
+    for (const m of t.matchAll(/localhost:(\d{5})/g)) {
+      // 11434 는 Ollama 자체의 기본 포트다. "호스트에 설치하면 11434, compose 로
+      // 띄우면 <port>" 는 **참인 서술**이라 물면 안 된다. 표류로 생긴 값(11449,
+      // 11462)만 잡는다.
+      if (/^114\d\d$/.test(m[1]) && m[1] !== port && m[1] !== "11434") {
+        bad.push(`${doc}: Ollama 를 localhost:${m[1]} 로 적었는데 compose 는 ${port} 로 게시한다`);
+      }
+    }
+    for (const m of t.matchAll(/postgres(?:ql)?:\/\/(\w+):/g)) {
+      if (!roles.has(m[1])) {
+        bad.push(`${doc}: DB 계정 '${m[1]}' 로 적었는데 로그인 가능한 role 은 ${[...roles].join(", ")} 뿐이다`);
+      }
+    }
+  }
+  return [...new Set(bad)];
+}
+
+const drift = staticDrift();
+if (drift.length) {
+  console.error("\n문서의 접속 설정이 실제 스택과 갈렸다 (정적 대조):");
+  for (const d of drift) console.error(`  - ${d}`);
+  console.error("\n붙여넣으면 그 자리에서 실패한다. 심사자가 제일 먼저 하는 일이다.\n");
+  process.exitCode = 1;
+  process.exit(1);
+}
+console.log("정적 대조: 문서의 포트·계정이 docker-compose·sql/init 과 일치한다.");
+
 const fails = [];
 
 // 1) README 에서 mcpServers 블록을 뽑는다 (문서가 정본이다)

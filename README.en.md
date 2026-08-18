@@ -22,12 +22,12 @@ docker compose exec ollama ollama pull qwen2.5:7b
 docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
-export OLLAMA_HOST=http://localhost:11462                # containerised Ollama
+export OLLAMA_HOST=http://localhost:11435                # containerised Ollama
 npm run gen:bench && npm run embed:bench:ollama          # deterministic seed data
 npm run demo:ollama                                      # offline end-to-end demo
 ```
 
-> **Why port 11462.** Publishing the container's Ollama on 11434 collides with a
+> **Why port 11435.** Publishing the container's Ollama on 11434 collides with a
 > host-installed Ollama, and Docker then **silently gives up on the publication**
 > (`PublishedPort: 0`). The container still reports `running`, and the app attaches to
 > the host daemon instead — whatever models it happens to hold. Splitting the port keeps
@@ -55,8 +55,8 @@ replacing `<repo>` with the actual path.
       "command": "node",
       "args": ["<repo>/air-server/dist/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://mcp:mcp@localhost:5433/mcpdata",
-        "OLLAMA_HOST": "http://localhost:11462",
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5433/mcpdata",
+        "OLLAMA_HOST": "http://localhost:11435",
         "EMBEDDER": "ollama",
         "OLLAMA_MODEL": "qwen2.5:7b",
         "EMBED_MODEL": "bge-m3",
