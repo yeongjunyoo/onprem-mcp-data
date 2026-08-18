@@ -31,6 +31,43 @@ const readJson = (rel) => {
   return JSON.parse(readFileSync(p, "utf8"));
 };
 
+// 0) 대본이 가리키는 섹션이 실물 데모에 있는가
+//
+//   `verify-demo-script` 는 대본의 **수**를 대조하는데 **섹션 번호**는 아무도 안
+//   봤다. 이 대본은 3분 시연영상의 촬영 지시서다 — 화면에 섹션 5가 안 뜨는데
+//   대본이 5를 가리키면 녹화 중에 알게 되고 다시 찍어야 한다.
+//
+//   **문서가 틀린 비용을 사람이 시간으로 낸다.**
+{
+  const demoSrc = resolve(ROOT, "air-server/src/cli/demo.ts");
+  if (!existsSync(demoSrc)) {
+    fails.push("demo.ts 를 못 찾았다 — 섹션 대조를 건너뛰지 않고 실패시킨다");
+  } else {
+    const src = readFileSync(demoSrc, "utf8");
+    // 섹션은 `hr("N) ...")` 로 찍는다. 출력 문자열(`=== N) ===`)을 찾으면 헬퍼
+    // 정의 한 줄만 걸리고 실제 섹션은 하나도 안 걸린다 — 초판이 그래서 실물을
+    // {0} 으로 봤다. **찍히는 모양이 아니라 부르는 자리를 본다.**
+    const real = new Set([...src.matchAll(/hr\("(\d+)\)/g)].map((m) => m[1]));
+    const cited = new Set();
+    for (const m of script.matchAll(/섹션\s*(\d+)(?:\s*[-–~]\s*(\d+))?/g)) {
+      cited.add(m[1]);
+      if (m[2]) {
+        for (let i = Number(m[1]); i <= Number(m[2]); i++) cited.add(String(i));
+      }
+    }
+    if (cited.size === 0) {
+      fails.push("대본이 섹션을 하나도 가리키지 않는다 — 패턴이 낡았는지 확인하라");
+    }
+    for (const n of [...cited].sort()) {
+      checked++;
+      if (!real.has(n)) {
+        fails.push(`대본이 섹션 ${n} 을 가리키는데 데모는 그 섹션을 찍지 않는다 ` +
+          `(실물: ${[...real].sort().join(", ")})`);
+      }
+    }
+  }
+}
+
 // 1) internal-llm-summary 의 정확도
 const llmClaim = script.match(/internal-llm-summary[^)]*?\((\d+)\/(\d+)\)/);
 if (llmClaim) {
