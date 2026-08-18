@@ -32,28 +32,58 @@ const samples = new Map();
 const sniffErrors = { tasklist: 0, netstat: 0 };
 let sampling = true;
 
-function nodePids() {
+/** 우리가 띄운 자식과 **그 자손들**의 PID.
+ *
+ * 종전에는 이 머신의 모든 node 프로세스를 봤다. 주장은 "우리 시스템이 외부를 안
+ * 부른다" 인데 측정은 "이 기계의 어떤 node 도 안 부른다" 였다.
+ *
+ * 2026-08-18 에 그 차이가 터졌다 — 드릴이 76.76.21.112:443 을 608회 잡고 실패했는데
+ * 이 머신에 node 가 11개 돌고 있었고 그중 **Vercel CLI** 와 **다른 프로젝트의
+ * Next.js dev 서버**가 있었다. 76.76.21.112 는 Vercel 이다.
+ *
+ * 넓은 측정은 거짓 무죄를 만들지 않지만 **거짓 유죄**를 만든다. 그리고 빨개지는
+ * 검사는 꺼진다. **측정 대상을 주장 대상에 맞춘다.**
+ *
+ * 트리는 매 표본마다 새로 뜬다 — 자식이 손자를 낳는다(npm → node).
+ */
+function treePids(rootPid) {
+  if (!rootPid) return new Set();
+  let rows;
   try {
-    const out = execFileSync("tasklist", ["/FI", "IMAGENAME eq node.exe", "/FO", "CSV", "/NH"], {
-      encoding: "utf8",
-    });
-    return new Set(
-      out
-        .split("\n")
-        .filter((l) => l.includes('","'))
-        .map((l) => Number(l.split('","')[1]))
-        .filter(Boolean),
+    rows = execFileSync(
+      "powershell",
+      ["-NoProfile", "-Command",
+       "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Csv -NoTypeInformation"],
+      { encoding: "utf8", timeout: 20000, stdio: ["ignore", "pipe", "ignore"] },
     );
   } catch {
-    // 조용히 넘기면 표본기가 눈이 먼다 — 그게 이 드릴의 초판이 아무것도 못 본 이유다.
-    // 매 150ms 루프라 여기서 로그를 찍으면 화면이 넘치므로, 세어서 끝에 한 번 말한다.
+    // 조용히 넘기면 표본기가 눈이 먼다 — 세어서 끝에 한 번 말한다.
     sniffErrors.tasklist++;
     return new Set();
   }
+
+  const parent = new Map();
+  for (const line of rows.split("\n").slice(1)) {
+    const m = line.match(/"?(\d+)"?,"?(\d+)"?/);
+    if (m) parent.set(Number(m[1]), Number(m[2]));
+  }
+
+  const mine = new Set([rootPid]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [pid, ppid] of parent) {
+      if (!mine.has(pid) && mine.has(ppid)) {
+        mine.add(pid);
+        grew = true;
+      }
+    }
+  }
+  return mine;
 }
 
 function sampleOnce() {
-  const pids = nodePids();
+  const pids = treePids(childPid);
   if (!pids.size) return;
   let out;
   try {
@@ -72,8 +102,40 @@ function sampleOnce() {
   }
 }
 
+// ── 컨테이너 층.
+//
+// 위 표본기는 node 프로세스를 본다 = **우리 코드**가 외부를 안 부른다는 증거.
+// 그런데 대본 0:00 장면은 네트워크를 끄고 시작한다 — 그때 살아 있어야 하는 건
+// node 뿐이 아니라 postgres·ollama 컨테이너다. 컨테이너가 조용히 밖을 부르면
+// 그 화면에서 무언가 실패하고, **그 장면이 헤드라인 주장이다.**
+let childPid = 0;   // 스폰 후 채워진다 — 그 전 표본은 비어 있는 게 맞다
+const containers = { db: new Set(), ollama: new Set() };
+const containerErrors = {};
+
+const hexIp = (h) => [6, 4, 2, 0].map((i) => parseInt(h.slice(i, i + 2), 16)).join(".");
+
+function sampleContainers() {
+  for (const svc of Object.keys(containers)) {
+    try {
+      const out = execFileSync("docker", ["compose", "exec", "-T", svc, "cat", "/proc/net/tcp"],
+        { cwd: ROOT, encoding: "utf8", timeout: 15000, stdio: ["ignore", "pipe", "ignore"] });
+      for (const line of out.split("\n").slice(1)) {
+        const p = line.trim().split(/\s+/);
+        if (p.length < 4 || p[3] !== "01") continue; // 01 = ESTABLISHED
+        const [ip, port] = p[2].split(":");
+        containers[svc].add(`${hexIp(ip)}:${parseInt(port, 16)}`);
+      }
+    } catch {
+      containerErrors[svc] = (containerErrors[svc] ?? 0) + 1;
+    }
+  }
+}
+
 const timer = setInterval(() => {
-  if (sampling) sampleOnce();
+  if (sampling) {
+    sampleOnce();
+    sampleContainers();
+  }
 }, 150);
 
 // ★ 드릴은 네트워크를 보는 것이 목적이지 지표를 재는 게 아니다.
@@ -102,6 +164,7 @@ const child = spawn("npm run companyx:ask", {
   shell: true,
 });
 
+childPid = child.pid;
 const code = await new Promise((res) => child.on("close", res));
 sampling = false;
 clearInterval(timer);
@@ -154,4 +217,27 @@ if (external.length) {
 }
 
 console.log("\nOK: LLM 평가가 도는 동안 node 프로세스가 외부로 나가지 않았다.");
+// ── 컨테이너 판정. node 층과 **따로** 낸다 — 어느 층을 재고 있는지가 곧 정답이다.
+const PRIVATE = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+const cSeen = Object.values(containers).reduce((n, s2) => n + s2.size, 0);
+console.log("\n컨테이너 층:");
+for (const [svc, addrs] of Object.entries(containers)) {
+  console.log(`  ${svc.padEnd(8)} ${addrs.size}종  ${[...addrs].sort().join(" ") || "(표본 없음)"}`);
+}
+if (cSeen === 0) {
+  console.error("\n실패: 컨테이너 표본이 0건이다 — 외부가 없는 게 아니라 표본기가 눈이 멀었다.");
+  console.error("  docker compose 가 떠 있는지 확인한다. **못 본 것을 없다고 적지 않는다.**\n");
+  process.exitCode = 1;
+} else {
+  const outside = Object.entries(containers).flatMap(([svc, a]) =>
+    [...a].filter((x) => !PRIVATE.test(x)).map((x) => `${svc} ${x}`));
+  if (outside.length) {
+    console.error(`\n실패: 컨테이너가 외부로 나갔다 — ${outside.join(", ")}\n`);
+    process.exitCode = 1;
+  } else {
+    console.log("  OK: 두 컨테이너 모두 사설/루프백 주소로만 연결했다.");
+    console.log("      (네트워크를 끄고 찍는 장면이 이 층까지 참이어야 성립한다.)");
+  }
+}
+
 console.log("    (정적 검사가 못 보는 층을 런타임으로 덮는다 — 표본기 시력을 먼저 증명한다.)");

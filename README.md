@@ -165,7 +165,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-security-claims` | 보안 문단이 실제 DB 설정과 어긋나는 것 | DB 필요 |
 | `drill-readonly-defense` | 2층 방어가 장식인 것(1층을 우회해 확인) | DB 필요 |
 | `drill-corpus-restore` | 벡터 평가가 코퍼스를 되돌리지 않는 것 | DB·모델 필요 |
-| `drill-offline-runtime` | 실행 중 외부로 나가는 연결 (정적 검사가 못 보는 층) | DB·모델 필요 |
+| `drill-offline-runtime` | LLM 평가가 도는 동안 우리 프로세스 트리와 컨테이너 두 층 모두 외부로 나가지 않는지 | DB·모델 필요 |
 | `verify-loaded-corpus` | 적재된 코퍼스가 문서가 말하는 규모와 다른 것 | DB 필요 |
 | `verify-security-policy` | SECURITY.md 가 안내하는 신고 경로가 닫혀 있는 것 | 토큰 필요 |
 | `verify-repo-presentation` | 저장소 페이지에 빈 탭·빠진 설명이 생기는 것 | 토큰 필요 |
