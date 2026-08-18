@@ -11,7 +11,7 @@
 //   "동작한다" 가 안 남는다 — 그래서 검사가 **문서에서 설정을 뽑아** 그대로 띄운다.
 //
 // 실행: node scripts/verify-client-config.mjs   (DB·모델 필요)
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,12 +87,11 @@ function staticDrift() {
     console.log(`  (설치본이 없어 선언 범위로 대조한 패키지 ${fellBack.length}종: ${fellBack.slice(0, 3).join(", ")}…)`);
   }
 
-  const walkMd = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
-    const full = resolve(dir, e.name);
-    return e.isDirectory() ? walkMd(full) : e.name.endsWith(".md") ? [full] : [];
-  });
-  for (const doc of walkMd(ROOT)) {
+  // 추적되는 md 만 본다 — 로컬 빌드 산출물(prepack 이 만드는 사본)까지 보면
+  // 같은 검사가 환경마다 다른 범위를 본다.
+  const trackedMd = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  for (const rel of trackedMd) {
+    const doc = resolve(ROOT, rel);
     const t = readFileSync(doc, "utf8");
     for (const [name, want] of Object.entries(installed)) {
       // 산문("core 0.3.0")과 표 행("| @airmcp-dev/core | 0.3.0 |") 둘 다 본다.
