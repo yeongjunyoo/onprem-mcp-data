@@ -74,3 +74,5 @@ node scripts/evidence-manifest.mjs --write
 
 문서 수치와 이 결과들의 일치는 `node scripts/metrics-check.mjs` 가 강제하고,
 테스트 단언 수는 `node scripts/verify-test-counts.mjs` 가 러너 출력에서 다시 센다.
+
+<!-- 보호 규칙 시험용 한 줄. 이 PR 은 병합되지 않고 닫힌다. -->
