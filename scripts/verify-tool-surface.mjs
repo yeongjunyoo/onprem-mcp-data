@@ -68,7 +68,11 @@ console.log(`  ${registered.join(", ")}`);
 
 // ── 2. 문서의 주장과 대조 ───────────────────────────────────────────────
 // 각 문서는 (a) 도구 개수를 정확히 말하고 (b) 모든 도구 이름을 담아야 한다.
-const DOCS = ["README.md", "README.en.md", "docs/submission-report.md"];
+const DOCS = ["README.md", "README.en.md", "docs/submission-report.md",
+  // architecture.md 는 README 배지가 가리키는 문서인데
+  // 목록에 없어 "7 MCP 도구" 가 남아 있었다(2026-08-17). PR #26 에서
+  // 7->8 을 정정할 때 이 파일만 빠졌다 — **검사 대상 목록이 곧 지켜지는 범위다.**
+  "docs/architecture.md"];
 const fails = [];
 
 for (const doc of DOCS) {
@@ -88,8 +92,10 @@ for (const doc of DOCS) {
   }
 
   // "도구는 8종" / "도구 8종" / "8 MCP tools" / "8개를 노출"
-  const counts = [...text.matchAll(/(?:도구[^\n]{0,12}?(\d+)\s*(?:종|개)|\*\*(\d+) MCP tools\*\*|(\d+)\s+MCP tools)/g)]
-    .map((m) => Number(m[1] ?? m[2] ?? m[3]))
+  const counts = [...text.matchAll(/(?:도구[^\n]{0,12}?(\d+)\s*(?:종|개)|\*\*(\d+) MCP tools\*\*|(\d+)\s+MCP tools|(?<![A-Za-z0-9/])(\d+)\s*(?:개\s*)?MCP\s*도구)/g)]
+    // m[4] = 한국어 숫자-선행 어순("8 MCP 도구"). 그룹을 늘리고 여기를 안 고치면
+    // 패턴은 맞는데 값이 undefined 로 버려진다 — 넓힌 척만 하는 것이다.
+    .map((m) => Number(m[1] ?? m[2] ?? m[3] ?? m[4]))
     .filter((n) => n > 0 && n < 100);
 
   if (counts.length === 0) {
