@@ -57,6 +57,31 @@ if (labels.length === 0) {
   fails.push("labels 가 없다 — PR 이 다른 것들 사이에 섞인다");
 }
 
+// ── 워크플로 최소 권한 ──────────────────────────────────────────────────
+//
+// 같은 주제다 — **정책을 저장소 안에 둔다.** 저장소 기본값이 read 라 지금은
+// 안전하지만 그것도 UI 설정이라 바뀌면 조용히 넓어진다.
+//
+// 워크플로에 적으면 포크한 사람도 같은 최소 권한으로 돈다.
+{
+  const wf = resolve(ROOT, ".github/workflows/ci.yml");
+  if (!existsSync(wf)) {
+    fails.push(".github/workflows/ci.yml 이 없다");
+  } else {
+    const ci = readFileSync(wf, "utf8");
+    if (!/^permissions:/m.test(ci)) {
+      fails.push(
+        "ci.yml 에 permissions 선언이 없다 — 저장소 기본값에 기대면 설정이 바뀔 때 조용히 넓어진다",
+      );
+    } else if (!/^permissions:\s*\n\s+contents:\s*read\s*$/m.test(ci)) {
+      const got = ci.match(/^permissions:[\s\S]{0,120}/m)?.[0] ?? "";
+      fails.push(
+        `ci.yml 권한이 contents: read 보다 넓다 — 이 워크플로는 읽기만 한다\n      ${got.split("\n").slice(0, 3).join(" / ")}`,
+      );
+    }
+  }
+}
+
 console.log(
   `dependabot.yml: 생태계 ${[...new Set(ecosystems)].join(" · ")} · ${text.split("\n").length}줄`,
 );
