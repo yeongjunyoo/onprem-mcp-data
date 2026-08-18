@@ -26,8 +26,8 @@
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `ba3341c805b1c8d4` | 2026-08-18T08:07:54 |
 | `companyx-route.json` | 23,256 | `4aa78f1c53f019e7` | 2026-08-18T07:45:52 |
-| `companyx-sql-llm-norepair.json` | 4,972 | `cfd9d08c70a15248` | 2026-07-29T12:48:18 |
-| `companyx-sql-llm.json` | 4,864 | `4ad7afdcb2ec0a8f` | 2026-08-17T20:20:15 |
+| `companyx-sql-llm-norepair.json` | 4,989 | `df8e6818cdba9815` | 2026-08-18T09:01:50 |
+| `companyx-sql-llm.json` | 4,864 | `c428d0005f6b79a6` | 2026-08-18T09:00:10 |
 | `companyx-sql-naive-norepair.json` | 5,340 | `141152e4ade6bb89` | 2026-07-29T12:49:47 |
 | `companyx-sql-naive.json` | 4,817 | `4b9baa585766485f` | 2026-07-29T12:50:21 |
 | `companyx-sql-repeat-llm-norepair.json` | 1,456 | `6ab414c9d7b6b4f0` | 2026-07-29T12:48:18 |
