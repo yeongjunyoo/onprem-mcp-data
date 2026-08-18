@@ -492,7 +492,7 @@ docker compose exec -T ollama ollama pull qwen2.5:7b   # 답변용 (Apache-2.0)
 docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
 cd air-server && npm ci && npm run build
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # bench 데이터+임베딩
-npm test              # 오프라인 335단언 통과 (DB·모델 불필요)
+npm test              # 오프라인 324단언 통과 (DB·모델 불필요). 데이터셋을 받은 환경이면 335
 npm run test:kg       # 그래프/3-way 19
 npm run bench:internal                    # 내부 벤치 execution-match (81/100)
 BENCH_STRATEGY=naive npm run bench:internal   # ablation naive
