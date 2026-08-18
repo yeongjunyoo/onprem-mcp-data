@@ -35,21 +35,25 @@
     "claims": 22,
     "normalize": 28,
     "auditrecord": 23,
-    "surfaces": 53,
+    "surfaces": 76,
     "router": 30,
     "curator": 67,
     "rrf": 16,
-    "evalmatch": 28
+    "evalmatch": 28,
+    "errors": 18,
+    "degraded": 27
   },
   "per_suite_offline_ci": {
     "claims": 22,
     "normalize": 28,
     "auditrecord": 23,
-    "surfaces": 53,
+    "surfaces": 76,
     "router": 19,
     "curator": 67,
     "rrf": 16,
-    "evalmatch": 28
+    "evalmatch": 28,
+    "errors": 18,
+    "degraded": 27
   },
   "environment": {
     "postgres": "16 + pgvector (docker compose, host 5433)",
