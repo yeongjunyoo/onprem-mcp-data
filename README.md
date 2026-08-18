@@ -169,6 +169,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-loaded-corpus` | 적재된 코퍼스가 문서가 말하는 규모와 다른 것 | DB 필요 |
 | `verify-security-policy` | SECURITY.md 가 안내하는 신고 경로가 닫혀 있는 것 | 토큰 필요 |
 | `verify-repo-presentation` | 저장소 페이지에 빈 탭·빠진 설명이 생기는 것 | 토큰 필요 |
+| `verify-repo-stats` | 배점 대응표의 커밋·PR·이슈 수가 실제보다 크게 뒤처지는 것 | 토큰 필요 |
 
 각 검사는 자기가 **덮지 못하는 것**도 스스로 말합니다. 예를 들어 `verify-test-counts`
 는 통합 127건이 DB·모델을 요구해 CI 에서 재현 불가임을 출력에 적습니다 — 덮지 못하는

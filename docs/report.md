@@ -645,7 +645,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(Δ +40pp/+53pp), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
-| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 169, PR 79(병합 74), 이슈 12(열림 2), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고·Dependabot 활성. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
+| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 262, PR 127(병합 119), 이슈 13(열림 3), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고 활성, 의존성 갱신 정책은 `.github/dependabot.yml`(메이저는 사람이 판단), 워크플로 권한은 `contents: read` 로 코드에 명시. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
 
 ### 2차 발표 70점
 
