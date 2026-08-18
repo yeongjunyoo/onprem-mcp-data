@@ -81,6 +81,28 @@ console.log(`정본 test-counts.json: ${label}=${expected} integration=${canonic
 
 const fails = [];
 
+// ★ 문이 정본과 갈리는 것을 잡는다.
+//   CI 는 `npm test` 를 안 부른다 — 이 검사가 정본 목록을 직접 돌린다. 그래서 그
+//   문이 갈려도 CI 는 초록이고 **기여자와 심사자만 틀린 문을 연다.**
+//
+//   2026-08-18 실측: `npm test` 가 errors(18)·degraded(27)를 안 돌리고, 대신 DB 가
+//   있어야 하는 통합 4종을 돌렸다. 클론해서 `npm test` 를 치는 것은 세계 공통
+//   관습이다 — 그 사람은 새 45단언이 없는 결과를 보거나 Docker 없이 실패한다.
+//
+//   목록이 셋이었다: 정본 · 이 검사(정본과 같음) · 그리고 package.json 의 문.
+{
+  const pkg = JSON.parse(readFileSync(resolve(SERVER, "package.json"), "utf8"));
+  const suitesIn = (script) => [...(pkg.scripts?.[script] ?? "").matchAll(/dist\/(\w+)\.test\.js/g)].map((m) => m[1]);
+  for (const [script, want] of [["test", canonical.suites?.offline ?? []],
+                                ["test:integration", canonical.suites?.integration ?? []]]) {
+    const got = suitesIn(script);
+    const missing = want.filter((s) => !got.includes(s));
+    const extra = got.filter((s) => !want.includes(s));
+    if (missing.length) fails.push(`npm run ${script} 가 정본 스위트 ${missing.join(", ")} 를 안 돌린다`);
+    if (extra.length) fails.push(`npm run ${script} 가 정본에 없는 ${extra.join(", ")} 를 돈다`);
+  }
+}
+
 // ★ 항목까지 대조한다. 합계만 보면 **같은 파일 안에서 모순**이 자란다.
 //   2026-08-18 실측: 합계는 335 로 맞는데 per_suite_offline 은 surfaces 53(실제 76)
 //   에 errors·degraded 가 아예 없어 항목 합이 267 이었다.
