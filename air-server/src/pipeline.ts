@@ -260,6 +260,20 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   if (kwSettled.status === "rejected") branchErrors.push(`keyword: ${String(kwSettled.reason)}`);
   if (kwResult && !kwResult.ok) branchErrors.push(`keyword: ${kwResult.error ?? "unknown"}`);
   if (graphResult?.error) branchErrors.push(`graph: ${graphResult.error}`);
+  // ★ sql·vector 레인은 실패를 **던지지 않고 돌려준다**.
+  //
+  // 위의 rejected 검사만으로는 안 잡힌다 — `{ok:false, error}` 는 fulfilled 다.
+  // 2026-08-17 실측: DB 가 죽은 상태에서 ask 가 "주어진 정보로는 알 수 없습니다" 로
+  // 답하고 audit.explain 의 branch_errors 는 **빈 배열**이었다.
+  //
+  // 인프라 장애가 지식 부재로 위장된다. 접지 규율("모르면 모른다")이 장애를
+  // 삼키는 통로가 되면 안 된다. 네 레인 중 keyword·graph 만 이 검사가 있었다.
+  if (sqlResult && !sqlResult.ok) {
+    branchErrors.push(`sql: ${sqlResult.error ?? "unknown"}`);
+  }
+  if (vecResult && !vecResult.ok) {
+    branchErrors.push(`vector: ${vecResult.error ?? "unknown"}`);
+  }
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];
@@ -344,6 +358,26 @@ export async function ask(
   deps: RetrieveDeps & { llm?: AnswerFn },
 ): Promise<AskResult> {
   const r = await retrieve(query, deps);
+
+  // ★ 근거가 없는 것과 근거를 **가져올 수 없는** 것은 다르다.
+  //
+  // 2026-08-17 실측: DB 가 죽은 상태에서도 ask 는 "주어진 정보로는 알 수 없습니다"
+  // 라고 답했다. 접지 규율은 옳지만, 그 문장은 **데이터셋에 그 내용이 없다**는 뜻이다.
+  // 인프라 장애를 그 문장으로 덮으면 사용자는 시스템이 모른다고 읽는다 —
+  // 실제로는 자기 설정이 틀린 것인데.
+  //
+  // 컨텍스트가 비었고 **동시에** 레인이 실패했다면 LLM 을 부르지 않는다.
+  // 답을 지어내지 않되, 왜 답할 수 없는지는 정확히 말한다.
+  const branchErrors = r.audit?.branch_errors ?? [];
+  if (r.context.length === 0 && branchErrors.length > 0) {
+    return {
+      ...r,
+      answer:
+        "조회에 실패해 답할 근거를 가져오지 못했습니다. 데이터가 없는 것이 아니라 " +
+        `조회 자체가 실패했습니다: ${branchErrors.join(" / ")}`,
+    };
+  }
+
   const gen = deps.llm ?? llmAnswer;
   const answer = await gen(query, r.context);
   return { ...r, answer };
