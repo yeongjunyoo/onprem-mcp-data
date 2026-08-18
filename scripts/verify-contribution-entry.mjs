@@ -75,6 +75,40 @@ console.log(
     `CONTRIBUTING ${contrib ? "있음" : "없음"}`,
 );
 
+// ── 「내 데이터에 붙이기」가 인용하는 소스 식별자.
+//
+// 2026-08-18 에 그 절을 쓰면서 식별자를 손으로 확인했다. **손으로 확인한 것은 다음에
+// 누가 이름을 바꾸면 조용히 낡는다** — 활용성 15점이 걸린 자리라 특히 그렇다.
+//
+// 심사자가 그 절을 따라 하다 없는 필드를 만나면 거기서 끝난다.
+{
+  const guide = contrib.includes("## 내 데이터에 붙이기");
+  if (!guide) {
+    fails.push('CONTRIBUTING 에 「내 데이터에 붙이기」 절이 없다 — 활용성 질문에 답하는 자리다');
+  } else {
+    const section = contrib.slice(contrib.indexOf("## 내 데이터에 붙이기"));
+    const body = section.slice(0, section.indexOf("\n## ", 10) + 1 || undefined);
+    const profileSrc = readFileSync(resolve(ROOT, "air-server/src/profile.ts"), "utf8");
+    const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
+
+    for (const id of ["DatasetName", "kgSchema", "vectorTable", "schemaCard", "llmNL2SQL"]) {
+      if (body.includes(id) && !profileSrc.includes(id)) {
+        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
+      }
+    }
+    for (const m2 of body.matchAll(/npm run ([\w:.-]+)/g)) {
+      if (!pkg.scripts?.[m2[1]]) {
+        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 없는 스크립트를 가리킨다: ${m2[1]}`);
+      }
+    }
+    for (const m3 of body.matchAll(/(scripts\/[\w.-]+\.mjs|air-server\/src\/[\w.-]+\.ts)/g)) {
+      if (!existsSync(resolve(ROOT, m3[1]))) {
+        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 없는 파일을 가리킨다: ${m3[1]}`);
+      }
+    }
+  }
+}
+
 if (fails.length) {
   console.error("\n외부 기여자의 길이 끊긴다:");
   for (const f of fails) console.error(`  - ${f}`);
