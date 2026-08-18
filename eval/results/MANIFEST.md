@@ -22,7 +22,7 @@
 | `companyx-holdout-route.json` | 11,104 | `14d2fd829f095431` | 2026-08-18T10:46:52 |
 | `companyx-holdout2-route.json` | 11,103 | `2a5f72d7c2b629a4` | 2026-08-18T10:46:53 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
-| `companyx-kg.json` | 6,369 | `f7c8c5e196efd238` | 2026-08-18T10:41:40 |
+| `companyx-kg.json` | 6,369 | `36b52b3f2cb573a4` | 2026-08-18T12:47:08 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `f586831bd209a47d` | 2026-08-18T10:46:54 |
 | `companyx-route.json` | 23,256 | `b77974cb45ba0705` | 2026-08-18T10:41:38 |
