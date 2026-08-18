@@ -91,6 +91,42 @@ const fails = [];
 //
 //   목록이 셋이었다: 정본 · 이 검사(정본과 같음) · 그리고 package.json 의 문.
 {
+  // 기여자 문서의 계층 표가 이 수치를 인용한다. **그 수치의 소유자는 여기다.**
+  //
+  // 2026-08-18 실측: 그 표가 290/279 로 낡아 있었다. CONTRIBUTING 은 이미
+  // verify-doc-metrics 의 대상 문서였는데도 살아남았다 — 어느 SUBJECT 도 그 자리를
+  // 자기 것으로 인식하지 않았을 뿐이다. **검사 대상 문서에 있다고 검사되는 것이 아니다.**
+  //
+  // 표 셀 구조라 근접성 규칙도 마커 규약(값이 두 번째 칸)도 안 맞는다. 그래서 추측
+  // 없이 소유자가 직접 대조한다 — 문서에 그 수가 문자 그대로 있어야 한다.
+  {
+    const doc = readFileSync(resolve(ROOT, "CONTRIBUTING.md"), "utf8");
+    // 행을 특정해서 묻는다. "문서 어딘가에 335 가 있나" 로 물었더니 표 행이 290 으로
+    // 낡아도 아래 요약 문장의 "오프라인 335 + 통합 127" 이 대신 만족시켰다.
+    //
+    // **같은 수가 문서에 두 번 나오면, 하나가 썩어도 검사는 다른 하나를 본다.**
+    const rows = doc.split("\n").filter((l) => l.trimStart().startsWith("|"));
+    const rowFor = (label) => rows.find((l) => l.split("|")[1]?.includes(label));
+    const has = (line, v) => new RegExp(`(?<!\\d)${v}(?!\\d)`).test(line ?? "");
+
+    for (const [label, keys] of [["오프라인 단위", ["offline_with_dataset", "offline_ci"]],
+                                 ["DB 통합", ["integration"]]]) {
+      const row = rowFor(label);
+      if (!row) {
+        fails.push(`CONTRIBUTING.md 의 테스트 계층 표에 「${label}」 행이 없다`);
+        continue;
+      }
+      for (const k of keys) {
+        if (!has(row, canonical[k])) {
+          fails.push(`CONTRIBUTING.md 「${label}」 행에 정본 ${k}=${canonical[k]} 이 없다`);
+        }
+      }
+    }
+    if (!has(doc, canonical.total)) {
+      fails.push(`CONTRIBUTING.md 에 정본 total=${canonical.total} 이 없다`);
+    }
+  }
+
   const pkg = JSON.parse(readFileSync(resolve(SERVER, "package.json"), "utf8"));
   const suitesIn = (script) => [...(pkg.scripts?.[script] ?? "").matchAll(/dist\/(\w+)\.test\.js/g)].map((m) => m[1]);
   for (const [script, want] of [["test", canonical.suites?.offline ?? []],
