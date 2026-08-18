@@ -61,7 +61,7 @@
     "embed:bench:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama -- dist/cli/embed-bench.js",
     "eval": "node node_modules/typescript/bin/tsc && node dist/eval.js",
     "external:bird": "node node_modules/typescript/bin/tsc && node dist/cli/external-eval.js",
-    "fault:inject": "node node_modules/typescript/bin/tsc && node dist/cli/fault-eval.js",
+    "fault:inject": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/cli/fault-eval.js",
     "gen:bench": "node node_modules/typescript/bin/tsc && node dist/cli/gen-bench.js",
     "keyword:index": "node dist/cli/keyword-index.js",
     "prepack": "node scripts/prepack.mjs && node node_modules/typescript/bin/tsc",
