@@ -60,6 +60,13 @@ const SUBJECTS = [
   // **같은 사실이 여러 문서에 흩어져 있으면 검사도 흩어져야 한다.**
   { re: /컨테이너는 중앙값|종단 중앙 지연|ask median/i, key: "ask_median_ms", val: /\b\d{4,5}(?=\s*ms)/g },
   { re: /호스트 Ollama는 중앙값|호스트 GPU/i, key: "ask_median_ms_host", val: /\b\d{3,4}(?=\s*ms)/g },
+  // 내부 벤치의 **괄호 표기**만 본다. 2026-08-18 에 83 → 81 로 내렸는데 보고서 서두
+  // 「핵심 한 줄」의 `품질(83%)` 이 살아남았다 — 그 표기가 규칙 밖이었다.
+  //
+  // 처음엔 주제어를 `내부 SQL execution-match` 까지 넓혔다가 `81/100=81.0%` 줄을
+  // 세 개 오탐했다(값 추출기가 `%` 앞 숫자를 못 봄). **오탐 있는 검사는 꺼진다** —
+  // `81/100` 형태는 기존 규칙이 이미 보므로 여기서는 괄호 하나만 맡는다.
+  { re: /품질\(\d{1,3}%\)/, key: "bench_internal_pct", val: /(?<=품질\()\d{1,3}(?=%\))/g },
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
