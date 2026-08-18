@@ -29,6 +29,12 @@ const DOCS = [
   // 기여자가 처음 밟는 문서. 여기 수치가 틀리면 "돌려 봤는데 다른데" 가 되고
   // 그 순간 문서 전체의 신뢰가 깎인다.
   "CONTRIBUTING.md",
+  // 2026-08-17 승격. 이 셋은 오래 목록 밖이었고 그동안 시연 대본의 지연이
+  // "약 12초"(정본 14139ms)로 낡아 있었다. **영준이 이 대본을 보고 녹화한다** —
+  // 잘못된 기준은 없는 기준보다 나쁘다. 맞다고 믿게 만든다.
+  "docs/demo-script.md",
+  "docs/architecture.md",
+  "docs/roadmap.md",
 ];
 
 // 정본은 metrics-check 가 이미 계산한다. 두 곳에서 따로 읽으면 갈린다.
@@ -45,6 +51,13 @@ const SUBJECTS = [
   // 규칙 밖이라 낡은 채로 남아 있었다 — **같은 사실을 짧게 쓰면 검사가 못 본다.**
   // 오늘 도구 수(숫자 선행)·단언 수(중간에 단어)에서도 같은 형태를 겪었다.
   { re: /벡터.{0,12}hit@5|vector hit@5|벡터\s*0\.\d{3}/i, key: "vector_hit5", val: /\b0\.\d{3}\b/g },
+  // 지연 산문. 2026-08-17 에 **두 번째로** 낡은 것이 나왔다 — 본문 3쪽을 고쳤을 때
+  // check_report_metrics.py 에 넣었지만 그 검사는 제출 원고만 본다. 저장소 문서
+  // (특히 영준이 보고 녹화하는 시연 대본)는 여전히 밖이었다.
+  //
+  // **같은 사실이 여러 문서에 흩어져 있으면 검사도 흩어져야 한다.**
+  { re: /컨테이너는 중앙값|종단 중앙 지연|ask median/i, key: "ask_median_ms", val: /\b\d{4,5}(?=\s*ms)/g },
+  { re: /호스트 Ollama는 중앙값|호스트 GPU/i, key: "ask_median_ms_host", val: /\b\d{3,4}(?=\s*ms)/g },
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
@@ -66,6 +79,38 @@ for (const doc of DOCS) {
       continue;
     }
     if (fenced || line.includes("<!--metric-ok-->")) continue;
+    // 한 줄이 여러 주제에 걸리면 **주제 바로 뒤의 수**만 그 주제 것으로 본다.
+    // 2026-08-17 에 반대쪽으로 두 번 틀린 뒤에 얻은 규칙이다.
+    //
+    //   "걸린 주제마다 자기 정본이 줄 어딘가에" → 1차·2차를 같이 말하며 2차 값만
+    //   인용한 옳은 문장을 물었다(roadmap:22).
+    //
+    //   "줄의 모든 값이 누군가의 정본" → 같은 줄의 **커버율 0.933** 을 물었다
+    //   (README:185). 추적 대상이 아닌 지표가 같은 줄에 있는 건 정상이다.
+    //
+    // 둘 다 "어느 수가 어느 주제 것인가" 를 안 보고 뭉뚱그린 탓이다. 사람은 위치로
+    // 안다 — "홀드아웃1(템플릿 문형)에서 27/30(0.900)".
+    const hit = SUBJECTS.filter((s) => s.re.test(line) && canonical[s.key]);
+    if (hit.length > 1) {
+      for (const s of hit) {
+        const at = line.search(s.re);
+        // 창은 **양방향**이다. 한국어는 값이 주제 앞에 오기도 한다 —
+        // "0.900은 템플릿 문형, 0.633이 구어체다"(report.md:362). 뒤만 보면
+        // 0.900 을 놓치고 0.633 을 홀드아웃1 것으로 오독한다.
+        const near = line.slice(Math.max(0, at - 30), at + 30);
+        const vals = [...near.matchAll(s.val)].map((m) => m[0]);
+        if (vals.length === 0) continue; // 멀리 있는 값은 남의 것이다
+        scanned++;
+        if (!vals.includes(canonical[s.key])) {
+          fails.push(
+            `${doc}:${i + 1} — ${s.key} 바로 뒤의 값이 정본 ${canonical[s.key]} 이 아니다 ` +
+              `(문서: ${vals.join(", ")})\n    ${line.trim().slice(0, 100)}`,
+          );
+        }
+      }
+      continue;
+    }
+
     for (const s of SUBJECTS) {
       if (!s.re.test(line)) continue;
       const want = canonical[s.key];
