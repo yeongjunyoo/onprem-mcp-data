@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-08-17T19:29:30.626Z
+> 생성 시각 2026-08-18T02:36:26.636Z
 > npm 패키지 110개(직접 5 / 전이 105) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(`node scripts/sbom.mjs`).
@@ -10,10 +10,10 @@
 
 | 번호 | 라이브러리명 | 버전 | 라이선스 | 공식 저장소 URL | 사용 목적 및 주요 기능 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | @airmcp-dev/core | 0.2.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
-| 2 | @types/node | 26.0.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
-| 3 | @types/pg | 8.20.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
-| 4 | pg | 8.22.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
+| 1 | @airmcp-dev/core | 0.3.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
+| 2 | @types/node | 26.2.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
+| 3 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
+| 4 | pg | 8.23.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
 | 5 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript | 빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일 |
 | 6 | PostgreSQL | 16 | PostgreSQL License (OSI 인증) | https://github.com/postgres/postgres | 관계형 저장소와 온프렘 클러스터(primary, replica) |
 | 7 | pgvector | 0.6.0 | PostgreSQL License (OSI 인증) | https://github.com/pgvector/pgvector | 벡터 인덱스와 코사인 유사도 검색 |
@@ -95,7 +95,7 @@
 | 67 | pg-connection-string | 2.14.0 | MIT | https://github.com/brianc/node-postgres |
 | 68 | pg-int8 | 1.0.1 | ISC | https://github.com/charmander/pg-int8 |
 | 69 | pg-pool | 3.14.0 | MIT | https://github.com/brianc/node-postgres |
-| 70 | pg-protocol | 1.15.0 | MIT | https://github.com/brianc/node-postgres |
+| 70 | pg-protocol | 1.16.0 | MIT | https://github.com/brianc/node-postgres |
 | 71 | pg-types | 2.2.0 | MIT | https://github.com/brianc/node-pg-types |
 | 72 | pgpass | 1.0.5 | MIT | https://github.com/hoegaarden/pgpass |
 | 73 | pkce-challenge | 5.0.1 | MIT | https://github.com/crouchcd/pkce-challenge |
