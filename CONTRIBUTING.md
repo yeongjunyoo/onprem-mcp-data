@@ -2,6 +2,9 @@
 
 이 저장소는 온프렘 환경에서 도는 MCP 데이터 플랫폼입니다. 외부 API를 호출하지 않는 것이 설계 제약이자 검증 대상이므로, 기여도 그 제약 안에서 이루어집니다.
 
+
+> **질문은 이슈가 아니라 [Discussions](https://github.com/yeongjunyoo/onprem-mcp-data/discussions)로 주세요.** 이 저장소는 빈 이슈를 막아 두었고, 이슈 템플릿은 버그 신고와 기능 제안 두 가지입니다. 사용 방법·설계 의도·재현 실패처럼 답을 찾는 질문은 Discussions 가 맞는 자리입니다.
+> 처음 기여한다면 [good first issue](https://github.com/yeongjunyoo/onprem-mcp-data/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 부터 보세요.
 ## 먼저 알아야 할 세 가지
 
 1. **외부 API 호출을 추가하지 마세요.** 생성 모델과 임베딩 모델은 전부 로컬 Ollama에서 구동합니다. 상용 API를 호출하는 코드 경로가 들어오면 이 프로젝트의 핵심 주장이 무너집니다.

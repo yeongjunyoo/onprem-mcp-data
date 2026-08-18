@@ -88,6 +88,10 @@ jobs:
       - name: 문서의 내부 링크가 실제 파일을 가리키는지
         working-directory: .
         run: node scripts/verify-doc-links.mjs
+      # 파일이 있는 것과 기여자의 길이 이어지는 것은 다르다.
+      - name: 외부 기여 진입 경로에 막다른 길이 없는지
+        working-directory: .
+        run: node scripts/verify-contribution-entry.mjs
 
   sbom:
     name: SBOM drift check

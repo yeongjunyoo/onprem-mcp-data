@@ -1,2 +1,15 @@
 blank_issues_enabled: false
 # 보안 취약점은 이슈가 아니라 SECURITY.md의 비공개 경로(GitHub Security 탭 > Report a vulnerability)로 받습니다.
+
+# 빈 이슈를 막았으므로 **어디로 가야 하는지**를 여기서 말한다.
+# 표지판이 없으면 기여자는 막다른 길에서 돌아간다.
+contact_links:
+  - name: 질문과 아이디어 (Discussions)
+    url: https://github.com/yeongjunyoo/onprem-mcp-data/discussions
+    about: 버그도 기능 제안도 아닌 질문·사용 사례·설계 논의는 여기에 남겨 주세요.
+  - name: 처음 기여한다면 (good first issue)
+    url: https://github.com/yeongjunyoo/onprem-mcp-data/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+    about: 범위가 작고 맥락이 문서화된 이슈부터 시작할 수 있습니다.
+  - name: 보안 취약점 (비공개)
+    url: https://github.com/yeongjunyoo/onprem-mcp-data/security/advisories/new
+    about: 공개 이슈가 아니라 비공개 신고 경로로 알려 주세요.
