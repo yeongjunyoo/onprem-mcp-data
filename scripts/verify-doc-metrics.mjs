@@ -16,26 +16,32 @@
 //   과거 측정을 서술하는 줄은 정당하게 옛 값을 담는다. `<!--metric-ok-->` 로
 //   면제하되, 침묵이 아니라 시점을 밝히는 문장과 함께 쓴다.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DOCS = [
-  "README.md",
-  "README.en.md",
-  "docs/report.md",
-  "docs/submission-report.md",
-  // 기여자가 처음 밟는 문서. 여기 수치가 틀리면 "돌려 봤는데 다른데" 가 되고
-  // 그 순간 문서 전체의 신뢰가 깎인다.
-  "CONTRIBUTING.md",
-  // 2026-08-18 승격. 이 셋은 오래 목록 밖이었고 그동안 시연 대본의 지연이
-  // "약 12초"(정본 14139ms)로 낡아 있었다. **영준이 이 대본을 보고 녹화한다** —
-  // 잘못된 기준은 없는 기준보다 나쁘다. 맞다고 믿게 만든다.
-  "docs/demo-script.md",
-  "docs/architecture.md",
-  "docs/roadmap.md",
-];
+// 문서 목록을 **손으로 적지 않는다.** 10개를 손으로 적고 있었는데, 전 md 로 넓혀
+// 재 보니 어긋난 자리가 하나 나왔다 — air-server/README.md 의 측정 표가 옛 상태로
+// 얼어 있었다(테스트 223단언, 정본 462).
+//
+// **같은 저장소의 두 README 가 같은 항목에 다른 수를 적으면 어느 쪽도 못 믿는다.**
+// 하나가 틀린 게 아니라 둘 다 신뢰를 잃는다.
+//
+// 넓히기 전에 오탐을 재는 습관이 이번엔 진짜를 찾아냈다 — "넓히면 오탐" 이
+// 기본값이 아니다. **재 보기 전에는 모른다.**
+const DOCS = (function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
+    const full = resolve(dir, e.name);
+    // CHANGELOG 는 제외한다. **릴리스 노트에서 생성되는 역사 기록**이라 그 시점의
+    // 수치가 그대로 남는 것이 맞다(v0.1.0 의 388단언). 여기에 metric-ok 를 달 수도
+    // 없다 — GitHub 릴리스 본문에는 그 표식이 없어서 sync-changelog 가 갈렸다고
+    // 판정한다. **바꿀 수 없는 문서는 검사 대상이 아니라 제외 대상이다.**
+    if (e.name === "CHANGELOG.md") return [];
+    return e.isDirectory() ? walk(full) : e.name.endsWith(".md") ? [relative(ROOT, full)] : [];
+  });
+})(ROOT);
 
 // 정본은 metrics-check 가 이미 계산한다. 두 곳에서 따로 읽으면 갈린다.
 const out = execFileSync(process.execPath, [resolve(ROOT, "scripts/metrics-check.mjs")], {
@@ -61,7 +67,10 @@ const SUBJECTS = [
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
-  { re: /근거 포함|evidence in context/i, key: "ask_evidence", val: /\b\d{1,2}\/19\b/g },
+  { re: /단언 통과|assertions pass/i, key: "test_total", val: /(?<!\d)\d{3}(?!\d)/g },
+  // 분모를 /19 로 못 박으면 **분모까지 바꾼 위조가 건너뛰어진다** — 값이 하나도
+  // 안 잡히면 검사는 그 줄을 넘긴다. 어떤 비율이든 잡아서 정본과 대조한다.
+  { re: /근거 포함|evidence in context/i, key: "ask_evidence", val: /\b\d{1,2}\/\d{1,2}\b/g },
   { re: /KG 재현율|지식그래프 검색 재현율|knowledge-graph recall/i, key: "kg_recall", val: /\b\d\.\d{3}\b/g },
 ];
 
