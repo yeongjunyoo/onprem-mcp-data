@@ -162,6 +162,87 @@ if (gateStart >= 0) {
 
 }
 
+// ── 전 문서 표면 수 훑기 ────────────────────────────────────────────────
+//
+// 위 블록은 **골라 놓은 문서**만 본다. 그래서 architecture.md 에 "7 MCP 도구" 가
+// 남아 있었다(2026-08-17). 문서를 하나씩 목록에 넣는 방식은 다음 문서가 생기면
+// 또 빠진다.
+//
+// 표면 수는 전수로 훑어도 안전하다 — 21개 문서 전수 실측에서 오탐 0건.
+// (지표 값은 한 줄에 두 지표가 오면 오탐이 나서 넓히지 않았다. 오탐이 있는 검사는
+//  사람이 꺼버린다.)
+{
+  const tracked = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "utf8" })
+    .split("\n")
+    .map((f) => f.trim())
+    .filter(Boolean);
+
+  // 리소스·프롬프트도 소스에서 직접 센다 — 문서 수치를 문서로 검증하면 순환이다.
+  // 리소스·프롬프트도 소스에서 직접 센다 — 문서 수치를 문서로 검증하면 순환이다.
+  const countIn = (rel, pat) => {
+    try {
+      return [...readFileSync(resolve(ROOT, rel), "utf8").matchAll(pat)].length;
+    } catch {
+      return 0;
+    }
+  };
+  const resourceCount = countIn("air-server/src/resources.ts", /\n\s+defineResource\(\{/g);
+  const promptCount = countIn("air-server/src/prompts.ts", /\n\s+definePrompt\(\{/g);
+  if (!resourceCount || !promptCount) {
+    fails.push(
+      `표면 수 훑기: 리소스 ${resourceCount} · 프롬프트 ${promptCount} — 소스를 못 셌다`,
+    );
+  }
+
+  const SURFACES = [
+    ["도구", registered.length, [
+      /도구[^\n]{0,12}?(\d+)\s*(?:종|개)/g,
+      /(?<![A-Za-z0-9/])(\d+)\s*(?:개\s*)?MCP\s*도구/g,
+      /\*\*(\d+) MCP tools\*\*/g,
+      /(?<![A-Za-z0-9/])(\d+)\s+MCP tools/g,
+    ]],
+    ["리소스", resourceCount, [
+      /리소스[^\n]{0,10}?(\d+)\s*(?:종|개)/g,
+      /(?<![A-Za-z0-9/])(\d+)\s+resources\b/g,
+    ]],
+    ["프롬프트", promptCount, [
+      /프롬프트[^\n]{0,10}?(\d+)\s*(?:종|개)/g,
+      /(?<![A-Za-z0-9/])(\d+)\s+prompts\b/g,
+    ]],
+  ];
+
+  let swept = 0;
+  for (const rel of tracked) {
+    let text;
+    try {
+      text = readFileSync(resolve(ROOT, rel), "utf8");
+    } catch {
+      continue;
+    }
+    swept++;
+    for (const [label, want, patterns] of SURFACES) {
+      if (!want) continue;
+      const found = new Set();
+      for (const pat of patterns) {
+        for (const m of text.matchAll(pat)) {
+          const v = Number(m[1]);
+          if (v > 0 && v < 100) found.add(v);
+        }
+      }
+      const wrong = [...found].filter((v) => v !== want);
+      if (wrong.length) {
+        fails.push(`${rel}: ${label} 수를 ${wrong.join("/")}로 적었는데 실제는 ${want}종이다`);
+      }
+    }
+  }
+
+  if (swept === 0) {
+    fails.push("전 문서 훑기: 대상이 0개다 — git ls-files 를 확인하라");
+  } else {
+    console.log(`전 문서 표면 수 훑기: ${swept}개 문서.`);
+  }
+}
+
 // ── README 가 말하는 "검사 N종" ────────────────────────────────────────
 //
 // 산문 안의 목록이라 지표 검사가 못 본다. 실제로 "10종" 이라 쓰고 9개만 나열한
