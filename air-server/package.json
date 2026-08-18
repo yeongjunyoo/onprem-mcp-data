@@ -57,8 +57,8 @@
     "demo": "node node_modules/typescript/bin/tsc && node dist/cli/demo.js",
     "demo:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama -- dist/cli/demo.js",
     "dev": "air dev",
-    "embed:bench": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/cli/embed-bench.js",
-    "embed:bench:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/cli/embed-bench.js",
+    "embed:bench": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs bench dist/cli/embed-bench.js",
+    "embed:bench:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama DATASET=bench -- dist/cli/embed-bench.js",
     "eval": "node node_modules/typescript/bin/tsc && node dist/eval.js",
     "external:bird": "node node_modules/typescript/bin/tsc && node dist/cli/external-eval.js",
     "fault:inject": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/cli/fault-eval.js",
@@ -70,7 +70,7 @@
     "test": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/claims.test.js && node scripts/with-dataset.mjs smoke dist/normalize.test.js && node scripts/with-dataset.mjs smoke dist/auditrecord.test.js && node scripts/with-dataset.mjs smoke dist/surfaces.test.js && node scripts/with-dataset.mjs smoke dist/router.test.js && node scripts/with-dataset.mjs smoke dist/curator.test.js && node scripts/with-dataset.mjs smoke dist/rrf.test.js && node scripts/with-dataset.mjs smoke dist/evalmatch.test.js && node scripts/with-dataset.mjs smoke dist/errors.test.js && node scripts/with-dataset.mjs smoke dist/degraded.test.js",
     "test:companyx": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/companyx.test.js",
     "test:integration": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/db.test.js && node scripts/with-dataset.mjs smoke dist/server.test.js && node scripts/with-dataset.mjs smoke dist/pipeline.test.js && node scripts/with-dataset.mjs smoke dist/llm.test.js && node scripts/with-dataset.mjs smoke dist/graph.test.js && node scripts/with-dataset.mjs smoke dist/kgretrieve.test.js && node scripts/with-dataset.mjs smoke dist/auditcache.test.js && node scripts/with-dataset.mjs companyx dist/companyx.test.js && node scripts/with-dataset.mjs companyx dist/ontologyload.test.js",
-    "test:kg": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/cli/gen-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/cli/embed-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/graph.test.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/kgretrieve.test.js"
+    "test:kg": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs bench dist/cli/gen-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=bench -- dist/cli/embed-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/graph.test.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/kgretrieve.test.js"
   },
   "dependencies": {
     "@airmcp-dev/core": "^0.3.0",

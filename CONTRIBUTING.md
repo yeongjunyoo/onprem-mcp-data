@@ -31,11 +31,9 @@ mydata: {
 `node scripts/verify-stdio-tools.mjs` 가 **도구 8종 전부 통과**했습니다. 확인 뒤
 프로파일과 스키마는 되돌렸습니다 — 저장소는 세 코퍼스로 출하합니다.
 
-**아직 안 해 본 것은 이렇습니다.** 위 실측은 SQL 레인과 도구 표면까지입니다.
-의미검색을 쓰려면 `documents.embedding` 을 채워야 하고(`npm run embed:bench:ollama`
-가 하는 일), 그래프 레인을 쓰려면 `<스키마>.entities / aliases / relations` 를 채워야
-합니다(`npm run companyx:load` 가 하는 일). 그 두 적재를 여러분의 데이터로 돌려 본
-적이 없으므로 **명령만 가리키고 절차를 지어내지 않습니다.**
+**의미검색까지 같은 방식으로 됩니다(2026-08-18 실측).** `<스키마>.documents` 에 `id/title/body/embedding` 을 두고 `DATASET=<이름> npm run embed:bench:ollama` 를 돌리면 프로파일이 가리키는 테이블이 채워집니다. 문서 2건을 넣고 돌리니 1024차원이 적재됐고, 어휘가 하나도 안 겹치는 질의(“장애가 나면 몇 분 안에 알려야 하나”)에 「장애 대응 절차」가 1위로 나왔습니다.
+
+**그래프 레인은 아직 안 해 봤습니다.** `<스키마>.entities / aliases / relations` 를 채우면 되지만, 그 적재를 하는 `npm run companyx:load` 는 그 데이터셋의 파일 구조를 읽습니다. 여러분의 데이터로 돌려 본 적이 없으므로 **명령만 가리키고 절차를 지어내지 않습니다.**
 
 `llmNL2SQL` 은 스키마 카드 텍스트만 보고 SQL 을 만듭니다. `companyx`/`bench` 처럼
 전용 전략을 쓰지 않아도 되고, 카드가 곧 모델이 아는 전부입니다 — 컬럼 의미가
