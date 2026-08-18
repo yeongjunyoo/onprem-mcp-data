@@ -100,6 +100,10 @@ jobs:
       - name: Apache-2.0 의존성이 NOTICE 에 귀속돼 있는지
         working-directory: .
         run: node scripts/verify-notice-attribution.mjs
+      # UI 설정은 커밋에 안 남고 포크한 사람에게도 안 간다.
+      - name: 의존성 갱신 정책이 저장소 안에 있는지
+        working-directory: .
+        run: node scripts/verify-dependabot-config.mjs
 
   sbom:
     name: SBOM drift check

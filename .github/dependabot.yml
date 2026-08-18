@@ -1,0 +1,48 @@
+# Dependabot — 의존성 갱신 일정을 **저장소 안에** 둔다.
+#
+# 보안 알림과 자동 보안 수정은 UI 에서 켰다(2026-08-17). 그건 **취약점이 공개된
+# 뒤에** 도는 것이고, 정기 갱신은 별개다. 그리고 UI 설정은 커밋에 남지 않는다 —
+# 이 저장소는 그것 때문에 이미 세 번 곤란했다(브랜치 보호, 비공개 신고, 릴리스 노트).
+#
+# ★ 여기에 두면 포크한 사람도 같은 정책을 받는다.
+#   UI 설정은 원본 저장소에만 붙는다. OSS 로 내놓는 이상 정책은 코드로 간다.
+#
+# 주 1회, PR 상한 3개. 상한을 두는 이유는 검토 없이 쌓인 PR 이 저장소를 어지럽히고
+# 「저장소 관리」 인상을 깎기 때문이다 — 열려 있는 것보다 닫힌 것이 신뢰를 준다.
+version: 2
+updates:
+  # 런타임·개발 의존성 (air-server)
+  - package-ecosystem: npm
+    directory: /air-server
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps"
+      include: scope
+    labels:
+      - dependencies
+    # 메이저 업그레이드는 사람이 판단한다. 자동 PR 은 patch/minor 까지만.
+    # 이 프로젝트는 재현 가능한 수치가 자산이라, 메이저가 조용히 들어오면
+    # 평가 결과가 바뀌고도 아무도 모른다.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # GitHub Actions 자체도 고정 버전을 쓴다 — 워크플로가 낡으면 CI 가 조용히 다르게 돈다.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
