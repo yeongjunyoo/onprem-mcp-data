@@ -92,13 +92,19 @@ const actual = {
     oll = null; // 모델이 안 떠 있으면 이 항목만 건너뛴다 (조용히 통과시키지 않고 말한다)
   }
 
-  const docs = ["docs/report.md", "docs/submission-report.md", "CONTRIBUTING.md"];
+  // SBOM 의 런타임 6행은 npm 트리에 없어서 **손으로 적는다** — 그래서 조용히 낡는다.
+  // 2026-08-18 실측에서 붙임1 SBOM 표에 pgvector 0.6.0 · Ollama 0.32.4 가 인쇄돼
+  // 있었다. **라이선스 배점 5점이 걸린 표다.**
+  const docs = ["docs/report.md", "docs/submission-report.md", "CONTRIBUTING.md", "docs/sbom.md"];
   const seen = [];
   for (const d of docs) {
     const t = readFileSync(resolve(ROOT2, d), "utf8");
     for (const [label, re, real] of [
-      ["pgvector", /pgvector (\d+\.\d+\.\d+)/g, pgv],
-      ["Ollama", /Ollama (\d+\.\d+\.\d+)/g, oll],
+      // 산문("pgvector 0.8.6")과 표 행("| pgvector | 0.8.6 |") 둘 다 본다.
+      // 산문 패턴만 두었더니 SBOM 표의 위조가 통과했다 — **같은 사실을 다른 모양으로
+      // 쓰면 같은 검사가 못 본다** 를 오늘 네 번째로 확인했다.
+      ["pgvector", /pgvector[\s|]+(\d+\.\d+\.\d+)/g, pgv],
+      ["Ollama", /Ollama[\s|]+(\d+\.\d+\.\d+)/g, oll],
     ]) {
       if (!real) continue;
       for (const m of t.matchAll(re)) {
