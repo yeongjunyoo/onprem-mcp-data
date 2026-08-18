@@ -19,16 +19,22 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SERVER = resolve(ROOT, "air-server");
 
-const OFFLINE = [
-  "claims",
-  "normalize",
-  "auditrecord",
-  "surfaces",
-  "router",
-  "curator",
-  "rrf",
-  "evalmatch",
-];
+const canonical = JSON.parse(readFileSync(resolve(ROOT, "eval/results/test-counts.json"), "utf8"));
+
+
+// 스위트 목록은 **정본 한 곳**에서만 읽는다.
+//
+// 종전에는 이 배열과 `eval/results/test-counts.json` 의 `suites.offline` 이 따로
+// 있었다. 2026-08-17 에 errors.test 를 추가하며 정본만 고쳤고, 검사는 옛 목록으로
+// 세어 "정본 308 인데 실측 290" 으로 실패했다.
+//
+// **목록이 둘이면 하나만 고치고 고쳤다고 믿는다** — 이 저장소에서 세 번째다
+// (metrics-check 의 DOCS/COUNT_DOCS, RANGE_DOCS/LATENCY_DOCS, 그리고 여기).
+const OFFLINE = canonical.suites?.offline ?? [];
+if (OFFLINE.length === 0) {
+  console.error("\n실패: 정본에 suites.offline 이 없다 — 셀 대상이 0개다.\n");
+  process.exit(1);
+}
 
 let counted = 0;
 const perSuite = [];
@@ -59,8 +65,6 @@ for (const suite of OFFLINE) {
   counted += Number(passed);
   perSuite.push(`${suite}=${passed}`);
 }
-
-const canonical = JSON.parse(readFileSync(resolve(ROOT, "eval/results/test-counts.json"), "utf8"));
 
 // ★ 데이터셋 유무로 합계가 갈린다. 사업자 데이터셋은 배포 조건상 저장소에 없고,
 // router.test 의 온톨로지 커버리지 단언 11건은 edges.json 이 있을 때만 돈다.

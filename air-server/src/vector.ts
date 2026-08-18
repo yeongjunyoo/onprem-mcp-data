@@ -8,6 +8,7 @@
 import type { Pool } from "./db.js";
 import { type Embedder, toVectorLiteral } from "./embedder.js";
 import { profile } from "./profile.js";
+import { describeError } from "./errors.js";
 
 export interface VectorHit {
   id: number;
@@ -62,7 +63,7 @@ export async function vectorSearch(
       ok: false,
       hits: [],
       embedder: embedder.name,
-      error: err instanceof Error ? err.message : String(err),
+      error: describeError(err),
     };
   }
 }
