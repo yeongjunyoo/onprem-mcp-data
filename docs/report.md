@@ -463,7 +463,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
   **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 81.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현: `EXT_LIMIT=32 npm run external:bird` → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 스모크 156(router/curator/rrf/evalmatch/db 22/server/pipeline/llm) + KG 19(graph/kgretrieve) = **175** 그린. tsc strict clean.
+- **테스트:** 오프라인 335(claims/normalize/auditrecord/surfaces/router/curator/rrf/evalmatch/errors/degraded) + DB·모델 통합 127(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **462단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 324. tsc strict clean.
 
 ---
 
@@ -492,7 +492,7 @@ docker compose exec -T ollama ollama pull qwen2.5:7b   # 답변용 (Apache-2.0)
 docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
 cd air-server && npm ci && npm run build
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # bench 데이터+임베딩
-npm test              # 스모크 156
+npm test              # 오프라인 335단언 통과 (DB·모델 불필요)
 npm run test:kg       # 그래프/3-way 19
 npm run bench:internal                    # 내부 벤치 execution-match (81/100)
 BENCH_STRATEGY=naive npm run bench:internal   # ablation naive
