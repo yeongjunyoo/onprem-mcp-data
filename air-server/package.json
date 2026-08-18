@@ -74,11 +74,11 @@
   },
   "dependencies": {
     "@airmcp-dev/core": "^0.3.0",
-    "pg": "^8.22.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.21.0",
     "typescript": "^5.5.0"
   },
   "overrides": {
