@@ -13,6 +13,7 @@
 import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
+import { describeError } from "./errors.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -189,7 +190,7 @@ export async function ontologySearch(
     }));
     return { ok: true, hits };
   } catch (err) {
-    return { ok: false, hits: [], error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, hits: [], error: describeError(err) };
   }
 }
 
@@ -284,7 +285,7 @@ export async function graphExpand(
     }
     return { ok: true, edges };
   } catch (err) {
-    return { ok: false, edges: [], error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, edges: [], error: describeError(err) };
   }
 }
 
@@ -369,7 +370,7 @@ export async function relationScan(
     }
     return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, limit) };
   } catch (err) {
-    return { ok: false, edges: [], ranking: [], error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, edges: [], ranking: [], error: describeError(err) };
   }
 }
 

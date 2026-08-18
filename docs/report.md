@@ -618,7 +618,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 290단언(데이터셋 없는 CI 는 279), 전체 417단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 308단언(데이터셋 없는 CI 는 279), 전체 435단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(Δ +40pp/+53pp), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |

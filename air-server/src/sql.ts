@@ -8,6 +8,7 @@
 
 import type { Pool } from "./db.js";
 import type { PoolClient } from "pg";
+import { describeError } from "./errors.js";
 
 export const MAX_ROWS = 200;
 
@@ -108,7 +109,7 @@ export async function sqlQuery(pool: Pool, sql: string): Promise<SqlResult> {
       rowCount: 0,
       columns: [],
       truncated: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: describeError(err),
     };
   } finally {
     client.release();
