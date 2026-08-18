@@ -182,7 +182,10 @@ if (gateStart >= 0) {
   const countIn = (rel, pat) => {
     try {
       return [...readFileSync(resolve(ROOT, rel), "utf8").matchAll(pat)].length;
-    } catch {
+    } catch (e) {
+      // 조용히 0 을 돌려주면 두 단계 뒤에서 "소스를 못 셌다" 로만 나타나고
+      // **왜** 못 셌는지가 사라진다. 오늘 눈먼 표본기가 정확히 그랬다.
+      fails.push(`표면 수 훑기: ${rel} 을 읽지 못했다 — ${String(e.message).split("\n")[0]}`);
       return 0;
     }
   };
