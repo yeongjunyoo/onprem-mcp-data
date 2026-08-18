@@ -67,6 +67,9 @@ const SUBJECTS = [
   // 세 개 오탐했다(값 추출기가 `%` 앞 숫자를 못 봄). **오탐 있는 검사는 꺼진다** —
   // `81/100` 형태는 기존 규칙이 이미 보므로 여기서는 괄호 하나만 맡는다.
   { re: /품질\(\d{1,3}%\)/, key: "bench_internal_pct", val: /(?<=품질\()\d{1,3}(?=%\))/g },
+  // 산문·불릿의 `execution-match: 81/100` 자리. metrics-check 의 CLAIMS 는 **표 행만**
+  // 보므로 불릿은 아무도 안 봤다 — 2026-08-18 위조 시험에서 통과했다.
+  { re: /execution-match/i, key: "bench_internal", val: /\b\d{1,3}\/100\b/g },
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },

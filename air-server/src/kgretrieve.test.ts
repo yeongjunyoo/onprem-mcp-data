@@ -33,7 +33,9 @@ async function main() {
     );
     if (Number(rows[0]?.n ?? 0) === 0) {
       console.error("\n실패: bench.documents 에 임베딩이 없다 — 이 테스트는 벡터 레인을 쓴다.");
-      console.error("  EMBEDDER=ollama DATASET=bench npm run embed:bench:ollama 로 채우고 다시 돌린다.");
+      // 셸 전용 문법을 안 쓴다. 이 저장소는 Windows 에서 개발·검증되는데
+      // `VAR=x cmd` 는 cmd/PowerShell 에서 안 먹는다 — 스크립트가 값을 직접 넘긴다.
+      console.error("  npm run embed:bench:ollama 로 채우고 다시 돌린다(스크립트가 프로파일을 고정한다).");
       console.error("  (npm run test:kg 는 그 단계를 포함한다.)\n");
       process.exit(1);
     }

@@ -91,8 +91,11 @@ console.log(
     const profileSrc = readFileSync(resolve(ROOT, "air-server/src/profile.ts"), "utf8");
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
 
-    for (const id of ["DatasetName", "kgSchema", "vectorTable", "schemaCard", "llmNL2SQL"]) {
-      if (body.includes(id) && !profileSrc.includes(id)) {
+    // 토큰 경계로 본다. 2026-08-18 리뷰 지적: `includes` 면 이름을 **늘려** 바꿔도
+    // (kgSchema → kgSchemaName) 통과한다. 그리고 안내가 의존하는 `nl2sql` 이 빠져 있었다.
+    for (const id of ["DatasetName", "kgSchema", "vectorTable", "schemaCard", "llmNL2SQL", "nl2sql"]) {
+      const token = new RegExp(`(?<![\\w$])${id}(?![\\w$])`);
+      if (body.includes(id) && !token.test(profileSrc)) {
         fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
       }
     }
