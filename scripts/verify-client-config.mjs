@@ -41,7 +41,11 @@ function staticDrift() {
     }
   }
 
-  for (const doc of ["README.md", "README.en.md", "docs/report.md", "docs/submission-report.md"]) {
+  // 여기도 손목록이었다. npm 버전 쪽만 훑기로 바꾸고 **포트·계정 쪽은 그대로 두어**
+  // 새로 쓴 촬영 준비 블록(docs/demo-script.md)의 포트 위조가 통과했다.
+  // **같은 파일 안에서 한 곳만 고치고 고쳤다고 믿었다** — 오늘 여섯 번째다.
+  for (const doc of execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "utf8" })
+    .split("\n").filter(Boolean)) {
     const p = resolve(ROOT, doc);
     if (!existsSync(p)) continue;
     const t = readFileSync(p, "utf8");
