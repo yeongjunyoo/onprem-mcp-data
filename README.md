@@ -152,6 +152,8 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-contribution-entry` | 빈 이슈를 막고 질문 창구를 안 알려 기여자가 막다른 길에 서는 것 | 예 |
 | `verify-audit-contract` | audit 계약이 설명하지 않는 값·필드를 코드가 넣는 것 (`--live` 로 실물 대조) | 예 |
 | `verify-notice-attribution` | Apache-2.0 의존성 귀속이 NOTICE 에서 빠지는 것 | 예 |
+
+생성기 하나가 더 있습니다. `node scripts/sync-changelog.mjs` 는 **CHANGELOG.md 가 GitHub 릴리스 노트와 갈렸는지** 보고, `--write` 로 다시 만듭니다. 릴리스가 정본이고 CHANGELOG 는 파생이라 손으로 고치지 않습니다 — 클론한 사람이 GitHub 을 열지 않고도 버전 사이의 변화를 읽게 하려고 둡니다.
 | `verify-no-dataset-redistribution` | 산출물이 사업자 코퍼스를 실어 나르는 것 | 예 |
 | `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
 | `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
