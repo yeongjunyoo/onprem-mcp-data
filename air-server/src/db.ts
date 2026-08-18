@@ -60,7 +60,14 @@ function explainConnection(e: unknown, endpoint?: string): Error {
   };
   walk(e);
   const msg = parts.join(" | ") || String(e);
-  if (!/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|does not exist|password authentication/i.test(msg)) {
+  // `does not exist` 는 **테이블/스키마 부재**이기도 하다 — 이 저장소는 그 상황을
+  // 일부러 만드는 장애 시나리오가 있다. 2026-08-18 리뷰 + 재현: 없는 테이블을 조회하면
+  // "붙지 못했다 ... docker compose up -d" 가 떴다. **연결은 성공했는데** 스택을
+  // 띄우라고 말하면 진짜 문제(테이블 부재)를 가린다.
+  // 데이터베이스 자체가 없는 경우(`database "x" does not exist`)만 연결 문제로 본다.
+  const connIssue = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|password authentication/i.test(msg)
+    || /database "[^"]*" does not exist/i.test(msg);
+  if (!connIssue) {
     return e instanceof Error ? e : new Error(msg);
   }
   // 실패한 **그 풀**의 주소를 보여 준다. 리뷰 지적: 읽기 전용 도구가 replica 에서

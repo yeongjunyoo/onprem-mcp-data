@@ -59,12 +59,23 @@ if (!tok) {
   };
 
   const doc = readFileSync(resolve(ROOT, "docs/report.md"), "utf8");
-  const claimed = {
-    commits: Number(doc.match(/커밋\s*(\d+)/)?.[1] ?? 0),
-    prs: Number(doc.match(/PR\s*(\d+)\s*\(병합/)?.[1] ?? 0),
-    merged: Number(doc.match(/PR\s*\d+\s*\(병합\s*(\d+)/)?.[1] ?? 0),
-    issues: Number(doc.match(/이슈\s*(\d+)\s*\(열림/)?.[1] ?? 0),
+  // **모든 등장**을 본다. 2026-08-18 리뷰: `doc.match()` 는 첫 곳만 봐서, 같은 수를
+  // 두 자리에 적으면(표 행 + 마지막 문단) 하나만 갱신해도 CI 가 초록이다 —
+  // **이 검사가 고치려던 바로 그 문제**(낡은 마지막 문단)를 되살린다.
+  const allOf = (re) => [...doc.matchAll(re)].map((m) => Number(m[1]));
+  const pick = (xs) => (xs.length ? Math.min(...xs) : 0); // 가장 낡은 사본으로 판정
+  const found = {
+    commits: allOf(/커밋\s*(\d+)/g),
+    prs: allOf(/PR\s*(\d+)\s*\(병합/g),
+    merged: allOf(/PR\s*\d+\s*\(병합\s*(\d+)/g),
+    issues: allOf(/이슈\s*(\d+)\s*\(열림/g),
   };
+  const claimed = Object.fromEntries(Object.entries(found).map(([k, v]) => [k, pick(v)]));
+  for (const [k, v] of Object.entries(found)) {
+    if (v.length > 1 && new Set(v).size > 1) {
+      console.log(`  (주의) ${k} 가 문서에 ${v.length}번 나오는데 값이 다르다: ${v.join(", ")}`);
+    }
+  }
 
   console.log("저장소 활동 (문서 vs 실제):");
   for (const k of ["commits", "prs", "merged", "issues"]) {
