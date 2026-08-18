@@ -103,5 +103,41 @@ const deadEmbedder: Embedder = {
   ok(r.answer.includes("알 수 없습니다"), "근거 없음은 그대로 '모른다' 로 답한다");
 }
 
+// ── 4) 생성 LLM 이 **기동 후** 죽으면 그 사실을 말하는가
+//
+// 기동 시 부재는 프리플라이트가 안내한다. 운영 중 죽는 경우는 그 검사를 이미
+// 지났다 — 2026-08-17 실측에서 `AggregateError`(message: "")가 그대로 던져져
+// 사용자가 **빈 이유**를 받았다.
+//
+// 조회는 성공했다. "조회 실패" 로 뭉뚱그리면 안 된다.
+{
+  const rows = [
+    { id: 1, title: "환불 정책", body: "구매 후 7일 이내 환불", score: 0.9 },
+  ];
+  const livePool = {
+    query: async () => ({ rows, rowCount: rows.length }),
+  } as unknown as Pool;
+
+  const r = await ask("환불 정책이 무엇인가", {
+    pool: livePool,
+    embedder: deadEmbedder,
+    llm: async () => {
+      throw new AggregateError(
+        [Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:11435"), { code: "ECONNREFUSED" })],
+        "", // ← 이 빈 문자열이 사용자에게 그대로 나갔다
+      );
+    },
+  });
+
+  ok(r.answer.length > 0, "생성이 실패해도 빈 답변을 돌려주지 않는다");
+  ok(r.answer.includes("생성"), "조회가 아니라 **생성**이 실패했다고 말한다");
+  ok(r.answer.includes("ECONNREFUSED"), "무엇 때문인지 말한다");
+  ok(!r.answer.includes("조회에 실패해"), "근거를 가져왔으므로 조회 실패로 뭉뚱그리지 않는다");
+  ok(
+    (r.audit?.branch_errors ?? []).some((e) => e.startsWith("answer:")),
+    "audit 에 생성 실패가 남는다",
+  );
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
