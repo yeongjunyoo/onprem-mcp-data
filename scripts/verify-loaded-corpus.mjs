@@ -15,8 +15,8 @@
 // 실행: node scripts/verify-loaded-corpus.mjs
 // 필요: docker compose up -d, npm run companyx:load
 import { getReadPool } from "../air-server/dist/db.js";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BUSINESS_TABLES = [
@@ -92,13 +92,22 @@ const actual = {
     oll = null; // 모델이 안 떠 있으면 이 항목만 건너뛴다 (조용히 통과시키지 않고 말한다)
   }
 
-  // SBOM 의 런타임 6행은 npm 트리에 없어서 **손으로 적는다** — 그래서 조용히 낡는다.
-  // 2026-08-18 실측에서 붙임1 SBOM 표에 pgvector 0.6.0 · Ollama 0.32.4 가 인쇄돼
-  // 있었다. **라이선스 배점 5점이 걸린 표다.**
-  const docs = ["docs/report.md", "docs/submission-report.md", "CONTRIBUTING.md", "docs/sbom.md"];
+  // 문서 목록을 **손으로 적지 않는다.** 2026-08-18 에 붙임2(ai-model-spec.md)가
+  // 목록에 없어서 옛 버전이 그대로 인쇄되고 있었다 — 앞선 두 PR 이 산문과 SBOM 표를
+  // 고쳤는데 그 파일만 빠졌다.
+  //
+  // **목록이 곧 지켜지는 범위다.** 손으로 적은 목록은 새 문서가 생기면 조용히
+  // 빠진다. 오늘 이 형태를 다섯 번 보고 그때마다 "목록에 넣었다" 로 끝냈다.
+  // 이번엔 목록 자체를 없앤다 — 훑어서 만들면 새 문서가 자동으로 들어온다.
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
+    const full = resolve(dir, e.name);
+    return e.isDirectory() ? walk(full) : e.name.endsWith(".md") ? [full] : [];
+  });
+  const docs = walk(ROOT2);
   const seen = [];
   for (const d of docs) {
-    const t = readFileSync(resolve(ROOT2, d), "utf8");
+    const t = readFileSync(d, "utf8");
     for (const [label, re, real] of [
       // 산문("pgvector 0.8.6")과 표 행("| pgvector | 0.8.6 |") 둘 다 본다.
       // 산문 패턴만 두었더니 SBOM 표의 위조가 통과했다 — **같은 사실을 다른 모양으로
@@ -108,9 +117,9 @@ const actual = {
     ]) {
       if (!real) continue;
       for (const m of t.matchAll(re)) {
-        seen.push(`${d}: ${label} ${m[1]}`);
+        seen.push(`${relative(ROOT2, d)}: ${label} ${m[1]}`);
         if (m[1] !== real) {
-          console.error(`\n실패: ${d} 가 ${label} ${m[1]} 이라 적었는데 실물은 ${real} 이다.`);
+          console.error(`\n실패: ${relative(ROOT2, d)} 가 ${label} ${m[1]} 이라 적었는데 실물은 ${real} 이다.`);
           console.error("  latest 태그는 계속 움직인다 — 문서를 실물에 맞추고 측정 시점을 함께 적는다.\n");
           process.exit(1);
         }
