@@ -26,7 +26,24 @@ let readShared: pg.Pool | undefined;
  * 진입점마다 문구를 복사하면 갈린다(오늘 사본 드리프트를 세 번 봤다). 여기 한 겹을
  * 두면 앞으로 생길 진입점까지 덮는다.
  */
-function explainConnection(e: unknown): Error {
+/** 접속 문자열에서 **자격증명을 지우고** host:port/db 만 남긴다.
+ *
+ * 2026-08-18 리뷰 지적: 이 오류는 `vectorSearch` 같은 catch-and-return 경로를 타고
+ * **MCP 응답과 감사 로그**로 나간다. `postgresql://user:password@host/db` 를 그대로
+ * 넣으면 비밀번호가 로그에 남는다 — 보안을 파는 저장소에서 있을 수 없다.
+ */
+function safeEndpoint(raw: string | undefined): string {
+  if (!raw) return "(주소 미설정)";
+  try {
+    const u = new URL(raw);
+    const db = u.pathname.replace(/^\//, "") || "(db 미지정)";
+    return `${u.hostname}:${u.port || "5432"}/${db}`;
+  } catch {
+    return "(주소 형식 불명)";
+  }
+}
+
+function explainConnection(e: unknown, endpoint?: string): Error {
   // AggregateError 는 message 가 비어 있고 원인이 errors[] 안에 있다 —
   // 2026-08-18 에 fault:inject 가 정확히 그 모양으로 새어 나갔다.
   const parts: string[] = [];
@@ -46,7 +63,9 @@ function explainConnection(e: unknown): Error {
   if (!/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|does not exist|password authentication/i.test(msg)) {
     return e instanceof Error ? e : new Error(msg);
   }
-  const url = process.env.DATABASE_URL ?? "(DATABASE_URL 미설정)";
+  // 실패한 **그 풀**의 주소를 보여 준다. 리뷰 지적: 읽기 전용 도구가 replica 에서
+  // 실패해도 primary 주소를 찍으면 사람을 엉뚱한 곳으로 보낸다.
+  const url = safeEndpoint(endpoint ?? process.env.DATABASE_URL);
   return new Error(
     `PostgreSQL 에 붙지 못했다 — ${url}\n` +
       `  스택을 먼저 띄운다: docker compose up -d  (db 5433 / postgres:postgres@mcpdata)\n` +
@@ -62,17 +81,17 @@ function explainConnection(e: unknown): Error {
  *   pool.connect()    sql.ts · companyx.ts · companyx-vector-eval.ts 가 쓰는 경로
  * **감싼 것과 덮은 것은 다르다.**
  */
-function explainOn(pool: pg.Pool): void {
+function explainOn(pool: pg.Pool, endpoint: string | undefined): void {
   const q = pool.query.bind(pool) as (...a: unknown[]) => Promise<unknown>;
   pool.query = ((...args: unknown[]) =>
-    q(...args).catch((e: unknown) => { throw explainConnection(e); })) as typeof pool.query;
+    q(...args).catch((e: unknown) => { throw explainConnection(e, endpoint); })) as typeof pool.query;
   // connect 는 콜백 오버로드가 있어 반환이 Promise 가 아닐 수 있다 —
   // 2026-08-18 실측: 그냥 .catch 를 붙였더니 "Cannot read properties of undefined".
   const c = pool.connect.bind(pool) as (...a: unknown[]) => unknown;
   pool.connect = ((...args: unknown[]) => {
     const r = c(...args);
     return r && typeof (r as Promise<unknown>).catch === "function"
-      ? (r as Promise<unknown>).catch((e: unknown) => { throw explainConnection(e); })
+      ? (r as Promise<unknown>).catch((e: unknown) => { throw explainConnection(e, endpoint); })
       : r;
   }) as typeof pool.connect;
 }
@@ -86,7 +105,7 @@ export function getPool(): pg.Pool {
       // Bound every statement so a runaway query can never wedge the server.
       statement_timeout: 10_000,
     });
-    explainOn(shared);
+    explainOn(shared, process.env.DATABASE_URL ?? DEFAULT_URL);
   }
   return shared;
 }
@@ -110,7 +129,7 @@ export function getReadPool(): pg.Pool {
       idleTimeoutMillis: 30_000,
       statement_timeout: 10_000,
     });
-    explainOn(readShared);
+    explainOn(readShared, url);
   }
   return readShared;
 }
