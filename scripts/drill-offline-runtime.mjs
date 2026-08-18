@@ -224,9 +224,18 @@ console.log("\n컨테이너 층:");
 for (const [svc, addrs] of Object.entries(containers)) {
   console.log(`  ${svc.padEnd(8)} ${addrs.size}종  ${[...addrs].sort().join(" ") || "(표본 없음)"}`);
 }
-if (cSeen === 0) {
-  console.error("\n실패: 컨테이너 표본이 0건이다 — 외부가 없는 게 아니라 표본기가 눈이 멀었다.");
-  console.error("  docker compose 가 떠 있는지 확인한다. **못 본 것을 없다고 적지 않는다.**\n");
+// 합계가 아니라 **서비스마다** 본다. 2026-08-18 리뷰 지적: 합계면 한쪽 표본만으로도
+// 0이 아니게 되고, 못 본 서비스는 빈 집합으로 외부주소 검사를 통과한다 —
+// 드릴이 "둘 다 검증됨" 이라 말한다. **못 본 것을 없다고 적지 않는다** 는 이 스크립트의
+// 문구가 정작 자기 자신에게는 안 적용되고 있었다.
+const blind = Object.entries(containers).filter(([, a]) => a.size === 0).map(([svc]) => svc);
+if (blind.length) {
+  console.error(`\n실패: 표본이 0건인 컨테이너가 있다 — ${blind.join(", ")}`);
+  console.error("  외부가 없는 게 아니라 그 서비스를 못 본 것이다. docker compose 상태를 확인한다.");
+  console.error("  **못 본 것을 없다고 적지 않는다.**\n");
+  process.exitCode = 1;
+} else if (cSeen === 0) {
+  console.error("\n실패: 컨테이너 표본이 0건이다 — 외부가 없는 게 아니라 표본기가 눈이 멀었다.\n");
   process.exitCode = 1;
 } else {
   const outside = Object.entries(containers).flatMap(([svc, a]) =>
