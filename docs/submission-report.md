@@ -80,7 +80,7 @@ MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`
 | 벡터 검색 hit@5 | **0.986 = 73/74**(bge-m3), 해시 폴백 0.775 | 원문 키워드 규칙 |  <!--metric:vector_hit5-->
 | 종단 답변 근거 포함 | **17/19 = 89.5%** | 레인별 정답 근거. 사업자 vector 문항 3건 gold 복원 반영 |  <!--metric:ask_evidence-->
 | 답변 접지 위반 | 0건(19/19 접지), 반복 실행에서 동일 | 답변 개체가 컨텍스트에 포함되는지 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | 호스트 GPU 864ms / 컨테이너 CPU 11674ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 13배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
+| 응답 지연 중앙값 | 호스트 GPU 864ms / 컨테이너 CPU 10606ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 13배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
 
 정확도 채점에 자체 제작한 LLM 심판을 쓰지 않았다. 데이터베이스 실행 결과와 정답 집합이 채점자다.
 
