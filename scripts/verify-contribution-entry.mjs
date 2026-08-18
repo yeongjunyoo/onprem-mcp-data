@@ -93,9 +93,21 @@ console.log(
 
     // 토큰 경계로 본다. 2026-08-18 리뷰 지적: `includes` 면 이름을 **늘려** 바꿔도
     // (kgSchema → kgSchemaName) 통과한다. 그리고 안내가 의존하는 `nl2sql` 이 빠져 있었다.
-    for (const id of ["DatasetName", "kgSchema", "vectorTable", "schemaCard", "llmNL2SQL", "nl2sql"]) {
+    // 목록이 아니라 **추출**이다. 2026-08-18 위조 시험: 안내의 `kgSchema:` 를
+    // `kgSchemaName:` 으로 바꾸면 고정 목록 검사가 **그 식별자를 아예 안 본다** —
+    // 목록이 곧 지켜지는 범위이고, 안내가 목록 밖 이름을 쓰면 사각이 된다.
+    //
+    // 안내의 프로파일 예제에서 `필드:` 를 전부 뽑아 소스와 대조한다.
+    const example = body.match(/```ts\n([\s\S]*?)```/)?.[1] ?? "";
+    // 예제의 **바깥 키**(프로파일 이름 `mydata:`)는 필드가 아니라 예시 값이다 —
+    // 소스에 없는 게 정상이다. 들여쓰기가 있는 줄만 필드로 본다.
+    const fields = new Set(
+      [...example.matchAll(/^[ \t]+([A-Za-z_$][\w$]*)\s*:/gm)].map((m) => m[1]),
+    );
+    for (const id of [...fields, "DatasetName", "llmNL2SQL"]) {
       const token = new RegExp(`(?<![\\w$])${id}(?![\\w$])`);
-      if (body.includes(id) && !token.test(profileSrc)) {
+      if (!token.test(body)) continue;
+      if (!token.test(profileSrc)) {
         fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
       }
     }

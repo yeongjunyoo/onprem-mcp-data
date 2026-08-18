@@ -70,6 +70,12 @@ const SUBJECTS = [
   // 산문·불릿의 `execution-match: 81/100` 자리. metrics-check 의 CLAIMS 는 **표 행만**
   // 보므로 불릿은 아무도 안 봤다 — 2026-08-18 위조 시험에서 통과했다.
   { re: /execution-match/i, key: "bench_internal", val: /\b\d{1,3}\/100\b/g },
+  // 같은 줄의 **퍼센트 표기**도 본다. 2026-08-18 리뷰: 분수만 잡으면
+  // `81/100 = 83.0%` 처럼 **분수는 맞고 퍼센트만 틀린` 자리가 통과한다.
+  // 분수를 먼저 지우고 퍼센트만 본다. 2026-08-18 위조 시험: `81/100 = 83.0%` 에서
+  // 값 집합에 81 이 들어 있어 **정본이 그 줄에 있다** 는 이유로 통과했다 —
+  // 분수는 맞고 퍼센트만 틀린 자리를 놓친다.
+  { re: /execution-match/i, key: "bench_internal_pct", val: /(?<![\d.])(\d{1,3})(?=\s*(?:\.\d+)?\s*%)/g, strip: /\d{1,3}\/100/g , window: 60 },
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
@@ -112,7 +118,15 @@ for (const doc of DOCS) {
         // 창은 **양방향**이다. 한국어는 값이 주제 앞에 오기도 한다 —
         // "0.900은 템플릿 문형, 0.633이 구어체다"(report.md:362). 뒤만 보면
         // 0.900 을 놓치고 0.633 을 홀드아웃1 것으로 오독한다.
-        const near = line.slice(Math.max(0, at - 30), at + 30);
+        // 창 폭은 규칙이 정할 수 있다. 2026-08-18: execution-match 자리는
+        // `execution-match: 81/100 = 83.0%` 라 ±30자로는 **% 가 창 밖**이라
+        // 값이 0개가 되고 건너뛰어졌다 — 넓히지 않으면 그 규칙은 없는 것과 같다.
+        const w = s.window ?? 30;
+        let near = line.slice(Math.max(0, at - w), at + w);
+        // 규칙이 strip 을 주면 그 패턴을 먼저 지운다. 2026-08-18 위조 시험:
+        // `81/100 = 83.0%` 에서 분수 안의 81 이 값 집합에 들어가 **퍼센트만 틀린 자리**가
+        // 통과했다. 분수를 지우면 퍼센트만 남는다.
+        if (s.strip) near = near.replace(s.strip, " ");
         const vals = [...near.matchAll(s.val)].map((m) => m[0]);
         if (vals.length === 0) continue; // 멀리 있는 값은 남의 것이다
         scanned++;
