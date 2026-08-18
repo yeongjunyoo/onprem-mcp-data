@@ -92,7 +92,15 @@ const readJson = (rel) => {
     // 코드펜스 안만 본다 — 산문에서 이름을 언급한 것과 치라고 적은 것은 다르다.
     const fenced = [...block.matchAll(new RegExp(fence + "[a-z]*\\n([\\s\\S]*?)" + fence, "g"))]
       .map((m) => m[1]).join("\n");
-    const inBlock = new Set([...fenced.matchAll(/npm run ([a-z0-9:_-]+)/g)].map((m) => m[1]));
+    // 주석 줄은 명령이 아니다. 2026-08-18 리뷰 지적: 실행 줄이 `npm run demo` 로
+    // 퇴행해도 근처 설명이 `# npm run demo:ollama` 면 검사가 통과해 —
+    // **이 검사가 잡으려던 바로 그 불일치를 되살린다.**
+    const runnable = fenced
+      .split("\n")
+      .map((l) => l.replace(/(^|\s)#.*$/, ""))
+      .filter((l) => l.trim() && !l.trim().startsWith("#"))
+      .join("\n");
+    const inBlock = new Set([...runnable.matchAll(/npm run ([a-z0-9:_-]+)/g)].map((m) => m[1]));
     const timeline = script.split("\n").filter((l) => /^\|\s*\d:\d\d/.test(l)).join("\n");
     for (const m of timeline.matchAll(/npm run ([a-z0-9:_-]+)/g)) {
       checked++;
@@ -127,7 +135,10 @@ const readJson = (rel) => {
       [/state.*streaming|streaming\/async/, "streaming replication 성립"],
       [/read-only transaction/, "replica 쓰기 거부"],
       [/replica orders while primary down=(\d+)/, "primary 정지 중 replica 서빙"],
-      [/primary RESTARTED/, "primary 재기동 복구"],
+      // 값까지 본다. 2026-08-18 리뷰 지적: psql 이 제때 안 뜨면 명령 치환이 실패해
+      // `primary RESTARTED orders=` 만 남고 뒤에 PostgreSQL 오류가 붙는데, 말만 보는
+      // 정규식은 그 로그를 승인한다 — **복구를 증명한 적 없는 로그다.**
+      [/primary RESTARTED[^\n]*orders=\d+/, "primary 재기동 복구(행 수 포함)"],
     ];
     for (const [re, what] of need) {
       checked++;
