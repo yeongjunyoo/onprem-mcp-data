@@ -26,7 +26,7 @@
     "deterministic_20_runs": true,
     "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
     "misses": [],
-    "generated_at": "2026-08-17T22:05:04.177Z"
+    "generated_at": "2026-08-18T02:41:11.295Z"
   },
   "rows": [
     {
