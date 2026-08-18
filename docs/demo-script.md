@@ -24,7 +24,9 @@ unset DATASET                              # 남아 있으면 데모가 정당�
 npm run companyx:load
 
 # 5) 녹화 — 화면에 섹션 0~7 이 순서대로 찍힌다
-npm run demo
+#    타임라인 0:22 행과 같은 명령이다. demo:ollama 는 EMBEDDER 를 스스로 박아
+#    넣어 셸 상태와 무관하게 같은 결과를 낸다.
+npm run demo:ollama
 ```
 
 **실행 시간 실측(2026-08-18):** 전체 **13.6초**. 그중 섹션 6(온프렘 7B 답변) 한 번이
