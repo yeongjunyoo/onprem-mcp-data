@@ -21,27 +21,23 @@ import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-// 문서 목록을 **손으로 적지 않는다.** 10개를 손으로 적고 있었는데, 전 md 로 넓혀
-// 재 보니 어긋난 자리가 하나 나왔다 — air-server/README.md 의 측정 표가 옛 상태로
-// 얼어 있었다(테스트 223단언, 정본 462).
-//
-// **같은 저장소의 두 README 가 같은 항목에 다른 수를 적으면 어느 쪽도 못 믿는다.**
-// 하나가 틀린 게 아니라 둘 다 신뢰를 잃는다.
-//
-// 넓히기 전에 오탐을 재는 습관이 이번엔 진짜를 찾아냈다 — "넓히면 오탐" 이
-// 기본값이 아니다. **재 보기 전에는 모른다.**
-const DOCS = (function walk(dir) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
-    const full = resolve(dir, e.name);
-    // CHANGELOG 는 제외한다. **릴리스 노트에서 생성되는 역사 기록**이라 그 시점의
-    // 수치가 그대로 남는 것이 맞다(v0.1.0 의 388단언). 여기에 metric-ok 를 달 수도
-    // 없다 — GitHub 릴리스 본문에는 그 표식이 없어서 sync-changelog 가 갈렸다고
-    // 판정한다. **바꿀 수 없는 문서는 검사 대상이 아니라 제외 대상이다.**
-    if (e.name === "CHANGELOG.md") return [];
-    return e.isDirectory() ? walk(full) : e.name.endsWith(".md") ? [relative(ROOT, full)] : [];
-  });
-})(ROOT);
+/** 저장소에 **추적되는** md 만 본다.
+ *
+ * 파일시스템을 훑으면 로컬은 63개, 갓 클론한 CI 는 22개를 본다 — **같은 검사가
+ * 환경마다 다른 범위를 본다.** 2026-08-18 에 `air-server/README.md`(prepack 이
+ * 루트 README 를 복사해 만드는 빌드 산출물, .gitignore 에 있다)를 실물 문서로
+ * 착각한 것이 그 탓이다.
+ *
+ * 기여자의 로컬 메모가 검사를 빨갛게 만들면 사람은 검사를 끈다.
+ * **저장소에 있는 것이 곧 심사 대상이다.**
+ */
+function trackedMarkdown(root) {
+  return execFileSync("git", ["ls-files", "*.md"], { cwd: root, encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
+}
+
+const DOCS = trackedMarkdown(ROOT).filter((f) => f !== "CHANGELOG.md");
 
 // 정본은 metrics-check 가 이미 계산한다. 두 곳에서 따로 읽으면 갈린다.
 const out = execFileSync(process.execPath, [resolve(ROOT, "scripts/metrics-check.mjs")], {

@@ -15,7 +15,8 @@
 // 실행: node scripts/verify-loaded-corpus.mjs
 // 필요: docker compose up -d, npm run companyx:load
 import { getReadPool } from "../air-server/dist/db.js";
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -92,19 +93,10 @@ const actual = {
     oll = null; // 모델이 안 떠 있으면 이 항목만 건너뛴다 (조용히 통과시키지 않고 말한다)
   }
 
-  // 문서 목록을 **손으로 적지 않는다.** 2026-08-18 에 붙임2(ai-model-spec.md)가
-  // 목록에 없어서 옛 버전이 그대로 인쇄되고 있었다 — 앞선 두 PR 이 산문과 SBOM 표를
-  // 고쳤는데 그 파일만 빠졌다.
-  //
-  // **목록이 곧 지켜지는 범위다.** 손으로 적은 목록은 새 문서가 생기면 조용히
-  // 빠진다. 오늘 이 형태를 다섯 번 보고 그때마다 "목록에 넣었다" 로 끝냈다.
-  // 이번엔 목록 자체를 없앤다 — 훑어서 만들면 새 문서가 자동으로 들어온다.
-  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
-    const full = resolve(dir, e.name);
-    return e.isDirectory() ? walk(full) : e.name.endsWith(".md") ? [full] : [];
-  });
-  const docs = walk(ROOT2);
+  // 추적되는 md 만 본다 — 파일시스템을 훑으면 로컬과 CI 가 다른 범위를 본다.
+  const docs = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT2, encoding: "utf8" })
+    .split("\n").filter(Boolean).map((f) => resolve(ROOT2, f));
+
   const seen = [];
   for (const d of docs) {
     const t = readFileSync(d, "utf8");
