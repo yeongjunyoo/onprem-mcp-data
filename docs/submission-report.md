@@ -34,9 +34,9 @@
 ### 개발환경
 
 - 언어와 런타임: TypeScript 5.9, Node.js 20 LTS
-- MCP 프레임워크: air(@airmcp-dev/core 0.2.0), 도구 정의는 defineServer와 defineTool
-- 데이터 저장소: PostgreSQL 16, pgvector 0.6.0, primary와 streaming replica 구성
-- 모델 런타임: Ollama 0.32.4. 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
+- MCP 프레임워크: air(@airmcp-dev/core 0.3.0), 도구 정의는 defineServer와 defineTool
+- 데이터 저장소: PostgreSQL 16, pgvector 0.8.6, primary와 streaming replica 구성
+- 모델 런타임: Ollama 0.32.14(2026-08-18 실측). 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
 - 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
 - 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이며, 이는 CI 검사(`scripts/verify-no-external-api.mjs`)로 강제한다 — 루프백이 아닌 대상이 생기면 빌드가 실패한다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
 - 테스트: 자체 러너 기반 단위와 통합 테스트 462단언 전량 통과(오프라인 335 + DB·모델 127). 집계 원자료 `eval/results/test-counts.json`

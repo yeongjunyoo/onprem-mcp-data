@@ -59,6 +59,29 @@ function staticDrift() {
       }
     }
   }
+
+  // 문서가 말하는 npm 의존성 버전. 2026-08-18 실측에서 `@airmcp-dev/core 0.2.0` 이
+  // 남아 있었다 — PR #135 에서 0.3.0 으로 올린 뒤였다.
+  //
+  // **의존성을 올리면 지표를 다시 잰다는 규율은 있었는데, 문서에 박힌 버전 문자열은
+  // 그 밖이었다.** 심사자가 읽는 「개발환경」 표의 첫 줄이 그것이다.
+  const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  for (const doc of ["docs/report.md", "docs/submission-report.md", "README.md", "README.en.md"]) {
+    const p = resolve(ROOT, doc);
+    if (!existsSync(p)) continue;
+    const t = readFileSync(p, "utf8");
+    for (const [name, range] of Object.entries(deps)) {
+      const want = String(range).replace(/^[\^~]/, "");
+      const re = new RegExp(`${name.replace(/[/@]/g, "\\$&")}\\s+(\\d+\\.\\d+\\.\\d+)`, "g");
+      for (const m of t.matchAll(re)) {
+        if (m[1] !== want) {
+          bad.push(`${doc}: ${name} 을 ${m[1]} 로 적었는데 package.json 은 ${want} 다`);
+        }
+      }
+    }
+  }
+
   return [...new Set(bad)];
 }
 
