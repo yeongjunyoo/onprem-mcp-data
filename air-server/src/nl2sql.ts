@@ -37,9 +37,17 @@ export function extractSql(raw: string): string | null {
 /** Qwen2.5-7B generates a single read-only SQL from the schema + question.
  * This is the path measured (non-circularly) by the execution-match eval. */
 export async function llmNL2SQL(query: string): Promise<string | null> {
+  // 활성 프로파일의 스키마 카드를 쓴다. 2026-08-18 리뷰 지적: 여기에 `SCHEMA_DDL`
+  // (smoke 전용)이 박혀 있어서, 새 코퍼스를 프로파일로 붙여도 **모델은 여전히
+  // orders/documents 를 본다.** 그러면 "프로파일 항목 하나면 된다" 는 문서가 거짓이 된다.
+  //
+  // profile.ts 가 이 파일을 import 하므로 정적 import 는 순환이다 — 지연 import 로 끊는다.
+  // smoke.schemaCard === SCHEMA_DDL 이라 기존 동작은 그대로다.
+  const { profile } = await import("./profile.js");
+  const card = profile().schemaCard;
   const prompt = [
     "다음은 PostgreSQL 스키마입니다.",
-    SCHEMA_DDL,
+    card,
     "",
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "설명, 주석, 코드펜스, 세미콜론 없이 SQL만 출력합니다.",
