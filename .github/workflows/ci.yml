@@ -36,6 +36,10 @@ jobs:
         working-directory: air-server
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 커밋 수 검사가 실제 이력을 봐야 한다. 기본값(depth 1)이면
+          # `git rev-list --count HEAD` 가 1 이고 검사가 조용히 무의미해진다.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
