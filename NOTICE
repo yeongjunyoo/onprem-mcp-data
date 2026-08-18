@@ -10,6 +10,9 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
     https://github.com/airmcp-dev/air
 - @modelcontextprotocol/sdk                      — MIT       (transitive via air)
 - zod                                            — MIT       (transitive via air)
+- TypeScript                                     — Apache-2.0 — Microsoft
+    https://github.com/microsoft/TypeScript
+    빌드 전용(런타임에 포함되지 않는다). Apache-2.0 이라 귀속을 함께 적는다.
 - pg (node-postgres)                             — MIT       — https://github.com/brianc/node-postgres
 
 == Data substrate ==

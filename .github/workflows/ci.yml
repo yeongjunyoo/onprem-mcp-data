@@ -96,6 +96,10 @@ jobs:
       - name: audit 계약이 코드가 넣는 출처를 설명하는지
         working-directory: .
         run: node scripts/verify-audit-contract.mjs
+      # Apache-2.0 은 NOTICE 전파 의무가 따로 있다 — 라이선스 심사 항목.
+      - name: Apache-2.0 의존성이 NOTICE 에 귀속돼 있는지
+        working-directory: .
+        run: node scripts/verify-notice-attribution.mjs
 
   sbom:
     name: SBOM drift check
