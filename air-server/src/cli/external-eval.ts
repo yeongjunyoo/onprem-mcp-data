@@ -90,6 +90,19 @@ async function birdNL2SQL(ddl: string, q: string, evidence: string): Promise<str
 }
 
 async function main() {
+  // ── 프리플라이트. 없는 전제를 50번 발견하지 않는다.
+  //
+  // 2026-08-18: sqlite3 CLI 가 PATH 에 없어 50문항 전부(gold 실행까지) 실패했고
+  // 0/50 이 정본(7/32)을 덮었다. **첫 문항에서 멈추고 무엇이 없는지 말해야 한다.**
+  try {
+    await exec("sqlite3", ["-version"], { timeout: 10_000 });
+  } catch {
+    console.error("\n실패: sqlite3 CLI 를 찾지 못했다 — BIRD Mini-Dev 는 SQLite 파일을 직접 조회한다.");
+    console.error("  설치: winget install SQLite.SQLite  |  apt install sqlite3  |  brew install sqlite");
+    console.error("  설치 후 새 셸에서 다시 실행한다. (결과 파일은 건드리지 않았다.)\n");
+    process.exit(1);
+  }
+
   if (!(await isAvailable())) { console.log("external:bird SKIPPED (Ollama/qwen2.5:7b unavailable)"); process.exit(0); }
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
@@ -127,7 +140,16 @@ async function main() {
   }
 
   const acc = correct / sample.length;
-  const summary = {
+    // 채점기가 망가진 상태의 0 은 측정이 아니다. gold 가 하나도 안 돌면 쓰지 않는다 —
+  // **실패한 실행이 정본을 덮는 것**이 이 저장소에서 세 번째다(코퍼스·홀드아웃·replica).
+  const goldOkCount = rows.filter((r) => r.goldOk).length;
+  if (goldOkCount === 0) {
+    console.error(`\n실패: gold SQL 이 ${rows.length}문항 전부 실행되지 않았다 — 채점기 환경 문제다.`);
+    console.error("  결과 파일을 쓰지 않았다. 정본은 그대로다.\n");
+    process.exit(1);
+  }
+
+const summary = {
     benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
     sampled: sample.length, of: all.length, samplingStride: stride,
     correct, executionAccuracy: Number((acc * 100).toFixed(1)),
