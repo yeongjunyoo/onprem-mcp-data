@@ -9,7 +9,7 @@
 // 못 고친다.
 //
 // ★ 대본에 적힌 수를 파일에서 다시 읽어 대조한다.
-//   대본이 "83/100" 이라 적었으면 internal-llm-summary.json 이 83 이어야 하고,
+//   대본이 적은 정확도는 internal-llm-summary.json 의 값과 같아야 하고,
 //   "1%/30%/83%" 라 적었으면 template/naive/llm 이 그 순서여야 한다.
 //
 // 실행: node scripts/verify-demo-script.mjs   (파일만 읽는다 — DB·모델 불필요)

@@ -54,7 +54,7 @@ npm run demo:ollama
 | 1:25–1:55 | 섹션 4–5 (**핵심**): ontology.search('전자제품')→전자기기, graph.expand, 그리고 **canonical 3-way agreement** 출력(`entity:policy#1001 sources=[graph,vector] rank=1`) | "여기가 차별점입니다. 온톨로지가 '전자제품'을 전자기기로 해소하고, 지식그래프가 정책의 적용 범위를 확장합니다. 그리고 **같은 정책 엔티티가 벡터와 그래프 양쪽에서 나오면 canonical 키로 합쳐집니다.** 여러 갈래가 **합의**하면 그 근거가 위로 올라옵니다 — SQL·벡터·그래프 3-way." |
 | 1:55–2:15 | 섹션 6: 온프렘 Qwen2.5-7B 답변 "전체 주문은 2000건입니다." | "온프렘 7B가 **큐레이션된 컨텍스트에만** 근거해 답합니다. 구조를 안 깨고 담기 때문에 작은 모델도 정확히 답하죠. 근거가 없으면 추측 대신 **거부**합니다." |
 | 2:15–2:42 | 섹션 7 장애주입(벡터 브랜치 강제 실패→graceful degradation) + `eval/results/faults.json`(4/4) + `eval/results/replica-spike.log` 스크롤(streaming/kill-drill) | "운영 안정성. 벡터 브랜치를 **죽여도** 크래시 없이 그래프로 부분 컨텍스트를 반환 — no-crash 4/4. 클러스터는 실제 streaming replica로, **primary를 정지시켜도 복제본이 읽기를 계속 서빙**합니다. kill-drill 로그로 증명." |
-| 2:42–2:58 | `internal-llm-summary.json`(83/100) + ablation 3행(1%/30%/83%) 표 플래시 | "품질도 실측입니다. **자작 LLM-저지 없이 DB가 채점** — 내부 100문항 **83%**. 그리고 ablation: 구조보존 큐레이션을 빼면 30%로 떨어집니다. **단순화의 핵심 레버가 바로 이 큐레이션**임을 +53%p로 증명했습니다." |
+| 2:42–2:58 | `internal-llm-summary.json`(81/100) + ablation 3행(1%/30%/81%) 표 플래시 | "품질도 실측입니다. **자작 LLM-저지 없이 DB가 채점** — 내부 100문항 **81%**. 그리고 ablation: 구조보존 큐레이션을 빼면 30%로 떨어집니다. **단순화의 핵심 레버가 바로 이 큐레이션**임을 +51%p로 증명했습니다." |
 | 2:58–3:00 | repo 트리 + LICENSE(Apache-2.0)/NOTICE/model-cards | "전부 오픈소스 Apache-2.0, raw 증거 전부 동봉. 복잡도는 낮추고, 안정성과 품질은 지킵니다. 감사합니다." |
 
 ## 촬영 노트 (서사 강조점)
