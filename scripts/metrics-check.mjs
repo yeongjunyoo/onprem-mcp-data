@@ -209,6 +209,17 @@ canonical.faults_errvis = `${Math.round(fs_.errorVisibleRate * fs_.total)}/${fs_
 const kg = readJson("eval/results/companyx-kg.json");
 canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
 
+// 내부 벤치(execution-match, 100문항). 2026-08-18 에 83 → 81 로 내리며 **손으로**
+// 다섯 자리를 고쳤는데, 이유는 이 값이 정본에 없었기 때문이다.
+// **정본에 없는 값은 문서에서 자유롭게 썩는다** — 서두 「핵심 한 줄」의 `품질(83%)` 이
+// 그렇게 살아남았다.
+const benchInternal = readJson("eval/results/internal-llm-summary.json");
+{
+  const b = benchInternal.summary ?? benchInternal;
+  canonical.bench_internal = `${b.correct}/${b.total}`;
+  canonical.bench_internal_pct = String(b.correct);
+}
+
 // ── B. 정합성 ───────────────────────────────────────────────────────────
 // 문서에서 지표가 쓰인 자리를 찾아, 거기 적힌 값이 정본과 같은지 본다.
 // "언급되어야 한다"가 아니라 "어긋나면 안 된다"를 검사한다.
