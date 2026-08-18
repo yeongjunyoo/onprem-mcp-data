@@ -235,6 +235,14 @@ const DOCS = [
 ];
 const CLAIMS = [
   {
+    metric: "bench_internal",
+    // "내부 SQL execution-match: **81/100 = 81.0%**" / "execution-match (81/100)"
+    // 2026-08-18 리뷰 지적: 정본에 등록만 하고 **아무 검사도 소비하지 않았다.**
+    // 정본에 넣는 것과 검사가 보는 것은 다르다.
+    re: /execution-match[^\n]*?(\d{1,3}\/100)/g,
+    label: "내부 벤치 execution-match",
+  },
+  {
     metric: "vector_hit5",
     // "hit@5 | **0.986 (73/74)**" / "hit@5 ... 0.986"
     re: /hit@5[^\n]*?(0\.\d{3})/g,
@@ -346,6 +354,10 @@ for (const doc of ["README.en.md"]) {
 // metric-ok는 **과거 표본의 참고표**에만 쓰는 면제이지 필수 claim을 침묵시키는
 // 수단이 아니다. marker가 붙은 행에서는 metric-ok를 무시한다.
 const REQUIRED_CLAIMS = [
+  // bench_internal 은 여기 안 넣는다 — docs/report.md 는 marker 규약을 안 쓰는 문서라
+  // 필수 목록에 넣으면 "marker 가 0개" 로 항상 실패한다. **CLAIMS 대조로 잡는다**
+  // (그 목록은 marker 없는 산문·표도 훑는다). 넣을 수 없는 곳에 넣는 것은 검사가
+  // 아니라 소음이다.
   { doc: "README.md", metric: "vector_hit5" },
   { doc: "README.md", metric: "holdout1_strict" },
   { doc: "README.md", metric: "holdout2_strict" },
