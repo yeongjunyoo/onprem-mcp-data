@@ -160,6 +160,10 @@ export function buildResources() {
                 "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword) 이거나 답변 생성(answer)이다. "
                 + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",
               generated_at: "레코드 생성 시각(ISO 8601)",
+              executed_at:
+                "질의를 실제로 실행한 시각(ISO 8601). generated_at 과 다를 수 있다 — 캐시된 레코드를 돌려주면 생성은 지금이고 실행은 과거다",
+              cache_policy:
+                "이 도구의 캐시 정책 선언(cached | excluded). **관측값이 아니라 선언**이다 — 실제 적중 여부가 아니라 이 도구를 캐시에 넣기로 했는지를 말한다",
             },
             policies: {
               "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",
