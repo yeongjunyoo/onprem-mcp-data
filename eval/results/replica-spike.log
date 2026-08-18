@@ -1,3 +1,17 @@
-# Replica spike — 2026-08-17T21:33:07Z
+# Replica spike — 2026-08-18T07:32:03Z
 ## 1. enable network replication on primary (reversible)
-Error response from daemon: No such container: onprem-mcp-data-db-1
+## 2. pg_basebackup -> standby volume
+## 3. start hot standby on :5434
+  standby 이미지 = pgvector/pgvector:pg16 (primary 와 동일 — 메이저가 다르면 복제본은 못 뜬다)
+  in_recovery=t
+## 4. streaming proof: write primary -> read replica
+  replica_sees_id42=1
+  replica read-only: ERROR:  cannot execute INSERT in a read-only transaction
+  primary pg_stat_replication=streaming/async
+## 5. app READ_DATABASE_URL routing (getReadPool -> replica)
+  getPool->in_recovery=false  getReadPool->in_recovery=true orders=2000
+## 6. KILL DRILL: stop primary, replica keeps serving reads
+  primary STOPPED
+  replica orders while primary down=2000
+  primary RESTARTED orders=2000
+## done — tearing down (trap)

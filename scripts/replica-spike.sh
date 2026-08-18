@@ -14,6 +14,30 @@
 # This documents an OPTIONAL live-replica spike. Production HA (automatic
 # promotion/failover, monitored lag SLAs) is out of scope — see docs/architecture.md.
 set -euo pipefail
+# ── docker CLI 해석 (2026-08-18)
+#
+# `bash scripts/replica-spike.sh` 로 돌리면 PATH 가 /usr/bin/docker 를 먼저 잡는다.
+# 그건 unix:///var/run/docker.sock 을 보는 shim 이고 Docker Desktop 은 named pipe 에
+# 있다. 그래서 컨테이너가 떠 있는데도 "No such container" 가 났고, **그 실패가
+# 증거 파일(replica-spike.log)에 그대로 박혔다.**
+#
+# 같은 이름의 다른 도구를 부르고 있었다. 못 보면 Desktop CLI 를 찾아 앞에 둔다.
+if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q .; then
+  for cand in "$(command -v docker.exe 2>/dev/null)" \
+              "/c/Program Files/Docker/Docker/resources/bin/docker.exe" \
+              "/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"; do
+    if [ -n "$cand" ] && [ -x "$cand" ] && "$cand" ps --format '{{.Names}}' >/dev/null 2>&1; then
+      # PATH 앞에 붙이는 것으로는 안 된다 — 그 디렉터리에는 `docker.exe` 만 있고
+      # 확장자 없는 `docker` 가 없어서 탐색이 그냥 통과한다.
+      # **우선순위를 바꾸는 것과 이름을 해결하는 것은 다르다.** 함수로 덮는다.
+      DOCKER_BIN="$cand"
+      docker() { "$DOCKER_BIN" "$@"; }
+      echo "  (docker CLI 교체: $cand — 기본 PATH 의 docker 는 다른 데몬을 본다)"
+      break
+    fi
+  done
+fi
+
 P=onprem-mcp-data-db-1
 NET=onprem-mcp-data_default
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -58,13 +82,20 @@ docker exec $PGP "$P" psql -U postgres -tAc "SELECT pg_reload_conf();" >/dev/nul
 echo "## 2. pg_basebackup -> standby volume"
 docker rm -f mcp-replica >/dev/null 2>&1 || true; docker volume rm repltest_data >/dev/null 2>&1 || true
 docker volume create repltest_data >/dev/null
-docker run --rm --network "$NET" $PGP -v repltest_data:/standby pgvector/pgvector:pg17 \
+# basebackup·standby 전부 **primary 와 같은 이미지**로 돈다. 메이저가 다르면
+# 복제본이 못 뜨고, 그 실패가 증거 로그에 그대로 박힌다(2026-08-17 실측).
+PRIMARY_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$P")"
+docker run --rm --network "$NET" $PGP -v repltest_data:/standby "$PRIMARY_IMAGE" \
   bash -lc "pg_basebackup -h db -U postgres -D /standby -Fp -Xs -R && chmod 700 /standby" >/dev/null
-docker run --rm -v repltest_data:/s pgvector/pgvector:pg17 \
+docker run --rm -v repltest_data:/s "$PRIMARY_IMAGE" \
   bash -lc "grep -q 'password=' /s/postgresql.auto.conf || sed -i \"s/primary_conninfo = '/primary_conninfo = 'password=postgres /\" /s/postgresql.auto.conf" >/dev/null
 
 echo "## 3. start hot standby on :5434"
-docker run -d --name mcp-replica --network "$NET" -p 5434:5432 -v repltest_data:/var/lib/postgresql/data pgvector/pgvector:pg17 >/dev/null
+# 이미지를 적지 않고 **primary 에게 묻는다.** 복제본은 메이저 버전이 같아야 하는데,
+# 종전에는 pg17 이 하드코딩돼 있었고 primary 는 pg16 이라 standby 가 뜨자마자 죽었다
+# (그 실패가 증거 로그에 그대로 박혔다). 하드코딩된 값은 다시 갈린다.
+echo "  standby 이미지 = $PRIMARY_IMAGE (primary 와 동일 — 메이저가 다르면 복제본은 못 뜬다)"
+docker run -d --name mcp-replica --network "$NET" -p 5434:5432 -v repltest_data:/var/lib/postgresql/data "$PRIMARY_IMAGE" >/dev/null
 sleep 12
 echo "  in_recovery=$(docker exec $PGP mcp-replica psql -U postgres -d mcpdata -tAc 'SELECT pg_is_in_recovery();')"
 
