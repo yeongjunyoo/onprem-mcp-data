@@ -19,10 +19,15 @@ const PURPOSE = {
   '@types/pg': '타입 정의(개발 전용)',
 };
 
+// 런타임 6종은 npm 트리에 없어서 **손으로 적는다.** 그래서 조용히 낡는다 —
+// 2026-08-18 에 pgvector 0.6.0(실물 0.8.6) · Ollama 0.32.4(실물 0.32.14)로
+// 남아 있었고, 붙임1 SBOM 표에 그대로 인쇄돼 있었다(라이선스 배점 5점 자리).
+//
+// verify-loaded-corpus 가 살아 있는 스택에 물어 이 표와 대조한다.
 const RUNTIME = [
   ['PostgreSQL', '16', 'PostgreSQL License (OSI 인증)', 'https://github.com/postgres/postgres', '관계형 저장소와 온프렘 클러스터(primary, replica)'],
-  ['pgvector', '0.6.0', 'PostgreSQL License (OSI 인증)', 'https://github.com/pgvector/pgvector', '벡터 인덱스와 코사인 유사도 검색'],
-  ['Ollama', '0.32.4', 'MIT', 'https://github.com/ollama/ollama', '로컬 LLM과 임베딩 런타임(외부 API 호출 없음)'],
+  ['pgvector', '0.8.6', 'PostgreSQL License (OSI 인증)', 'https://github.com/pgvector/pgvector', '벡터 인덱스와 코사인 유사도 검색'],
+  ['Ollama', '0.32.14', 'MIT', 'https://github.com/ollama/ollama', '로컬 LLM과 임베딩 런타임(외부 API 호출 없음)'],
   ['qwen2.5:7b', '7B', 'Apache-2.0 (오픈웨이트)', 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct', '질의 의도 분해와 답변 생성(로컬 추론)'],
   ['bge-m3', '567M', 'MIT (오픈웨이트)', 'https://huggingface.co/BAAI/bge-m3', '문서와 질의 임베딩(1024차원, 로컬 추론)'],
   ['Node.js', '20 LTS', 'MIT', 'https://github.com/nodejs/node', 'MCP 서버 런타임'],
