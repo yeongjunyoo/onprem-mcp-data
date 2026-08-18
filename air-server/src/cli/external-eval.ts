@@ -121,13 +121,13 @@ async function main() {
     const db = resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`);
     let matched = false, predOk = false, goldOk = false, pred: string | null = null;
     try {
-      const ddl = await schemaCard(db);
-      pred = await birdNL2SQL(ddl, it.question, it.evidence);
-      // gold 는 예측 유무와 **무관하게** 돌린다. 2026-08-18 리뷰: 예측이 없으면
-      // gold 를 안 돌려 `goldOk:false` 가 되고, 뒤에서 다시 돌린 결과와 **다른 실행**을
-      // 보게 된다 — 채점 때 실패한 gold 가 재시도에서 성공하면 낮은 점수가 그대로 쓰인다.
+      // gold 를 **먼저** 돌린다. 2026-08-18 리뷰: 예측 생성이 던지면(Ollama 끊김 등)
+      // 이 줄 뒤의 gold 실행이 통째로 건너뛰어져 `goldOk:false` 가 되고, 가드가
+      // **생성 오류를 채점기 고장으로** 읽는다. gold 는 예측 경로와 무관해야 한다.
       const g = await runSqlite(db, it.SQL);
       goldOk = g.ok;
+      const ddl = await schemaCard(db);
+      pred = await birdNL2SQL(ddl, it.question, it.evidence);
       if (pred) {
         const p = await runSqlite(db, pred);
         predOk = p.ok;
