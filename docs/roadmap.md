@@ -48,3 +48,29 @@
 ## 기여로 열려 있는 부분
 
 `good first issue` 라벨이 붙은 항목은 데이터베이스 없이도 검증되는 작업이다. 라우터 어휘 확장, 오프라인 단위 테스트 추가, 오류 메시지 개선, 문서 교정이 여기에 해당한다.
+
+### 상류(upstream)에 열려 있는 것
+
+> 추적: [#139](https://github.com/yeongjunyoo/onprem-mcp-data/issues/139) (`bug` · `good first issue` · `help wanted`)
+
+**프레임워크가 프롬프트 인자를 MCP 목록에 싣지 않는다.** `@airmcp-dev/core` 가
+MCP SDK 의 deprecated 오버로드를 쓴다.
+
+```js
+// server-runner.js
+server.prompt(prompt.name, prompt.description || "", handler)
+```
+
+SDK 문서: *"Registers a **zero-argument** prompt ... @deprecated Use `registerPrompt`
+instead."* 인자를 받는 오버로드가 따로 있는데 안 쓴다. 결과적으로 우리가 정의한
+`question`·`context` 같은 인자가 `prompts/list` 에서 **빈 배열**로 나가고, 클라이언트는
+템플릿의 어느 자리를 채울지 알 수 없다.
+
+- **재현**: `node scripts/verify-prompt-arguments.mjs` — 정의한 인자와 목록을 대조한다.
+- **확인 범위**: 0.2.0 과 0.3.0 둘 다 같다(2026-08-17).
+- **현재 우리 대응**: 설명 문자열 끝에 `[인자] name(필수): 설명` 을 붙이는 **우회**다.
+  검사는 `arguments` 또는 설명 둘 중 하나로 전달되면 통과하므로, 상류가 고쳐지면
+  그것도 통과하고 **우회로를 지울 수 있다.**
+
+우회로를 여기 적어 두는 이유는 분명하다 — **임시 조치를 영구화하는 가장 흔한 방법이
+적지 않는 것이다.**
