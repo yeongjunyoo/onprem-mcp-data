@@ -41,7 +41,10 @@ for (const m of out.matchAll(/^\s+([a-z_0-9]+) = (.+)$/gm)) canonical[m[1]] = m[
 
 /** 지표를 말하는 자리인지 알아보는 패턴과, 그 자리에 있어야 할 정본. */
 const SUBJECTS = [
-  { re: /벡터.{0,12}hit@5|vector hit@5/i, key: "vector_hit5", val: /\b0\.\d{3}\b/g },
+  // `hit@5` 를 생략한 짧은 표기("벡터 0.985")도 본다. 2026-08-17 실측에서 그 표기가
+  // 규칙 밖이라 낡은 채로 남아 있었다 — **같은 사실을 짧게 쓰면 검사가 못 본다.**
+  // 오늘 도구 수(숫자 선행)·단언 수(중간에 단어)에서도 같은 형태를 겪었다.
+  { re: /벡터.{0,12}hit@5|vector hit@5|벡터\s*0\.\d{3}/i, key: "vector_hit5", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
   { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
