@@ -140,14 +140,29 @@ async function main() {
   }
 
   const acc = correct / sample.length;
-    // 채점기가 망가진 상태의 0 은 측정이 아니다. gold 가 하나도 안 돌면 쓰지 않는다 —
-  // **실패한 실행이 정본을 덮는 것**이 이 저장소에서 세 번째다(코퍼스·홀드아웃·replica).
-  const goldOkCount = rows.filter((r) => r.goldOk).length;
-  if (goldOkCount === 0) {
-    console.error(`\n실패: gold SQL 이 ${rows.length}문항 전부 실행되지 않았다 — 채점기 환경 문제다.`);
-    console.error("  결과 파일을 쓰지 않았다. 정본은 그대로다.\n");
+  // ── gold 를 **예측과 무관하게** 확인한다.
+  //
+  // 2026-08-18 리뷰 지적 둘. 어제 넣은 가드가 `goldOk` 를 봤는데 그 값은 `if (pred)`
+  // 블록 안에서만 채워진다.
+  //   ① 모델이 SELECT 를 한 번도 못 내면 gold 를 **한 번도 안 돌린 채** 전 행이
+  //      false 가 되고, 가드가 정당한 0/N 을 "채점기 환경 문제" 로 읽는다.
+  //   ② gold 가 **하나만** 성공해도 통과해서, 깨진 DB 하나가 조용히 오답으로
+  //      분모에 들어간다. BIRD 는 gold 가 전부 도는 것을 전제로 한다.
+  const goldChecks = await Promise.all(
+    sample.map(async (it) => ({
+      id: it.question_id,
+      r: await runSqlite(resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`), it.SQL),
+    })),
+  );
+  const goldFailed = goldChecks.filter((g) => !g.r.ok);
+  if (goldFailed.length) {
+    console.error(`\n실패: gold SQL ${goldFailed.length}/${sample.length}문항이 실행되지 않았다 — 채점기 환경 문제다.`);
+    console.error(`  첫 실패: q${goldFailed[0].id} — ${goldFailed[0].r.error ?? "(사유 없음)"}`);
+    console.error("  sqlite3 와 Mini-Dev 데이터가 온전한지 확인한다. 결과 파일을 쓰지 않았다.");
+    console.error("  (gold 가 전부 도는데 예측이 0개면 그건 **정당한 0/N** 이라 기록한다.)\n");
     process.exit(1);
   }
+
 
 const summary = {
     benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
