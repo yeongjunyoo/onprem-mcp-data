@@ -35,7 +35,7 @@ cd air-server && npm ci && npx tsc     # 의존성 설치와 빌드
 | DB 통합 | `npm test` (db, server, pipeline 포함), `npm run test:kg`, `npm run test:companyx` | PostgreSQL + pgvector, 시드 적재 | 안 돕니다 |
 | 모델 평가 | `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`, `npm run bench:internal`, `fault:inject` | 위 + Ollama 모델 2종 | 안 돕니다 |
 
-전 스위트 기준 444단언이 통과 상태입니다(오프라인 317 + DB·모델 통합 127). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
+전 스위트 기준 449단언이 통과 상태입니다(오프라인 322 + DB·모델 통합 127). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
 
 ## 변경 절차
 

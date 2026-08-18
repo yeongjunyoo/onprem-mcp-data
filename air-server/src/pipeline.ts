@@ -28,6 +28,7 @@ import {
   kgSchema,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
+import { describeError } from "./errors.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -379,6 +380,28 @@ export async function ask(
   }
 
   const gen = deps.llm ?? llmAnswer;
-  const answer = await gen(query, r.context);
-  return { ...r, answer };
+  try {
+    const answer = await gen(query, r.context);
+    return { ...r, answer };
+  } catch (e) {
+    // ★ 생성 LLM 이 **기동 후** 죽는 경우.
+    //
+    // 기동 시 부재는 프리플라이트가 정확히 안내한다. 운영 중 컨테이너가 내려가는
+    // 경우는 그 검사를 이미 지났다 — 2026-08-17 실측에서 `AggregateError` 가
+    // `message: ""` 인 채로 그대로 던져졌고, 사용자는 **빈 이유**를 받았다.
+    //
+    // 조회는 성공했다. "조회 실패" 로 뭉뚱그리지 않고 생성만 실패했다고 말한다 —
+    // 근거는 있으니 사용자가 컨텍스트를 직접 볼 수도 있다.
+    const why = describeError(e);
+    return {
+      ...r,
+      answer:
+        `근거는 ${r.context.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
+        "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
+      audit: {
+        ...r.audit,
+        branch_errors: [...(r.audit?.branch_errors ?? []), `answer: ${why}`],
+      },
+    };
+  }
 }

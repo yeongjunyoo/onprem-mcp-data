@@ -541,7 +541,7 @@ npm run fault:inject                                  # 장애 주입 4/4/4
 | `npm run companyx:holdout2` | strict 0.633 (구어체) | 일치 |
 | `npm run fault:inject` | no-crash 4/4, partial 4/4, error-visible 4/4 | 일치 |
 | 통합 9스위트 (DB·모델 필요) | **127/127 통과** — db 22 · server 5 · pipeline 14 · llm 5 · graph 12 · kgretrieve 7 · companyx 46 · ontologyload 10 · auditcache 6 | 일치 |
-| 런타임 외부 연결 (411초 LLM 평가 중) | **외부 0종** — node 프로세스 연결은 `127.0.0.1:11444`(Ollama) 1787회 · `127.0.0.1:5433`(DB) 1598회뿐 | 일치 |
+| 런타임 외부 연결 (411초 LLM 평가 중) | **외부 0종** — node 프로세스 연결은 `127.0.0.1:11449`(Ollama) 1787회 · `127.0.0.1:5433`(DB) 1598회뿐 | 일치 |
 
 **움직인 값은 하나다** — 종단 중앙 지연이 11989 → 10606ms 로 바뀌었다. 같은 컨테이너
 CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서 4곳을 지목해 갱신하게
@@ -618,7 +618,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 317단언(데이터셋 없는 CI 는 279), 전체 444단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 322단언(데이터셋 없는 CI 는 279), 전체 449단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(Δ +40pp/+53pp), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |

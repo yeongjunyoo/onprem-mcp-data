@@ -22,12 +22,12 @@ docker compose exec ollama ollama pull qwen2.5:7b
 docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
-export OLLAMA_HOST=http://localhost:11444                # containerised Ollama
+export OLLAMA_HOST=http://localhost:11449                # containerised Ollama
 npm run gen:bench && npm run embed:bench:ollama          # deterministic seed data
 npm run demo:ollama                                      # offline end-to-end demo
 ```
 
-> **Why port 11444.** Publishing the container's Ollama on 11434 collides with a
+> **Why port 11449.** Publishing the container's Ollama on 11434 collides with a
 > host-installed Ollama, and Docker then **silently gives up on the publication**
 > (`PublishedPort: 0`). The container still reports `running`, and the app attaches to
 > the host daemon instead — whatever models it happens to hold. Splitting the port keeps
@@ -56,7 +56,7 @@ replacing `<repo>` with the actual path.
       "args": ["<repo>/air-server/dist/index.js"],
       "env": {
         "DATABASE_URL": "postgresql://mcp:mcp@localhost:5433/mcpdata",
-        "OLLAMA_HOST": "http://localhost:11444",
+        "OLLAMA_HOST": "http://localhost:11449",
         "EMBEDDER": "ollama",
         "OLLAMA_MODEL": "qwen2.5:7b",
         "EMBED_MODEL": "bge-m3",
@@ -102,7 +102,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | **Multi-step task completion** | **5/6 = 0.833**, 14/15 steps passed | six tasks chaining entity resolution -> relation walk -> aggregation | measured |  <!--metric:multistep-->
 | Median latency | **10606 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms-->
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
-| Tests | **444 assertions passing** | 290 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 279, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
+| Tests | **449 assertions passing** | 290 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 279, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
 | Fault injection — partial context | **4/4** | killing the vector branch still returns graph context |  <!--metric:faults_partial-->
 | Fault injection — error visible | **4/4** | failed branches are recorded in `branch_errors` |  <!--metric:faults_errvis-->
