@@ -43,7 +43,7 @@
     "id": "q06",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT AVG(bench.order_items.quantity * bench.products.price) AS average_canceled_order_amount FROM bench.orders JOIN bench.order_items ON bench.orders.id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.orders.status = 'Canceled'",
+    "pred": "SELECT AVG(bench.order_items.quantity * bench.products.price) AS canceled_orders_avg_amount FROM bench.orders JOIN bench.order_items ON bench.orders.order_id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.product_id WHERE bench.orders.status = 'cancelled'",
     "predOk": false,
     "goldOk": true
   },
@@ -83,7 +83,7 @@
     "id": "q11",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.orders JOIN bench.order_items ON bench.orders.id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.orders.shipped_at IS NOT NULL",
+    "pred": "SELECT SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.order_items JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.order_items.order_id IN (SELECT id FROM bench.orders WHERE status = 'delivered')",
     "predOk": false,
     "goldOk": true
   },
@@ -99,7 +99,7 @@
     "id": "q13",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT COUNT(*), SUBSTR(cust_state, 1, 2) AS state FROM bench.customers GROUP BY state",
+    "pred": "SELECT COUNT(*), SUBSTRING(cust_state FROM '^[A-Z]{2}') AS state FROM bench.customers GROUP BY state",
     "predOk": false,
     "goldOk": true
   },
@@ -147,7 +147,7 @@
     "id": "q19",
     "tax": "join",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.orders WHERE customer_id IN (SELECT id FROM bench.customers WHERE vip = TRUE)",
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE customer_id IN (SELECT customer_id FROM bench.customers WHERE vip = TRUE)",
     "predOk": false,
     "goldOk": true
   },
@@ -203,7 +203,7 @@
     "id": "q26",
     "tax": "synonym",
     "ok": false,
-    "pred": "SELECT SUM(order_items.quantity * products.price) AS cancelled_orders_total FROM bench.orders JOIN bench.order_items ON orders.id = order_items.order_id JOIN bench.products ON order_items.product_id = products.id WHERE orders.status = 'cancelled'",
+    "pred": "SELECT SUM oi.quantity * p.price FROM bench.orders o JOIN bench.order_items oi ON o.order_id = oi.order_id JOIN bench.products p ON oi.product_id = p.product_id WHERE o.status = 'cancelled'",
     "predOk": false,
     "goldOk": true
   },
@@ -243,7 +243,7 @@
     "id": "q31",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT COUNT(*), SUBSTR(cust_state, 1, 2) AS state FROM bench.customers GROUP BY state",
+    "pred": "SELECT COUNT(*) FROM bench.customers GROUP BY SUBSTRING(cust_address, 1, POSITION(',' IN cust_address) - 1)",
     "predOk": false,
     "goldOk": true
   },
@@ -259,7 +259,7 @@
     "id": "q33",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT MIN(price) FROM bench.products WHERE status = 'sold'",
+    "pred": "SELECT MIN(price) FROM bench.products WHERE stock > 0",
     "predOk": false,
     "goldOk": true
   },
@@ -275,7 +275,7 @@
     "id": "q35",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT AVG(price) FROM bench.products WHERE status = 'sold'",
+    "pred": "SELECT AVG(price) FROM bench.products WHERE is_sold = true",
     "predOk": false,
     "goldOk": true
   },
@@ -283,7 +283,7 @@
     "id": "q36",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT SUM(order_items.quantity) FROM bench.order_items WHERE order_id = 1",
+    "pred": "SELECT SUM(order_items.quantity) FROM bench.orders JOIN bench.order_items ON bench.orders.order_id = bench.order_items.order_id WHERE bench.orders.order_id = 1",
     "predOk": false,
     "goldOk": true
   },
@@ -331,7 +331,7 @@
     "id": "q42",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT SUM(order_items.quantity * products.price) AS canceled_total FROM bench.orders JOIN bench.order_items ON orders.id = order_items.order_id JOIN bench.products ON order_items.product_id = products.id WHERE orders.status = 'cancelled'",
+    "pred": "SELECT SUM oi.quantity * p.price FROM bench.orders o JOIN bench.order_items oi ON o.order_id = oi.order_id JOIN bench.products p ON oi.product_id = p.product_id WHERE o.status = 'cancelled'",
     "predOk": false,
     "goldOk": true
   },
@@ -395,7 +395,7 @@
     "id": "q50",
     "tax": "groupby+order",
     "ok": false,
-    "pred": "SELECT MAX(o.total) FROM (SELECT COUNT(*) AS total FROM bench.orders GROUP BYbench.customers.region_id) o",
+    "pred": "SELECT MAX(o.count) FROM (SELECT COUNT(*) AS count FROM bench.orders GROUP BY bench.customers.region) o",
     "predOk": false,
     "goldOk": true
   },
@@ -403,7 +403,7 @@
     "id": "q51",
     "tax": "aggregate",
     "ok": false,
-    "pred": "SELECT SUM(pi.quantity * p.price) AS total_revenue FROM bench.order_items pi JOIN bench.products p ON pi.product_id = p.id",
+    "pred": "SELECT SUM(order_items.quantity * products.price) AS total_revenue FROM bench.order_items JOIN bench.products ON order_items.product_id = products.id",
     "predOk": false,
     "goldOk": true
   },
@@ -411,7 +411,7 @@
     "id": "q52",
     "tax": "groupby+order",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity) AS total_sales FROM bench.order_items JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.order_items.quantity = (SELECT MAX(bench.order_items.quantity) FROM bench.order_items)",
+    "pred": "SELECT SUM(bench.order_items.quantity) AS total_sales FROM bench.order_items JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.products.id = (SELECT product_id FROM bench.order_items GROUP BY product_id ORDER BY SUM(quantity) DESC LIMIT 1)",
     "predOk": false,
     "goldOk": true
   },
@@ -443,7 +443,7 @@
     "id": "q56",
     "tax": "join",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity * bench.products.price) AS vip_order_amount FROM bench.customers JOIN bench.orders ON bench.customers.customer_id = bench.orders.customer_id JOIN bench.order_items ON bench.orders.order_id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.product_id WHERE bench.customers.vip_status = 'VIP'",
+    "pred": "SELECT SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.customers JOIN bench.orders ON bench.customers.customer_id = bench.orders.customer_id JOIN bench.order_items ON bench.orders.order_id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.product_id WHERE bench.customers.vip = TRUE",
     "predOk": false,
     "goldOk": true
   },
@@ -451,7 +451,7 @@
     "id": "q57",
     "tax": "aggregate",
     "ok": false,
-    "pred": "SELECT AVG(total_amount) AS average_order_amount FROM (SELECT SUM(price * quantity) AS total_amount FROM bench.order_items GROUP BY order_id) AS subquery",
+    "pred": "SELECT AVG(total_amount) AS average_order_amount FROM (SELECT SUM(price * quantity) AS total_amount FROM bench.order_items GROUP BY order_id) AS order_totals",
     "predOk": false,
     "goldOk": true
   },
@@ -483,7 +483,7 @@
     "id": "q61",
     "tax": "count+filter",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.customers WHERE city = '서울' AND vip = TRUE",
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE city = '서울' AND customer_status = 'VIP'",
     "predOk": false,
     "goldOk": true
   },
@@ -491,7 +491,7 @@
     "id": "q62",
     "tax": "join",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.products WHERE category = 'Electronics' AND status = 'Active'",
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE category = 'Electronics' AND status = 'sold'",
     "predOk": false,
     "goldOk": true
   },
@@ -523,7 +523,7 @@
     "id": "q66",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT state, SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.orders JOIN bench.order_items ON bench.orders.id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.id GROUP BY state",
+    "pred": "SELECT state, SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.orders JOIN bench.order_items ON bench.orders.order_id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.product_id GROUP BY state",
     "predOk": false,
     "goldOk": true
   },
@@ -563,7 +563,7 @@
     "id": "q71",
     "tax": "aggregate+filter",
     "ok": true,
-    "pred": "SELECT MAX(price) FROM bench.products WHERE active = 't'",
+    "pred": "SELECT MAX(price) FROM bench.products WHERE active = true",
     "predOk": true,
     "goldOk": true
   },
@@ -595,7 +595,7 @@
     "id": "q75",
     "tax": "time",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.orders WHERE EXTRACT(MONTH FROM order_date) BETWEEN 7 AND 12 AND YEAR(order_date) = 2025",
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE EXTRACT(MONTH FROM order_date) BETWEEN 7 AND 12 AND EXTRACT(YEAR FROM order_date) = 2025",
     "predOk": false,
     "goldOk": true
   },
@@ -611,7 +611,7 @@
     "id": "q77",
     "tax": "null",
     "ok": true,
-    "pred": "SELECT COUNT(*) FROM bench.customers WHERE NOT EXISTS (SELECT 1 FROM bench.orders WHERE orders.customer_id = customers.id)",
+    "pred": "SELECT COUNT(*) FROM bench.customers WHERE id NOT IN (SELECT customer_id FROM bench.orders)",
     "predOk": true,
     "goldOk": true
   },
@@ -659,7 +659,7 @@
     "id": "q83",
     "tax": "join",
     "ok": false,
-    "pred": "SELECT AVG(p.price) FROM bench.products p JOIN bench.categories c ON p.category_id = c.id WHERE c.name = '家具'",
+    "pred": "SELECT AVG(bench.products.price) FROM bench.products JOIN bench.categories ON bench.products.category_id = bench.categories.id WHERE bench.categories.name = '家具'",
     "predOk": true,
     "goldOk": true
   },
@@ -675,7 +675,7 @@
     "id": "q85",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity * bench.products.price) AS total_amount FROM bench.orders JOIN bench.order_items ON bench.orders.id = bench.order_items.order_id JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.orders.customer_id = 1",
+    "pred": "SELECT SUM(bench.order_items.quantity * bench.order_items.unit_price) AS total_amount FROM bench.order_items JOIN bench.orders ON bench.order_items.order_id = bench.orders.id WHERE bench.orders.customer_id = 1",
     "predOk": false,
     "goldOk": true
   },
@@ -715,7 +715,7 @@
     "id": "q90",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT COUNT(*) AS active_products, (SELECT COUNT(*) FROM bench.products WHERE is_active = 'f') AS inactive_products FROM bench.products WHERE is_active = 't'",
+    "pred": "SELECT (SELECT COUNT(*) FROM bench.products WHERE is_active = 't') AS active_products, (SELECT COUNT(*) FROM bench.products WHERE is_active = 'f') AS inactive_products",
     "predOk": false,
     "goldOk": true
   },
@@ -787,7 +787,7 @@
     "id": "q99",
     "tax": "groupby+order",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity) AS total_quantity FROM bench.order_items JOIN (SELECT product_id FROM bench.order_items GROUP BY product_id ORDER BY SUM(quantity) DESC LIMIT 1) AS max_product ON bench.order_items.product_id = max_product.product_id",
+    "pred": "SELECT SUM(bench.order_items.quantity) AS total_quantity FROM bench.order_items JOIN bench.products ON bench.order_items.product_id = bench.products.id WHERE bench.products.id = (SELECT product_id FROM bench.order_items GROUP BY product_id ORDER BY SUM(quantity) DESC LIMIT 1)",
     "predOk": false,
     "goldOk": true
   },

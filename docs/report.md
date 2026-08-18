@@ -18,7 +18,7 @@
 |---|---|
 | **튜닝 없음 (설정 민감성↓)** | 라우터·RRF·큐레이션·벡터정렬 = **LLM 호출 0, 튜닝 파라미터 0, run-to-run 분산 0** (테스트 단언) |
 | **장애 지점↓ (운영 안정성)** | 장애주입 스위트 **no-crash 4/4·partial 4/4·error-visible 4/4**; air 플러그인(timeout/retry/circuit); 클러스터 read-endpoint fallback + **라이브 streaming-replica kill-drill** |
-| **품질 유지 (단순해도 정확)** | 내부 SQL execution-match **83/100=83.0%**; 구조보존 큐레이션이 정확도의 결정 레버임을 ablation으로 실증(**Δ +53.0pp**) |
+| **품질 유지 (단순해도 정확)** | 내부 SQL execution-match **81/100=81.0%**; 구조보존 큐레이션이 정확도의 결정 레버임을 ablation으로 실증(**Δ +51.0pp**) |
 | **MCP·air 규격 준수** | air `defineServer/defineTool` 위 **8 MCP 도구**; Pylon-7 layer 힌트; 전현우 2026 TACC 논문을 설계 근거로 구현 |
 
 핵심 한 줄: **"튜닝 0·장애 지점 최소화로 운영을 단순화하되, 구조보존 큐레이션으로 품질(83%)을 지킨 온프렘 MCP 데이터 플랫폼."**
@@ -48,7 +48,7 @@
 읽는 법 세 가지.
 
 1. **라우터 100%는 in-sample이다.** 30문항은 사업자가 *공개한 예시*이고 라우터 어휘를 그 문항을 읽으며 작성했다. 일반화 수치가 아니라 "3레인 분기가 사업자 의도와 일치한다"는 확인으로 읽어야 한다. 어휘 자체는 스키마·그래프 스키마에서 뽑았지 라벨에서 뽑지 않았다.
-2. **NL2SQL 60%의 ablation이 본 프로젝트의 논지를 사업자 데이터에서 재현한다 — 단 재시도를 붙이면 그 논지가 무너진다(§0.6).** 테이블명만 준 베이스라인의 실패 8건 중 6건이 **존재하지 않는 컬럼 환각**(`contracts.is_active`, `clients.registration_date`, `employees.department_id` …)이었다. 값 어휘(`quarter='2025-Q3'`, `status='active'`)까지 담은 스키마 카드를 주면 그 실패군이 사라진다. 내부 벤치의 Δ +53.0pp와 같은 방향이며, **같은 데이터·같은 모델·같은 채점기**로 측정했다.
+2. **NL2SQL 60%의 ablation이 본 프로젝트의 논지를 사업자 데이터에서 재현한다 — 단 재시도를 붙이면 그 논지가 무너진다(§0.6).** 테이블명만 준 베이스라인의 실패 8건 중 6건이 **존재하지 않는 컬럼 환각**(`contracts.is_active`, `clients.registration_date`, `employees.department_id` …)이었다. 값 어휘(`quarter='2025-Q3'`, `status='active'`)까지 담은 스키마 카드를 주면 그 실패군이 사라진다. 내부 벤치의 Δ +51.0pp와 같은 방향이며, **같은 데이터·같은 모델·같은 채점기**로 측정했다.
 3. **남은 4건은 숨기지 않는다.** ① `보안 솔루션 … 월 평균 매출` = 모델이 OR 우선순위를 틀림(진짜 오답), ② `활성 계약 수` = 스키마 카드에 `status['active'…]`가 있는데도 `is_active` 환각, ③ `평균 연봉이 가장 높은 부서` = `dept_id`만 반환(부서명 조인 누락), ④ `가장 많은 프로젝트를 진행 중인 고객사` = 모델이 `status='in_progress'` 필터를 **추가**했다 — 사업자 hint는 필터 없이 GROUP BY만 지시하므로 gold 기준으로는 오답이지만 질문 문면("진행 중인")으로는 모델 쪽이 더 충실한 해석이다. 이 4건은 7B 한계와 질문 모호성이지 파이프라인 결함이 아니다.
 
 **그래프 레인은 이번에 새로 만들었다.** 공식 라벨이 요구하는 `knowledge_graph`가 기존 라우터에 아예 없었고(구 라우터 = structured/semantic 2레인), 초기 실측 평균 recall은 **0.278**이었다. 원인 4가지를 고쳐 **1.000**으로 올렸다: ① 확장이 out 방향뿐이라 역방향 질의("Product-C1을 **사용하는** 고객사")가 조용히 0건 반환 → 양방향 BFS, ② 시드가 substring 매칭 상위 5건이라 `Product-C1`을 물으면 엉뚱한 제품이 시드 → exact>prefix>substring 랭킹, ③ 노드를 지목하지 않고 **관계만** 지목하는 질의("가장 많은 고객을 **담당하는** 직원")는 시드가 없어 시작 불가 → 관계 단위 스캔·차수 집계 도입(집계는 DB가 하고 모델은 읽기만), ④ 노드 속성 미적재로 `status='in_progress'` 필터 불가 → 속성 적재.
@@ -68,7 +68,7 @@
 
 **해석을 바꿔야 한다.** 스키마 카드와 self-repair는 다른 기능이 아니라 **같은 병(모델이 스키마를 모른다)의 사전 처방과 사후 처방**이다. 사전에 주면 첫 호출에 맞고, 사후에 고치면 두 번째 호출에서 맞는다. 그래서 재시도가 있는 시스템에서 스키마 카드가 사는 근거는 정확도가 아니라 **호출 수 33% 감소, 지연 25% 감소, 실패 경로 3분의 1**이다. 재시도가 없는 경로에서는 Δ +40pp의 정확도 차이가 그대로 남는다.
 
-이 결과는 내부 벤치의 「구조보존 큐레이션 Δ +53.0pp」를 **부정하지 않지만 조건을 붙인다**: 그 수치는 재시도 없는 단발 호출 조건의 값이다. 같은 조건에서 사업자 데이터가 Δ +40pp로 재현했고, 재시도를 허용하면 이득이 정확도에서 비용으로 이동한다. 심사자가 재시도를 전제로 본다면 헤드라인은 **같은 정확도를 절반의 재시도로 달성한다**여야 한다.
+이 결과는 내부 벤치의 「구조보존 큐레이션 Δ +51.0pp」를 **부정하지 않지만 조건을 붙인다**: 그 수치는 재시도 없는 단발 호출 조건의 값이다. 같은 조건에서 사업자 데이터가 Δ +40pp로 재현했고, 재시도를 허용하면 이득이 정확도에서 비용으로 이동한다. 심사자가 재시도를 전제로 본다면 헤드라인은 **같은 정확도를 절반의 재시도로 달성한다**여야 한다.
 
 self-repair 자체는 튜닝 파라미터를 늘리지 않는다. 재시도 조건은 "엔진이 오류를 냈는가" 하나뿐이고, 성공한 쿼리는 재시도되지 않으며, 임계값도 샘플링도 없다.
 
@@ -426,12 +426,12 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 ## 5. 검색 품질 (단순화가 품질을 희생하지 않음)
 
-- **내부 SQL execution-match: 83/100 = 83.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). 100문항·16종 taxonomy. 오답 17 = 값 영문화(의류→clothing, 서울→seoul)·환각 필터·여분 컬럼·복합 join으로, strict 비교기가 정확히 적발(거짓 통과 없음).
+- **내부 SQL execution-match: 81/100 = 81.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). 100문항·16종 taxonomy. 오답 19 = 값 영문화(의류→clothing, 서울→seoul)·환각 필터·여분 컬럼·복합 join으로, strict 비교기가 정확히 적발(거짓 통과 없음).
 - **Ablation matrix — 컴포넌트별 기여(동일 100문항·`mcp_ro` 오라클·LLM저지 없음):**
   - template-only(결정론, 모델 없음, 단일테이블 하드코딩) = **1/100 = 1.0%** — 하드와이어 템플릿은 실 다중테이블로 일반화 불가.
   - naive LLM(bare 테이블명) = **30/100 = 30.0%** — 환각 컬럼·오류 enum 다발.
-  - curated LLM(구조보존 스키마카드) = **83/100 = 83.0%**.
-  - **결정 레버 = 구조보존 큐레이션: naive→curated Δ +53.0pp.** thesis 실증. 재현 `BENCH_STRATEGY={template|naive} npm run bench:internal`.
+  - curated LLM(구조보존 스키마카드) = **81/100 = 81.0%**.
+  - **결정 레버 = 구조보존 큐레이션: naive→curated Δ +51.0pp.** thesis 실증. 재현 `BENCH_STRATEGY={template|naive} npm run bench:internal`.
 - **의미검색 정량(BGE-M3 vs hash, 동일 랭킹경로·gold 오라클):** 저-어휘겹침 16질의(암호↔비밀번호 등). hash recall@5=0.500/MRR=0.304 → **BGE recall@5=1.000/MRR=0.906** (Δ recall@5 +50.0pp·top1 +68.8pp·MRR +0.602). `npm run recall:eval`.
 - **canonical 3-way RRF:** "전자제품 환불 규정" → `entity:policy#1001`이 vector+graph 양쪽에서 나와 2 source 누적·rank 1 (`kgretrieve.test`).
 - **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행.
@@ -447,7 +447,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
   갈린 2건은 전부 `card_games`에서 예측이 중복 행을 많이 반환했지만 **distinct 집합은 gold와 동일**했던 경우다(5429행 vs gold 3행, distinct 3=3 / 66행 vs gold 2행, distinct 2=2). gold 실행 실패 0건.
 
-  **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 83.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
+  **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 81.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현: `EXT_LIMIT=32 npm run external:bird` → `python scripts/rescore_bird.py`. 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
 - **테스트:** 스모크 156(router/curator/rrf/evalmatch/db 22/server/pipeline/llm) + KG 19(graph/kgretrieve) = **175** 그린. tsc strict clean.
@@ -481,7 +481,7 @@ cd air-server && npm ci && npm run build
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # bench 데이터+임베딩
 npm test              # 스모크 156
 npm run test:kg       # 그래프/3-way 19
-npm run bench:internal                    # 내부 벤치 execution-match (83/100)
+npm run bench:internal                    # 내부 벤치 execution-match (81/100)
 BENCH_STRATEGY=naive npm run bench:internal   # ablation naive
 EXT_LIMIT=32 npm run external:bird         # 외부 BIRD calibration
 npm run recall:eval   # 의미검색 BGE vs hash recall@k/MRR

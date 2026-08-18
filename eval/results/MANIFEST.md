@@ -39,12 +39,12 @@
 | `external-bird-rescore.json` | 8,863 | `bb10a5d137f00ebe` | 2026-08-17T06:13:28 |
 | `external-bird-summary.json` | 680 | `8f4c2b484a0f59f3` | — |
 | `faults.json` | 1,013 | `ef49562c09b91c16` | — |
-| `internal-llm-raw.json` | 20,437 | `828515eba18fe4ce` | — |
-| `internal-llm-summary.json` | 1,202 | `c5ad866aa36baddd` | — |
-| `internal-naive-raw.json` | 22,474 | `27211e52b68ea5f0` | — |
-| `internal-naive-summary.json` | 1,203 | `313a1a17bb752b3f` | — |
+| `internal-llm-raw.json` | 20,454 | `9abd9ae51ba4cf6e` | — |
+| `internal-llm-summary.json` | 1,202 | `6f7a3328168ebe6d` | — |
+| `internal-naive-raw.json` | 22,556 | `c5d84677e2b4f10d` | — |
+| `internal-naive-summary.json` | 1,203 | `0f33a9261810caf0` | — |
 | `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — |
-| `internal-template-summary.json` | 1,204 | `92a1641bcce28625` | — |
+| `internal-template-summary.json` | 1,204 | `5f9c08622087364a` | — |
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
