@@ -21,6 +21,24 @@ async function main() {
 
   // "전자제품 환불" : ontology resolves 전자기기(alias)+환불 정책(canonical);
   // vector returns the 환불 정책 doc -> mapped via entity_links to the SAME policy entity.
+  // ── 전제. v=0 은 "테스트가 틀렸다" 가 아니라 "임베딩이 없다" 는 뜻이다.
+  //
+  // 2026-08-18: embed CLI 를 프로파일 기반으로 바꾸면서 bench.documents 가 비었고
+  // 이 테스트가 `TypeError: Cannot read properties of undefined (reading 'rank')` 로
+  // 죽었다. **TypeError 는 원인을 말하지 않는다** — 상단 주석에 전제가 적혀 있었지만
+  // 주석은 사람이 읽어야 하고 전제 검사는 저절로 말한다.
+  {
+    const { rows } = await pool.query<{ n: string }>(
+      "SELECT count(embedding)::text AS n FROM bench.documents",
+    );
+    if (Number(rows[0]?.n ?? 0) === 0) {
+      console.error("\n실패: bench.documents 에 임베딩이 없다 — 이 테스트는 벡터 레인을 쓴다.");
+      console.error("  EMBEDDER=ollama DATASET=bench npm run embed:bench:ollama 로 채우고 다시 돌린다.");
+      console.error("  (npm run test:kg 는 그 단계를 포함한다.)\n");
+      process.exit(1);
+    }
+  }
+
   const r = await kgRetrieve(pool, "전자제품 환불 규정 알려줘", { embedder, schema: "bench", k: 5 });
   ok(r.fused.length > 0, "fused candidates returned");
   ok(r.audit.vector > 0 && r.audit.graph > 0, `both branches contributed (v=${r.audit.vector} g=${r.audit.graph})`);
