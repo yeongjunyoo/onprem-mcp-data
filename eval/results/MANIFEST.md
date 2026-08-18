@@ -44,7 +44,7 @@
 | `internal-naive-raw.json` | 22,474 | `27211e52b68ea5f0` | — |
 | `internal-naive-summary.json` | 1,203 | `313a1a17bb752b3f` | — |
 | `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — |
-| `internal-template-summary.json` | 1,204 | `2b6c46d67d3766de` | — |
+| `internal-template-summary.json` | 1,204 | `92a1641bcce28625` | — |
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
 | `recall-compare.json` | 545 | `fe6b533844c9b0a2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |

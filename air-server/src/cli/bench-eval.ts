@@ -24,6 +24,25 @@ interface Q {
 
 async function main() {
   const strategy = process.env.BENCH_STRATEGY ?? "llm";
+
+  // ★ 모르는 전략은 거절한다.
+  //
+  // 아래 분기는 naive/template/llm 이 아니면 `pred = null` 로 떨어져 **전 항목이
+  // 오답**이 되고, 정확도 0/100 짜리 `internal-<오타>-summary.json` 을 쓴다.
+  // 심사자가 ablation 을 재현하다 오타를 내면 0% 를 보고 시스템이 망가졌다고 읽는다.
+  //
+  // ablation 1%/30%/83% 는 시연 대본이 화면에 띄우는 값이다. 그 재현 경로에
+  // 조용한 0% 가 있으면 안 된다. DATASET(PR #123)·MCP_TRANSPORT(PR #70) 와 같다.
+  const STRATEGIES = ["naive", "template", "llm"] as const;
+  if (!(STRATEGIES as readonly string[]).includes(strategy)) {
+    console.error(
+      `BENCH_STRATEGY="${strategy}" 는 모르는 전략이다. ` +
+        `가능한 값: ${STRATEGIES.join(" | ")} (미설정이면 llm).`,
+    );
+    console.error("  모르는 값으로 돌면 전 항목이 오답이 되고 0% 짜리 결과 파일이 남는다.");
+    process.exit(1);
+  }
+
   if (strategy !== "template" && !(await isAvailable())) {
     console.log("bench:internal SKIPPED (Ollama/qwen2.5:7b unavailable)");
     process.exit(0);
