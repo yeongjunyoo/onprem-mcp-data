@@ -72,11 +72,27 @@ if (!tok) {
   }
 
   const fails = [];
+
+  // 얕은 저장소에서는 커밋 수를 셀 수 없다. 2026-08-18 리뷰 지적 + 재현:
+  // `git clone --depth 1` 에서 `rev-list --count HEAD` 는 **1** 이고, gap 이 음수라
+  // 허용 오차 안으로 들어가 **OK 로 통과**했다 — CI 에서 이 검사가 아무것도 안 봤다.
+  // **성공했다는 것과 무언가를 검사했다는 것은 다르다.**
+  const shallow = execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+    cwd: ROOT, encoding: "utf8",
+  }).trim() === "true";
+  if (shallow) {
+    fails.push("얕은 클론이라 커밋 수를 셀 수 없다 — 워크플로에 fetch-depth: 0 을 준다");
+  }
+
   if (!claimed.commits) fails.push("문서에서 커밋 수를 못 찾았다 — 패턴을 확인하라");
   for (const [k, tol] of Object.entries(TOLERANCE)) {
     const gap = actual[k] - (claimed[k] ?? 0);
     if (gap > tol) {
       fails.push(`${k}: 문서 ${claimed[k]} · 실제 ${actual[k]} (${gap} 뒤처짐, 허용 ${tol})`);
+    } else if (gap < 0) {
+      // 문서가 실제보다 **앞서 있는 것은 과장**이다. 뒤처짐엔 오차를 허용하지만
+      // 과장에는 허용할 여지가 없다 — 심사자가 세면 바로 드러난다.
+      fails.push(`${k}: 문서 ${claimed[k]} 인데 실제는 ${actual[k]} — 문서가 앞서 있다(과장)`);
     }
   }
 
