@@ -129,6 +129,19 @@ async function main() {
 
   const outPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "eval", "results", "companyx-kg.json");
   await mkdir(dirname(outPath), { recursive: true });
+  // ── 쓰기 전에: 아무 근거도 못 읽었으면 그것은 0점이 아니라 코퍼스가 없는 것이다.
+  //
+  // 2026-08-18: DB 를 죽은 포트로 돌린 상태에서 이 평가가 **exit 0 으로 recall=0** 을
+  // 내고 정본을 덮었다. BIRD 는 최소한 exit 1 이었는데 이건 사람이 눈치챌 신호가 없다.
+  // **거절은 사람이 고치게 하지만 나쁜 숫자는 사람이 믿게 한다.**
+  const anyEvidence = rows.some((r) => (r.seeds as string[]).length > 0 || Number(r.edges) > 0);
+  if (!anyEvidence) {
+    console.error("\n실패: 전 문항에서 시드도 엣지도 0이다 — 코퍼스를 못 읽었다(0점이 아니라 데이터 부재).");
+    console.error("  DATABASE_URL 이 살아 있는지, npm run companyx:load 를 돌렸는지 확인한다.");
+    console.error("  결과 파일을 쓰지 않았다. 정본은 그대로다.\n");
+    process.exit(1);
+  }
+
   await writeFile(outPath, JSON.stringify({ summary, rows }, null, 2) + "\n", "utf-8");
 
   for (const r of rows) {

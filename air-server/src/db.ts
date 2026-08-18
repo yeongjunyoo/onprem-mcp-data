@@ -16,6 +16,45 @@ const DEFAULT_URL = "postgresql://postgres:postgres@localhost:5433/mcpdata";
 let shared: pg.Pool | undefined;
 let readShared: pg.Pool | undefined;
 
+/** 연결 실패를 사람 말로 바꾼다.
+ *
+ * 2026-08-18 전제 스윕: DB 가 없을 때 `fault:inject` 는 원시 `AggregateError
+ * [ECONNREFUSED]` 를, `test:integration` 은 `FAIL: orders count = 5 (got [])` 를
+ * 냈다. 앞은 원인을 안 말하고 뒤는 **데이터 버그처럼 보인다** — 둘 다 사람을
+ * 엉뚱한 곳으로 보낸다.
+ *
+ * 진입점마다 문구를 복사하면 갈린다(오늘 사본 드리프트를 세 번 봤다). 여기 한 겹을
+ * 두면 앞으로 생길 진입점까지 덮는다.
+ */
+function explainConnection(e: unknown): Error {
+  // AggregateError 는 message 가 비어 있고 원인이 errors[] 안에 있다 —
+  // 2026-08-18 에 fault:inject 가 정확히 그 모양으로 새어 나갔다.
+  const parts: string[] = [];
+  const walk = (x: unknown, depth = 0) => {
+    if (depth > 3 || !x) return;
+    if (x instanceof Error) {
+      if (x.message) parts.push(x.message);
+      const agg = (x as { errors?: unknown[] }).errors;
+      if (Array.isArray(agg)) for (const sub of agg) walk(sub, depth + 1);
+      if ((x as { cause?: unknown }).cause) walk((x as { cause?: unknown }).cause, depth + 1);
+    } else {
+      parts.push(String(x));
+    }
+  };
+  walk(e);
+  const msg = parts.join(" | ") || String(e);
+  if (!/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|does not exist|password authentication/i.test(msg)) {
+    return e instanceof Error ? e : new Error(msg);
+  }
+  const url = process.env.DATABASE_URL ?? "(DATABASE_URL 미설정)";
+  return new Error(
+    `PostgreSQL 에 붙지 못했다 — ${url}\n` +
+      `  스택을 먼저 띄운다: docker compose up -d  (db 5433 / postgres:postgres@mcpdata)\n` +
+      `  그다음 데이터를 적재한다: npm run companyx:load  또는  npm run gen:bench\n` +
+      `  원본 오류: ${msg}`,
+  );
+}
+
 export function getPool(): pg.Pool {
   if (!shared) {
     shared = new Pool({
@@ -25,6 +64,9 @@ export function getPool(): pg.Pool {
       // Bound every statement so a runaway query can never wedge the server.
       statement_timeout: 10_000,
     });
+    // 연결 실패를 사람 말로. 원시 ECONNREFUSED 는 어디를 고쳐야 하는지 안 말한다.
+    const q = shared.query.bind(shared) as (...a: unknown[]) => Promise<unknown>;
+    shared.query = ((...args: unknown[]) => q(...args).catch((e: unknown) => { throw explainConnection(e); })) as typeof shared.query;
   }
   return shared;
 }
