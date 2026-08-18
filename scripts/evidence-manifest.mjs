@@ -10,6 +10,7 @@
 //
 //   node scripts/evidence-manifest.mjs           # 검사 (드리프트면 exit 1)
 //   node scripts/evidence-manifest.mjs --write   # 재생성
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -158,6 +159,65 @@ if (existsSync(reportPath)) {
       console.error("");
       process.exit(1);
     }
-    console.log(`재현 명령: npm ${named.length}종 · 검사 ${checks.length}종 전부 실재한다.`);
+    
+// ── 신선도. 코드보다 오래된 정본 증거를 말한다.
+//
+// 2026-08-18: `internal-llm-summary.json` 이 06-30 측정이었고 다시 재니 83 이 아니라
+// **81** 이었다. 날짜만 보면 알 수 있는 것을 아무도 안 보고 있었다.
+//
+// ★ 대부분은 경고로 둔다. `companyx-ask-host-gpu.json` 은 GPU 호스트에서만 잴 수
+//   있어 정당하게 오래된다. 그걸 실패로 만들면 **끌 수밖에 없는 검사**가 된다.
+//   단 30일을 넘기면 문다 — 그 정도면 잊힌 것이다.
+{
+  const lastSrc = execFileSync("git", ["log", "-1", "--format=%aI", "--", "air-server/src"],
+    { cwd: ROOT, encoding: "utf8" }).trim();
+  const srcMs = Date.parse(lastSrc);
+  const TS = ["generated_at", "generatedAt", "at"];
+  const findTs = (v) => {
+    const stack = [v];
+    while (stack.length) {
+      const cur = stack.pop();
+      if (cur && typeof cur === "object") {
+        for (const [k, val] of Object.entries(cur)) {
+          if (TS.includes(k) && typeof val === "string" && /^\d{4}-/.test(val)) return val;
+          if (val && typeof val === "object") stack.push(val);
+        }
+      }
+    }
+    return null;
+  };
+
+  const mc = readFileSync(resolve(ROOT, "scripts/metrics-check.mjs"), "utf8");
+  const canonFiles = [...new Set([...mc.matchAll(/eval\/results\/([\w.\-]+\.json)/g)].map((m) => m[1]))];
+
+  const old = [];
+  for (const f of canonFiles) {
+    const p = resolve(ROOT, "eval/results", f);
+    if (!existsSync(p)) continue;
+    let ts;
+    try { ts = findTs(JSON.parse(readFileSync(p, "utf8"))); } catch { continue; }
+    if (!ts) continue;
+    const ms = Date.parse(ts);
+    if (ms < srcMs) old.push([f, ts.slice(0, 10), Math.round((srcMs - ms) / 86400000)]);
+  }
+
+  if (old.length) {
+    console.log(`\n정본 증거 중 코드 변경보다 오래된 것 ${old.length}개:`);
+    for (const [f, d, days] of old.sort((a, b) => b[2] - a[2])) {
+      console.log(`  ${String(days).padStart(3)}일  ${d}  ${f}`);
+    }
+    console.log("  (다시 잴 수 있는 것은 다시 잰다. 환경 전용 측정은 그대로 둔다.)");
+    const rotten = old.filter(([, , days]) => days > 30);
+    if (rotten.length) {
+      console.error(`\n실패: 30일 넘게 안 잰 정본 증거 ${rotten.length}개 — ${rotten.map(([f]) => f).join(", ")}`);
+      console.error("  정당하게 오래된 것이 아니라 잊힌 것이다.\n");
+      process.exitCode = 1;
+    }
+  } else {
+    console.log("\n정본 증거가 전부 마지막 코드 변경 이후에 측정됐다.");
+  }
+}
+
+console.log(`재현 명령: npm ${named.length}종 · 검사 ${checks.length}종 전부 실재한다.`);
   }
 }

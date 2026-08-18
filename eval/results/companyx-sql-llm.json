@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-08-17T20:20:15.279Z"
+    "generated_at": "2026-08-18T09:00:10.881Z"
   },
   "rows": [
     {
@@ -56,7 +56,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 24347
+      "ms": 22239
     },
     {
       "id": "CX-SQL-02",
@@ -67,18 +67,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 6342
+      "ms": 7891
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT p.name AS product, AVG(s.amount) AS avg_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
+      "pred": "SELECT p.name AS product_name, AVG(s.amount) AS avg_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 6825
+      "ms": 6722
     },
     {
       "id": "CX-SQL-04",
@@ -89,7 +89,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 10328
+      "ms": 12041
     },
     {
       "id": "CX-SQL-05",
@@ -100,7 +100,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 7643
+      "ms": 9224
     },
     {
       "id": "CX-SQL-06",
@@ -111,18 +111,18 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 6662
+      "ms": 7317
     },
     {
       "id": "CX-SQL-07",
       "tax": "filter+set-membership",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status != 'resolved'",
+      "pred": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status = 'open'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 11837
+      "ms": 13264
     },
     {
       "id": "CX-SQL-08",
@@ -133,7 +133,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 6834
+      "ms": 8200
     },
     {
       "id": "CX-SQL-09",
@@ -144,7 +144,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 13112
+      "ms": 15597
     },
     {
       "id": "CX-SQL-10",
@@ -155,7 +155,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 7063
+      "ms": 9642
     }
   ]
 }
