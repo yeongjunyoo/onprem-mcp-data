@@ -37,9 +37,9 @@
 - MCP 프레임워크: air(@airmcp-dev/core 0.2.0), 도구 정의는 defineServer와 defineTool
 - 데이터 저장소: PostgreSQL 16, pgvector 0.6.0, primary와 streaming replica 구성
 - 모델 런타임: Ollama 0.32.4. 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
-- 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
-- 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이며, 이는 CI 검사(`scripts/verify-no-external-api.mjs`)로 강제한다 — 루프백이 아닌 대상이 생기면 빌드가 실패한다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
-- 테스트: 자체 러너 기반 단위와 통합 테스트 435단언 전량 통과(오프라인 308 + DB·모델 127). 집계 원자료 `eval/results/test-counts.json`
+- 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11444)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
+- 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이며, 이는 CI 검사(`scripts/verify-no-external-api.mjs`)로 강제한다 — 루프백이 아닌 대상이 생기면 빌드가 실패한다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11444`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
+- 테스트: 자체 러너 기반 단위와 통합 테스트 444단언 전량 통과(오프라인 317 + DB·모델 127). 집계 원자료 `eval/results/test-counts.json`
 
 ### 시스템 구성 및 아키텍처
 
@@ -65,7 +65,7 @@ MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`
 
 **구동 및 시연**
 
-- `docker compose up -d`로 PostgreSQL(5433)과 Ollama(11435)를 올리고, `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3`로 모델을 받는다. 호스트에 Ollama가 이미 있으면 포트가 충돌하므로 컨테이너는 11435로 분리했다.
+- `docker compose up -d`로 PostgreSQL(5433)과 Ollama(11444)를 올리고, `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3`로 모델을 받는다. 호스트에 Ollama가 이미 있으면 포트가 충돌하므로 컨테이너는 11444로 분리했다.
 - `npm run companyx:load`가 공식 데이터셋을 원본 DDL 그대로 적재한다. 8테이블 818행, 문서 40건을 258청크로 분할, 그래프 133노드 354엣지, 그래프 노드와 관계형 행을 잇는 브릿지 133건이다. 데이터셋은 배포 조건상 저장소에 포함하지 않고 취득 스크립트와 SHA-256 명세로 재현한다.
 - `npm run demo:ollama`는 네트워크 없이 도구 8종 호출부터 답변 생성, 장애 주입까지 한 번에 보여준다. 기반 데이터나 모델이 없으면 성공으로 끝내지 않고 무엇을 해야 하는지 알리고 멈춘다.
 - 평가 재현은 `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`로 각각 실행하며 결과는 `eval/results/`에 JSON으로 남는다.
