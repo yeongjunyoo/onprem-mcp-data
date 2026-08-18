@@ -12,8 +12,8 @@
 //
 // 실행: node scripts/verify-client-config.mjs   (DB·모델 필요)
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -63,20 +63,46 @@ function staticDrift() {
   // 문서가 말하는 npm 의존성 버전. 2026-08-18 실측에서 `@airmcp-dev/core 0.2.0` 이
   // 남아 있었다 — PR #135 에서 0.3.0 으로 올린 뒤였다.
   //
-  // **의존성을 올리면 지표를 다시 잰다는 규율은 있었는데, 문서에 박힌 버전 문자열은
-  // 그 밖이었다.** 심사자가 읽는 「개발환경」 표의 첫 줄이 그것이다.
+  // ★ 선언 범위가 아니라 **설치 실물**과 비교한다.
+  //   package.json 은 `"typescript": "^5.5.0"` 이라 적고 SBOM 은 설치된 `5.9.3` 을
+  //   적는다. **SBOM 이 옳다** — 자재명세서는 무엇을 선언했는지가 아니라 무엇이
+  //   들어갔는지를 적는 문서다. 선언 범위로 재면 SBOM 전체가 오탐이 된다.
+  //
+  // ★ 문서 목록을 손으로 적지 않는다.
+  //   같은 파일 안에서 손목록 때문에 붙임2 가 빠졌던 일이 방금 있었다.
+  //   **목록이 곧 지켜지는 범위다.**
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  for (const doc of ["docs/report.md", "docs/submission-report.md", "README.md", "README.en.md"]) {
-    const p = resolve(ROOT, doc);
-    if (!existsSync(p)) continue;
-    const t = readFileSync(p, "utf8");
-    for (const [name, range] of Object.entries(deps)) {
-      const want = String(range).replace(/^[\^~]/, "");
-      const re = new RegExp(`${name.replace(/[/@]/g, "\\$&")}\\s+(\\d+\\.\\d+\\.\\d+)`, "g");
+  const declared = { ...pkg.dependencies, ...pkg.devDependencies };
+  const installed = {};
+  const fellBack = [];
+  for (const name of Object.keys(declared)) {
+    const p = resolve(ROOT, "air-server/node_modules", name, "package.json");
+    if (existsSync(p)) installed[name] = JSON.parse(readFileSync(p, "utf8")).version;
+    else {
+      installed[name] = String(declared[name]).replace(/^[\^~]/, "");
+      fellBack.push(name);
+    }
+  }
+  if (fellBack.length) {
+    console.log(`  (설치본이 없어 선언 범위로 대조한 패키지 ${fellBack.length}종: ${fellBack.slice(0, 3).join(", ")}…)`);
+  }
+
+  const walkMd = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.name === "node_modules" || e.name.startsWith(".")) return [];
+    const full = resolve(dir, e.name);
+    return e.isDirectory() ? walkMd(full) : e.name.endsWith(".md") ? [full] : [];
+  });
+  for (const doc of walkMd(ROOT)) {
+    const t = readFileSync(doc, "utf8");
+    for (const [name, want] of Object.entries(installed)) {
+      // 산문("core 0.3.0")과 표 행("| @airmcp-dev/core | 0.3.0 |") 둘 다 본다.
+      // 이름 경계를 앞에 둔다. `pg` 가 `@types/pg` 안에서 걸려 SBOM 의
+      // "@types/pg | 8.23.1" 을 pg 의 값으로 오독했다 — **부분 문자열은 이름이
+      // 아니다.**
+      const re = new RegExp(`(?<![\\w@/-])${name.replace(/[/@.]/g, "\\$&")}[\\s|]+(\\d+\\.\\d+\\.\\d+)`, "g");
       for (const m of t.matchAll(re)) {
         if (m[1] !== want) {
-          bad.push(`${doc}: ${name} 을 ${m[1]} 로 적었는데 package.json 은 ${want} 다`);
+          bad.push(`${relative(ROOT, doc)}: ${name} 을 ${m[1]} 로 적었는데 설치본은 ${want} 다`);
         }
       }
     }
