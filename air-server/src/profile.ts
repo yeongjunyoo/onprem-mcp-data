@@ -66,12 +66,39 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
 };
 
 /** Active profile. DATASET wins; KG_SCHEMA stays supported for the older eval CLIs. */
+export const PROFILE_NAMES = ["companyx", "bench", "smoke"] as const;
+
 export function profile(): DatasetProfile {
-  const name = (process.env.DATASET ?? "").toLowerCase();
+  const raw = process.env.DATASET ?? "";
+  const name = raw.toLowerCase();
   if (name === "companyx" || name === "bench" || name === "smoke") return PROFILES[name];
+
+  // ★ 모르는 값은 거절한다. 조용히 기본으로 떨어지면 안 된다.
+  //
+  // 2026-08-17 실측: `DATASET=nonexistent-profile` 로 조회하면 **130건이 돌아왔다.**
+  // 사용자는 자기가 지정한 데이터셋의 결과라고 믿지만 실제로는 smoke 시드다.
+  // `companyX` 나 `conpanyx` 같은 오타 하나로 **다른 데이터의 답**을 받는다.
+  //
+  // 이 저장소가 PR #70 에서 고친 형태 그대로다 — MCP_TRANSPORT 오타가 조용히
+  // stdio 로 폴백했다. 같은 교훈: 모르는 값은 거절한다.
+  //
+  // 빈 값은 폴백이 맞다. 미설정은 "기본으로 돌려라" 는 정당한 뜻이고, 오타와는 다르다.
+  if (raw.trim() !== "") {
+    throw new Error(
+      `DATASET="${raw}" 는 모르는 프로파일이다. ` +
+        `가능한 값: ${PROFILE_NAMES.join(" | ")} (미설정이면 smoke 로 돈다). ` +
+        "오타 하나로 다른 데이터셋의 답을 받지 않도록 거절한다.",
+    );
+  }
+
   // Back-compat: the KG evals select the corpus with KG_SCHEMA alone.
   const kg = process.env.KG_SCHEMA;
   if (kg === "companyx") return PROFILES.companyx;
   if (kg === "bench") return PROFILES.bench;
+  if (kg !== undefined && kg.trim() !== "") {
+    throw new Error(
+      `KG_SCHEMA="${kg}" 는 모르는 스키마다. 가능한 값: companyx | bench (미설정이면 smoke).`,
+    );
+  }
   return PROFILES.smoke;
 }

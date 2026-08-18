@@ -139,5 +139,50 @@ const deadEmbedder: Embedder = {
   );
 }
 
+// ── 5) 모르는 DATASET 값을 거절하는가
+//
+// 2026-08-17 실측: `DATASET=nonexistent-profile` 로 조회하면 **130건이 돌아왔다.**
+// 사용자는 자기가 지정한 데이터셋의 결과라고 믿지만 실제로는 smoke 시드였다.
+// `companyX` 나 `conpanyx` 같은 오타 하나로 **다른 데이터의 답**을 받는다.
+//
+// PR #70 에서 MCP_TRANSPORT 오타가 조용히 stdio 로 폴백하던 것을 같은 이유로 고쳤다.
+{
+  const { profile } = await import("./profile.js");
+  const saved = process.env.DATASET;
+  const savedKg = process.env.KG_SCHEMA;
+  delete process.env.KG_SCHEMA;
+
+  try {
+    for (const name of ["companyx", "bench", "smoke"]) {
+      process.env.DATASET = name;
+      ok(profile().name === name, `DATASET=${name} 는 그 프로파일로 돈다`);
+    }
+
+    delete process.env.DATASET;
+    ok(profile().name === "smoke", "미설정은 smoke — 정당한 기본값이다");
+
+    process.env.DATASET = "";
+    ok(profile().name === "smoke", "빈 문자열도 미설정과 같다");
+
+    for (const bad of ["conpanyx", "companyX ", "company-x", "prod"]) {
+      process.env.DATASET = bad;
+      let threw = false;
+      let msg = "";
+      try {
+        profile();
+      } catch (e) {
+        threw = true;
+        msg = e instanceof Error ? e.message : String(e);
+      }
+      ok(threw, `DATASET=${JSON.stringify(bad)} 를 거절한다`);
+      ok(msg.includes("companyx | bench | smoke"), `거절 메시지가 가능한 값을 알려준다 (${bad})`);
+    }
+  } finally {
+    if (saved === undefined) delete process.env.DATASET;
+    else process.env.DATASET = saved;
+    if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
+  }
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
