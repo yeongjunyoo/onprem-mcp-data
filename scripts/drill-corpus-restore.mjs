@@ -13,7 +13,7 @@
 //
 // 실행: node scripts/drill-corpus-restore.mjs
 // 필요: docker compose up -d, npm run companyx:load, Ollama 모델 2종
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -50,7 +50,7 @@ if (before.chunks === 0) {
 }
 
 try {
-  execFileSync("npm", ["run", "companyx:vector"], {
+  execSync("npm run companyx:vector", {
     cwd: resolve(ROOT, "air-server"),
     stdio: "ignore",
     shell: true,
@@ -71,7 +71,7 @@ try {
   // 정당하게 거절당한다 — 드릴이 그 거절을 데모 실패로 오해하지 않도록 비운다.
   const demoEnv = { ...process.env };
   delete demoEnv.DATASET;
-  execFileSync("npm", ["run", "demo"], {
+  execSync("npm run demo", {
     cwd: resolve(ROOT, "air-server"),
     env: demoEnv,
     stdio: "ignore",

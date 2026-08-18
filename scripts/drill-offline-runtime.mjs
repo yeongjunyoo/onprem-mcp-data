@@ -91,7 +91,11 @@ const hadCanon = existsSync(CANON);
 if (hadCanon) copyFileSync(CANON, BACKUP);
 
 // LLM 을 가장 많이 부르는 경로. 외부 호출이 있다면 여기서 난다.
-const child = spawn("npm", ["run", "companyx:ask"], {
+  // Node DEP0190: shell 을 쓸 때 args 배열을 함께 넘기면 이스케이프 없이
+  // 이어 붙는다고 경고한다. 명령이 정적이라 위험은 없지만 **경고를 읽은
+  // 사람은 앞의 보안 주장도 의심한다.** 문자열 하나로 준다.
+  // (Windows 의 npm 은 npm.cmd 라 shell 없이 spawn 하면 EINVAL 이다.)
+const child = spawn("npm run companyx:ask", {
   cwd: resolve(ROOT, "air-server"),
   env: { ...process.env },
   stdio: "ignore",
