@@ -104,6 +104,41 @@ const readJson = (rel) => {
   }
 }
 
+// 0-c) 대본이 스크롤하라는 replica 로그가 **주장을 담고 있는가**
+//
+//   2026-08-18 실측: 그 파일은 169B 짜리 실패 기록이었다.
+//     Error response from daemon: No such container: onprem-mcp-data-db-1
+//
+//   그런데 report.md 는 그 파일을 근거로 kill-drill 성공을 주장했고 대본은 그걸
+//   영상에서 스크롤하라고 했다. **심사자가 보는 화면에 에러가 떴을 것이다.**
+//
+//   evidence-manifest 는 해시를 기록한다 — 내용이 참인지는 안 본다. 실패한 로그도
+//   해시가 있으므로 매니페스트는 만족한다.
+//   **존재와 무결성은 참을 보장하지 않는다.**
+{
+  const rel = "eval/results/replica-spike.log";
+  const p = resolve(ROOT, rel);
+  if (!existsSync(p)) {
+    fails.push(`대본이 스크롤하라는 ${rel} 이 없다 — bash scripts/replica-spike.sh`);
+  } else {
+    const log = readFileSync(p, "utf8");
+    const need = [
+      [/in_recovery=t/, "standby 가 recovery 모드로 떴다"],
+      [/state.*streaming|streaming\/async/, "streaming replication 성립"],
+      [/read-only transaction/, "replica 쓰기 거부"],
+      [/replica orders while primary down=(\d+)/, "primary 정지 중 replica 서빙"],
+      [/primary RESTARTED/, "primary 재기동 복구"],
+    ];
+    for (const [re, what] of need) {
+      checked++;
+      if (!re.test(log)) fails.push(`${rel} 에 「${what}」 증거가 없다 — 실패한 실행이 증거로 남아 있는지 확인하라`);
+    }
+    if (/Error response from daemon|No such container|is not running/.test(log)) {
+      fails.push(`${rel} 이 실행 실패를 기록하고 있다 — 영상에서 이 파일을 스크롤한다`);
+    }
+  }
+}
+
 // 1) internal-llm-summary 의 정확도
 const llmClaim = script.match(/internal-llm-summary[^)]*?\((\d+)\/(\d+)\)/);
 if (llmClaim) {
