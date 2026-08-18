@@ -658,7 +658,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(Δ +40pp/+53pp), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
-| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 369, PR 181(병합 171), 이슈 13(열림 3), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고 활성, 의존성 갱신 정책은 `.github/dependabot.yml`(메이저는 사람이 판단), 워크플로 권한은 `contents: read` 로 코드에 명시. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
+| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 381, PR 185(병합 176), 이슈 13(열림 3), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고 활성, 의존성 갱신 정책은 `.github/dependabot.yml`(메이저는 사람이 판단), 워크플로 권한은 `contents: read` 로 코드에 명시. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
 
 ### 2차 발표 70점
 
@@ -674,6 +674,6 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 ### 이 표가 지목하는 것
 
-**최대 갭은 성능이 아니라 외부 참여다.** 저장소 공개와 이슈/PR 운영은 닫혔다 — 커밋 369, PR 181(병합 171), 이슈 13, 릴리스 2, CI 검사 18종이 매 PR 마다 돈다. `main` 은 상태 검사 3종을 필수로 요구하고 **`enforce_admins` 를 켜 관리자에게도 적용**한다(2026-08-18 에 일부러 빨간 PR 을 만들어 `405: 2 of 3 required status checks have not succeeded` 로 차단되는 것을 확인했다). 병합된 브랜치는 정리해 `main` 하나만 남긴다.
+**최대 갭은 성능이 아니라 외부 참여다.** 저장소 공개와 이슈/PR 운영은 닫혔다 — 커밋 381, PR 185(병합 176), 이슈 13, 릴리스 2, CI 검사 18종이 매 PR 마다 돈다. `main` 은 상태 검사 3종을 필수로 요구하고 **`enforce_admins` 를 켜 관리자에게도 적용**한다(2026-08-18 에 일부러 빨간 PR 을 만들어 `405: 2 of 3 required status checks have not succeeded` 로 차단되는 것을 확인했다). 병합된 브랜치는 정리해 `main` 하나만 남긴다.
 
   남은 갭은 **star 0 / fork 0 / 외부 PR 0** 이다. 이건 우리가 만들 수 없는 수치이고 지어내지도 않는다 — 표지판(good first issue 2건, Discussions, CONTRIBUTING 의 「내 데이터에 붙이기」)을 세워 두고 **없다는 사실을 그대로 적는다.**
