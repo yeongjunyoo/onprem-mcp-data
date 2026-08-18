@@ -156,6 +156,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
 | `verify-stdio-tools` | 도구가 **열거만 되고 호출은 안 되는** 것 | DB·모델 필요 |
 | `verify-client-config` | README 가 붙여넣으라는 설정이 실제로는 안 붙는 것 | DB·모델 필요 |
+| `verify-prompt-arguments` | 프롬프트 인자를 클라이언트가 알 수 없는 것 | DB·모델 필요 |
 | `verify-sse-transport` | sse 전환 주장이 실제로는 안 되는 것 | DB·모델 필요 |
 | `verify-security-claims` | 보안 문단이 실제 DB 설정과 어긋나는 것 | DB 필요 |
 | `drill-readonly-defense` | 2층 방어가 장식인 것(1층을 우회해 확인) | DB 필요 |

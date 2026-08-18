@@ -21,7 +21,7 @@ export function buildPrompts() {
       name: "grounded-answer",
       description:
         "큐레이션된 컨텍스트만 근거로 한국어 답변을 만드는 템플릿. 컨텍스트 밖 개체를 답에 넣지 않고, " +
-        "근거가 없으면 모른다고 답하도록 지시한다. 서버의 ask 도구가 쓰는 규칙과 같다.",
+        "근거가 없으면 모른다고 답하도록 지시한다. 서버의 ask 도구가 쓰는 규칙과 같다. [인자] question(필수): 사용자 질문 · context(필수): 검색으로 모은 근거 묶음",
       arguments: [
         { name: "question", description: "사용자 질문", required: true },
         { name: "context", description: "검색으로 모은 근거 묶음", required: true },
@@ -42,7 +42,7 @@ export function buildPrompts() {
       name: "nl2sql-with-schema-card",
       description:
         "값 어휘까지 담은 스키마 카드를 주고 단일 읽기 전용 SQL을 생성하게 하는 템플릿. " +
-        "이 카드의 유무가 정확도를 가른다는 것이 이 프로젝트의 실증 논지다(개발보고서 0.6, 0.10).",
+        "이 카드의 유무가 정확도를 가른다는 것이 이 프로젝트의 실증 논지다(개발보고서 0.6, 0.10). [인자] question(필수): 자연어 질문",
       arguments: [{ name: "question", description: "자연어 질문", required: true }],
       // companyx NL2SQL 경로가 실제로 쓰는 프롬프트. 사본을 두면
       // "테이블은 반드시 companyx. 접두사" 같은 규칙이 조용히 빠진다.
@@ -58,7 +58,7 @@ export function buildPrompts() {
       name: "explain-routing",
       description:
         "라우터가 왜 그 레인을 골랐는지 설명하게 하는 템플릿. 라우팅 자체는 규칙 기반이라 " +
-        "모델이 결정에 관여하지 않는다. 이 프롬프트는 결정을 사람에게 설명하는 용도다.",
+        "모델이 결정에 관여하지 않는다. 이 프롬프트는 결정을 사람에게 설명하는 용도다. [인자] question(필수): 사용자 질문 · routing(필수): route 도구가 반환한 결정과 감사 로그",
       arguments: [
         { name: "question", description: "사용자 질문", required: true },
         { name: "routing", description: "route 도구가 반환한 결정과 감사 로그", required: true },
@@ -82,7 +82,7 @@ export function buildPrompts() {
     definePrompt({
       name: "review-generated-sql",
       description:
-        "생성된 SQL을 스키마 카드와 대조해 검토하게 하는 템플릿. 실행 전에 사람이 확인하는 경로를 만든다.",
+        "생성된 SQL을 스키마 카드와 대조해 검토하게 하는 템플릿. 실행 전에 사람이 확인하는 경로를 만든다. [인자] question(필수): 원래 질문 · sql(필수): 검토할 SQL",
       arguments: [
         { name: "question", description: "원래 질문", required: true },
         { name: "sql", description: "검토할 SQL", required: true },
