@@ -92,6 +92,10 @@ jobs:
       - name: 외부 기여 진입 경로에 막다른 길이 없는지
         working-directory: .
         run: node scripts/verify-contribution-entry.mjs
+      # 필드가 있는 것과 값이 설명대로인 것은 다르다.
+      - name: audit 계약이 코드가 넣는 출처를 설명하는지
+        working-directory: .
+        run: node scripts/verify-audit-contract.mjs
 
   sbom:
     name: SBOM drift check

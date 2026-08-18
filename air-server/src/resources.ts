@@ -156,7 +156,9 @@ export function buildResources() {
               policies: "실제로 발동한 정책만 기록한다",
               grounding:
                 "답변이 컨텍스트 밖 개체를 만들었는지. **ask 처럼 답변을 만드는 경로에서만 붙는다** — retrieve 감사에는 없다",
-              branch_errors: "레인별로 실패한 내용. 일부가 죽어도 나머지로 답했다는 근거가 된다",
+              branch_errors:
+                "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword) 이거나 답변 생성(answer)이다. "
+                + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",
               generated_at: "레코드 생성 시각(ISO 8601)",
             },
             policies: {
