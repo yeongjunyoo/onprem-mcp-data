@@ -4,22 +4,22 @@
   "sampled": 32,
   "of": 500,
   "samplingStride": 15,
-  "correct": 7,
-  "executionAccuracy": 21.9,
+  "correct": 10,
+  "executionAccuracy": 31.3,
   "byDifficulty": {
     "simple": {
-      "c": 3,
+      "c": 2,
       "n": 6
     },
     "moderate": {
-      "c": 4,
+      "c": 6,
       "n": 19
     },
     "challenging": {
-      "c": 0,
+      "c": 2,
       "n": 7
     }
   },
-  "generatedAt": "2026-06-30T18:21:18.156Z",
+  "generatedAt": "2026-08-18T09:39:16.516Z",
   "note": "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite."
 }

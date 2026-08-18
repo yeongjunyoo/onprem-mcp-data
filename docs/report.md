@@ -442,10 +442,23 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
   | 비교 의미 | 결과 |
   |---|---|
-  | **공식 set 동등** (BIRD `evaluation_ex` 의미) | **9/32 = 0.281** |
-  | 운영 multiset 동등 (이 저장소 내부 지표) | 7/32 = 0.219 |
+  | **공식 set 동등** (BIRD `evaluation_ex` 의미) | **11/32 = 0.344** (2026-08-18) · 이전 9/32 = 0.281 (2026-06-30 예측) |
+  | 운영 multiset 동등 (이 저장소 내부 지표) | 10/32 = 0.312 |
 
   갈린 2건은 전부 `card_games`에서 예측이 중복 행을 많이 반환했지만 **distinct 집합은 gold와 동일**했던 경우다(5429행 vs gold 3행, distinct 3=3 / 66행 vs gold 2행, distinct 2=2). gold 실행 실패 0건.
+
+  **2026-08-18 재측정.** 위 값은 06-30 에 생성한 예측을 재채점한 것이었다. 오늘 같은
+  32문항을 **다시 추론해** 재니 공식 set 동등 **11/32 = 0.344**, 운영 multiset 동등
+  **10/32 = 0.312** 였다. 두 번 돌려 둘 다 같았다.
+
+  **원인은 특정하지 않는다.** 7주 사이 스키마 카드·에러 처리·의존성이 여러 번 바뀌었고
+  어느 것이 6.3pp 를 만들었는지 우리는 모른다. 재측정 자체가 늦은 것이 사실이며
+  (`evidence-manifest` 가 이제 정본 증거의 나이를 매번 출력한다), 이 표본은 아래
+  경고대로 여전히 대표성이 없다.
+
+  재현에는 `sqlite3` CLI 가 필요하다 — BIRD 는 SQLite 파일을 직접 조회한다. 없으면
+  평가가 시작 전에 멈추고 결과 파일을 쓰지 않는다(gold 가 전부 실패한 0% 는 측정이
+  아니다).
 
   **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 81.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
 
@@ -457,7 +470,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 ## 6. 벤치마크 프로토콜 (객관·비순환)
 
 - **내부 brief-aligned suite:** `bench` e-commerce 8테이블·수천행(결정론 seed=42), gold NL→SQL 전 taxonomy. 예측 SQL = Qwen NL2SQL, 예측/골드 모두 `mcp_ro`로 실행 후 **strict execution-match**(순서/별칭/컬럼/수치 메타데이터). **DB가 오라클, 자작 LLM-저지 없음.**
-- **외부 calibration:** BIRD Mini-Dev(SQLite). **두 지표를 나눠 적는다** — 공식 set 동등 0.281과 이 저장소의 운영 multiset 동등 0.219(§5 참조). 헤드라인 별도 열이며 내부 수치와 비교 불가.
+- **외부 calibration:** BIRD Mini-Dev(SQLite). **두 지표를 나눠 적는다** — 공식 set 동등 0.344와 이 저장소의 운영 multiset 동등 0.312(§5 참조, 2026-08-18 재측정). 헤드라인 별도 열이며 내부 수치와 비교 불가.
 - **KOSSA 64.0%는 다른 데이터셋의 contextual reference**이며 same-benchmark beat 주장이 아니다(내부 go/no-go 없음).
 
 ---

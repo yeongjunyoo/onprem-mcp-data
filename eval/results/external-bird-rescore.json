@@ -17,14 +17,14 @@
     "representativeness": "question_id 정렬 후 주기적 stride 표집이라 대표성이 없다. 공식 Mini-Dev 난이도 구성은 30/50/20이고 데이터베이스는 11개다. 이 표본으로 Mini-Dev 성능을 추정할 수 없다."
   },
   "official_set": {
-    "correct": 9,
+    "correct": 11,
     "of": 32,
-    "accuracy": 0.281
+    "accuracy": 0.344
   },
   "operational_multiset": {
-    "correct": 7,
+    "correct": 10,
     "of": 32,
-    "accuracy": 0.219
+    "accuracy": 0.312
   },
   "diverged": [
     {
@@ -33,21 +33,10 @@
       "diff": "moderate",
       "as_set": true,
       "as_multiset": false,
-      "pred_rows": 5429,
+      "pred_rows": 3810,
       "gold_rows": 3,
       "pred_distinct": 3,
       "gold_distinct": 3
-    },
-    {
-      "id": 522,
-      "db": "card_games",
-      "diff": "moderate",
-      "as_set": true,
-      "as_multiset": false,
-      "pred_rows": 66,
-      "gold_rows": 2,
-      "pred_distinct": 2,
-      "gold_distinct": 2
     }
   ],
   "rows": [
@@ -58,8 +47,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": false,
-      "pred_error": "OperationalError: no such column: Virtual"
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 40,
@@ -68,8 +57,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": true,
-      "pred_error": null
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: AvgScrRead"
     },
     {
       "id": 89,
@@ -106,10 +95,10 @@
       "db": "toxicology",
       "diff": "challenging",
       "scorable": true,
-      "as_set": false,
-      "as_multiset": false,
-      "pred_ok": false,
-      "pred_error": "OperationalError: near \"(\": syntax error"
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 247,
@@ -156,7 +145,7 @@
       "db": "card_games",
       "diff": "moderate",
       "scorable": true,
-      "as_set": true,
+      "as_set": false,
       "as_multiset": false,
       "pred_ok": true,
       "pred_error": null
@@ -168,8 +157,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": true,
-      "pred_error": null
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.ClosureDate"
     },
     {
       "id": 604,
@@ -178,8 +167,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": false,
-      "pred_error": "OperationalError: no such column: UserId"
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 687,
@@ -196,8 +185,8 @@
       "db": "superhero",
       "diff": "moderate",
       "scorable": true,
-      "as_set": false,
-      "as_multiset": false,
+      "as_set": true,
+      "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
     },
@@ -208,8 +197,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": true,
-      "pred_error": null
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.publisher_name"
     },
     {
       "id": 790,
@@ -219,7 +208,7 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: near \"WHERE\": syntax error"
+      "pred_error": "OperationalError: no such function: SUBTRACT"
     },
     {
       "id": 846,
@@ -259,7 +248,7 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: near \"AS\": syntax error"
+      "pred_error": "OperationalError: no such column: year"
     },
     {
       "id": 994,
@@ -269,7 +258,7 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T3.points"
+      "pred_error": "OperationalError: no such column: T2.name"
     },
     {
       "id": 1039,
@@ -288,8 +277,8 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": true,
-      "pred_error": null
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: season"
     },
     {
       "id": 1130,
@@ -306,18 +295,18 @@
       "db": "thrombosis_prediction",
       "diff": "simple",
       "scorable": true,
-      "as_set": true,
-      "as_multiset": true,
-      "pred_ok": true,
-      "pred_error": null
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.Diagnosis"
     },
     {
       "id": 1192,
       "db": "thrombosis_prediction",
       "diff": "challenging",
       "scorable": true,
-      "as_set": false,
-      "as_multiset": false,
+      "as_set": true,
+      "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
     },
@@ -329,17 +318,17 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such function: YEAR"
+      "pred_error": "OperationalError: no such function: age"
     },
     {
       "id": 1281,
       "db": "thrombosis_prediction",
       "diff": "moderate",
       "scorable": true,
-      "as_set": false,
-      "as_multiset": false,
-      "pred_ok": false,
-      "pred_error": "OperationalError: no such column: Birthday"
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 1352,
@@ -359,7 +348,7 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T3.member_id"
+      "pred_error": "OperationalError: no such column: event_name"
     },
     {
       "id": 1432,
@@ -372,5 +361,5 @@
       "pred_error": null
     }
   ],
-  "generated_at": "2026-08-17T06:13:28.374789+00:00"
+  "generated_at": "2026-08-18T09:39:21.006843+00:00"
 }
