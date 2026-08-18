@@ -64,5 +64,84 @@ if (fails.length) {
   process.exit(1);
 }
 
+// ── 실물 레코드와 필드 목록 대조 (선택: DB·모델이 있을 때만) ──────────────
+//
+// 위까지는 소스만 읽는다. 필드 목록 자체가 갈리는 것은 실물을 받아야 안다.
+// 2026-08-17 실측: audit.explain 이 14종을 돌려주는데 계약은 12종만 설명했다
+// (executed_at · cache_policy 누락). PR #73 에서 한 번 맞췄는데 그 뒤 필드가 늘고
+// 계약이 안 따라갔다 — **한 번 맞춘 것이 다시 갈린다.**
+//
+// `--live` 를 주면 서버를 띄워 대조한다. CI 는 DB 가 없으므로 소스 검사까지만 한다.
+if (process.argv.includes("--live")) {
+  const { spawn } = await import("node:child_process");
+  const entry = resolve(ROOT, "air-server/dist/index.js");
+  const child = spawn("node", [entry], { cwd: ROOT, stdio: ["pipe", "pipe", "ignore"] });
+  const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);
+  send({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "verify-audit-contract", version: "1.0" },
+    },
+  });
+  send({ jsonrpc: "2.0", method: "notifications/initialized" });
+  send({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "audit.explain", arguments: { query: "환불 정책이 무엇인가" } },
+  });
+  send({ jsonrpc: "2.0", id: 3, method: "resources/read", params: { uri: "audit://schema/v1" } });
+
+  const got = await new Promise((res) => {
+    const acc = {};
+    let buf = "";
+    const timer = setTimeout(() => res(acc), 300_000);
+    child.stdout.on("data", (d) => {
+      buf += d.toString();
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        let msg;
+        try {
+          msg = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (msg.id === 2 || msg.id === 3) acc[msg.id] = msg;
+        if (acc[2] && acc[3]) {
+          clearTimeout(timer);
+          res(acc);
+        }
+      }
+    });
+  });
+  child.kill();
+
+  if (!got[2] || !got[3]) {
+    console.error("\n실패: 실물 레코드나 스키마를 못 받았다 — 스택이 떠 있는지 확인한다.\n");
+    process.exit(1);
+  }
+
+  const record = JSON.parse(got[2].result.content[0].text);
+  const schemaDoc = JSON.parse(got[3].result.contents[0].text);
+  const described = schemaDoc.fields ?? schemaDoc;
+
+  const onlyReal = Object.keys(record).filter((k) => !(k in described));
+  const onlyDoc = Object.keys(described).filter((k) => !(k in record));
+  console.log(`실물 ${Object.keys(record).length}종 · 계약 ${Object.keys(described).length}종`);
+  if (onlyReal.length || onlyDoc.length) {
+    console.error("\n필드 목록이 갈렸다:");
+    if (onlyReal.length) console.error(`  - 계약이 설명하지 않는 필드: ${onlyReal.join(", ")}`);
+    if (onlyDoc.length) console.error(`  - 계약에만 있는 필드: ${onlyDoc.join(", ")}`);
+    process.exit(1);
+  }
+  console.log("실물 대조: 필드 목록이 정확히 일치한다.");
+}
+
 console.log("OK: audit 계약이 코드가 넣는 출처를 전부 설명한다.");
 console.log("    (필드 유무가 아니라 값의 형태까지 본다.)");

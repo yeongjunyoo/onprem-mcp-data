@@ -150,7 +150,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-demo-script` | 녹화 대본이 띄우는 수치가 실물과 달라 영상에 남는 것 | 예 |
 | `verify-doc-links` | 문서 링크가 없는 파일을 가리키는 것 | 예 |
 | `verify-contribution-entry` | 빈 이슈를 막고 질문 창구를 안 알려 기여자가 막다른 길에 서는 것 | 예 |
-| `verify-audit-contract` | audit 계약이 설명하지 않는 값을 코드가 넣는 것 | 예 |
+| `verify-audit-contract` | audit 계약이 설명하지 않는 값·필드를 코드가 넣는 것 (`--live` 로 실물 대조) | 예 |
 | `verify-no-dataset-redistribution` | 산출물이 사업자 코퍼스를 실어 나르는 것 | 예 |
 | `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
 | `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
