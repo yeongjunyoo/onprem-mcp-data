@@ -73,7 +73,7 @@
     "test:kg": "node node_modules/typescript/bin/tsc && node dist/cli/gen-bench.js && node scripts/with-env.mjs EMBEDDER=ollama -- dist/cli/embed-bench.js && node scripts/with-env.mjs EMBEDDER=ollama -- dist/graph.test.js && node scripts/with-env.mjs EMBEDDER=ollama -- dist/kgretrieve.test.js"
   },
   "dependencies": {
-    "@airmcp-dev/core": "^0.2.0",
+    "@airmcp-dev/core": "^0.3.0",
     "pg": "^8.22.0"
   },
   "devDependencies": {
