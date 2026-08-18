@@ -23,9 +23,11 @@ const REPO = "yeongjunyoo/onprem-mcp-data";
 
 const policy = readFileSync(resolve(ROOT, "SECURITY.md"), "utf8");
 const promisesPrivateReporting = /비공개 취약점 신고|private vulnerability/i.test(policy);
+// 2026-08-18 리뷰 지적: 이 게이트가 스크립트 전체를 막고 있었다. SECURITY.md 문구를
+// 지우면 **무관한 저장소 설정 검사(보호·자동삭제)까지 같이 사라진다.**
+// 종료하지 않고 플래그로 둔다 — 신고 경로 검사만 건너뛴다.
 if (!promisesPrivateReporting) {
-  console.log("SECURITY.md 가 비공개 신고를 안내하지 않는다 — 검사할 약속이 없다.");
-  process.exit(0);
+  console.log("SECURITY.md 가 비공개 신고를 안내하지 않는다 — 신고 경로 검사는 건너뛴다.");
 }
 
 function token() {
@@ -54,16 +56,57 @@ async function api(path) {
 
 const failures = [];
 try {
-  const pvr = await api("/private-vulnerability-reporting");
-  if (pvr.enabled) {
-    console.log("  비공개 취약점 신고   열려 있다");
-  } else {
-    failures.push(
-      "SECURITY.md 는 비공개 신고를 안내하는데 그 기능이 꺼져 있다 — 신고자가 버튼을 못 찾는다",
-    );
+  if (promisesPrivateReporting) {
+    const pvr = await api("/private-vulnerability-reporting");
+    if (pvr.enabled) {
+      console.log("  비공개 취약점 신고   열려 있다");
+    } else {
+      failures.push(
+        "SECURITY.md 는 비공개 신고를 안내하는데 그 기능이 꺼져 있다 — 신고자가 버튼을 못 찾는다",
+      );
+    }
   }
 
   const repo = await api("");
+
+  // ── 오늘 켠 설정 둘. 커밋에 안 남으므로 여기서 붙든다.
+  //
+  // 2026-08-18: `enforce_admins` 가 **false** 여서 필수 상태 검사가 등록돼 있는데도
+  // 관리자(나)가 빨간 PR 을 병합했다. **규칙이 있는 것과 나에게도 적용되는 것은 다르다.**
+  // `delete_branch_on_merge` 는 손으로 지우는 규율이 안 지켜져서 켰다 — 브랜치 100개를
+  // 지운 당일 다음 PR 이 또 하나를 남겼다.
+  if (repo.delete_branch_on_merge !== true) {
+    failures.push("delete_branch_on_merge 가 꺼져 있다 — 병합된 브랜치가 쌓인다");
+  }
+
+  // 보호가 통째로 없으면 이 엔드포인트는 **404** 를 준다. 예외로 흘리면 바깥 catch 가
+  // "GitHub 에 못 붙었다" 로 처리하며 exit 0 하고 — **잡으려던 드리프트가 통과한다**
+  // (2026-08-18 리뷰 지적). 없는 것이 곧 드리프트이므로 실패로 번역한다.
+  let prot = null;
+  try {
+    prot = await api("/branches/main/protection");
+  } catch (e) {
+    if (String(e.message).includes("HTTP 404")) {
+      failures.push("main 에 브랜치 보호가 아예 없다 — 빨간 PR 도 그대로 들어간다");
+    } else {
+      throw e;
+    }
+  }
+  if (prot?.enforce_admins?.enabled !== true) {
+    failures.push("main 보호의 enforce_admins 가 꺼져 있다 — 관리자가 빨간 PR 을 병합할 수 있다");
+  } else {
+    console.log("  관리자에게도 CI 강제   켜져 있다");
+  }
+  const contexts = prot?.required_status_checks?.contexts ?? [];
+  for (const need of [
+    "typecheck + offline unit tests (20)",
+    "typecheck + offline unit tests (22)",
+    "SBOM drift check",
+  ]) {
+    if (!contexts.includes(need)) {
+      failures.push(`main 보호의 필수 상태 검사에 「${need}」 가 없다`);
+    }
+  }
   const sa = repo.security_and_analysis ?? {};
   for (const [key, label] of [
     ["secret_scanning", "비밀 스캔"],
