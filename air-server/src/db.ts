@@ -55,6 +55,28 @@ function explainConnection(e: unknown): Error {
   );
 }
 
+/** 풀의 query·connect 를 감싸 연결 실패를 사람 말로 바꾼다.
+ *
+ * 2026-08-18: 처음엔 `shared.query` 만 감쌌는데 두 곳이 샜다 —
+ *   readShared        READ_DATABASE_URL 이 있으면 쓰는 별도 풀
+ *   pool.connect()    sql.ts · companyx.ts · companyx-vector-eval.ts 가 쓰는 경로
+ * **감싼 것과 덮은 것은 다르다.**
+ */
+function explainOn(pool: pg.Pool): void {
+  const q = pool.query.bind(pool) as (...a: unknown[]) => Promise<unknown>;
+  pool.query = ((...args: unknown[]) =>
+    q(...args).catch((e: unknown) => { throw explainConnection(e); })) as typeof pool.query;
+  // connect 는 콜백 오버로드가 있어 반환이 Promise 가 아닐 수 있다 —
+  // 2026-08-18 실측: 그냥 .catch 를 붙였더니 "Cannot read properties of undefined".
+  const c = pool.connect.bind(pool) as (...a: unknown[]) => unknown;
+  pool.connect = ((...args: unknown[]) => {
+    const r = c(...args);
+    return r && typeof (r as Promise<unknown>).catch === "function"
+      ? (r as Promise<unknown>).catch((e: unknown) => { throw explainConnection(e); })
+      : r;
+  }) as typeof pool.connect;
+}
+
 export function getPool(): pg.Pool {
   if (!shared) {
     shared = new Pool({
@@ -64,9 +86,7 @@ export function getPool(): pg.Pool {
       // Bound every statement so a runaway query can never wedge the server.
       statement_timeout: 10_000,
     });
-    // 연결 실패를 사람 말로. 원시 ECONNREFUSED 는 어디를 고쳐야 하는지 안 말한다.
-    const q = shared.query.bind(shared) as (...a: unknown[]) => Promise<unknown>;
-    shared.query = ((...args: unknown[]) => q(...args).catch((e: unknown) => { throw explainConnection(e); })) as typeof shared.query;
+    explainOn(shared);
   }
   return shared;
 }
@@ -90,6 +110,7 @@ export function getReadPool(): pg.Pool {
       idleTimeoutMillis: 30_000,
       statement_timeout: 10_000,
     });
+    explainOn(readShared);
   }
   return readShared;
 }
