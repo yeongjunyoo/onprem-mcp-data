@@ -13,6 +13,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+# 최소 권한을 **워크플로에 박는다.**
+#
+# 저장소 기본값이 read 라 지금은 안전하다. 그런데 그것도 UI 설정이라 바뀌면
+# 조용히 넓어지고 커밋에는 아무것도 안 남는다 — 이 저장소가 설정을 저장소 밖에
+# 두고 곤란했던 것이 네 번이다(브랜치 보호·비공개 신고·릴리스 노트·Dependabot).
+#
+# 여기 적으면 **포크한 사람도 같은 최소 권한으로 돈다.** 이 워크플로는 읽기만
+# 한다 — 체크아웃하고, 빌드하고, 검사를 돌린다. 쓰기가 필요한 단계가 없다.
+permissions:
+  contents: read
+
 jobs:
   unit:
     name: typecheck + offline unit tests
