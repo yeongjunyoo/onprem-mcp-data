@@ -122,8 +122,21 @@ async function main() {
       },
     },
   } as never);
+  // ★ 감사 레코드는 두 계층이다.
+  //
+  //   buildAuditRecord()          파이프라인이 만드는 12종
+  //   server.ts 의 audit.explain  거기에 executed_at · cache_policy 를 덧붙인 14종
+  //
+  // 계약이 설명하는 것은 **도구가 돌려주는 14종**이다. 2026-08-17 에 이 테스트가
+  // 12종만 만들어 놓고 대조해 계약의 두 필드를 "유령" 으로 판정했다 —
+  // 틀린 것은 계약이 아니라 **대조 대상의 계층**이었다.
+  const toolRecord = {
+    ...sampleRecord,
+    executed_at: "2026-08-17T00:00:00.000Z",
+    cache_policy: "excluded" as const,
+  };
   const documentedFields = Object.keys(auditDoc.fields ?? {}).sort();
-  const actualFields = Object.keys(sampleRecord).sort();
+  const actualFields = Object.keys(toolRecord).sort();
   // 답변을 만드는 경로에서만 붙는 선택 필드. 그냥 예외로 빼면 다음에 진짜 유령이
   // 생겨도 못 잡으므로, 타입에서 선택인 것만 이름으로 못박아 둔다.
   const OPTIONAL_FIELDS = ["grounding"];
