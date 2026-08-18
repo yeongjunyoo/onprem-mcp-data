@@ -46,7 +46,7 @@
 | `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — |
 | `internal-template-summary.json` | 1,204 | `92a1641bcce28625` | — |
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
-| `recall-compare.json` | 545 | `fe6b533844c9b0a2` | — |
+| `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
 | `test-counts.json` | 2,916 | `60b921da57941d0f` | 2026-08-18T00:00:00 |
