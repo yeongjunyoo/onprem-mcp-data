@@ -620,7 +620,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 전체 목록과 각 검사가 막는 것은 README 「주장을 지키는 검사」에 있다.
 
-- 하드웨어: Apple M4 / macOS 25.5 (초기 빌드·내부 벤치). 공식 데이터셋 실측은 Windows 11 + RTX 4070 SUPER, PostgreSQL 16.14 + pgvector 0.6.0(WSL2 Ubuntu 24.04), Ollama 0.32.4 — 실행 환경이 바뀌어도 같은 커맨드로 재현되는지까지 확인한 결과다.
+- 하드웨어: Apple M4 / macOS 25.5 (초기 빌드·내부 벤치). 공식 데이터셋 실측은 Windows 11 + RTX 4070 SUPER, PostgreSQL 16.14 + pgvector 0.8.6(WSL2 Ubuntu 24.04), Ollama 0.32.14(2026-08-18 실측) — 실행 환경이 바뀌어도 같은 커맨드로 재현되는지까지 확인한 결과다.
 
 ---
 

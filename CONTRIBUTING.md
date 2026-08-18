@@ -16,7 +16,7 @@
 | 구성요소 | 버전 | 비고 |
 | --- | --- | --- |
 | Node.js | 20 LTS 이상 | TypeScript 5.9로 빌드 |
-| PostgreSQL | 16 이상 | pgvector 0.6.0 확장 필요 |
+| PostgreSQL | 16 이상 | pgvector 0.8.6 확장 필요(compose 가 함께 띄운다) |
 | Ollama | 0.32 이상 | `qwen2.5:7b`(생성), `bge-m3`(임베딩) |
 
 ```bash

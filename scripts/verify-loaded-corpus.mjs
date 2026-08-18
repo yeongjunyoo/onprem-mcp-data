@@ -15,6 +15,9 @@
 // 실행: node scripts/verify-loaded-corpus.mjs
 // 필요: docker compose up -d, npm run companyx:load
 import { getReadPool } from "../air-server/dist/db.js";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const BUSINESS_TABLES = [
   "departments",
@@ -66,6 +69,52 @@ const actual = {
   entities: (await one("SELECT count(*)::int AS n FROM companyx.entities")).n,
   relations: (await one("SELECT count(*)::int AS n FROM companyx.relations")).n,
 };
+
+// ── 문서가 말하는 런타임 버전을 살아 있는 스택에 묻는다.
+//
+// npm 의존성은 package.json 이 정본이라 CI 에서 대조한다. **컨테이너 이미지는
+// 파일에 없다** — `pgvector/pgvector:pg16` 은 태그일 뿐 안에 든 확장 버전을 말해
+// 주지 않는다. 2026-08-18 실측에서 문서 pgvector 0.6.0 vs 실물 0.8.6,
+// 문서 Ollama 0.32.4 vs 실물 0.32.14 로 갈려 있었다.
+//
+// latest 태그는 계속 움직이므로 문서에는 측정 시점을 함께 적는다.
+{
+  const ROOT2 = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const pool = getReadPool();
+  const q = one;  // 이미 위에서 만든 헬퍼를 쓴다 (도구 증식 금지)
+  const pgv = (await q("select extversion v from pg_extension where extname='vector'"))?.v;
+  const pgs = (await q("show server_version"))?.server_version?.split(" ")[0];
+  let oll = null;
+  try {
+    const host = process.env.OLLAMA_HOST || "http://localhost:11435";
+    oll = (await (await fetch(`${host}/api/version`)).json()).version;
+  } catch {
+    oll = null; // 모델이 안 떠 있으면 이 항목만 건너뛴다 (조용히 통과시키지 않고 말한다)
+  }
+
+  const docs = ["docs/report.md", "docs/submission-report.md", "CONTRIBUTING.md"];
+  const seen = [];
+  for (const d of docs) {
+    const t = readFileSync(resolve(ROOT2, d), "utf8");
+    for (const [label, re, real] of [
+      ["pgvector", /pgvector (\d+\.\d+\.\d+)/g, pgv],
+      ["Ollama", /Ollama (\d+\.\d+\.\d+)/g, oll],
+    ]) {
+      if (!real) continue;
+      for (const m of t.matchAll(re)) {
+        seen.push(`${d}: ${label} ${m[1]}`);
+        if (m[1] !== real) {
+          console.error(`\n실패: ${d} 가 ${label} ${m[1]} 이라 적었는데 실물은 ${real} 이다.`);
+          console.error("  latest 태그는 계속 움직인다 — 문서를 실물에 맞추고 측정 시점을 함께 적는다.\n");
+          process.exit(1);
+        }
+      }
+    }
+  }
+  console.log(`런타임 버전: PostgreSQL ${pgs} · pgvector ${pgv} · Ollama ${oll ?? "(미기동)"} — 문서 ${seen.length}곳과 일치.`);
+  if (!oll) console.log("  (Ollama 가 안 떠 있어 그 항목은 대조하지 못했다 — 건너뛴 것을 말한다.)");
+}
+
 await pool.end();
 
 const drift = [];
