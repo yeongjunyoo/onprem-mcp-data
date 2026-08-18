@@ -46,3 +46,13 @@ updates:
       prefix: "ci"
     labels:
       - dependencies
+    # npm 과 같은 이유로 메이저는 사람이 판단한다.
+    #
+    # 2026-08-17: 이 무시를 npm 에만 넣었더니 actions/checkout 4→7,
+    # actions/setup-node 4→7 이 자동 PR 로 올라왔다. **같은 파일 안에서 한쪽만
+    # 적용한 것이다.** CI 환경이 조용히 바뀌면 "같은 명령이 같은 수치를 낸다" 는
+    # 주장이 흔들린다 — 이 프로젝트는 재현 가능한 수치가 자산이다.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
