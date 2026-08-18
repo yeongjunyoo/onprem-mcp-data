@@ -68,6 +68,42 @@ const readJson = (rel) => {
   }
 }
 
+// 0-b) 타임라인이 부르는 명령이 「촬영 전 준비」 블록에 다 있는가
+//
+//   이 대본의 원래 결함이 **화면에 띄우라고 적어 놓고 띄우는 방법을 안 적은 것**
+//   이었다(코드블록 0개). 준비 블록을 넣고 나니 이번엔 블록은 `npm run demo`,
+//   타임라인은 `npm run demo:ollama` 로 **같은 파일 안에서 두 명령**을 시켰다.
+//
+//   영준은 이 문서만 보고 녹화한다. 두 명령 중 어느 쪽이 맞는지 그가 판단하게
+//   두면 안 된다.
+{
+  const fence = "`" + "`" + "`";
+  const blockStart = script.indexOf("## 촬영 전 준비");
+  if (blockStart < 0) {
+    fails.push("대본에 「촬영 전 준비」 절이 없다");
+  } else {
+    // 경계가 타임라인까지 삼키면 **비교하는 두 집합이 겹쳐 비교가 항상 참**이 된다.
+    // 첫 타임라인 행과 다음 절 중 먼저 오는 데서 끊는다.
+    const nextHeading = script.indexOf("\n## ", blockStart + 5);
+    const firstRow = script.slice(blockStart).search(/\n\|\s*\d:\d\d/);
+    const ends = [nextHeading, firstRow >= 0 ? blockStart + firstRow : -1].filter((n) => n > 0);
+    const blockEnd = ends.length ? Math.min(...ends) : -1;
+    const block = script.slice(blockStart, blockEnd > 0 ? blockEnd : undefined);
+    // 코드펜스 안만 본다 — 산문에서 이름을 언급한 것과 치라고 적은 것은 다르다.
+    const fenced = [...block.matchAll(new RegExp(fence + "[a-z]*\\n([\\s\\S]*?)" + fence, "g"))]
+      .map((m) => m[1]).join("\n");
+    const inBlock = new Set([...fenced.matchAll(/npm run ([a-z0-9:_-]+)/g)].map((m) => m[1]));
+    const timeline = script.split("\n").filter((l) => /^\|\s*\d:\d\d/.test(l)).join("\n");
+    for (const m of timeline.matchAll(/npm run ([a-z0-9:_-]+)/g)) {
+      checked++;
+      if (!inBlock.has(m[1])) {
+        fails.push(`타임라인이 \`npm run ${m[1]}\` 을 부르는데 「촬영 전 준비」 블록에 없다`);
+      }
+    }
+    if (!block.includes(fence)) fails.push("「촬영 전 준비」 절에 명령 블록이 없다");
+  }
+}
+
 // 1) internal-llm-summary 의 정확도
 const llmClaim = script.match(/internal-llm-summary[^)]*?\((\d+)\/(\d+)\)/);
 if (llmClaim) {
