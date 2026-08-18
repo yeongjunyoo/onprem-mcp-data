@@ -43,6 +43,34 @@ card, dataset manifest, evaluation index, active profile, audit-record schema an
 list **without calling a tool**. Prompts expose the exact grounded-answer and NL2SQL templates
 the server itself runs — not a paraphrase; a unit test asserts full-text equality with the
 runtime builders. All three surfaces are exercised over the wire, not just enumerated:
+To attach an MCP client, run the server over stdio. `MCP_TRANSPORT=sse` switches the transport.
+
+Paste this into your client config (e.g. Claude Desktop's `claude_desktop_config.json`),
+replacing `<repo>` with the actual path.
+
+```json
+{
+  "mcpServers": {
+    "onprem-mcp-data": {
+      "command": "node",
+      "args": ["<repo>/air-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://mcp:mcp@localhost:5433/mcpdata",
+        "OLLAMA_HOST": "http://localhost:11435",
+        "EMBEDDER": "ollama",
+        "OLLAMA_MODEL": "qwen2.5:7b",
+        "EMBED_MODEL": "bge-m3",
+        "DATASET": "companyx"
+      }
+    }
+  }
+}
+```
+
+Drop `DATASET` to start on the bench seed. We ran this exact config through the stdio
+handshake and confirmed `serverInfo` `onprem-mcp-data 0.2.0` plus all 8 tools listed —
+it is not a config we wrote down without running.
+
 `node scripts/verify-stdio-tools.mjs` calls every tool, fetches every prompt and reads every
 resource over stdio, and `node scripts/verify-sse-transport.mjs` does the handshake over SSE.
 

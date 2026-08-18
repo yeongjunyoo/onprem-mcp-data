@@ -49,6 +49,32 @@ npm run demo:ollama                                      # 도구 8종부터 장
 
 MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP_TRANSPORT=sse`로 전송 방식을 바꿀 수 있습니다.
 
+클라이언트 설정 파일(예: Claude Desktop의 `claude_desktop_config.json`)에 그대로 넣으면 됩니다.
+`<저장소>`만 실제 경로로 바꾸세요.
+
+```json
+{
+  "mcpServers": {
+    "onprem-mcp-data": {
+      "command": "node",
+      "args": ["<저장소>/air-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://mcp:mcp@localhost:5433/mcpdata",
+        "OLLAMA_HOST": "http://localhost:11435",
+        "EMBEDDER": "ollama",
+        "OLLAMA_MODEL": "qwen2.5:7b",
+        "EMBED_MODEL": "bge-m3",
+        "DATASET": "companyx"
+      }
+    }
+  }
+}
+```
+
+`DATASET`을 지우면 벤치 시드로 뜹니다. 위 설정 그대로 핸드셰이크를 돌려
+`serverInfo` `onprem-mcp-data 0.2.0`과 도구 8종 열거를 확인했습니다 — 적어 놓고
+안 돌려 본 설정이 아닙니다.
+
 주 경로인 stdio 는 `node scripts/verify-stdio-tools.mjs` 가 도구 8종을 **실제로 호출해** 확인합니다(열거가 아니라 호출입니다 — `demo` 는 내부 호출이라 MCP 스키마 검증을 거치지 않습니다). sse 전환이 실제로 되는지는 `node scripts/verify-sse-transport.mjs` 로 확인합니다 — 포트가 열리는 것이 아니라 **MCP 핸드셰이크가 끝까지 가고 도구 8종이 열거되는지**를 봅니다.
 
 ## 동작 방식
@@ -128,6 +154,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
 | `sbom` | 카피레프트·미표기 라이선스가 섞이는 것 | 예 |
 | `verify-stdio-tools` | 도구가 **열거만 되고 호출은 안 되는** 것 | DB·모델 필요 |
+| `verify-client-config` | README 가 붙여넣으라는 설정이 실제로는 안 붙는 것 | DB·모델 필요 |
 | `verify-sse-transport` | sse 전환 주장이 실제로는 안 되는 것 | DB·모델 필요 |
 | `verify-security-claims` | 보안 문단이 실제 DB 설정과 어긋나는 것 | DB 필요 |
 | `drill-readonly-defense` | 2층 방어가 장식인 것(1층을 우회해 확인) | DB 필요 |
