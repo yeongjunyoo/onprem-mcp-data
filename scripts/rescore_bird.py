@@ -137,10 +137,17 @@ def main() -> int:
             "databases_missing": missing,
             "by_difficulty": by_diff,
             "representativeness": (
-                "question_id 정렬 후 주기적 stride 표집이라 대표성이 없다. "
-                "공식 Mini-Dev 난이도 구성은 30/50/20이고 데이터베이스는 11개다. "
-                "이 표본으로 Mini-Dev 성능을 추정할 수 없다."
-            ),
+            "Mini-Dev 500문항 **전수**다(stride=1). 표집 오차가 0이므로 "
+            "표본 대표성 경고가 필요 없다. 다만 이 값은 **다른 데이터셋·다른 "
+            "도메인**의 값이라 내부 지표와 직접 비교할 수 없다."
+            if len(raw) >= 500
+            else (
+                f"question_id 정렬 후 주기적 stride 표집이라 대표성이 없다({len(raw)}/"
+                f"500문항). 공식 Mini-Dev 난이도 구성은 30/50/20이고 "
+                f"데이터베이스는 {len(all_dbs)}개다. 이 표본으로 Mini-Dev 성능을 "
+                f"추정할 수 없다."
+            )
+        ),
         },
         "official_set": {
             "correct": set_correct, "of": scorable,
