@@ -35,17 +35,36 @@ interface BirdQ { question_id: number; db_id: string; question: string; evidence
 function dbUri(db: string): string { return `file:${db}?mode=ro&immutable=1`; }
 
 /** Run a read-only SQL through the sqlite3 CLI; return parsed rows or an error. */
-async function runSqlite(db: string, sql: string): Promise<{ ok: boolean; rows: unknown[]; timedOut?: boolean; error?: string }> {
+
+/** gold/예측 SQL 실행 예산. 타임아웃 판정이 이 값을 기준으로 경과를 확인한다. */
+const SQL_TIMEOUT_MS = 30_000;
+
+async function runSqlite(db: string, sql: string): Promise<{ ok: boolean; rows: unknown[]; timedOut?: boolean; elapsedMs?: number; error?: string }> {
+  const startedAt = Date.now();
   try {
-    const { stdout } = await exec("sqlite3", ["-json", dbUri(db), sql], { timeout: 30_000, maxBuffer: 64 * 1024 * 1024 });
+    const { stdout } = await exec("sqlite3", ["-json", dbUri(db), sql], { timeout: SQL_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
     const trimmed = stdout.trim();
     return { ok: true, rows: trimmed ? JSON.parse(trimmed) : [] };
   } catch (e) {
     // 타임아웃과 오류를 **구분**한다. 「느린 것」과 「깨진 것」은 다른 사건이다 -
     // gold 가 101초 걸려 30초 한도를 넘는 것은 채점기 고장이 아니라 측정 한계다.
+    //
+    // 2026-08-19 리뷰: 첫 판은 `killed`/`SIGTERM` 만 봤는데 **그건 증명이 아니라 추정**이다.
+    // OS·사용자·OOM 이 죽여도 같은 신호가 선다. 그러면 진짜 오류가 「느린 것」으로 분류돼
+    // 아래 5% 면제 경로로 샌다. **추정과 측정은 다르다** - 경과 시간을 실제로 잰다.
+    // 신호가 서고 **그리고** 경과가 예산의 90% 이상일 때만 타임아웃으로 본다
+    // (종료·수집 오차 여유).
     const err = e as NodeJS.ErrnoException & { killed?: boolean; signal?: string };
-    const timedOut = err.killed === true || err.signal === "SIGTERM";
-    return { ok: false, rows: [], timedOut, error: (e as Error).message.split("\n")[0] };
+    const elapsed = Date.now() - startedAt;
+    const signalled = err.killed === true || err.signal === "SIGTERM";
+    const timedOut = signalled && elapsed >= SQL_TIMEOUT_MS * 0.9;
+    return {
+      ok: false,
+      rows: [],
+      timedOut,
+      elapsedMs: elapsed,
+      error: (e as Error).message.split("\n")[0],
+    };
   }
 }
 

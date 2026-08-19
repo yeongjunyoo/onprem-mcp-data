@@ -16,7 +16,7 @@
 
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
-| `companyx-ask-host-gpu.json` | 22,170 | `33944f8ce99163f7` | 2026-08-17T08:14:06 |
+| `companyx-ask-host-gpu.json` | 24,183 | `bccfcd80c2551e20` | 2026-08-19T13:16:26 |
 | `companyx-ask.json` | 23,984 | `c6e624264ab44a9b` | 2026-08-19T06:34:05 |
 | `companyx-audit.json` | 82,149 | `673dbf863f81a2d2` | 2026-08-19T06:55:48 |
 | `companyx-holdout-route.json` | 11,104 | `5cafe91be728cd73` | 2026-08-19T06:42:59 |
@@ -27,25 +27,25 @@
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `074ee8ea197187fa` | 2026-08-19T06:42:52 |
 | `companyx-route.json` | 23,256 | `d926ae3076ee9264` | 2026-08-19T06:42:57 |
-| `companyx-sql-llm-norepair.json` | 4,981 | `3518ceb4eaa9c5e3` | 2026-08-19T06:23:20 |
-| `companyx-sql-llm.json` | 4,984 | `0726086d523da282` | 2026-08-19T06:21:37 |
-| `companyx-sql-naive-norepair.json` | 5,555 | `e09767da281c9517` | 2026-08-19T08:09:30 |
-| `companyx-sql-naive.json` | 4,845 | `3258f8af27fcf00f` | 2026-08-19T08:05:09 |
-| `companyx-sql-repeat-llm-norepair.json` | 1,456 | `6ab414c9d7b6b4f0` | 2026-07-29T12:48:18 |
-| `companyx-sql-repeat-llm.json` | 1,211 | `76d7d6a2377c348c` | 2026-07-29T12:49:17 |
-| `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 |
-| `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 |
+| `companyx-sql-llm-norepair.json` | 4,978 | `43c526bd73a4f407` | 2026-08-19T13:29:31 |
+| `companyx-sql-llm.json` | 4,977 | `6ab121ab31fa7853` | 2026-08-19T13:24:26 |
+| `companyx-sql-naive-norepair.json` | 5,555 | `0ff089f56aaba54e` | 2026-08-19T13:44:25 |
+| `companyx-sql-naive.json` | 4,845 | `eaeeee10a26fb4c3` | 2026-08-19T13:39:41 |
+| `companyx-sql-repeat-llm-norepair.json` | 1,418 | `cb2c4feff5470033` | 2026-08-19T13:29:31 |
+| `companyx-sql-repeat-llm.json` | 1,417 | `a5755c0b1ea45c54` | 2026-08-19T13:24:26 |
+| `companyx-sql-repeat-naive-norepair.json` | 2,152 | `9211a222683464d0` | 2026-08-19T13:44:25 |
+| `companyx-sql-repeat-naive.json` | 1,663 | `8cf5455560bcd0f8` | 2026-08-19T13:39:41 |
 | `companyx-vector.json` | 170,890 | `057090199c0e3935` | 2026-08-19T06:48:54 |
 | `external-bird-raw.json` | 160,294 | `c15df88691249d9f` | — |
-| `external-bird-rescore.json` | 113,547 | `c5082b09e0d41cec` | 2026-08-19T10:18:31 |
-| `external-bird-summary.json` | 1,042 | `545a11d0800b895b` | — |
+| `external-bird-rescore.json` | 114,113 | `1efa946c25e9d378` | 2026-08-19T13:12:42 |
+| `external-bird-summary.json` | 1,042 | `724a6971a85a284d` | — |
 | `faults.json` | 1,013 | `dad1608540df9d8d` | — |
 | `internal-llm-raw.json` | 20,517 | `4e393d5e209919e8` | — |
 | `internal-llm-summary.json` | 1,209 | `dd32b14862160937` | — |
 | `internal-naive-raw.json` | 22,122 | `a1d525681e3a4107` | — |
 | `internal-naive-summary.json` | 1,209 | `8cea648885430cab` | — |
 | `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — |
-| `internal-template-summary.json` | 1,210 | `0ebd78f2095219ac` | — |
+| `internal-template-summary.json` | 1,196 | `be89b8ddedf497a1` | — |
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |

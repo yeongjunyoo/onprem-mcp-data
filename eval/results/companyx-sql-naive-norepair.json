@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-08-19T08:09:30.122Z"
+    "generated_at": "2026-08-19T13:44:25.473Z"
   },
   "rows": [
     {
@@ -57,7 +57,7 @@
       "predErr": "column c.client_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 6379
+      "ms": 6616
     },
     {
       "id": "CX-SQL-02",
@@ -68,7 +68,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 5440
+      "ms": 5587
     },
     {
       "id": "CX-SQL-03",
@@ -80,7 +80,7 @@
       "predErr": "column p.product_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 5489
+      "ms": 5551
     },
     {
       "id": "CX-SQL-04",
@@ -91,7 +91,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 2399
+      "ms": 2477
     },
     {
       "id": "CX-SQL-05",
@@ -103,7 +103,7 @@
       "predErr": "column e.department_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 5530
+      "ms": 5769
     },
     {
       "id": "CX-SQL-06",
@@ -115,7 +115,7 @@
       "predErr": "relation \"companyx.customers\" does not exist (42P01)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 8012
+      "ms": 8226
     },
     {
       "id": "CX-SQL-07",
@@ -126,7 +126,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 2896
+      "ms": 3060
     },
     {
       "id": "CX-SQL-08",
@@ -138,7 +138,7 @@
       "predErr": "column products.product_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 12,
-      "ms": 6821
+      "ms": 6860
     },
     {
       "id": "CX-SQL-09",
@@ -150,7 +150,7 @@
       "predErr": "column \"registration_date\" does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 5828
+      "ms": 4948
     },
     {
       "id": "CX-SQL-10",
@@ -162,7 +162,7 @@
       "predErr": "column d.department_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 6371
+      "ms": 6076
     }
   ]
 }

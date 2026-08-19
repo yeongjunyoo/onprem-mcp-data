@@ -86,7 +86,11 @@ async function main() {
     byTax[k].n++; if (r.ok) byTax[k].c++;
   }
   const summary = {
-    strategy, model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
+    strategy,
+    // template 은 `templateNL2SQL()` 이라 **모델을 부르지 않는다.** 그런데 예전에는
+    // 무조건 생성 모델명을 적었다 - 모델이 만들지 않은 결과가 그 모델 것으로 표기됐다.
+    // **증거 파일이 쓰지도 않은 모델명을 적는 것이 가장 나쁘다.**
+    model: strategy === "template" ? null : (process.env.OLLAMA_MODEL ?? DEFAULT_MODEL),
     total: items.length, correct, accuracy: Number((acc * 100).toFixed(1)),
     byTax, generatedAt: new Date().toISOString(),
     note: "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison.",

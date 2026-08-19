@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-08-19T08:05:09.552Z"
+    "generated_at": "2026-08-19T13:39:41.556Z"
   },
   "rows": [
     {
@@ -56,7 +56,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 22485
+      "ms": 16865
     },
     {
       "id": "CX-SQL-02",
@@ -67,7 +67,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 5799
+      "ms": 5582
     },
     {
       "id": "CX-SQL-03",
@@ -78,7 +78,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 13801
+      "ms": 14000
     },
     {
       "id": "CX-SQL-04",
@@ -89,7 +89,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 2437
+      "ms": 2385
     },
     {
       "id": "CX-SQL-05",
@@ -100,7 +100,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 13776
+      "ms": 13786
     },
     {
       "id": "CX-SQL-06",
@@ -111,7 +111,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 19417
+      "ms": 20434
     },
     {
       "id": "CX-SQL-07",
@@ -122,7 +122,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 3015
+      "ms": 3095
     },
     {
       "id": "CX-SQL-08",
@@ -133,7 +133,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 15684
+      "ms": 17004
     },
     {
       "id": "CX-SQL-09",
@@ -144,7 +144,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 11980
+      "ms": 12341
     },
     {
       "id": "CX-SQL-10",
@@ -155,7 +155,7 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 14433
+      "ms": 14854
     }
   ]
 }

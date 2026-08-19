@@ -1,6 +1,6 @@
 {
   "strategy": "template",
-  "model": "qwen2.5-coder:7b",
+  "model": null,
   "total": 100,
   "correct": 1,
   "accuracy": 1,
@@ -70,6 +70,6 @@
       "n": 3
     }
   },
-  "generatedAt": "2026-08-19T06:42:51.856Z",
+  "generatedAt": "2026-08-19T13:18:54.378Z",
   "note": "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison."
 }
