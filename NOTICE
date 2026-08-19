@@ -16,12 +16,12 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
 - pg (node-postgres)                             — MIT       — https://github.com/brianc/node-postgres
 
 == Data substrate ==
-- PostgreSQL 17                                  — PostgreSQL License (permissive, BSD-like)
+- PostgreSQL 16                                  — PostgreSQL License (permissive, BSD-like)
 - pgvector                                       — PostgreSQL License — https://github.com/pgvector/pgvector
 
 == Models (open weights, on-prem via Ollama) ==
 - Qwen2.5-Coder-7B-Instruct                            — Apache-2.0 — Alibaba Cloud
-    Used for NL2SQL and final answer generation. See docs/model-cards/qwen2.5-7b.md
+    Used for NL2SQL and final answer generation. See docs/model-cards/qwen2.5-coder-7b.md
 - BGE-M3                                          — MIT        — BAAI
     Used for document/query embeddings (vector(1024)). See docs/model-cards/bge-m3.md
 

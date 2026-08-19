@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**23/35 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**24/36 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -36,7 +36,7 @@
 | `companyx-sql-repeat-naive-norepair.json` | 2,152 | `9211a222683464d0` | 2026-08-19T13:44:25 |
 | `companyx-sql-repeat-naive.json` | 1,663 | `8cf5455560bcd0f8` | 2026-08-19T13:39:41 |
 | `companyx-vector.json` | 170,890 | `057090199c0e3935` | 2026-08-19T06:48:54 |
-| `external-bird-raw.json` | 160,294 | `c15df88691249d9f` | — |
+| `external-bird-raw.json` | 10,755 | `b2d91c82059dcbe8` | — |
 | `external-bird-rescore.json` | 114,113 | `1efa946c25e9d378` | 2026-08-19T13:12:42 |
 | `external-bird-summary.json` | 1,042 | `724a6971a85a284d` | — |
 | `faults.json` | 1,013 | `dad1608540df9d8d` | — |
@@ -46,6 +46,7 @@
 | `internal-naive-summary.json` | 1,209 | `8cea648885430cab` | — |
 | `internal-template-raw.json` | 15,293 | `b04f711a734547df` | — |
 | `internal-template-summary.json` | 1,196 | `be89b8ddedf497a1` | — |
+| `model-bakeoff.json` | 2,216 | `1d720a9ff36c4f88` | 2026-08-19T16:04:35 |
 | `recall-bge.json` | 3,442 | `63919863a632ee66` | — |
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
