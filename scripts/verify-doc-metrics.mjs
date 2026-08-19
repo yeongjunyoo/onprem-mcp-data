@@ -49,6 +49,23 @@ for (const m of out.matchAll(/^\s+([a-z_0-9]+) = (.+)$/gm)) canonical[m[1]] = m[
 
 /** 지표를 말하는 자리인지 알아보는 패턴과, 그 자리에 있어야 할 정본. */
 const SUBJECTS = [
+  // 커버율. 2026-08-18 리뷰: canonical 에 넣기만 하고 아무도 안 봤다 -
+  // **등록과 소비는 다르다**(PR #195 와 같은 지적).
+  //
+  // 1차·2차가 다른 줄이고 값 모양이 겹치므로 **주제어에 차수를 함께 요구**한다.
+  // 한 줄에 「홀드아웃1」과 「커버율」이 같이 있어야 그 줄의 커버율이 1차 것이다.
+  {
+    re: /(?:홀드아웃\s*1|holdout\s*1|템플릿 문형)[^\n]*(?:커버율|coverage)/i,
+    key: "holdout1_coverage",
+    val: /\b\d\.\d{3}\b/g,
+    window: 60,
+  },
+  {
+    re: /(?:홀드아웃\s*2|holdout\s*2|구어체)[^\n]*(?:커버율|coverage)/i,
+    key: "holdout2_coverage",
+    val: /\b0\.\d{3}\b/g,
+    window: 60,
+  },
   // 외부 BIRD. 2026-08-18 완결 감사에서 정본에 없다는 걸 알았고 metrics-check 에
   // 넣었다. **등록과 소비는 다르다**(PR #195) - 여기 없으면 문서는 계속 자유롭다.
   //
@@ -85,8 +102,11 @@ const SUBJECTS = [
   // 값 집합에 81 이 들어 있어 **정본이 그 줄에 있다** 는 이유로 통과했다 —
   // 분수는 맞고 퍼센트만 틀린 자리를 놓친다.
   { re: /execution-match/i, key: "bench_internal_pct", val: /(?<![\d.])(\d{1,3})(?=\s*(?:\.\d+)?\s*%)/g, strip: /\d{1,3}\/100/g , window: 60 },
-  { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g },
-  { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g },
+  // 창 30 → 60. 커버율 주제어가 붙으며 이 줄이 **다중 주제**가 되어 창 경로를 타자
+  // 빈 창 탐지가 물었다 - README.en.md:94 는 주제(holdout 1)와 값(0.900) 사이가
+  // 40자 가까이 떨어져 있다. **탐지기가 자기 몫을 했다.**
+  { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g, window: 60 },
+  { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g, window: 60 },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
   { re: /단언 통과|assertions pass/i, key: "test_total", val: /(?<!\d)\d{3}(?!\d)/g },
   // 분모를 /19 로 못 박으면 **분모까지 바꾼 위조가 건너뛰어진다** — 값이 하나도
