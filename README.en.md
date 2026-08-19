@@ -3,7 +3,7 @@
 [![CI](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml/badge.svg)](https://github.com/yeongjunyoo/onprem-mcp-data/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
-[![Model](https://img.shields.io/badge/LLM-qwen2.5%3A7b%20(local)-success)](docs/model-cards/qwen2.5-7b.md)
+[![Model](https://img.shields.io/badge/LLM-qwen2.5--coder%3A7b%20(local)-success)](docs/model-cards/qwen2.5-coder-7b.md)
 
 **An on-premise MCP server that answers natural-language questions over your own database, with citations.** One question is routed into three lanes at once (vector search, NL2SQL, knowledge graph), the results are fused, and a local 7B model answers from the curated context only. **No external API calls.** Every model runs locally through Ollama.
 
@@ -93,7 +93,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Routing tool match | 30/30 | 30 published example questions, identical across 20 re-runs, **in-sample** |  <!--metric:route_insample-->
 | Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |  <!--metric:holdout1_strict-->
 | Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |  <!--metric:holdout2_strict-->
-| NL2SQL execution match | **5-7/10** (2/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
+| NL2SQL execution match | **7/10** (1/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
@@ -110,7 +110,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 ## What we disproved about our own work
 
-- **The schema card buys cost, not accuracy, once a repair pass exists.** Without retry the gap is 5-7/10 versus 2/10 (+30 to +50pp); with one execution-feedback retry it narrows to 7-8/10 versus 7/10 (0 to +10pp) while the repair count splits 2 versus 6. Sixteen repeated runs showed results identical within a session but shifting by 1-2 questions across sessions, so we report ranges, never a single run.
+- **That conclusion was model-dependent — corrected 2026-08-19.** With `qwen2.5:7b` the schema card bought cost, not accuracy, once a repair pass existed. After switching generation to `qwen2.5-coder:7b` and re-measuring, the gap **does not close**: without retry it is **7/10 versus 1/10** (naive re-run three times, 1/10 each), and with one execution-feedback retry it is **7/10 versus 5/10**, while the repair count splits **0 versus 7**. On this model the schema card buys accuracy as well as cost. The earlier statement was not wrong for that model; what was missing was **saying which model it held for**.
 - **Truncating the embedding was not an officially supported mode, but we measured the cost.** The sponsor schema fixes `vector(768)`, so we stored the first 768 of bge-m3's 1024 dimensions, and the model card only documents 1024 dense dimensions without claiming Matryoshka training. We expanded the evaluation from 8 to 68 questions and compared head to head: **native 1024 and truncated 768 both score 67/68 and miss one different question each (McNemar p = 1.0)**. On this corpus the truncation costs nothing measurable, yet it is still not a guaranteed output mode, so we do not present it as a feature. An English-only 768 model scored 25/68 on the same Korean questions.
 - **30/30 routing is in-sample.** The router vocabulary was written while reading those published questions, so we measured generalisation separately on two held-out sets we wrote afterwards: **0.900 on templated phrasings, 0.633 on the colloquial phrasings a business user would actually type.** Relation wording is unbounded, so a rule-based router cannot chase it with vocabulary; we route relation questions by matching **entity type pairs against ontology edges** instead. That postponed the ceiling, it did not remove it. Both held-out sets have since been used to diagnose defects, so neither is a held-out set any more — see `docs/report.md` §0.14.
 

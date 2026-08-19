@@ -2,7 +2,7 @@
 //
 // Objectivity anchor: a recognized public text-to-SQL benchmark with 500
 // instances over 11 cross-domain databases (formula_1, financial, superhero,
-// ...). We run the SAME on-prem Qwen2.5-7B NL2SQL approach (schema card +
+// ...). We run the SAME on-prem 생성 모델(기본 Qwen2.5-Coder-7B) NL2SQL approach (schema card +
 // BIRD oracle "evidence") over each DB's real DDL, execute the predicted and
 // gold SQL against the actual SQLite database, and compare RESULT SETS
 // (BIRD-style execution accuracy: multiset of value-tuples, row-order

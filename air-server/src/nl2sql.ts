@@ -4,7 +4,7 @@
 //   templateNL2SQL — a deterministic fast-path for the seed orders domain (no
 //                    LLM, zero variance). Handles the common, unambiguous
 //                    intents and returns null otherwise (deferring to the LLM).
-//   llmNL2SQL      — Qwen2.5-7B generates SQL from the live schema (added in the
+//   llmNL2SQL      — 생성 모델(기본 Qwen2.5-Coder-7B) generates SQL from the live schema (added in the
 //                    LLM increment). Measured honestly by the execution-match eval.
 //
 // Returning null = "I decline; let the next strategy try."
@@ -34,7 +34,7 @@ export function extractSql(raw: string): string | null {
   return isReadOnly(sql) ? sql : null;
 }
 
-/** Qwen2.5-7B generates a single read-only SQL from the schema + question.
+/** 생성 모델(기본 Qwen2.5-Coder-7B) generates a single read-only SQL from the schema + question.
  * This is the path measured (non-circularly) by the execution-match eval. */
 export async function llmNL2SQL(query: string): Promise<string | null> {
   // 활성 프로파일의 스키마 카드를 쓴다. 2026-08-18 리뷰 지적: 여기에 `SCHEMA_DDL`
@@ -69,7 +69,7 @@ export const BENCH_SCHEMA_DDL = [
   "bench.support_tickets(id, customer_id->customers.id, order_id->orders.id (nullable), reason, status['open'|'resolved'|'escalated'], created_at date)",
 ].join("\n");
 
-/** Qwen2.5-7B NL->SQL over the bench schema (benchmark headline path, Gate5). */
+/** 생성 모델(기본 Qwen2.5-Coder-7B) NL->SQL over the bench schema (benchmark headline path, Gate5). */
 export async function benchNL2SQL(query: string): Promise<string | null> {
   const prompt = [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 bench 스키마에 있음).",
@@ -183,7 +183,7 @@ export function buildCompanyxSqlPrompt(query: string): string {
   ].join("\n");
 }
 
-/** Qwen2.5-7B NL->SQL over the sponsor's Company-X schema. */
+/** 생성 모델(기본 Qwen2.5-Coder-7B) NL->SQL over the sponsor's Company-X schema. */
 export async function companyxNL2SQL(query: string): Promise<string | null> {
   const raw = await generate(buildCompanyxSqlPrompt(query));
   return extractSql(raw);

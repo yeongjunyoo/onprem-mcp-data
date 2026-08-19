@@ -1,6 +1,6 @@
 // SQL execution-match eval (objective, non-circular).
 //
-// For each NL question we let Qwen2.5-7B generate SQL (llmNL2SQL), execute both
+// For each NL question we let 생성 모델(기본 Qwen2.5-Coder-7B) generate SQL (llmNL2SQL), execute both
 // the predicted and the gold SQL, and check whether the RESULT SETS match
 // (evalmatch.resultsMatch). No LLM judge anywhere — the database is the oracle.
 // Reference benchmark from the 리원에이스 brief: ~64.0% accuracy with no tuning.

@@ -2,10 +2,10 @@
   "summary": {
     "dataset": "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     "strategy": "naive",
-    "model": "qwen2.5:7b",
+    "model": "qwen2.5-coder:7b",
     "total": 10,
-    "correct": 2,
-    "accuracy": 20,
+    "correct": 1,
+    "accuracy": 10,
     "gold_execution_failures": 0,
     "repaired_queries": 0,
     "repair_enabled": false,
@@ -35,7 +35,7 @@
         "n": 1
       },
       "join+group+sort": {
-        "c": 1,
+        "c": 0,
         "n": 1
       },
       "time-filter+count": {
@@ -44,7 +44,7 @@
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-07-29T12:49:47.748Z"
+    "generated_at": "2026-08-19T08:09:30.122Z"
   },
   "rows": [
     {
@@ -52,36 +52,35 @@
       "tax": "join+group+top-k",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT c.* FROM companyx.clients c JOIN companyx.sales s ON c.client_id = s.client_id WHERE s.region = '서울' GROUP BY c.client_id, c.client_name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "pred": "SELECT c.client_name, SUM(s.amount) AS total_sales\nFROM companyx.clients c\nJOIN companyx.sales s ON c.client_id = s.client_id\nWHERE c.location = '서울'\nGROUP BY c.client_name\nORDER BY total_sales DESC\nLIMIT 5",
       "predOk": false,
-      "predErr": "column c.client_id does not exist",
+      "predErr": "column c.client_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 735
+      "ms": 6379
     },
     {
       "id": "CX-SQL-02",
       "tax": "filter+aggregate",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT SUM(companyx.sales.amount) AS total_revenue FROM companyx.sales JOIN companyx.contracts ON companyx.sales.contract_id = companyx.contracts.id JOIN companyx.projects ON companyx.contracts.project_id = companyx.projects.id WHERE EXTRACT(YEAR FROM companyx.sales.date) = 2025 AND EXTRACT(QUARTER FROM companyx.sales.date) = 3",
-      "predOk": false,
-      "predErr": "column contracts.project_id does not exist",
+      "pred": "SELECT SUM(s.amount) AS total_sales\nFROM companyx.sales s\nWHERE s.sale_date BETWEEN '2025-04-01' AND '2025-06-30'",
+      "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 1094
+      "ms": 5440
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT AVG(sales.amount) FROM companyx.sales AS s JOIN companyx.products AS p ON s.product_id = p.id WHERE p.category = '보안 솔루션' AND p.type = '제품'",
+      "pred": "SELECT AVG(s.amount) AS avg_monthly_sales\nFROM companyx.sales s\nJOIN companyx.products p ON s.product_id = p.product_id\nWHERE p.category = '보안 솔루션'",
       "predOk": false,
-      "predErr": "missing FROM-clause entry for table \"sales\"",
+      "predErr": "column p.product_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 724
+      "ms": 5489
     },
     {
       "id": "CX-SQL-04",
@@ -92,30 +91,31 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 367
+      "ms": 2399
     },
     {
       "id": "CX-SQL-05",
       "tax": "join+projection",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.department_id = d.id WHERE d.name = '기술지원팀'",
+      "pred": "SELECT e.employee_id, e.first_name, e.last_name, e.salary\nFROM companyx.employees e\nJOIN companyx.departments d ON e.department_id = d.department_id\nWHERE d.department_name = '기술지원팀'",
       "predOk": false,
-      "predErr": "column e.department_id does not exist",
+      "predErr": "column e.department_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 4,
-      "ms": 591
+      "ms": 5530
     },
     {
       "id": "CX-SQL-06",
       "tax": "join+group+argmax",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT clients.name FROM companyx.clients JOIN companyx.contracts ON clients.id = contracts.client_id JOIN companyx.projects ON contracts.id = projects.contract_id GROUP BY clients.name ORDER BY COUNT(projects.id) DESC LIMIT 1",
-      "predOk": true,
+      "pred": "SELECT c.customer_id, c.customer_name, COUNT(p.project_id) AS project_count\nFROM companyx.customers c\nJOIN companyx.contracts co ON c.customer_id = co.customer_id\nJOIN companyx.projects p ON co.contract_id = p.contract_id\nGROUP BY c.customer_id, c.customer_name\nORDER BY project_count DESC\nLIMIT 1",
+      "predOk": false,
+      "predErr": "relation \"companyx.customers\" does not exist (42P01)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 687
+      "ms": 8012
     },
     {
       "id": "CX-SQL-07",
@@ -126,18 +126,19 @@
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 417
+      "ms": 2896
     },
     {
       "id": "CX-SQL-08",
       "tax": "join+group+sort",
-      "ok": true,
+      "ok": false,
       "repaired": false,
-      "pred": "SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.products p JOIN companyx.contracts c ON p.id = c.product_id GROUP BY p.id ORDER BY total_contract_amount DESC",
-      "predOk": true,
+      "pred": "SELECT companyx.products.product_name, SUM(companyx.contracts.contract_amount) AS total_contract_amount\nFROM companyx.products\nJOIN companyx.contracts ON companyx.products.product_id = companyx.contracts.product_id\nGROUP BY companyx.products.product_name\nORDER BY total_contract_amount DESC",
+      "predOk": false,
+      "predErr": "column products.product_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 12,
-      "ms": 688
+      "ms": 6821
     },
     {
       "id": "CX-SQL-09",
@@ -146,22 +147,22 @@
       "repaired": false,
       "pred": "SELECT COUNT(*) FROM companyx.clients WHERE registration_date >= '2024-01-01' AND registration_date < '2025-01-01'",
       "predOk": false,
-      "predErr": "column \"registration_date\" does not exist",
+      "predErr": "column \"registration_date\" does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 624
+      "ms": 5828
     },
     {
       "id": "CX-SQL-10",
       "tax": "join+group+argmax",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT d.department_name FROM companyx.departments d JOIN companyx.employees e ON d.department_id = e.department_id GROUP BY d.department_name ORDER BY AVG(e.salary) DESC LIMIT 1",
+      "pred": "SELECT d.department_name, AVG(e.salary) AS avg_salary\nFROM companyx.departments d\nJOIN companyx.employees e ON d.department_id = e.department_id\nGROUP BY d.department_name\nORDER BY avg_salary DESC\nLIMIT 1",
       "predOk": false,
-      "predErr": "column d.department_id does not exist",
+      "predErr": "column d.department_id does not exist (42703)",
       "goldOk": true,
       "goldRows": 1,
-      "ms": 629
+      "ms": 6371
     }
   ]
 }

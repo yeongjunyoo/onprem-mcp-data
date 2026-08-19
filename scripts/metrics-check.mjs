@@ -208,6 +208,17 @@ const sqlNo = readJson("eval/results/companyx-sql-llm-norepair.json");
 const sqlRe = readJson("eval/results/companyx-sql-llm.json");
 canonical.nl2sql_norepair = `${(sqlNo.summary ?? sqlNo).correct}/10`;
 canonical.nl2sql_repair = `${(sqlRe.summary ?? sqlRe).correct}/10`;
+// naive(테이블명만) 베이스라인. 문서 6자리가 이 값을 쓰는데 정본에 없어서
+// 2026-08-19 모델 교체 때 **아무도 안 물었다** - 2/10 이 1/10 이 됐는데 문서는 그대로였다.
+// **정본에 없는 값은 문서에서 자유롭게 썩는다.**
+{
+  const nv = readJson("eval/results/companyx-sql-naive.json");
+  const nn = readJson("eval/results/companyx-sql-naive-norepair.json");
+  const a = nv.summary ?? nv;
+  const b = nn.summary ?? nn;
+  canonical.nl2sql_naive_repair = `${a.correct}/${a.total}`;
+  canonical.nl2sql_naive_norepair = `${b.correct}/${b.total}`;
+}
 
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
 canonical.faults_partial = `${Math.round(fs_.partialRate * fs_.total)}/${fs_.total}`;
