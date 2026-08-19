@@ -121,6 +121,12 @@ def main() -> int:
     missing = sorted(all_dbs - sampled_dbs)
     by_diff = dict(Counter(r["diff"] for r in raw))
 
+    # 이 재채점이 **어느 raw 를 봤는지** 박는다. 2026-08-19 리뷰: 전수 재실행이
+    # raw/summary 만 덮으면 rescore 는 낡은 채로 n 만 맞아 통과한다.
+    # **같은 수를 말한다고 같은 실행인 것은 아니다.**
+    _raw_bytes = RAW.read_bytes() if hasattr(RAW, "read_bytes") else open(RAW, "rb").read()
+    _raw_sha = __import__("hashlib").sha256(_raw_bytes).hexdigest()
+
     out = {
         "note": (
             "저장된 예측 SQL을 재실행해 두 비교 의미로 각각 채점했다. 모델은 돌리지 않았다(재추론 없음). "
@@ -134,6 +140,7 @@ def main() -> int:
             "여기서는 저장된 예측을 사후에 다시 채점하므로 그 제약이 필요 없다. "
             "gold_failed 가 0인데 하네스 요약의 goldUnscorable 이 0이 아니면 그 차이다."
         ),
+        "raw_sha256": _raw_sha,
         "sample": {
             "n": len(raw),
             "scorable": scorable,

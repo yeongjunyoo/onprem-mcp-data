@@ -211,11 +211,11 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 **그런데 재측정 과정에서 더 큰 문제가 나왔다.** 같은 코드, 같은 조건(스키마 카드, 재시도 없음)으로 돌린 결과가 세션에 따라 7/10과 5/10으로 갈렸다. 그래서 반복 실행기(`companyx-sql-repeat.ts`)를 만들어 조건별로 3~5회씩, 총 16회를 돌렸다.
 
-| 조건 | 이번 세션 (반복 횟수) | 이전 세션 | 채택 표기 |
+| 조건 | `qwen2.5-coder:7b` (2026-08-19, 5회 반복) | `qwen2.5:7b` (2026-07-29) | 당시 채택 표기 |
 |---|---|---|---|
-| 스키마 카드, 재시도 없음 | **5/10** (5회 전부 동일) | 7/10 | **5~7/10** |
+| 스키마 카드, 재시도 없음 | **7/10** (5회 전부 동일) | 5/10 | 당시 **5~7/10** |
 | 테이블명만, 재시도 없음 | **1/10** (5회 전부 동일) | 1/10 | **1/10** |
-| 스키마 카드, 재시도 1회 | **7/10** (5회 전부 동일, 재시도 2회) | 8/10 | **7~8/10** |
+| 스키마 카드, 재시도 1회 | **7/10** (5회 전부 동일, 재시도 **0회**) | 7~8/10 (재시도 2회) | 당시 **7~8/10** |
 | 테이블명만, 재시도 1회 | **5/10** (5회 전부 동일, 재시도 7회) | 5/10 | **5/10** |
 
 **세션 안에서는 완전히 결정적이고, 세션이 바뀌면 1~2문항이 움직인다.** temperature 0과 seed를 고정했는데도 그렇다. 원인은 모델 재적재나 런타임 배치 상태로 추정하지만 이 라운드에서 확인하지 못했으므로 `미확인`으로 둔다. 확실한 것은 **단일 실행 수치를 헤드라인으로 쓰면 그 자체가 과장**이라는 점이다. 그래서 이 보고서의 NL2SQL 수치는 전부 범위로 적는다.
@@ -409,7 +409,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 | 리원에이스 요구 (과제 예시) | 구현 | 증거 |
 |---|---|---|
-| PostgreSQL + pgvector 벡터 DB | L1 PG17+pgvector, `bench` 격리 스키마 | `eval/internal/schema.sql` |
+| PostgreSQL + pgvector 벡터 DB | L1 PG16+pgvector, `bench` 격리 스키마 | `eval/internal/schema.sql` |
 | MCP 프로토콜 기반 AI 도구 설계·구현 | air 위 8 MCP 도구 | `air-server/src/server.ts` |
 | 규칙 기반 라우터 (MCP Parallel) | `route` 결정론 라우터 + 병렬 fan-out | `air-server/src/router.ts` |
 | 온프렘 소형 LLM(7B) 연동 (Ollama) | `ask` = Qwen2.5-Coder-7B, 근거 없으면 거부 | `air-server/src/llm.ts` |
@@ -435,7 +435,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 ## 3. 아키텍처 (레이어)
 
-- **L1 substrate** — PostgreSQL 17 + pgvector. 스모크 시드(public)와 콘테스트급 벤치(`bench` 8테이블) 분리.
+- **L1 substrate** — PostgreSQL 16 + pgvector. 스모크 시드(public)와 콘테스트급 벤치(`bench` 8테이블) 분리.
 - **L2 데이터 도구** — `sql.query`(읽기전용 트랜잭션 + 최소권한 `mcp_ro` 강등 → `pg_read_file` 등 superuser 함수·쓰기 거부, statement/lock timeout), `vector.search`(pgvector 코사인, BGE-M3, id 2차정렬로 tie 결정성, k 클램프).
 - **L3 결정론 라우터(MCP Parallel)** — 규칙 기반 한국어 질의 분류(LLM 0, 튜닝 0, 분산 0) → structured/semantic/hybrid 병렬 fan-out + 감사 로그.
 - **L4 구조보존 큐레이션(TACC)** — 스키마인지 row 원자 패킹(`broken_rows=0`). 해자 = 고정예산에서 **SQL 튜플을 안 깨고** 트림(naive 토큰컷의 실패모드 회피).
@@ -478,10 +478,10 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 | **공식 set 동등** (BIRD `evaluation_ex` 의미) | **243/500 = 0.486** (2026-08-19, 전수 500) · 이전 표본 11/32 = 0.344 (2026-08-18) · 9/32 = 0.281 (2026-06-30 예측) |
 | 운영 multiset 동등 (이 저장소 내부 지표) | 219/500 = 0.438 · 이전 표본 10/32 = 0.312 |
 
-  갈린 2건은 전부 `card_games`에서 예측이 중복 행을 많이 반환했지만 **distinct 집합은 gold와 동일**했던 경우다(5429행 vs gold 3행, distinct 3=3 / 66행 vs gold 2행, distinct 2=2). gold 실행 실패 0건.
+  갈린 24건(전수 500 기준 — 공식 243 대 운영 219)은 전부 `card_games`에서 예측이 중복 행을 많이 반환했지만 **distinct 집합은 gold와 동일**했던 경우다(5429행 vs gold 3행, distinct 3=3 / 66행 vs gold 2행, distinct 2=2). gold 실행 실패 0건.
 
   **2026-08-18 재측정.** 위 값은 06-30 에 생성한 예측을 재채점한 것이었다. 오늘 같은
-**2026-08-19 전수 측정.** 표집을 버리고 **Mini-Dev 500문항 전량**을 돌렸다(stride=1, 11/11 DB, 난이도 148/250/102 — 공식 구성 30/50/20 과 같다). 생성 모델도 `qwen2.5-coder:7b` 로 바꾼 뒤다. 공식 set 동등 **243/500 = 0.486**, 운영 multiset 동등 **219/500 = 0.438**. **표집 오차가 0이므로 「이 표본으로 추정할 수 없다」는 경고는 더 이상 필요 없다.** 대신 남는 한계를 적는다 — gold SQL 2건(q518, q701)이 하네스의 30초 실행 한도를 넘겨 **채점 불가**다. 둘 다 정상 질의이고 느릴 뿐이며(각각 101.6초, 240초에도 미완료) 한도가 없는 파이썬 재채점기는 500건을 전부 돌렸다. 하네스 헤드라인 43.6%는 BIRD 관행대로 그 2건을 오답으로 세고, 채점 가능분만 보면 43.8%다.
+**2026-08-19 전수 측정.** 표집을 버리고 **Mini-Dev 500문항 전량**을 돌렸다(stride=1, 11/11 DB, 난이도 148/250/102 — 공식 구성 30/50/20 과 같다). 생성 모델도 `qwen2.5-coder:7b` 로 바꾼 뒤다. 공식 set 동등 **243/500 = 0.486**, 운영 multiset 동등 **219/500 = 0.438**. **표집 오차가 0이므로 「이 표본으로 추정할 수 없다」는 경고는 더 이상 필요 없다.** 다만 한 가지는 밝혀 둔다 — **Mini-Dev 데이터셋 자체가 500항목 중 `question_id` 137·138 을 중복 수록한다**(두 항목의 질문 텍스트가 같다). 고유 id 는 498이고 우리 500행은 데이터셋 항목을 그대로 덮은 것이다. 상류 데이터셋의 성질이라 고치지 않고 적어 둔다. `verify-bird-consistency` 가 우리 raw 의 id 다중집합을 **데이터셋과 직접 대조**한다. 대신 남는 한계를 적는다 — gold SQL 2건(q518, q701)이 하네스의 30초 실행 한도를 넘겨 **채점 불가**다. 둘 다 정상 질의이고 느릴 뿐이며(각각 101.6초, 240초에도 미완료) 한도가 없는 파이썬 재채점기는 500건을 전부 돌렸다. 하네스 헤드라인 43.6%는 BIRD 관행대로 그 2건을 오답으로 세고, 채점 가능분만 보면 43.8%다.
   **10/32 = 0.312** 였다. 두 번 돌려 둘 다 같았다.
 
   **원인은 특정하지 않는다.** 7주 사이 스키마 카드·에러 처리·의존성이 여러 번 바뀌었고
@@ -493,9 +493,9 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
   평가가 시작 전에 멈추고 결과 파일을 쓰지 않는다(gold 가 전부 실패한 0% 는 측정이
   아니다).
 
-  **⚠️ 이 32문항으로 Mini-Dev 성능을 추정할 수 없다.** `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 구성 30/50/20 대비 중·상에 편중됐다. 내부 81.0%와도 엔진(PostgreSQL vs SQLite)·언어·도메인·프롬프트가 달라 **직접 비교 불가**다.
+> **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
-  참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현: `EXT_LIMIT=32 npm run external:bird` → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
+  참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
 - **테스트:** 오프라인 335(claims/normalize/auditrecord/surfaces/router/curator/rrf/evalmatch/errors/degraded) + DB·모델 통합 127(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **462단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 324. tsc strict clean.
 
 ---
@@ -539,7 +539,7 @@ arXiv 2606.29733(2026-06-29)은 BIRD dev 전량(n=1534)에서 Qwen2.5-Coder·Cod
 ## 8. 재현 (오프라인)
 
 ```bash
-docker compose up -d                                   # PG17+pgvector + Ollama
+docker compose up -d                                   # PG16+pgvector + Ollama
 docker compose exec -T ollama ollama pull qwen2.5-coder:7b   # 답변용 (Apache-2.0)
 docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
 cd air-server && npm ci && npm run build

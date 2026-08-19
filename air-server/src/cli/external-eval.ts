@@ -287,8 +287,19 @@ const summary = {
     note: "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite. gold SQL that exceeds the 30s execution budget is reported separately (goldUnscorable): the headline executionAccuracy counts it as wrong per BIRD convention, executionAccuracyScorable excludes it from the denominator.",
   };
   await mkdir(resolve(root, "eval/results"), { recursive: true });
-  await writeFile(resolve(root, "eval/results/external-bird-raw.json"), JSON.stringify(rows, null, 2));
-  await writeFile(resolve(root, "eval/results/external-bird-summary.json"), JSON.stringify(summary, null, 2));
+  // **부분 실행은 정본을 덮지 않는다.** 2026-08-19: 후보 비교(EXT_LIMIT=32)가
+  // 전수 500 의 raw 를 32행으로 덮었고 검사 23종이 전부 통과했다.
+  // 전수(=데이터셋 전량)일 때만 정본 이름으로 쓰고, 그 밖은 조건을 파일명에 박는다.
+  const isFull = sample.length === all.length;
+  const suffix = isFull ? "" : `-limit${sample.length}`;
+  await writeFile(
+    resolve(root, `eval/results/external-bird-raw${suffix}.json`),
+    JSON.stringify(rows, null, 2),
+  );
+  await writeFile(
+    resolve(root, `eval/results/external-bird-summary${suffix}.json`),
+    JSON.stringify(summary, null, 2),
+  );
   console.log(`\n[external:bird] execution-accuracy ${correct}/${sample.length} = ${(acc * 100).toFixed(1)}% (sampled stride=${stride} of ${all.length})`);
   console.log(`byDifficulty: ${JSON.stringify(byDiff)}`);
   process.exit(0);

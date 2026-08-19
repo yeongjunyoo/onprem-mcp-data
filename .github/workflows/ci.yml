@@ -91,6 +91,11 @@ jobs:
       - name: 사업자 데이터셋을 재배포하지 않는지
         working-directory: .
         run: node scripts/verify-no-dataset-redistribution.mjs
+      # BIRD 산출물 셋이 같은 실행을 가리키는지. 2026-08-19 에 부분 실행이
+      # 전수 raw 를 덮었는데 검사 23종이 전부 통과했다.
+      - name: BIRD 산출물이 같은 실행을 가리키는지
+        working-directory: .
+        run: node scripts/verify-bird-consistency.mjs
       # Windows 체크아웃에서 셸 스크립트가 CRLF 로 깨지던 것을 막는다.
       - name: 실행되는 파일이 LF 인지
         working-directory: .
