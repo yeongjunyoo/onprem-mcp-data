@@ -1,32 +1,74 @@
 {
   "note": "저장된 예측 SQL을 재실행해 두 비교 의미로 각각 채점했다. 모델은 돌리지 않았다(재추론 없음). official_set = BIRD 공식 의미(set(pred)==set(gold), 중복 무시). operational_multiset = 이 저장소의 운영 지표(다중집합 동등, 중복 개수까지 일치). 두 수치의 차이는 비교기 정의의 효과이며 모델 성능 차이가 아니다.",
   "sample": {
-    "n": 32,
-    "scorable": 32,
+    "n": 500,
+    "scorable": 500,
     "gold_failed": 0,
-    "databases_sampled": 10,
+    "databases_sampled": 11,
     "databases_total": 11,
-    "databases_missing": [
-      "debit_card_specializing"
-    ],
+    "databases_missing": [],
     "by_difficulty": {
-      "simple": 6,
-      "moderate": 19,
-      "challenging": 7
+      "simple": 148,
+      "moderate": 250,
+      "challenging": 102
     },
     "representativeness": "question_id 정렬 후 주기적 stride 표집이라 대표성이 없다. 공식 Mini-Dev 난이도 구성은 30/50/20이고 데이터베이스는 11개다. 이 표본으로 Mini-Dev 성능을 추정할 수 없다."
   },
   "official_set": {
-    "correct": 11,
-    "of": 32,
-    "accuracy": 0.344
+    "correct": 243,
+    "of": 500,
+    "accuracy": 0.486
   },
   "operational_multiset": {
-    "correct": 10,
-    "of": 32,
-    "accuracy": 0.312
+    "correct": 219,
+    "of": 500,
+    "accuracy": 0.438
   },
   "diverged": [
+    {
+      "id": 173,
+      "db": "financial",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 13,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 206,
+      "db": "toxicology",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 2,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 230,
+      "db": "toxicology",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 103,
+      "gold_rows": 5,
+      "pred_distinct": 5,
+      "gold_distinct": 5
+    },
+    {
+      "id": 253,
+      "db": "toxicology",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 10,
+      "gold_rows": 4,
+      "pred_distinct": 4,
+      "gold_distinct": 4
+    },
     {
       "id": 345,
       "db": "card_games",
@@ -37,11 +79,360 @@
       "gold_rows": 3,
       "pred_distinct": 3,
       "gold_distinct": 3
+    },
+    {
+      "id": 358,
+      "db": "card_games",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 4,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 391,
+      "db": "card_games",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 80,
+      "gold_rows": 8,
+      "pred_distinct": 8,
+      "gold_distinct": 8
+    },
+    {
+      "id": 462,
+      "db": "card_games",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 3,
+      "gold_rows": 2,
+      "pred_distinct": 2,
+      "gold_distinct": 2
+    },
+    {
+      "id": 522,
+      "db": "card_games",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 66,
+      "gold_rows": 2,
+      "pred_distinct": 2,
+      "gold_distinct": 2
+    },
+    {
+      "id": 850,
+      "db": "formula_1",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 76,
+      "gold_rows": 3,
+      "pred_distinct": 3,
+      "gold_distinct": 3
+    },
+    {
+      "id": 854,
+      "db": "formula_1",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 11,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 857,
+      "db": "formula_1",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 9,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 868,
+      "db": "formula_1",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 19,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 1031,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 23,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
+    },
+    {
+      "id": 1035,
+      "db": "european_football_2",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 356,
+      "gold_rows": 161,
+      "pred_distinct": 161,
+      "gold_distinct": 161
+    },
+    {
+      "id": 1036,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 129,
+      "gold_rows": 128,
+      "pred_distinct": 128,
+      "gold_distinct": 128
+    },
+    {
+      "id": 1130,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 56,
+      "gold_rows": 43,
+      "pred_distinct": 43,
+      "gold_distinct": 43
+    },
+    {
+      "id": 1187,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 465,
+      "gold_rows": 63,
+      "pred_distinct": 63,
+      "gold_distinct": 63
+    },
+    {
+      "id": 1209,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 871,
+      "gold_rows": 38,
+      "pred_distinct": 38,
+      "gold_distinct": 38
+    },
+    {
+      "id": 1422,
+      "db": "student_club",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 45,
+      "gold_rows": 4,
+      "pred_distinct": 4,
+      "gold_distinct": 4
+    },
+    {
+      "id": 1435,
+      "db": "student_club",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 3,
+      "gold_rows": 2,
+      "pred_distinct": 2,
+      "gold_distinct": 2
+    },
+    {
+      "id": 1457,
+      "db": "student_club",
+      "diff": "challenging",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 11,
+      "gold_rows": 3,
+      "pred_distinct": 3,
+      "gold_distinct": 3
+    },
+    {
+      "id": 1506,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 933,
+      "gold_rows": 21,
+      "pred_distinct": 21,
+      "gold_distinct": 21
+    },
+    {
+      "id": 1514,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "as_set": true,
+      "as_multiset": false,
+      "pred_rows": 3,
+      "gold_rows": 1,
+      "pred_distinct": 1,
+      "gold_distinct": 1
     }
   ],
   "rows": [
     {
       "id": 5,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 11,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 12,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 17,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 23,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 24,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 25,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 26,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.SchoolType"
+    },
+    {
+      "id": 27,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 28,
+      "db": "california_schools",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 31,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 32,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 36,
+      "db": "california_schools",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 37,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 39,
       "db": "california_schools",
       "diff": "simple",
       "scorable": true,
@@ -57,8 +448,148 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 41,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 45,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 46,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 47,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 48,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 50,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 62,
+      "db": "california_schools",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: AvgScrRead"
+      "pred_error": "OperationalError: ambiguous column name: CDSCode"
+    },
+    {
+      "id": 72,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 77,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.Percent (%) Eligible FRPM (Ages 5-17)"
+    },
+    {
+      "id": 79,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 82,
+      "db": "california_schools",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 83,
+      "db": "california_schools",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: ambiguous column name: CDSCode"
+    },
+    {
+      "id": 85,
+      "db": "california_schools",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.District Code"
+    },
+    {
+      "id": 87,
+      "db": "california_schools",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 89,
@@ -67,8 +598,148 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 92,
+      "db": "financial",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 93,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: unrecognized token: \"\"\""
+      "pred_error": "OperationalError: no such column: A11"
+    },
+    {
+      "id": 94,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 95,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.A11"
+    },
+    {
+      "id": 98,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 99,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 100,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 112,
+      "db": "financial",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 115,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 116,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.balance"
+    },
+    {
+      "id": 117,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 118,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 125,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 128,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 129,
@@ -77,8 +748,148 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 136,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 137,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: d.A2"
+      "pred_error": "OperationalError: no such column: status"
+    },
+    {
+      "id": 137,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: status"
+    },
+    {
+      "id": 138,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 138,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 145,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 149,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 152,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 159,
+      "db": "financial",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 168,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 169,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 173,
+      "db": "financial",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 186,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 189,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 192,
@@ -91,9 +902,289 @@
       "pred_error": null
     },
     {
+      "id": 194,
+      "db": "financial",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 195,
+      "db": "toxicology",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 197,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 198,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 200,
+      "db": "toxicology",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 201,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 206,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 207,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 208,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 212,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 213,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 215,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 218,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 219,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
       "id": 220,
       "db": "toxicology",
       "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 226,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 227,
+      "db": "toxicology",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 228,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 230,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 231,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.bond_type"
+    },
+    {
+      "id": 232,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 234,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: molecule_id"
+    },
+    {
+      "id": 236,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 239,
+      "db": "toxicology",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 240,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 242,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 243,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 244,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 245,
+      "db": "toxicology",
+      "diff": "moderate",
       "scorable": true,
       "as_set": true,
       "as_multiset": true,
@@ -111,12 +1202,292 @@
       "pred_error": null
     },
     {
+      "id": 248,
+      "db": "toxicology",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 249,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 253,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 255,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 260,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 263,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 268,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 273,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 281,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 282,
+      "db": "toxicology",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: ambiguous column name: molecule_id"
+    },
+    {
+      "id": 327,
+      "db": "toxicology",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 340,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 341,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 344,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
       "id": 345,
       "db": "card_games",
       "diff": "moderate",
       "scorable": true,
       "as_set": true,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 346,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 347,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 349,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 352,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 356,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 358,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 366,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 368,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 371,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 377,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 379,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 383,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 391,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 397,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
     },
@@ -131,6 +1502,146 @@
       "pred_error": null
     },
     {
+      "id": 405,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 407,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 408,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 409,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 412,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 414,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 415,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 416,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 422,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 424,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 427,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 440,
+      "db": "card_games",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 459,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 462,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
       "id": 465,
       "db": "card_games",
       "diff": "moderate",
@@ -141,8 +1652,278 @@
       "pred_error": null
     },
     {
+      "id": 466,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 468,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 469,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: mtgoCode"
+    },
+    {
+      "id": 472,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 473,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 474,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 477,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 479,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 480,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 483,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.language"
+    },
+    {
+      "id": 484,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 486,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 487,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
       "id": 522,
       "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 528,
+      "db": "card_games",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.format"
+    },
+    {
+      "id": 529,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 530,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.frameVersion"
+    },
+    {
+      "id": 531,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 532,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 533,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 537,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 539,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 544,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 547,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 549,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 555,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 557,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 563,
+      "db": "codebase_community",
       "diff": "moderate",
       "scorable": true,
       "as_set": false,
@@ -155,10 +1936,150 @@
       "db": "codebase_community",
       "diff": "moderate",
       "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 567,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 568,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 571,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 572,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 573,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 576,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 578,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 581,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 584,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 586,
+      "db": "codebase_community",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 587,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T2.ClosureDate"
+      "pred_error": "OperationalError: no such table: postTags"
+    },
+    {
+      "id": 592,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 595,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.Views"
+    },
+    {
+      "id": 598,
+      "db": "codebase_community",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 604,
@@ -167,8 +2088,148 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.Age"
+    },
+    {
+      "id": 629,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
+    },
+    {
+      "id": 633,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 634,
+      "db": "codebase_community",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 637,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such table: postTags"
+    },
+    {
+      "id": 639,
+      "db": "codebase_community",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such table: postTags"
+    },
+    {
+      "id": 640,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 665,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: AnswerCount"
+    },
+    {
+      "id": 669,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 671,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 672,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 678,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 682,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: CreationDate"
+    },
+    {
+      "id": 683,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 685,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.Text"
     },
     {
       "id": 687,
@@ -181,12 +2242,282 @@
       "pred_error": null
     },
     {
-      "id": 732,
+      "id": 694,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 704,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 705,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 707,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 710,
+      "db": "codebase_community",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 716,
+      "db": "codebase_community",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 717,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 719,
       "db": "superhero",
       "diff": "moderate",
       "scorable": true,
       "as_set": true,
       "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 723,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 724,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 726,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 728,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: superhero.id"
+    },
+    {
+      "id": 730,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 732,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.publisher_name"
+    },
+    {
+      "id": 733,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 736,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 737,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 738,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 739,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 740,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 743,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.publisher_id"
+    },
+    {
+      "id": 744,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 745,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 747,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 750,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 751,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 753,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 758,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": true,
       "pred_error": null
     },
@@ -198,17 +2529,297 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T1.publisher_name"
+      "pred_error": "OperationalError: no such column: T2.publisher_id"
+    },
+    {
+      "id": 761,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 764,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 765,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 766,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 769,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 772,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 773,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 775,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 779,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 781,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 782,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 785,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 786,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 788,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.gender"
     },
     {
       "id": 790,
       "db": "superhero",
       "diff": "moderate",
       "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 791,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 792,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 794,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 796,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 797,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 798,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 800,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 801,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 806,
+      "db": "superhero",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 819,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 822,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 824,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 825,
+      "db": "superhero",
+      "diff": "moderate",
+      "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such function: SUBTRACT"
+      "pred_error": "OperationalError: no such column: T3.gender"
+    },
+    {
+      "id": 829,
+      "db": "superhero",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 846,
@@ -217,18 +2828,298 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
-      "pred_ok": false,
-      "pred_error": "OperationalError: no such column: driverRef"
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 847,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 850,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 854,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 857,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 859,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 861,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 862,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 865,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 866,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 868,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 869,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 872,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 875,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 877,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 879,
       "db": "formula_1",
       "diff": "moderate",
       "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 880,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 881,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 884,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 892,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 894,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 895,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 896,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: unrecognized token: \"\"\""
+      "pred_error": "OperationalError: no such column: T2.year"
+    },
+    {
+      "id": 897,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 898,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 901,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 902,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 904,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 906,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 909,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 910,
@@ -241,14 +3132,294 @@
       "pred_error": null
     },
     {
-      "id": 955,
+      "id": 912,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 915,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 928,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 930,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 931,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 933,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.year"
+    },
+    {
+      "id": 937,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 940,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 944,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 945,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 948,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 950,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 951,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 954,
       "db": "formula_1",
       "diff": "challenging",
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: year"
+      "pred_error": "OperationalError: no such column: T2.year"
+    },
+    {
+      "id": 955,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 959,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.year"
+    },
+    {
+      "id": 960,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 962,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.year"
+    },
+    {
+      "id": 963,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 964,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 967,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 971,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 972,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 977,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 978,
+      "db": "formula_1",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 981,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 988,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 989,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T3.country"
+    },
+    {
+      "id": 990,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 994,
@@ -257,16 +3428,296 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1001,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T2.name"
+      "pred_error": "OperationalError: no such column: T2.round"
+    },
+    {
+      "id": 1002,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1003,
+      "db": "formula_1",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1011,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1014,
+      "db": "formula_1",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.circuitId"
+    },
+    {
+      "id": 1025,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1028,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1029,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1030,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1031,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1032,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1035,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1036,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1037,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: birthday"
     },
     {
       "id": 1039,
       "db": "european_football_2",
       "diff": "simple",
       "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1040,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1042,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1044,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1048,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1057,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1058,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1068,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1076,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1078,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1079,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1080,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1084,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1088,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.volvies"
+    },
+    {
+      "id": 1091,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
     },
@@ -277,12 +3728,292 @@
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1094,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: season"
+      "pred_error": "OperationalError: incomplete input"
+    },
+    {
+      "id": 1096,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1098,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1102,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1103,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1105,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1107,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1110,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1113,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1114,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1115,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1116,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1122,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1124,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 1130,
       "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1133,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1134,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1135,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1136,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1139,
+      "db": "european_football_2",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1141,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: team_long_name"
+    },
+    {
+      "id": 1144,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1145,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1146,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1147,
+      "db": "european_football_2",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1148,
+      "db": "european_football_2",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1149,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1150,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1152,
+      "db": "thrombosis_prediction",
       "diff": "moderate",
       "scorable": true,
       "as_set": true,
@@ -295,10 +4026,150 @@
       "db": "thrombosis_prediction",
       "diff": "simple",
       "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1155,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1156,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1157,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1162,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1164,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1166,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1168,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1169,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1171,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1175,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: T2.Diagnosis"
+      "pred_error": "OperationalError: no such column: T1.HGB"
+    },
+    {
+      "id": 1179,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1185,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1187,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1189,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 1192,
@@ -311,19 +4182,439 @@
       "pred_error": null
     },
     {
-      "id": 1239,
+      "id": 1195,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1198,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1201,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1205,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: UA"
+    },
+    {
+      "id": 1208,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1209,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1220,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1225,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1227,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1229,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1231,
       "db": "thrombosis_prediction",
       "diff": "challenging",
       "scorable": true,
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such function: age"
+      "pred_error": "OperationalError: no such column: CPK"
+    },
+    {
+      "id": 1232,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1235,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.RBC"
+    },
+    {
+      "id": 1238,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: HGB"
+    },
+    {
+      "id": 1239,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1241,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1242,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1243,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1247,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: ambiguous column name: ID"
+    },
+    {
+      "id": 1251,
+      "db": "thrombosis_prediction",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1252,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: IGG"
+    },
+    {
+      "id": 1254,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1255,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1256,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: CRP"
+    },
+    {
+      "id": 1257,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1265,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1267,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1270,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1275,
+      "db": "thrombosis_prediction",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 1281,
       "db": "thrombosis_prediction",
       "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1302,
+      "db": "thrombosis_prediction",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: CPK"
+    },
+    {
+      "id": 1312,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1317,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1322,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1323,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1331,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1334,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1338,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1339,
+      "db": "student_club",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1340,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1344,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1346,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1350,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.event_status"
+    },
+    {
+      "id": 1351,
+      "db": "student_club",
+      "diff": "simple",
       "scorable": true,
       "as_set": true,
       "as_multiset": true,
@@ -341,6 +4632,146 @@
       "pred_error": null
     },
     {
+      "id": 1356,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1357,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1359,
+      "db": "student_club",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1361,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1362,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1368,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1371,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1375,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1376,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1378,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1380,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1381,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1387,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1389,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.link_to_event"
+    },
+    {
       "id": 1390,
       "db": "student_club",
       "diff": "moderate",
@@ -348,7 +4779,147 @@
       "as_set": false,
       "as_multiset": false,
       "pred_ok": false,
-      "pred_error": "OperationalError: no such column: event_name"
+      "pred_error": "OperationalError: no such column: T2.link_to_event"
+    },
+    {
+      "id": 1392,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1394,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1398,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1399,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1401,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.link_to_event"
+    },
+    {
+      "id": 1403,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1404,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.type"
+    },
+    {
+      "id": 1405,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1409,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1410,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1411,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1422,
+      "db": "student_club",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1426,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1427,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
     },
     {
       "id": 1432,
@@ -359,7 +4930,367 @@
       "as_multiset": true,
       "pred_ok": true,
       "pred_error": null
+    },
+    {
+      "id": 1435,
+      "db": "student_club",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1457,
+      "db": "student_club",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1460,
+      "db": "student_club",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1464,
+      "db": "student_club",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1471,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1472,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1473,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1476,
+      "db": "debit_card_specializing",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1479,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1480,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1481,
+      "db": "debit_card_specializing",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1482,
+      "db": "debit_card_specializing",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T2.IncreaseOrDecrease"
+    },
+    {
+      "id": 1483,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1484,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1486,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1490,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1493,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1498,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1500,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.ProductID"
+    },
+    {
+      "id": 1501,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1505,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1506,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1507,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1509,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1514,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1515,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1521,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1524,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1525,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1526,
+      "db": "debit_card_specializing",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1528,
+      "db": "debit_card_specializing",
+      "diff": "simple",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": false,
+      "pred_error": "OperationalError: no such column: T1.Country"
+    },
+    {
+      "id": 1529,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1531,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 1533,
+      "db": "debit_card_specializing",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 518,
+      "db": "card_games",
+      "diff": "moderate",
+      "scorable": true,
+      "as_set": false,
+      "as_multiset": false,
+      "pred_ok": true,
+      "pred_error": null
+    },
+    {
+      "id": 701,
+      "db": "codebase_community",
+      "diff": "challenging",
+      "scorable": true,
+      "as_set": true,
+      "as_multiset": true,
+      "pred_ok": true,
+      "pred_error": null
     }
   ],
-  "generated_at": "2026-08-18T09:39:21.006843+00:00"
+  "generated_at": "2026-08-19T09:56:09.563091+00:00"
 }

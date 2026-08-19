@@ -35,9 +35,9 @@
 | `companyx-sql-repeat-naive-norepair.json` | 1,322 | `e9b99c8da8c81c82` | 2026-07-29T12:49:47 |
 | `companyx-sql-repeat-naive.json` | 921 | `0b36b54e90223b19` | 2026-07-29T12:50:21 |
 | `companyx-vector.json` | 170,890 | `057090199c0e3935` | 2026-08-19T06:48:54 |
-| `external-bird-raw.json` | 9,821 | `9797f594286c9bf2` | — |
-| `external-bird-rescore.json` | 8,683 | `a8eee43a530ec2d9` | 2026-08-18T09:39:21 |
-| `external-bird-summary.json` | 681 | `23809a688a2d07e6` | — |
+| `external-bird-raw.json` | 160,294 | `c15df88691249d9f` | — |
+| `external-bird-rescore.json` | 113,529 | `77ad24afbce57923` | 2026-08-19T09:56:09 |
+| `external-bird-summary.json` | 1,042 | `545a11d0800b895b` | — |
 | `faults.json` | 1,013 | `dad1608540df9d8d` | — |
 | `internal-llm-raw.json` | 20,517 | `4e393d5e209919e8` | — |
 | `internal-llm-summary.json` | 1,209 | `dd32b14862160937` | — |

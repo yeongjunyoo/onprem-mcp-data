@@ -94,6 +94,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Routing generalisation (holdout 1, templated) | **27/30 = 0.900** | coverage 1.000, true misses 0. Wording disjoint from the published examples |  <!--metric:holdout1_strict-->
 | Routing generalisation (holdout 2, colloquial) | **19/30 = 0.633** | coverage 0.933, true misses 2. Business-user phrasing, all 7 ontology edge types |  <!--metric:holdout2_strict-->
 | NL2SQL execution match | **7/10** (1/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |
+| **External calibration (BIRD Mini-Dev, full 500)** | official set equality **243/500 = 0.486**, operational multiset 219/500 = 0.438 | all 11 DBs, difficulty 148/250/102 (official mix); zero sampling error. **A different, harder cross-domain dataset — not comparable with the internal rows above.** 2 gold queries exceed the 30s budget and are unscorable |
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
