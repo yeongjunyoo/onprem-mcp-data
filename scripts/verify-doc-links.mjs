@@ -44,7 +44,15 @@ const docs = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "u
 const ARCHIVE_DOC = "datasets/MANIFEST.md";
 const ARCHIVE_ROOT = resolve(ROOT, "datasets/companyx-v1.0");
 const ARCHIVE_PRESENT = existsSync(ARCHIVE_ROOT);
-const BACKTICK = /`([A-Za-z0-9_./-]+\/[A-Za-z0-9_./-]+)`/g;
+// 백틱 **span 안 어디든** 경로 모양이면 본다.
+// 처음엔 span 전체가 경로일 때만 봤는데 리뷰가 짚었다 -
+// `air-server/src/sql.ts 를 보라` · `cat docs/y.md` · `docs/report.md:439` 를 놓친다.
+// **매처의 모양이 곧 지켜지는 범위다.**
+//
+// 넓히면 거짓 유죄가 오므로 경로 모양을 좁게 정의한다:
+// 슬래시가 있고 **확장자로 끝난다.** `qwen2.5:7b`·`3/5`·`0.344` 는 안 걸린다.
+const SPAN = /`([^`\n]*)`/g;
+const PATHISH = /(?<![A-Za-z0-9_./-])([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)+\.[a-z]{2,5})/g;
 
 const fails = [];
 let checked = 0;
@@ -95,12 +103,15 @@ for (const doc of docs) {
       continue;
     }
     if (fenced) continue;
-    for (const m of lines[i].matchAll(BACKTICK)) {
+    const spans = [...lines[i].matchAll(SPAN)].map((x) => x[1]);
+    const seen = new Set();
+    for (const span of spans) for (const m of span.matchAll(PATHISH)) {
       const p = m[1];
+      if (seen.has(p)) continue;
+      seen.add(p);
       // `DOC-001..040.md` 는 범위 표기지 파일이 아니다. 상대경로(`../`) 인용이
       // 저장소에 0건임을 확인하고 `..` 을 범위로만 해석한다.
       if (p.includes("..") || p.includes("://") || p.startsWith("http")) continue;
-      if (!/\.[a-z]{2,5}$/.test(p)) continue;
       if (p.startsWith("node_modules/") || p.startsWith("dist/")) continue;
       backtickChecked++;
       if (existsSync(resolve(ROOT, p))) continue;
