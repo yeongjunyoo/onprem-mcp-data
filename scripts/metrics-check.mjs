@@ -224,6 +224,14 @@ const birdSummary = readJson("eval/results/external-bird-summary.json");
 canonical.bird_official = birdRescore.official_set.accuracy.toFixed(3);
 canonical.bird_multiset = birdRescore.operational_multiset.accuracy.toFixed(3);
 canonical.bird_exec_pct = String(birdSummary.executionAccuracy);
+// 백분율 표기. 발표 대본은 말로 하는 문서라 `0.344` 라고 읽지 않는다 -
+// 「34.4%」라고 말한다. 표기를 문서에 맞추라고 요구할 수 없다.
+// 손으로 적지 않고 분수에서 계산한다 - 하드코딩된 값은 다시 갈린다.
+// (multiset 쪽 백분율은 위 bird_exec_pct 가 이미 그것이다.)
+canonical.bird_official_pct = (
+  (birdRescore.official_set.correct / birdRescore.official_set.of) *
+  100
+).toFixed(1);
 // bird_sampled(32) 는 **일부러 넣지 않는다.** 위 대역 검사가 부분문자열로 보는데
 // 324(데이터셋 없는 CI 단언 수) 안의 32 에 걸려 거짓 유죄가 났다.
 // **정본에 넣는 값은 자기를 식별할 수 있어야 한다** — 두 자리 수는 못 한다.
