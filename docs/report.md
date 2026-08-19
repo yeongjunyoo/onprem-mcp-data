@@ -426,7 +426,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 ## 5. 검색 품질 (단순화가 품질을 희생하지 않음)
 
-- **내부 SQL execution-match: 81/100 = 81.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). 100문항·16종 taxonomy. 오답 19 = 값 영문화(의류→clothing, 서울→seoul)·환각 필터·여분 컬럼·복합 join으로, strict 비교기가 정확히 적발(거짓 통과 없음).
+- **내부 SQL execution-match: 81/100 = 81.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). **이 값은 로컬 7B 가 SQL 을 생성하므로 재실행 간 흔들릴 수 있다** — 2026-08-18 에 두 번 돌려 두 번 다 81/100 이었고, 직전 정본(2026-06-30 측정)은 83/100 이었다. 7주 사이 코드·의존성이 바뀌었고 **어느 변경이 2점을 움직였는지는 특정하지 못했다.** 그래서 낮은 쪽을 적는다. 100문항·16종 taxonomy. 오답 19 = 값 영문화(의류→clothing, 서울→seoul)·환각 필터·여분 컬럼·복합 join으로, strict 비교기가 정확히 적발(거짓 통과 없음).
 - **Ablation matrix — 컴포넌트별 기여(동일 100문항·`mcp_ro` 오라클·LLM저지 없음):**
   - template-only(결정론, 모델 없음, 단일테이블 하드코딩) = **1/100 = 1.0%** — 하드와이어 템플릿은 실 다중테이블로 일반화 불가.
   - naive LLM(bare 테이블명) = **30/100 = 30.0%** — 환각 컬럼·오류 enum 다발.
