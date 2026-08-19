@@ -179,7 +179,13 @@ async function main() {
     rows = saved.rows ?? [];
     console.log(`[resume] ${meta.model} 로 잰 이전 진행분 ${rows.length}문항을 이어받는다.`);
   }
-  const done = new Set(rows.map((r) => r.id));
+  // 완료 키는 **발생 횟수**다. question_id 는 고유하지 않다 — Mini-Dev 는 q137·q138 을
+  // 각각 두 번 수록하므로(상류 데이터셋의 성질) Set 으로 거르면 첫 발생을 이어받는 순간
+  // 둘째 발생까지 통째로 건너뛰어 499행으로 끝나면서 sampled 는 500 이라고 적는다.
+  // 이미 채점한 개수만큼만 건너뛴다.
+  const doneCounts = new Map<number, number>();
+  for (const r of rows) doneCounts.set(r.id, (doneCounts.get(r.id) ?? 0) + 1);
+  const seenCounts = new Map<number, number>();
   let correct = rows.filter((r) => r.ok).length;
   const byDiff: Record<string, { c: number; n: number }> = {};
   for (const r of rows) {
@@ -188,7 +194,9 @@ async function main() {
     if (r.ok) byDiff[r.diff].c++;
   }
   for (const it of sample) {
-    if (done.has(it.question_id)) continue;
+    const nth = (seenCounts.get(it.question_id) ?? 0) + 1;
+    seenCounts.set(it.question_id, nth);
+    if (nth <= (doneCounts.get(it.question_id) ?? 0)) continue;
     const db = resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`);
     let matched = false, predOk = false, goldOk = false, goldTimedOut = false, pred: string | null = null;
     try {
@@ -260,12 +268,11 @@ async function main() {
     console.log(`\n주의: gold ${goldSlow.length}문항이 30초 한도를 넘겨 **채점 불가**다 — q${goldSlow.map((r) => r.id).join(", q")}`);
     console.log("  느린 것이지 깨진 것이 아니다. 요약에 그대로 적고 정확도를 두 벌 낸다.\n");
   }
-  if (false) {
-    const goldFailed: Row[] = [];
-    console.error(`\n실패: gold SQL ${goldFailed.length}/${rows.length}문항이 실행되지 않았다 — 채점기 환경 문제다.`);
-    console.error(`  첫 실패: q${goldFailed[0].id}`);
-    console.error("  sqlite3 와 Mini-Dev 데이터가 온전한지 확인한다. 결과 파일을 쓰지 않았다.");
-    console.error("  (gold 가 전부 도는데 예측이 0개면 그건 **정당한 0/N** 이라 기록한다.)\n");
+  // 요약을 쓰기 전에 **채점한 행 수가 표본 크기와 같은지** 확인한다. resume 이 한 문항을
+  // 흘리고도 sampled 에 표본 크기를 적으면 그 불일치는 산출물 안에서 조용히 산다.
+  if (rows.length !== sample.length) {
+    console.error(`\n실패: 채점 ${rows.length}행인데 표본은 ${sample.length}문항이다 — 결과 파일을 쓰지 않았다.`);
+    console.error("  체크포인트를 지우고 다시 돌린다.\n");
     process.exit(1);
   }
 
