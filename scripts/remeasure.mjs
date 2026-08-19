@@ -21,7 +21,7 @@
 // 실행: node scripts/remeasure.mjs
 // 필요: docker compose up -d, npm run companyx:load
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,6 +61,10 @@ const EVALS = [
   ["companyx:holdout2", "홀드아웃2(구어체)"],
   ["companyx:multistep", "다단계"],
   ["fault:inject", "장애 주입"],
+  // 규칙 지문. §8.5 가 이 값을 "보장" 으로 적으므로 여기서 재야 한다 —
+  // **보장이라 적었으면 재야 하고, 안 재면 그 줄이 곧 거짓이다**(2026-08-18 리뷰).
+  // 같은 파일의 pipeline_stable 은 관측이라 아래에서 비교 대상에서 뺀다.
+  ["companyx:audit", "규칙 지문 안정성"],
 ];
 
 /** 여기서 빼는 것 — 뺀 것을 숨기지 않는다. */
@@ -93,6 +97,22 @@ for (const [script, label] of EVALS) {
   } catch (e) {
     failed.push([script, (e.stderr || e.stdout || String(e)).split("\n").slice(-3).join(" ").slice(0, 140)]);
     console.error(`  ${label.padEnd(22)} 실패`);
+  }
+}
+
+// audit 결과의 **관측 축**(pipeline_stable)은 실행마다 달라지는 것이 정상이다.
+// 정본 대조에 넣으면 매번 빨개지고, 빨개지는 검사는 꺼진다. 규칙 축만 본다.
+{
+  const p = resolve(ROOT, "eval/results/companyx-audit.json");
+  if (existsSync(p)) {
+    const a = JSON.parse(readFileSync(p, "utf8"));
+    const rs = a?.summary?.routing_stable;
+    const n = a?.summary?.determinism_checked;
+    console.log(`  규칙 지문: ${rs}/${n} (보장) · 파이프라인: ${a?.summary?.pipeline_stable}/${n} (관측, 비교 안 함)`);
+    if (rs !== n) {
+      console.error(`\n실패: 규칙 지문이 ${rs}/${n} 이다 — 같은 질의에서 라우팅·정책은 항상 같아야 한다.\n`);
+      process.exitCode = 1;
+    }
   }
 }
 
