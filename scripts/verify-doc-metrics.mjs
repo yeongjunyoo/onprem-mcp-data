@@ -157,7 +157,39 @@ for (const doc of DOCS) {
   }
 }
 
+// 분수와 그 퍼센트가 한 자리에 같이 적히면 **사본이 둘**이다.
+//
+// 2026-08-18. 위조 시험에서 `81/100=**81.0%**` 를 `81/100=**81.77%**` 로 바꿨는데
+// 위 SUBJECTS 대조가 통과했다 - 줄에 `81` 이 남아 있어서다.
+// **정본 대조는 분자를 보고 파생 퍼센트는 안 본다.**
+//
+// 이 검사는 정본이 필요 없다. 81/100 은 81.0% 여야 한다 - 무엇이 정본이든.
+// 그래서 새 지표가 생겨도 자동으로 덮인다.
+const FRAC = /(\d{1,4})\s*\/\s*(\d{1,4})\s*\**\s*=\s*\**\s*(\d{1,3}(?:\.\d+)?)\s*%/g;
+let derived = 0;
+for (const doc of DOCS) {
+  const lines = readFileSync(resolve(ROOT, doc), "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes("<!--metric-ok-->")) continue;
+    for (const m of lines[i].matchAll(FRAC)) {
+      const [num, den] = [Number(m[1]), Number(m[2])];
+      if (den === 0) continue;
+      derived++;
+      // 반올림 자릿수를 문서 표기에 맞춘다 - 89.5 를 90 이라 쓰면 그건 다른 주장이다.
+      const dec = m[3].includes(".") ? m[3].split(".")[1].length : 0;
+      const real = Number(((num / den) * 100).toFixed(dec));
+      if (real !== Number(m[3])) {
+        fails.push(
+          `${doc}:${i + 1} - ${m[0].trim()} 는 산술이 안 맞는다 (실제 ${real}%)\n` +
+            `    ${lines[i].trim().slice(0, 100)}`,
+        );
+      }
+    }
+  }
+}
+
 console.log(`지표를 말하는 자리 ${scanned}곳을 정본과 대조했다 (문서 ${DOCS.length}개).`);
+console.log(`분수=퍼센트 표기 ${derived}건의 산술도 봤다.`);
 
 if (fails.length) {
   console.error("\n정본과 어긋나는 자리:");
