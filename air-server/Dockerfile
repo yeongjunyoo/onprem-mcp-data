@@ -1,5 +1,5 @@
 # air MCP server (onprem-mcp-data). On-prem, no external API at runtime.
-# DB (PostgreSQL+pgvector) and the model runtime (Ollama: qwen2.5:7b + bge-m3)
+# DB (PostgreSQL+pgvector) and the model runtime (Ollama: qwen2.5-coder:7b + bge-m3)
 # run as sibling services; this image is just the air MCP server.
 FROM node:20-slim
 

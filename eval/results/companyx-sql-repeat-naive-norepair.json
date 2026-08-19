@@ -1,16 +1,19 @@
 {
   "strategy": "naive",
+  "model": "qwen2.5-coder:7b",
   "repair_enabled": false,
-  "repeats": 3,
+  "repeats": 5,
   "total": 10,
   "scores": [
-    2,
-    2,
-    2
+    1,
+    1,
+    1,
+    1,
+    1
   ],
-  "median": 2,
-  "min": 2,
-  "max": 2,
+  "median": 1,
+  "min": 1,
+  "max": 1,
   "always_wrong": [
     "CX-SQL-01",
     "CX-SQL-02",
@@ -18,13 +21,14 @@
     "CX-SQL-05",
     "CX-SQL-06",
     "CX-SQL-07",
+    "CX-SQL-08",
     "CX-SQL-09",
     "CX-SQL-10"
   ],
   "flaky": [],
   "runs": [
     {
-      "correct": 2,
+      "correct": 1,
       "total": 10,
       "wrong": [
         "CX-SQL-01",
@@ -33,12 +37,14 @@
         "CX-SQL-05",
         "CX-SQL-06",
         "CX-SQL-07",
+        "CX-SQL-08",
         "CX-SQL-09",
         "CX-SQL-10"
-      ]
+      ],
+      "model": "qwen2.5-coder:7b"
     },
     {
-      "correct": 2,
+      "correct": 1,
       "total": 10,
       "wrong": [
         "CX-SQL-01",
@@ -47,12 +53,14 @@
         "CX-SQL-05",
         "CX-SQL-06",
         "CX-SQL-07",
+        "CX-SQL-08",
         "CX-SQL-09",
         "CX-SQL-10"
-      ]
+      ],
+      "model": "qwen2.5-coder:7b"
     },
     {
-      "correct": 2,
+      "correct": 1,
       "total": 10,
       "wrong": [
         "CX-SQL-01",
@@ -61,11 +69,45 @@
         "CX-SQL-05",
         "CX-SQL-06",
         "CX-SQL-07",
+        "CX-SQL-08",
         "CX-SQL-09",
         "CX-SQL-10"
-      ]
+      ],
+      "model": "qwen2.5-coder:7b"
+    },
+    {
+      "correct": 1,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-01",
+        "CX-SQL-02",
+        "CX-SQL-03",
+        "CX-SQL-05",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-08",
+        "CX-SQL-09",
+        "CX-SQL-10"
+      ],
+      "model": "qwen2.5-coder:7b"
+    },
+    {
+      "correct": 1,
+      "total": 10,
+      "wrong": [
+        "CX-SQL-01",
+        "CX-SQL-02",
+        "CX-SQL-03",
+        "CX-SQL-05",
+        "CX-SQL-06",
+        "CX-SQL-07",
+        "CX-SQL-08",
+        "CX-SQL-09",
+        "CX-SQL-10"
+      ],
+      "model": "qwen2.5-coder:7b"
     }
   ],
   "note": "temperature 0과 seed를 고정해도 로컬 7B는 실행마다 흔들린다. n=10에서 한 문항은 10pp이므로 단일 실행 수치를 헤드라인으로 쓰지 않는다.",
-  "generated_at": "2026-07-29T12:49:47.760Z"
+  "generated_at": "2026-08-19T13:44:25.489Z"
 }

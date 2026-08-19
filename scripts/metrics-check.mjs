@@ -223,6 +223,17 @@ canonical.nl2sql_repair = `${(sqlRe.summary ?? sqlRe).correct}/10`;
   // **정본에 없는 값은 문서에서 자유롭게 썩는다.**
   canonical.nl2sql_repairs = String((readJson("eval/results/companyx-sql-llm.json").summary ?? readJson("eval/results/companyx-sql-llm.json")).repaired_queries);
   canonical.nl2sql_naive_repairs = String(a.repaired_queries);
+
+  // 반복 횟수와 반복 점수. 원고가 「N회 반복 동일」이라 쓰는데 정본에 없어서
+  // 검사가 소유하지 않았다(2026-08-19 리뷰 D-3) - 재지 않은 반복을 주장할 수 있었다.
+  {
+    const rp = readJson("eval/results/companyx-sql-repeat-llm-norepair.json");
+    const rn = readJson("eval/results/companyx-sql-repeat-naive-norepair.json");
+    canonical.nl2sql_repeats = String(rp.repeats);
+    canonical.nl2sql_norepair_stable = new Set(rp.scores).size === 1 ? "동일" : "흔들림";
+    canonical.nl2sql_naive_repeats = String(rn.repeats);
+    canonical.nl2sql_naive_stable = new Set(rn.scores).size === 1 ? "동일" : "흔들림";
+  }
 }
 
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
@@ -380,7 +391,10 @@ if (kr.length && en.length) {
     // 반드시 이스케이프한다.
     const hasValue = (text, v) =>
       new RegExp(`(?<!\\d)${v.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&")}(?!\\d)`).test(text);
+    // 대역은 **숫자 지표**만 본다. 「동일/흔들림」 같은 판정 문자열은 번역되므로
+    // 한쪽에만 있는 것이 정상이다 - 2026-08-19 에 nl2sql_*_stable 이 거짓 유죄를 냈다.
     const lopsided = Object.entries(canonical)
+      .filter(([, v]) => /[0-9]/.test(v))
       .filter(([, v]) => hasValue(koText, v) !== hasValue(enText, v))
       .map(([k, v]) => `${k}(${v}) — ${hasValue(koText, v) ? "한국어에만" : "영어에만"}`);
     if (lopsided.length) {
