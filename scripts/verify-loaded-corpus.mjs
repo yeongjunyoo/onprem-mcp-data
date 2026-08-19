@@ -179,7 +179,14 @@ const modelDrift = [];
       embedding_length: pick("embedding_length"),
     };
     for (const [k, v] of Object.entries(fields)) {
-      if (v === null || v === undefined) continue;
+      // 문서에서 못 읽었으면 **건너뛰지 않고 실패**한다. 2026-08-18 재현: 표기를
+      // "Ollama `qwen2.5:7b`, Q4_K_M," → "Ollama qwen2.5:7b — 양자화 Q4_K_M," 로
+      // 바꾸니 정규식이 안 맞아 값이 null 이 되고 **그 항목이 통째로 사라진 채 exit 0**
+      // 이었다. 값을 못 읽는 것은 "검사할 게 없다" 가 아니라 **검사가 눈이 멀었다** 이다.
+      if (v === null || v === undefined) {
+        modelDrift.push(`${model} ${k}: docs/ai-model-spec.md 에서 값을 읽지 못했다 — 표기가 바뀌었는지 확인한다`);
+        continue;
+      }
       console.log(`  ${model} ${k.padEnd(18)} 문서 ${String(v).padStart(7)}  실제 ${String(got[k]).padStart(7)}`);
       if (String(got[k]) !== String(v)) {
         modelDrift.push(`${model} ${k}: 문서 ${v} · 실제 ${got[k]}`);
