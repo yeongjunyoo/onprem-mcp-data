@@ -4,7 +4,8 @@
 #   docker compose --profile full run --rm -T mcp
 # `--profile full up` 은 쓰지 않는다 — 이 서버는 TCP 를 듣지 않아 데몬으로 띄워도
 # 아무 데도 붙을 수 없고, 컨테이너만 남는다(실측).
-# NOTE: model choice pending license-gate confirm (default Qwen2.5-7B, Apache-2.0).
+# NOTE: 생성 모델 기본값 = qwen2.5-coder:7b (Apache-2.0, 2026-08-19 실측으로 확인).
+#       라이선스 근거 = NOTICE · docs/sbom.md · docs/model-cards/qwen2.5-coder-7b.md
 services:
   db:
     image: pgvector/pgvector:pg16   # 문서와 측정 환경이 16이다. 이미지도 16으로 고정한다.

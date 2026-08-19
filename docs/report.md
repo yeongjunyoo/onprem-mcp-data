@@ -36,7 +36,7 @@
 |---|---|---|---|
 | **라우터** | 공식 30문항 도구 라벨 일치 | **30/30 = 100%**, 20회 재실행 바이트 동일 | 사업자가 붙인 `tool` 라벨 (외부 라벨) |
 | **NL2SQL** (재시도 없음) | execution match, 큐레이션 스키마카드 | **5~7/10** (세션 간 변동, §0.10) | gold SQL 실행 결과 = DB (LLM 저지 없음) |
-| **NL2SQL** (재시도 없음, ablation) | execution match, 테이블명만 | **2/10 = 20%** (8회 반복 동일) → **Δ +30~+50pp** | 동일 |
+| **NL2SQL** (재시도 없음, ablation) | execution match, 테이블명만 | **1/10 = 10%** (3회 반복 동일) → **Δ +30~+50pp** | 동일 |
 | **NL2SQL** (self-repair 1회) | 스키마카드 **7~8/10** / 테이블명만 **7/10** | Δ가 **0~+10pp로 축소**, 남는 차이는 재시도 2회 vs 6회 | 동일 |
 | **end-to-end `ask`** | 컨텍스트에 정답 근거 포함 | **91~96%** (7B 비결정성으로 run 간 변동) | 레인별 gold |
 | **end-to-end `ask`** | 답변 접지 (컨텍스트 밖 개체 생성) | **0건 / 18문항**, 3회 연속 | 답변 개체 ⊆ 컨텍스트 |
@@ -212,7 +212,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 | 조건 | 이번 세션 (반복 횟수) | 이전 세션 | 채택 표기 |
 |---|---|---|---|
 | 스키마 카드, 재시도 없음 | **5/10** (5회 전부 동일) | 7/10 | **5~7/10** |
-| 테이블명만, 재시도 없음 | **2/10** (3회 전부 동일) | 2/10 | **2/10** |
+| 테이블명만, 재시도 없음 | **1/10** (3회 전부 동일) | 1/10 | **1/10** |
 | 스키마 카드, 재시도 1회 | **7/10** (5회 전부 동일, 재시도 2회) | 8/10 | **7~8/10** |
 | 테이블명만, 재시도 1회 | **7/10** (3회 전부 동일, 재시도 6회) | 7/10 | **7/10** |
 
@@ -580,7 +580,7 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 - 장애: `eval/results/faults.json`. 클러스터: `scripts/replica-spike.sh` + `eval/results/replica-spike.log`.
 - 데모: `air-server/src/cli/demo.ts` 실행 로그. 토폴로지: `docs/architecture.md`.
 - **공식 데이터셋(Company-X):** 무결성·출처 `datasets/MANIFEST.md`(SHA-256 고정), 취득 `scripts/fetch-companyx-dataset.sh`, 적재 `air-server/src/companyx.ts`. 결과 `eval/results/companyx-{load,route,sql-llm,sql-naive,kg,vector}.json`. 오라클 정의 `eval/companyx/{sql_gold.jsonl,kg_gold.json,vector_gold.json}`. 회귀 `air-server/src/companyx.test.ts`(46 단언, `npm run test:companyx`). end-to-end `air-server/src/cli/companyx-ask-eval.ts` → `eval/results/companyx-ask.json`. 프로파일 `air-server/src/profile.ts`.
-- 라이선스/모델: `LICENSE`(Apache-2.0), `NOTICE`, `docs/model-cards/{qwen2.5-7b,bge-m3}.md`.
+- 라이선스/모델: `LICENSE`(Apache-2.0), `NOTICE`, `docs/model-cards/{qwen2.5-coder-7b,bge-m3}.md`.
 ### 다시 뽑는 법
 
 파일이 있다는 것과 다시 만들 수 있다는 것은 다르다. 아래는 각 수치를 실제로 내는 명령이다.

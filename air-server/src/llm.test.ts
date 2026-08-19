@@ -1,4 +1,4 @@
-// LLM (Qwen2.5-7B via Ollama) end-to-end answer test.
+// LLM (생성 모델(기본 Qwen2.5-Coder-7B) via Ollama) end-to-end answer test.
 // Skips gracefully when the model is not pulled / Ollama is unreachable, so the
 // suite stays green in air-gapped CI; runs for real when the model is present.
 import { getPool, closePool } from "./db.js";

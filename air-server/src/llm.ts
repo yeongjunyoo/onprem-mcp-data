@@ -1,4 +1,4 @@
-// L7 — on-prem answer generation via a local Ollama (Qwen2.5-7B by default).
+// L7 — on-prem answer generation via a local Ollama (Qwen2.5-Coder-7B by default).
 //
 // The model is Apache-2.0 and runs entirely on-prem (no external API), matching
 // the license gate. Generation is pinned to temperature 0 + a fixed seed so the
@@ -60,7 +60,10 @@ export async function isAvailable(model = MODEL): Promise<boolean> {
  *
  * The three extra rules below are not prompt decoration, they are fixes for
  * failures observed on the sponsor's own 30 questions (eval/results/companyx-ask.json):
- *   * language lock  — Qwen2.5-7B code-switches into Chinese mid-answer on Korean
+ *   * language lock  — Qwen 계열이 한국어 질의에서 답변 중간에 중국어로 넘어가는 것을
+ *                      2026-07 에 `qwen2.5:7b` 로 관측했다. 모델을 바꾼 뒤 같은 현상을
+ *                      다시 관측하지는 않았다 — 그래도 잠금은 유지한다(비용 0, 위험 큼).
+ *                      원 관측:
  *     business text ("클라우德迁移建议书"). Two of 30 answers were unusable.
  *   * relation lines — the graph lane hands over "A -부서장은-> B" triples; without
  *     an explicit instruction the model read the triple as unrelated tokens and

@@ -1,6 +1,6 @@
 // Gate5 — internal contest-grade benchmark runner (SQL execution-match).
 //
-// Strategy (BENCH_STRATEGY): "llm" (default) = Qwen2.5-7B benchNL2SQL over the
+// Strategy (BENCH_STRATEGY): "llm" (default) = 생성 모델(기본 Qwen2.5-Coder-7B) benchNL2SQL over the
 // bench schema card. Each predicted SQL and the gold SQL are executed under the
 // least-privilege mcp_ro role; results are compared with the strict execution
 // matcher honoring per-question metadata (ordered / numericTolerance / ...).
