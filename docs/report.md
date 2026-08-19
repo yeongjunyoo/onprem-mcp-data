@@ -436,7 +436,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 - **canonical 3-way RRF:** "전자제품 환불 규정" → `entity:policy#1001`이 vector+graph 양쪽에서 나와 2 source 누적·rank 1 (`kgretrieve.test`).
 - **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행.
 
-  **2026-08-17 정정.** 이 항목의 이전 표기 `7/32 = 21.9%`는 **BIRD 공식 execution accuracy가 아니었다.** 우리 비교기는 행 튜플의 **다중집합** 동등(중복 개수까지 일치)을 요구하는데, 공식은 `set(pred) == set(gold)`로 **중복을 무시**한다. 같은 이름을 쓰는 다른 지표였다.
+  **2026-08-17 정정.** 이 항목의 이전 표기 `7/32 = 21.9%`는 **BIRD 공식 execution accuracy가 아니었다.** 우리 비교기는 행 튜플의 **다중집합** 동등(중복 개수까지 일치)을 요구하는데, 공식은 `set(pred) == set(gold)`로 **중복을 무시**한다. 같은 이름을 쓰는 다른 지표였다. <!--metric-ok-->
 
   저장된 예측 SQL을 재실행해(모델 재추론 없음) 두 의미로 각각 채점했다 — `scripts/rescore_bird.py`, 원자료 `eval/results/external-bird-rescore.json`.
 

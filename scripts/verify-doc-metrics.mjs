@@ -49,6 +49,15 @@ for (const m of out.matchAll(/^\s+([a-z_0-9]+) = (.+)$/gm)) canonical[m[1]] = m[
 
 /** 지표를 말하는 자리인지 알아보는 패턴과, 그 자리에 있어야 할 정본. */
 const SUBJECTS = [
+  // 외부 BIRD. 2026-08-18 완결 감사에서 정본에 없다는 걸 알았고 metrics-check 에
+  // 넣었다. **등록과 소비는 다르다**(PR #195) - 여기 없으면 문서는 계속 자유롭다.
+  //
+  // 한 줄에 0.344(공식 set)와 0.312(운영 multiset)가 같이 나온다. 그게 논지라
+  // 갈라 봐야 한다 - 위 multi-hit 창 규칙이 「주제 바로 뒤의 값」을 본다.
+  // 창을 넓게 잡는다: `공식 set 동등 0.344와 이 저장소의 운영 multiset 동등 0.312`
+  { re: /공식 set 동등|official set/i, key: "bird_official", val: /0\.\d{3}/g, window: 45 },
+  { re: /운영 multiset 동등|operational multiset/i, key: "bird_multiset", val: /0\.\d{3}/g, window: 45 },
+  { re: /execution accuracy|실행 정확도/i, key: "bird_exec_pct", val: /\d{1,2}\.\d/g, window: 40 },
   // `hit@5` 를 생략한 짧은 표기("벡터 0.985")도 본다. 2026-08-18 실측에서 그 표기가
   // 규칙 밖이라 낡은 채로 남아 있었다 — **같은 사실을 짧게 쓰면 검사가 못 본다.**
   // 오늘 도구 수(숫자 선행)·단언 수(중간에 단어)에서도 같은 형태를 겪었다.
@@ -115,6 +124,18 @@ for (const doc of DOCS) {
       continue;
     }
     if (fenced || line.includes("<!--metric-ok-->")) continue;
+    // 산문은 문단으로 쓰이는데 검사는 줄에서 끊는다. 2026-08-18: BIRD 세 자리가
+    // 전부 **값이 다음 줄에** 있어 걸렸다. 기존 45자리가 통과한 건 마침 같은 줄에
+    // 있어서다 - 운이었다.
+    //
+    // 한 줄만 잇는다. 빈 줄·펜스 경계에서 끊는다.
+    // 넓은 측정은 거짓 유죄를 만들고 **넓은 창은 거짓 무죄를 만든다.**
+    const nxt = lines[i + 1];
+    const ctx =
+      nxt !== undefined && nxt.trim() !== "" && !/^\s*```/.test(nxt) &&
+      !nxt.includes("<!--metric-ok-->")
+        ? `${line} ${nxt}`
+        : line;
     for (const m of line.matchAll(FRAC)) {
       const [num, den] = [Number(m[1]), Number(m[2])];
       if (den === 0) continue;
@@ -143,7 +164,18 @@ for (const doc of DOCS) {
     const hit = SUBJECTS.filter((s) => s.re.test(line) && canonical[s.key]);
     if (hit.length > 1) {
       for (const s of hit) {
-        const at = line.search(s.re);
+        // 주제가 한 줄에 여러 번 나오면 **자리마다** 본다. 2026-08-18:
+        // roadmap:22 는 `2차(구어체)` 와 `구어체 strict 0.633` 두 곳에 주제가
+        // 있는데 첫 자리만 봐서 값이 창 밖이었다.
+        //
+        // 창을 넓히는 건 나쁜 처방이다 - 남의 값이 들어와 거짓 무죄가 난다.
+        // 사람은 창을 넓혀 읽지 않고 **주제가 나오는 자리마다** 근처를 본다.
+        const reAll = new RegExp(
+          s.re.source,
+          s.re.flags.includes("g") ? s.re.flags : `${s.re.flags}g`,
+        );
+        const ats = [...ctx.matchAll(reAll)].map((m) => m.index);
+        const at = ats.length ? ats[0] : line.search(s.re);
         // 창은 **양방향**이다. 한국어는 값이 주제 앞에 오기도 한다 —
         // "0.900은 템플릿 문형, 0.633이 구어체다"(report.md:362). 뒤만 보면
         // 0.900 을 놓치고 0.633 을 홀드아웃1 것으로 오독한다.
@@ -151,13 +183,42 @@ for (const doc of DOCS) {
         // `execution-match: 81/100 = 83.0%` 라 ±30자로는 **% 가 창 밖**이라
         // 값이 0개가 되고 건너뛰어졌다 — 넓히지 않으면 그 규칙은 없는 것과 같다.
         const w = s.window ?? 30;
-        let near = line.slice(Math.max(0, at - w), at + w);
+        let near = (ats.length ? ats : [at])
+          .map((a) => ctx.slice(Math.max(0, a - w), a + w))
+          .join(" \u0001 ");
         // 규칙이 strip 을 주면 그 패턴을 먼저 지운다. 2026-08-18 위조 시험:
         // `81/100 = 83.0%` 에서 분수 안의 81 이 값 집합에 들어가 **퍼센트만 틀린 자리**가
         // 통과했다. 분수를 지우면 퍼센트만 남는다.
         if (s.strip) near = near.replace(s.strip, " ");
         const vals = [...near.matchAll(s.val)].map((m) => m[0]);
-        if (vals.length === 0) continue; // 멀리 있는 값은 남의 것이다
+        if (vals.length === 0) {
+          // 창엔 없는데 **줄에는 그 모양의 값이 있다**면 「값이 없다」가 아니라
+          // **「창이 잘못됐다」**이다. 2026-08-18: bird_official 창 20 이
+          // `0.344` 를 반토막 내 위조가 통과했다 - PR #205 와 같은 함정을
+          // 다른 파일에서 다시 팠다.
+          //
+          // 창이 **완전히 빈 경우에만** 본다. 다중 주제 줄에서 남의 값이 창 밖에
+          // 있는 건 정상이라(473행: 공식 0.344 · 운영 0.312) 그때는 자기 값이
+          // 창 안에 있어 여기 안 온다.
+          // 전역 정규식의 test() 는 lastIndex 를 전진시켜 **뒤의 matchAll 을
+          // 오염**시킨다. 실제로 그 탓에 빈 창 실패 5건이 헛으로 떴다.
+          // 상태 없는 사본으로 본다.
+          // 신호는 「값 모양」이 아니라 **정본 값 그 자체**여야 한다.
+          // 모양으로 보면 roadmap:22 처럼 1차·2차를 같이 말하며 2차 값만 인용한
+          // **옳은 문장**을 문다 - 기존 주석이 이미 지목한 줄인데 같은 방식으로
+          // 두 번 걸렸다.
+          //
+          // 정본 값이 줄에 있는데 창이 못 닿았다면 그건 설정 오류가 **확실**하다.
+          // 다른 지표의 값은 정본이 다르니 안 걸린다.
+          if (line.includes(canonical[s.key])) {
+            fails.push(
+              `${doc}:${i + 1} - ${s.key} 의 창(${w}자)에 값이 하나도 안 잡혔는데 ` +
+                `줄에는 그 모양의 값이 있다. **창이 좁아 조용히 건너뛰는 중이다** - ` +
+                `window 를 넓힌다.\n    ${line.trim().slice(0, 100)}`,
+            );
+          }
+          continue; // 멀리 있는 값은 남의 것이다
+        }
         scanned++;
         if (!vals.includes(canonical[s.key])) {
           fails.push(
@@ -173,7 +234,7 @@ for (const doc of DOCS) {
       if (!s.re.test(line)) continue;
       const want = canonical[s.key];
       if (!want) continue;
-      const vals = [...line.matchAll(s.val)].map((m) => m[0]);
+      const vals = [...ctx.matchAll(s.val)].map((m) => m[0]);
       if (vals.length === 0) continue;
       scanned++;
       if (!vals.includes(want)) {
@@ -183,6 +244,35 @@ for (const doc of DOCS) {
         );
       }
     }
+  }
+}
+
+// 면제는 그 줄의 검사를 **영구히 끄는** 행위인데 붙이는 비용이 0이다.
+// 위 오류 문구가 「시점을 밝히는 문장과 함께」라고 규약을 말하지만
+// **그 규약을 집행하는 코드가 없었다.**
+//
+// 날짜를 강제하지는 않는다 - ablation 표 행(무조건 융합/규칙 게이트 융합)은
+// 회고가 아니라 **대안 구성**이라 날짜가 없는 게 맞다. 강제하면 거짓 유죄가 난다.
+//
+// 대신 개수를 못 박는다. 다르면 실패하고 숫자를 고치게 한다 -
+// 의도를 판정하지 않고 **면제를 붙이는 일을 눈에 보이는 행위로** 만든다.
+const EXEMPTION_BUDGET = 10;
+{
+  const at = [];
+  for (const doc of DOCS) {
+    if (!existsSync(resolve(ROOT, doc))) continue;
+    const ls = readFileSync(resolve(ROOT, doc), "utf8").split("\n");
+    for (let i = 0; i < ls.length; i++) {
+      if (ls[i].includes("<!--metric-ok-->")) at.push(`${doc}:${i + 1}`);
+    }
+  }
+  if (at.length !== EXEMPTION_BUDGET) {
+    fails.push(
+      `면제 예산: <!--metric-ok--> 가 ${at.length}건인데 예산은 ${EXEMPTION_BUDGET} 건이다.\n` +
+        `    ${at.join(", ")}\n` +
+        `    늘렸다면 왜 그 줄이 정본과 다를 수밖에 없는지 커밋 메시지에 적고 ` +
+        `EXEMPTION_BUDGET 을 함께 고친다. 줄었다면 숫자만 내린다.`,
+    );
   }
 }
 
