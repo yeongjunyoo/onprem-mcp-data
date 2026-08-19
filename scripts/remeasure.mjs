@@ -123,6 +123,32 @@ console.log(`\n총 ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 console.log(`건너뛴 평가 ${SKIPPED.length}종 (생성이 껴서 값이 같기를 요구할 수 없다):`);
 for (const [s, why] of SKIPPED) console.log(`  ${s.padEnd(18)} ${why}`);
 
+// ── 작업본 상태를 말한다. 이 도구는 결과 파일을 다시 쓰므로 **돌리면 8개가 수정
+// 상태**가 된다. 7개는 타임스탬프뿐이고 companyx-audit 은 관측 축이 실제로 바뀐다.
+// 아무 말 없이 두면 다음 사람이 `git status` 를 보고 깨졌다고 오해한다.
+//
+// **자동으로 되돌리지 않는다** — 값이 진짜 바뀐 경우(정본 갱신)를 도구가 지우면
+// 오늘 BIRD·kg 에서 겪은 "실패한 실행이 정본을 덮는다" 의 반대 사고가 난다.
+{
+  const changed = execFileSync("git", ["diff", "--name-only", "--", "eval/results"], {
+    cwd: ROOT, encoding: "utf8",
+  }).trim().split("\n").filter(Boolean);
+  if (changed.length) {
+    const onlyTs = [];
+    const real = [];
+    for (const f of changed) {
+      const d = execFileSync("git", ["diff", "-U0", "--", f], { cwd: ROOT, encoding: "utf8" });
+      const lines = d.split("\n").filter((l) => /^[+-][^+-]/.test(l));
+      (lines.every((l) => /generated_at|generatedAt|"at"/.test(l)) ? onlyTs : real).push(f);
+    }
+    console.log(`\n작업본 변경 ${changed.length}개:`);
+    if (onlyTs.length) console.log(`  타임스탬프만 ${onlyTs.length}개 — 재실행 흔적이다`);
+    for (const f of real) console.log(`  ★ 값이 바뀜: ${f}`);
+    console.log("  값 변화가 없다면 되돌린다: git checkout eval/results");
+    console.log("  (관측 축은 실행마다 달라지는 것이 정상이다 — docs/report.md §8.5)");
+  }
+}
+
 if (failed.length) {
   console.error("\n실패한 평가:");
   for (const [s, msg] of failed) console.error(`  ${s}: ${msg}`);
