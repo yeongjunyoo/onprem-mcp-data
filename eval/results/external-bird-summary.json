@@ -1,25 +1,32 @@
 {
   "benchmark": "BIRD Mini-Dev (SQLite)",
-  "model": "qwen2.5:7b",
-  "sampled": 32,
+  "model": "qwen2.5-coder:7b",
+  "sampled": 500,
   "of": 500,
-  "samplingStride": 15,
-  "correct": 10,
-  "executionAccuracy": 31.3,
+  "samplingStride": 1,
+  "correct": 218,
+  "executionAccuracy": 43.6,
+  "goldUnscorable": 2,
+  "goldUnscorableIds": [
+    518,
+    701
+  ],
+  "scorable": 498,
+  "executionAccuracyScorable": 43.8,
   "byDifficulty": {
     "simple": {
-      "c": 2,
-      "n": 6
+      "c": 89,
+      "n": 148
     },
     "moderate": {
-      "c": 6,
-      "n": 19
+      "c": 105,
+      "n": 250
     },
     "challenging": {
-      "c": 2,
-      "n": 7
+      "c": 24,
+      "n": 102
     }
   },
-  "generatedAt": "2026-08-18T09:39:16.516Z",
-  "note": "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite."
+  "generatedAt": "2026-08-19T09:44:20.348Z",
+  "note": "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite. gold SQL that exceeds the 30s execution budget is reported separately (goldUnscorable): the headline executionAccuracy counts it as wrong per BIRD convention, executionAccuracyScorable excludes it from the denominator."
 }

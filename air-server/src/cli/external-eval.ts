@@ -35,13 +35,17 @@ interface BirdQ { question_id: number; db_id: string; question: string; evidence
 function dbUri(db: string): string { return `file:${db}?mode=ro&immutable=1`; }
 
 /** Run a read-only SQL through the sqlite3 CLI; return parsed rows or an error. */
-async function runSqlite(db: string, sql: string): Promise<{ ok: boolean; rows: unknown[]; error?: string }> {
+async function runSqlite(db: string, sql: string): Promise<{ ok: boolean; rows: unknown[]; timedOut?: boolean; error?: string }> {
   try {
     const { stdout } = await exec("sqlite3", ["-json", dbUri(db), sql], { timeout: 30_000, maxBuffer: 64 * 1024 * 1024 });
     const trimmed = stdout.trim();
     return { ok: true, rows: trimmed ? JSON.parse(trimmed) : [] };
   } catch (e) {
-    return { ok: false, rows: [], error: (e as Error).message.split("\n")[0] };
+    // 타임아웃과 오류를 **구분**한다. 「느린 것」과 「깨진 것」은 다른 사건이다 -
+    // gold 가 101초 걸려 30초 한도를 넘는 것은 채점기 고장이 아니라 측정 한계다.
+    const err = e as NodeJS.ErrnoException & { killed?: boolean; signal?: string };
+    const timedOut = err.killed === true || err.signal === "SIGTERM";
+    return { ok: false, rows: [], timedOut, error: (e as Error).message.split("\n")[0] };
   }
 }
 
@@ -115,7 +119,7 @@ async function main() {
   const stride = Math.max(1, Math.floor(all.length / limit));
   const sample = all.filter((_, i) => i % stride === 0).slice(0, limit);
 
-  type Row = { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; pred: string };
+  type Row = { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; goldTimedOut?: boolean; pred: string };
 
   // 전수 500 문항은 26s/문항 실측으로 **3.6시간**이다. 체크포인트가 없으면
   // Ollama 가 한 번 끊기는 순간 전부 잃는다.
@@ -167,13 +171,15 @@ async function main() {
   for (const it of sample) {
     if (done.has(it.question_id)) continue;
     const db = resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`);
-    let matched = false, predOk = false, goldOk = false, pred: string | null = null;
+    let matched = false, predOk = false, goldOk = false, goldTimedOut = false, pred: string | null = null;
     try {
       // gold 를 **먼저** 돌린다. 2026-08-18 리뷰: 예측 생성이 던지면(Ollama 끊김 등)
       // 이 줄 뒤의 gold 실행이 통째로 건너뛰어져 `goldOk:false` 가 되고, 가드가
       // **생성 오류를 채점기 고장으로** 읽는다. gold 는 예측 경로와 무관해야 한다.
       const g = await runSqlite(db, it.SQL);
       goldOk = g.ok;
+      // 「느린 것」과 「깨진 것」을 갈라 둔다 - 아래 가드가 다르게 판정한다.
+      goldTimedOut = g.timedOut === true;
       const ddl = await schemaCard(db);
       pred = await birdNL2SQL(ddl, it.question, it.evidence);
       if (pred) {
@@ -187,7 +193,7 @@ async function main() {
     if (matched) correct++;
     byDiff[it.difficulty] ??= { c: 0, n: 0 };
     byDiff[it.difficulty].n++; if (matched) byDiff[it.difficulty].c++;
-    rows.push({ id: it.question_id, db: it.db_id, diff: it.difficulty, ok: matched, predOk, goldOk, pred: pred ?? "(no SQL)" });
+    rows.push({ id: it.question_id, db: it.db_id, diff: it.difficulty, ok: matched, predOk, goldOk, goldTimedOut, pred: pred ?? "(no SQL)" });
     console.log(`${matched ? "✓" : "✗"} q${it.question_id} [${it.db_id}/${it.difficulty}] ${it.question.slice(0, 60)}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").slice(0, 140)}`);
     // 매 문항마다 저장한다. 3.6시간짜리 실행에서 마지막에만 쓰는 것은 도박이다.
@@ -208,8 +214,35 @@ async function main() {
     console.error("  0문항 결과는 측정이 아니다. 결과 파일을 쓰지 않았다.\n");
     process.exit(1);
   }
-  const goldFailed = rows.filter((r) => !r.goldOk);
-  if (goldFailed.length) {
+  // gold 실패를 **「느린 것」과 「깨진 것」으로 가른다.**
+  //
+  // 2026-08-19: 전수 500 이 끝났는데 가드가 결과 쓰기를 막았다 - gold 2건 실패.
+  // 실측하니 둘 다 환경 고장이 아니라 **느린 질의**였다.
+  //   q518(card_games)          gold 101.6초 · 546행 — 정상 실행되지만 30초 한도 초과
+  //   q701(codebase_community)  gold 240초에도 안 끝난다 (sqlite3 CLI 로 확인)
+  //
+  // 이 가드는 「sqlite3 가 없다」 같은 **진짜 환경 고장**을 잡으려고 넣었다.
+  // 2/500 을 그 이유로 3.5시간짜리 측정을 통째로 버리는 것은 잘못된 기준이다.
+  // **잘못된 기준은 없는 기준보다 나쁘다** — 사람이 검사를 꺼버린다.
+  const goldErrored = rows.filter((r) => !r.goldOk && !r.goldTimedOut);
+  const goldSlow = rows.filter((r) => !r.goldOk && r.goldTimedOut);
+  if (goldErrored.length) {
+    console.error(`\n실패: gold SQL ${goldErrored.length}/${rows.length}문항이 **오류**로 실행되지 않았다 — 채점기 환경 문제다.`);
+    console.error(`  첫 실패: q${goldErrored[0].id}`);
+    console.error("  sqlite3 와 Mini-Dev 데이터가 온전한지 확인한다. 결과 파일을 쓰지 않았다.\n");
+    process.exit(1);
+  }
+  if (goldSlow.length > rows.length * 0.05) {
+    console.error(`\n실패: gold SQL ${goldSlow.length}/${rows.length}문항이 시간 초과다(5% 초과).`);
+    console.error("  이 정도면 환경이 느린 것이고 측정이 성립하지 않는다. 결과 파일을 쓰지 않았다.\n");
+    process.exit(1);
+  }
+  if (goldSlow.length) {
+    console.log(`\n주의: gold ${goldSlow.length}문항이 30초 한도를 넘겨 **채점 불가**다 — q${goldSlow.map((r) => r.id).join(", q")}`);
+    console.log("  느린 것이지 깨진 것이 아니다. 요약에 그대로 적고 정확도를 두 벌 낸다.\n");
+  }
+  if (false) {
+    const goldFailed: Row[] = [];
     console.error(`\n실패: gold SQL ${goldFailed.length}/${rows.length}문항이 실행되지 않았다 — 채점기 환경 문제다.`);
     console.error(`  첫 실패: q${goldFailed[0].id}`);
     console.error("  sqlite3 와 Mini-Dev 데이터가 온전한지 확인한다. 결과 파일을 쓰지 않았다.");
@@ -222,8 +255,17 @@ const summary = {
     benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     sampled: sample.length, of: all.length, samplingStride: stride,
     correct, executionAccuracy: Number((acc * 100).toFixed(1)),
+    // gold 가 30초 한도를 넘겨 **채점 불가**인 문항. 어떻게 셀지는 관행이 갈린다 -
+    // BIRD 관행은 오답으로 세고(위 executionAccuracy), 채점 가능분만 보면 분모에서 뺀다.
+    // **어느 쪽이 맞다고 우리가 정하지 않는다. 둘 다 적는다.**
+    goldUnscorable: goldSlow.length,
+    goldUnscorableIds: goldSlow.map((r) => r.id),
+    scorable: sample.length - goldSlow.length,
+    executionAccuracyScorable: Number(
+      ((correct / Math.max(1, sample.length - goldSlow.length)) * 100).toFixed(1),
+    ),
     byDifficulty: byDiff, generatedAt: new Date().toISOString(),
-    note: "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite.",
+    note: "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite. gold SQL that exceeds the 30s execution budget is reported separately (goldUnscorable): the headline executionAccuracy counts it as wrong per BIRD convention, executionAccuracyScorable excludes it from the denominator.",
   };
   await mkdir(resolve(root, "eval/results"), { recursive: true });
   await writeFile(resolve(root, "eval/results/external-bird-raw.json"), JSON.stringify(rows, null, 2));
