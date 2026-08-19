@@ -16,9 +16,10 @@
   각각 채점**한다. 모델을 돌리지 않으므로 회귀 위험이 없고, 두 수치의 차이가 곧
   비교기 정의의 효과다.
 
-표본의 대표성도 함께 기록한다. 이 32문항은 question_id 정렬 후 주기적 stride
-표집이라 대표성이 없다 — 데이터베이스 하나가 통째로 빠지고 난이도가 편중된다.
-숨기면 그 수치는 다시 오독된다.
+표본의 대표성도 함께 기록한다. 그 문구는 여기 박지 않고 실제 행 수에서 파생된다 —
+전수 500이면 표집 오차 0을, 부분 표본이면 모자람을 붙인다. 예전에 32문항 stride
+표집을 쓸 때는 데이터베이스 하나가 통째로 빠졌고 난이도가 편중됐다. 숨기면 그
+수치는 다시 오독된다. **문구를 손으로 적으면 표본이 바뀔 때 같이 갈린다.**
 
 사용: python scripts/rescore_bird.py
 """
@@ -36,6 +37,37 @@ RAW = ROOT / "eval" / "results" / "external-bird-raw.json"
 OUT = ROOT / "eval" / "results" / "external-bird-rescore.json"
 
 TIMEOUT_S = 30.0
+
+SUMMARY = ROOT / "eval" / "results" / "external-bird-summary.json"
+
+
+def _harness_delta(n_rows: int, multiset_correct: int) -> str:
+    """하네스 요약과의 분모 차이를 **실제 파일에서 읽어** 문장으로 만든다.
+
+    손으로 적은 498·500·q701 은 다음 실행에 갈린다. 여기서 파생시키면
+    갈릴 자리가 없다. 요약이 없으면 없다고 적는다.
+    """
+    if not SUMMARY.exists():
+        return "(하네스 요약이 없어 구체 분모를 대조하지 못했다.)"
+    try:
+        h = json.loads(SUMMARY.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return "(하네스 요약을 읽지 못해 구체 분모를 대조하지 못했다.)"
+    ids = h.get("goldUnscorableIds") or h.get("goldSlowIds") or []
+    n_uns = h.get("goldUnscorable")
+    if n_uns in (None, 0):
+        return "이번 실행에서는 하네스도 채점 불가가 없어 분모가 같다."
+    who = ("q" + ", q".join(str(i) for i in ids)) if ids else f"{n_uns}문항"
+    return (
+        f"이번 실행의 구체값: 하네스는 {who} 을(를) 채점 불가로 빼 "
+        f"scorable {h.get('scorable')}/{h.get('sampled')} 에서 "
+        f"{h.get('executionAccuracyScorable')}% 를 냈고(헤드라인은 "
+        f"{h.get('correct')}/{h.get('sampled')} = {h.get('executionAccuracy')}%), "
+        f"이 스크립트는 같은 문항을 채점해 분모가 {n_rows} 다. "
+        f"그래서 같은 예측인데도 다중집합 정답 수가 하네스 {h.get('correct')} 와 "
+        f"여기 {multiset_correct} 로 갈릴 수 있다 — 모델 차이가 아니라 분모 차이다."
+    )
+
 
 
 # 공식 BIRD(`evaluation_ex.py`)는 `cursor.fetchall()`이 돌려준 **파이썬 값 튜플을 그대로**
@@ -138,7 +170,8 @@ def main() -> int:
             "파이썬 내장 sqlite3 를 한도 없이 부르므로 그 문항도 채점한다. "
             "예산은 3.6시간짜리 실행이 한 질의에 매달리지 않게 하는 운영 장치이고, "
             "여기서는 저장된 예측을 사후에 다시 채점하므로 그 제약이 필요 없다. "
-            "gold_failed 가 0인데 하네스 요약의 goldUnscorable 이 0이 아니면 그 차이다."
+            "gold_failed 가 0인데 하네스 요약의 goldUnscorable 이 0이 아니면 그 차이다. "
+            + _harness_delta(len(raw), multiset_correct)
         ),
         "raw_sha256": _raw_sha,
         "sample": {
