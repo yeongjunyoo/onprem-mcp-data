@@ -54,7 +54,7 @@
 
 ### 읽기 엔드포인트 폴백 (구현·테스트됨)
 
-- 모든 MCP 도구는 read-only(`readOnlyHint: true`). 읽기 경로는 `getReadPool()`(`src/db.ts`)을 통해 풀을 얻는다.
+- 모든 MCP 도구는 read-only(`readOnlyHint: true`). 읽기 경로는 `getReadPool()`(`air-server/src/db.ts`)을 통해 풀을 얻는다.
 - `READ_DATABASE_URL`이 **설정되면** 별도 읽기 풀을 생성해 read replica로 부하를 오프로드한다.
 - **미설정이면** Primary 풀로 **투명 폴백** → 단일 노드 배포가 무설정으로 동일하게 동작.
 - 테스트: `db.test.ts` — (1) 미설정 시 read pool === primary, (2) 설정 시 별도 풀 생성, (3) 그 풀로 SELECT 정상(count=5). `node dist/db.test.js` 22/22.

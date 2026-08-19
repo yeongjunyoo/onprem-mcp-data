@@ -7,9 +7,9 @@
 | 항목 | 근거 |
 | --- | --- |
 | 3레인 규칙 기반 라우팅과 병렬 조회, RRF 융합 | `air-server/src/router.ts`, `rrf.ts` |
-| 읽기 전용 SQL 가드(권한 강등, 타임아웃, 다중 구문 거부) | `src/sql.ts`, `db.test.ts` |
-| 지식그래프 양방향 탐색과 미해소 개체 차단 게이트 | `src/graph.ts`, `kgretrieve.ts` |
-| 구조 보존 컨텍스트 큐레이션 | `src/curator.ts` |
+| 읽기 전용 SQL 가드(권한 강등, 타임아웃, 다중 구문 거부) | `air-server/src/sql.ts`, `db.test.ts` |
+| 지식그래프 양방향 탐색과 미해소 개체 차단 게이트 | `air-server/src/graph.ts`, `kgretrieve.ts` |
+| 구조 보존 컨텍스트 큐레이션 | `air-server/src/curator.ts` |
 | 사업자 공식 데이터셋 적재와 4레인 실측 | `eval/results/companyx-*.json` |
 | 벡터 평가셋 68문항 확장과 임베딩 대조 | `docs/report.md` §0.9 |
 | 장애 주입 스위트와 replica 읽기 폴백 kill drill | `eval/results/faults.json`, `replica-spike.log` |

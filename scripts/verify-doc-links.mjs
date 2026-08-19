@@ -25,6 +25,21 @@ const docs = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "u
   .map((f) => f.trim())
   .filter(Boolean);
 
+// 백틱으로 인용한 경로도 본다. 위 주석이 이미 이유를 적어 놨다 -
+// **문서가 없는 파일을 가리키면 나머지 서술도 의심받는다.**
+// 그런데 마크다운 링크만 보고 백틱은 안 봤다. 문서가 코드를 가리키는 방식은
+// 압도적으로 백틱이다(2026-08-18 실측: 백틱 115건 대 링크 23건).
+//
+// 실제로 여덟 곳이 `src/sql.ts` 라고 쓰는데 파일은 `air-server/src/sql.ts` 였다.
+// 어느 문서도 「이하 air-server/ 기준」이라고 선언하지 않았다 - 심사자가 루트에서
+// 찾으면 없다.
+//
+// datasets/MANIFEST.md 는 예외다. 라이선스상 재배포 못 하는 **압축물 내부 구조**를
+// 서술한 문서라 그 경로들은 저장소에 없는 게 맞다(datasets/companyx-v1.0/ 안에
+// 실재하고 gitignore 됨). **못 담는 것과 없는 것은 다르다.**
+const PATH_EXEMPT = new Set(["datasets/MANIFEST.md"]);
+const BACKTICK = /`([A-Za-z0-9_./-]+\/[A-Za-z0-9_./-]+)`/g;
+
 const fails = [];
 let checked = 0;
 
@@ -63,6 +78,34 @@ if (checked === 0) {
   console.error("\n실패: 확인한 링크가 0개다 — 문서 목록이나 패턴을 확인하라.\n");
   process.exit(1);
 }
+
+let backtickChecked = 0;
+for (const doc of docs) {
+  if (PATH_EXEMPT.has(doc)) continue;
+  const lines = readFileSync(resolve(ROOT, doc), "utf8").split("\n");
+  let fenced = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*```/.test(lines[i])) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    for (const m of lines[i].matchAll(BACKTICK)) {
+      const p = m[1];
+      if (p.includes("...") || p.includes("://") || p.startsWith("http")) continue;
+      if (!/\.[a-z]{2,5}$/.test(p)) continue;
+      if (p.startsWith("node_modules/") || p.startsWith("dist/")) continue;
+      backtickChecked++;
+      if (!existsSync(resolve(ROOT, p))) {
+        fails.push(
+          `${doc}:${i + 1} - 백틱으로 인용한 경로가 없다: ${p}\n` +
+            `    ${lines[i].trim().slice(0, 90)}`,
+        );
+      }
+    }
+  }
+}
+console.log(`백틱으로 인용한 경로 ${backtickChecked}건의 실재도 확인했다.`);
 
 if (fails.length) {
   console.error("\n가리키는 파일이 없는 링크:");
