@@ -213,6 +213,21 @@ canonical.kg_recall = Number(kg.summary.mean_recall).toFixed(3);
 // 다섯 자리를 고쳤는데, 이유는 이 값이 정본에 없었기 때문이다.
 // **정본에 없는 값은 문서에서 자유롭게 썩는다** — 서두 「핵심 한 줄」의 `품질(83%)` 이
 // 그렇게 살아남았다.
+// 외부 BIRD. 2026-08-18 완결 감사에서 **정본에 없다**는 걸 알았다.
+// 문서·근거·대본이 마침 다 일치했지만 그건 검사가 아니라 운이다 —
+// bench_internal 이 정확히 그렇게 다섯 자리에서 썩었다.
+//
+// 세 수치를 다 넣는다. 의미가 서로 다르고(공식 set / 운영 multiset / 백분율),
+// **그 차이 자체가 우리 논지**라 하나만 넣으면 나머지 둘이 썩는다.
+const birdRescore = readJson("eval/results/external-bird-rescore.json");
+const birdSummary = readJson("eval/results/external-bird-summary.json");
+canonical.bird_official = birdRescore.official_set.accuracy.toFixed(3);
+canonical.bird_multiset = birdRescore.operational_multiset.accuracy.toFixed(3);
+canonical.bird_exec_pct = String(birdSummary.executionAccuracy);
+// bird_sampled(32) 는 **일부러 넣지 않는다.** 위 대역 검사가 부분문자열로 보는데
+// 324(데이터셋 없는 CI 단언 수) 안의 32 에 걸려 거짓 유죄가 났다.
+// **정본에 넣는 값은 자기를 식별할 수 있어야 한다** — 두 자리 수는 못 한다.
+
 const benchInternal = readJson("eval/results/internal-llm-summary.json");
 {
   const b = benchInternal.summary ?? benchInternal;
