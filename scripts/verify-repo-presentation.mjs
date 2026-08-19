@@ -60,7 +60,16 @@ const releases = await api("/releases");
 //    그리고 고치면서 없는 명령(`npm run test:offline`)을 넣었다 —
 //    **온램프에서 명령이 실패하면 그 사람은 안 돌아온다.**
 {
-  const issues = (await api("/issues?state=open")).filter((i) => !i.pull_request);
+  // 기본 30건만 오고 **PR 도 섞여 온다.** PR 이 많으면 이슈가 뒤로 밀려
+  // 조용히 검사 밖이 된다. 지금은 이슈 3 · PR 0 이라 동작하는데 그래서 더 위험하다 -
+  // **지금 맞는다는 것과 계속 맞는다는 것은 다르다.**
+  const issues = [];
+  for (let page = 1; page <= 20; page++) {
+    const batch = await api(`/issues?state=open&per_page=100&page=${page}`);
+    if (batch.length === 0) break;
+    issues.push(...batch.filter((i) => !i.pull_request));
+    if (batch.length < 100) break;
+  }
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
   const SPAN = /`([^`\n]*)`/g;
   const PATHISH = /(?<![A-Za-z0-9_./-])([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)+\.[a-z]{2,5})/g;
