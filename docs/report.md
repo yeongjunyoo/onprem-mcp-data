@@ -506,6 +506,22 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 
 ---
 
+## 8.5 무엇이 보장이고 무엇이 관측인가
+
+**재현하기 전에 이걸 읽는다.** 이 저장소의 수치는 두 종류이고, 섞어 읽으면 맞는 값도
+의심스러워 보인다.
+
+| | 보장 (다르면 결함) | 관측 (달라도 정상) |
+|---|---|---|
+| **무엇** | 규칙·구조가 정하는 값 | 로컬 7B가 문자열을 만드는 값 |
+| **지표** | 라우팅 30/30 · KG 재현율 · 벡터 hit@5 · 홀드아웃 1·2 · 다단계 · 장애 주입 4/4/4 · 규칙 지문 5/5 · 테스트 단언 수 | 내부 벤치 execution-match · NL2SQL · 종단 지연 · BIRD · 파이프라인 지문 |
+| **재현** | `node scripts/remeasure.mjs` — 8종을 다시 재고 **값이 하나라도 바뀌면 exit 1**(테스트 단언 수는 `verify-test-counts` 가 러너로 매번 실측한다) | 같은 명령을 다시 돌리면 값이 달라질 수 있다. 그래서 remeasure는 이 셋(`ask`·`bench:internal`·`external:bird`)을 **건너뛰고 그 이유를 매번 출력**한다 |
+| **실측 예** | 2026-08-18에 코드 60여 개 PR을 넣은 뒤 재측정 — **값 변화 0** | 같은 날 파이프라인 지문이 4/5 → 3/5 → 5/5, 내부 벤치가 7주 만에 83 → 81 |
+
+**둘을 나눈 이유.** 지문 하나로 뭉뚱그렸으면 "가끔 비결정적"으로 읽혔을 것이다.
+나누고 나면 **무엇을 약속하고 무엇을 약속하지 않는지**가 그대로 드러난다.
+관측 값을 헤드라인에 적을 때는 측정 날짜와 재실행 횟수를 함께 적는다.
+
 ## 9. Evidence manifest (모든 수치 = raw + 커맨드로 추적)
 
 - 내부 벤치: `eval/internal/questions.jsonl`(100Q), `eval/internal/schema.sql`, `air-server/src/cli/gen-bench.ts`(seed=42), `eval/results/internal-{llm,naive,template}-{raw,summary}.json`(ablation matrix).
