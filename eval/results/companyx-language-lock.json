@@ -1,0 +1,21 @@
+{
+  "note": "답변 프롬프트의 한국어 고정 줄(언어 잠금)이 이 모델에도 필요한지 잰 ablation. 원 결함은 qwen2.5:7b 에서 관측했다 — 30문항 중 2건이 중국어 혼입으로 못 쓸 답이었다. 재현: ANSWER_LANG_LOCK=0 npm run companyx:ask (기본값은 잠금 켜짐).",
+  "model": "qwen2.5-coder:7b",
+  "metric": "답변에 한중일 통합한자(U+4E00–U+9FFF)가 하나라도 섞인 답변 수",
+  "results": {
+    "lock_on": {
+      "exit": 0,
+      "n": 30,
+      "cjk_answers": 0,
+      "examples": []
+    },
+    "lock_off": {
+      "exit": 0,
+      "n": 30,
+      "cjk_answers": 0,
+      "examples": []
+    }
+  },
+  "conclusion": "이 모델에서는 잠금 없이도 재현되지 않았다. 그래도 잠금은 유지한다 — 30문항 한 번으로 「절대 안 샌다」를 말할 수 없고, 프롬프트 한 줄은 비용이 0이며 실패 비용은 크다.",
+  "generated_at": "2026-08-19T12:10:13.178256+00:00"
+}

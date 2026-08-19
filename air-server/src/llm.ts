@@ -66,6 +66,8 @@ export async function isAvailable(model = MODEL): Promise<boolean> {
  *                      2026-08-19: 모델을 `qwen2.5-coder:7b` 로 바꾼 뒤 **잠금을 빼고
  *                      30문항을 다시 돌렸다 — 한자가 섞인 답변 0건.** 잠금이 있을 때도
  *                      0건이다. 이 모델에서는 원 결함이 재현되지 않는다.
+ *                      재현: ANSWER_LANG_LOCK=0 npm run companyx:ask
+ *                      원자료: eval/results/companyx-language-lock.json
  *
  *                      **그래도 잠금은 유지한다.** 30문항 한 번으로 「절대 안 샌다」를
  *                      말할 수 없고, 프롬프트 한 줄은 비용이 0이며 실패 비용은 크다.
@@ -81,7 +83,12 @@ export function buildAnswerPrompt(query: string, context: string): string {
   return [
     "당신은 온프렘 데이터 플랫폼의 한국어 어시스턴트입니다.",
     "아래 [컨텍스트]에 있는 정보만 사용해 [질문]에 한국어로 간결하고 정확하게 답하세요.",
-    "반드시 한국어로만 답하세요. 중국어·영어 문장을 섞지 마세요(고유명사 제외).",
+    // 언어 잠금. **검증용 제거 스위치**이지 런타임 튜닝 파라미터가 아니다 —
+    // `CX_REPAIR=0`·`BENCH_STRATEGY=naive` 와 같은 자리다. 기본값은 켜짐.
+    //   재현: ANSWER_LANG_LOCK=0 npm run companyx:ask
+    ...(process.env.ANSWER_LANG_LOCK === "0"
+      ? []
+      : ["반드시 한국어로만 답하세요. 중국어·영어 문장을 섞지 마세요(고유명사 제외)."]),
     "컨텍스트의 `[SQL 결과] <쿼리> → <값>` 항목은 데이터베이스 실행 결과이니 그 값을 그대로 근거로 삼으세요.",
     "`[그래프] A -관계-> B` 형태는 A와 B의 관계를 뜻합니다. 질문이 그 관계를 물으면 이 줄이 곧 답입니다.",
     "`[그래프 집계]`에 동점이 여러 건이면 전부 나열하세요.",
