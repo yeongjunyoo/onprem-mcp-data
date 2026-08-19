@@ -218,6 +218,11 @@ canonical.nl2sql_repair = `${(sqlRe.summary ?? sqlRe).correct}/10`;
   const b = nn.summary ?? nn;
   canonical.nl2sql_naive_repair = `${a.correct}/${a.total}`;
   canonical.nl2sql_naive_norepair = `${b.correct}/${b.total}`;
+  // 수리 횟수. 원고가 「12회 대 16회」로 이 값을 쓰는데 정본에 없어서
+  // 모델 교체 때 **아무도 안 물었다** - 실제로는 0회 대 7회다.
+  // **정본에 없는 값은 문서에서 자유롭게 썩는다.**
+  canonical.nl2sql_repairs = String((readJson("eval/results/companyx-sql-llm.json").summary ?? readJson("eval/results/companyx-sql-llm.json")).repaired_queries);
+  canonical.nl2sql_naive_repairs = String(a.repaired_queries);
 }
 
 canonical.faults_nocrash = `${Math.round(fs_.noCrashRate * fs_.total)}/${fs_.total}`;
