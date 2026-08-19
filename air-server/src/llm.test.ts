@@ -14,7 +14,7 @@ function ok(cond: boolean, msg: string) {
 
 async function main() {
   if (!(await isAvailable())) {
-    console.log("\nllm.test: SKIPPED (Ollama/qwen2.5:7b not available)");
+    console.log("\nllm.test: SKIPPED (Ollama/qwen2.5-coder:7b not available)");
     process.exit(0);
   }
 

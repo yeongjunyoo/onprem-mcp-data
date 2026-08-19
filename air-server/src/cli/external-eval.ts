@@ -19,6 +19,7 @@
 //
 // Run: EXT_LIMIT=50 node dist/cli/external-eval.js   (requires Ollama/qwen2.5:7b)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -114,10 +115,30 @@ async function main() {
   const stride = Math.max(1, Math.floor(all.length / limit));
   const sample = all.filter((_, i) => i % stride === 0).slice(0, limit);
 
-  const rows: { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; pred: string }[] = [];
-  let correct = 0;
+  type Row = { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; pred: string };
+
+  // 전수 500 문항은 26s/문항 실측으로 **3.6시간**이다. 체크포인트가 없으면
+  // Ollama 가 한 번 끊기는 순간 전부 잃는다.
+  //
+  // 부분 결과를 eval/results/ 에 두지 않는다 - evidence-manifest 가 그 폴더를
+  // readdirSync 로 훑어 .json 을 전부 증거로 센다. **부분 파일이 증거로 오인된다.**
+  // eval/external/ 은 통째로 gitignore 되므로 거기 둔다.
+  const progressPath = resolve(root, "eval/external/.bird-progress.json");
+  let rows: Row[] = [];
+  if (process.env.EXT_RESUME === "1" && existsSync(progressPath)) {
+    rows = JSON.parse(await readFile(progressPath, "utf8"));
+    console.log(`[resume] 이전 진행분 ${rows.length}문항을 이어받는다.`);
+  }
+  const done = new Set(rows.map((r) => r.id));
+  let correct = rows.filter((r) => r.ok).length;
   const byDiff: Record<string, { c: number; n: number }> = {};
+  for (const r of rows) {
+    byDiff[r.diff] ??= { c: 0, n: 0 };
+    byDiff[r.diff].n++;
+    if (r.ok) byDiff[r.diff].c++;
+  }
   for (const it of sample) {
+    if (done.has(it.question_id)) continue;
     const db = resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`);
     let matched = false, predOk = false, goldOk = false, pred: string | null = null;
     try {
@@ -142,6 +163,8 @@ async function main() {
     rows.push({ id: it.question_id, db: it.db_id, diff: it.difficulty, ok: matched, predOk, goldOk, pred: pred ?? "(no SQL)" });
     console.log(`${matched ? "✓" : "✗"} q${it.question_id} [${it.db_id}/${it.difficulty}] ${it.question.slice(0, 60)}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").slice(0, 140)}`);
+    // 매 문항마다 저장한다. 3.6시간짜리 실행에서 마지막에만 쓰는 것은 도박이다.
+    await writeFile(progressPath, JSON.stringify(rows, null, 2));
   }
 
   const acc = correct / sample.length;

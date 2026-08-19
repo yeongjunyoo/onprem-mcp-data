@@ -21,7 +21,7 @@
 ```bash
 git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
 docker compose up -d                                     # PostgreSQL 16 + pgvector, Ollama
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull qwen2.5-coder:7b
 docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
@@ -62,7 +62,7 @@ MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5433/mcpdata",
         "OLLAMA_HOST": "http://localhost:11435",
         "EMBEDDER": "ollama",
-        "OLLAMA_MODEL": "qwen2.5:7b",
+        "OLLAMA_MODEL": "qwen2.5-coder:7b",
         "EMBED_MODEL": "bge-m3",
         "DATASET": "companyx"
       }
@@ -116,10 +116,10 @@ MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, 
 | NL2SQL 실행 일치 (재시도 1회) | **7~8/10**, 스키마 카드 제거 시 **7/10** | 실패 SQL을 DB 카탈로그와 함께 1회 되먹임. **재시도 2회 대 6회** | 동일 |
 | 지식그래프 검색 재현율 | 1.000 (개선 전 0.278) | 10문항, 결함 4건 수리 후 | 관계 파일에서 계산한 정답 집합 |
 | 벡터 검색 hit@5 | **0.986 (73/74)** | 74문항(사업자 문항 3건 복원 포함). 해시 폴백 0.775, 영어 전용 768 모델 0.380 | 원문 키워드 규칙 |  <!--metric:vector_hit5-->
-| 종단 답변 근거 포함 | **17/19 = 89.5%** (5회 중 4회, 1회 18/19) | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
+| 종단 답변 근거 포함 | **18/19 = 94.7%** (5회 중 4회, 1회 18/19) | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | 접지 위반 | **0건** (answers_grounded 100%) | 답변이 명명한 데이터셋 개체가 전부 컨텍스트 안에 있다 | 실측 |  <!--metric:ask_grounded_pct-->
-| 답변 접지 위반 | **0건 (19/19 접지)** | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사. 채점 가능한 답변 전부가 접지됐다 | 컨텍스트 집합 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | **14139ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
+| 답변 접지 위반 | **0건 (18/18 접지)** | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사. 채점 가능한 답변 전부가 접지됐다 | 컨텍스트 집합 |  <!--metric:ask_grounded_ratio-->
+| 응답 지연 중앙값 | **15746ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **864ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
 | 응답 지연 (호스트 GPU) | **864ms** | GPU가 붙은 호스트 Ollama 기준 같은 30문항. 원자료 `eval/results/companyx-ask-host-gpu.json` | 실측 |  <!--metric:ask_median_ms_host-->
 | 장애 주입 — 무중단 | **4/4** | DB 정지, 지연, 부분 실패 주입. 원자료 `eval/results/faults.json` | 실측 |  <!--metric:faults_nocrash-->
 | 장애 주입 — 부분 응답 | **4/4** | 벡터 브랜치를 죽여도 그래프로 부분 컨텍스트 반환 | 실측 |  <!--metric:faults_partial-->
@@ -219,7 +219,7 @@ prototype/           로직 검증용 Python 레퍼런스
 
 ## 라이선스
 
-직접 작성한 코드는 **Apache License 2.0**입니다. 제3자 구성요소와 모델의 라이선스는 [NOTICE](NOTICE)와 [docs/sbom.md](docs/sbom.md)에 있습니다. 탑재 모델은 qwen2.5:7b(Apache-2.0)와 bge-m3(MIT)이며 둘 다 오픈웨이트를 로컬에서 구동합니다. 모델 활용 명세는 [docs/ai-model-spec.md](docs/ai-model-spec.md)에 있습니다.
+직접 작성한 코드는 **Apache License 2.0**입니다. 제3자 구성요소와 모델의 라이선스는 [NOTICE](NOTICE)와 [docs/sbom.md](docs/sbom.md)에 있습니다. 탑재 모델은 qwen2.5-coder:7b(Apache-2.0)와 bge-m3(MIT)이며 둘 다 오픈웨이트를 로컬에서 구동합니다. 모델 활용 명세는 [docs/ai-model-spec.md](docs/ai-model-spec.md)에 있습니다.
 
 ## 참고 문헌
 

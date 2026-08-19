@@ -10,7 +10,7 @@
 // from L4 is fed whole rather than aggressively trimmed.
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
-const MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+const MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
 
 export interface GenOptions {
   model?: string;

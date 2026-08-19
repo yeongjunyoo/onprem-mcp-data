@@ -15,7 +15,7 @@
 
 | 모델 | 역할 | 기반 모델명 및 개발사 | 라이선스 | 공개 수준 | 구동 방식 |
 | --- | --- | --- | --- | --- | --- |
-| 생성 LLM | 질의 의도 분해, NL2SQL, 근거 기반 한국어 답변 생성 | **Qwen2.5-7B-Instruct** (Alibaba Cloud) | **Apache-2.0** | 오픈웨이트(가중치 공개) | Ollama `qwen2.5:7b`, Q4_K_M, 7.6B params, context 32768, `temperature 0 / seed 42 / num_ctx 4096` 고정 |
+| 생성 LLM | 질의 의도 분해, NL2SQL, 근거 기반 한국어 답변 생성 | **Qwen2.5-Coder-7B-Instruct** (Alibaba Cloud) | **Apache-2.0** | 오픈웨이트(가중치 공개) | Ollama `qwen2.5-coder:7b`, Q4_K_M, 7.6B params, context 32768, `temperature 0 / seed 42 / num_ctx 4096` 고정 |
 | 임베딩 | 문서·질의 임베딩(1024차원), 벡터 검색 | **BGE-M3** (BAAI) | **MIT** | 오픈웨이트(가중치 공개) | Ollama `bge-m3`, 8192 토큰 컨텍스트, dense 1024-dim (`documents.embedding vector(1024)`와 일치) |
 
 - 두 모델 모두 운영규정 제9조①의 **"최소 오픈웨이트 이상"** 요건을 충족한다.

@@ -28,7 +28,7 @@ const RUNTIME = [
   ['PostgreSQL', '16', 'PostgreSQL License (OSI 인증)', 'https://github.com/postgres/postgres', '관계형 저장소와 온프렘 클러스터(primary, replica)'],
   ['pgvector', '0.8.6', 'PostgreSQL License (OSI 인증)', 'https://github.com/pgvector/pgvector', '벡터 인덱스와 코사인 유사도 검색'],
   ['Ollama', '0.32.14', 'MIT', 'https://github.com/ollama/ollama', '로컬 LLM과 임베딩 런타임(외부 API 호출 없음)'],
-  ['qwen2.5:7b', '7B', 'Apache-2.0 (오픈웨이트)', 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct', '질의 의도 분해와 답변 생성(로컬 추론)'],
+  ['qwen2.5-coder:7b', '7B', 'Apache-2.0 (오픈웨이트)', 'https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct', '질의 의도 분해와 답변 생성(로컬 추론)'],
   ['bge-m3', '567M', 'MIT (오픈웨이트)', 'https://huggingface.co/BAAI/bge-m3', '문서와 질의 임베딩(1024차원, 로컬 추론)'],
   ['Node.js', '20 LTS', 'MIT', 'https://github.com/nodejs/node', 'MCP 서버 런타임'],
 ];

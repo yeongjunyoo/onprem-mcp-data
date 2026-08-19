@@ -36,7 +36,7 @@
 - 언어와 런타임: TypeScript 5.9, Node.js 20 LTS
 - MCP 프레임워크: air(@airmcp-dev/core 0.3.0), 도구 정의는 defineServer와 defineTool
 - 데이터 저장소: PostgreSQL 16, pgvector 0.8.6, primary와 streaming replica 구성
-- 모델 런타임: Ollama 0.32.14(2026-08-18 실측). 생성 모델 qwen2.5:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
+- 모델 런타임: Ollama 0.32.14(2026-08-18 실측). 생성 모델 qwen2.5-coder:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
 - 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
 - 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이며, 이는 CI 검사(`scripts/verify-no-external-api.mjs`)로 강제한다 — 루프백이 아닌 대상이 생기면 빌드가 실패한다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
 - 테스트: 자체 러너 기반 단위와 통합 테스트 462단언 전량 통과(오프라인 335 + DB·모델 127). 집계 원자료 `eval/results/test-counts.json`
@@ -65,7 +65,7 @@ MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`
 
 **구동 및 시연**
 
-- `docker compose up -d`로 PostgreSQL(5433)과 Ollama(11435)를 올리고, `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3`로 모델을 받는다. 호스트에 Ollama가 이미 있으면 포트가 충돌하므로 컨테이너는 11435로 분리했다.
+- `docker compose up -d`로 PostgreSQL(5433)과 Ollama(11435)를 올리고, `docker compose exec ollama ollama pull qwen2.5-coder:7b` / `bge-m3`로 모델을 받는다. 호스트에 Ollama가 이미 있으면 포트가 충돌하므로 컨테이너는 11435로 분리했다.
 - `npm run companyx:load`가 공식 데이터셋을 원본 DDL 그대로 적재한다. 8테이블 818행, 문서 40건을 258청크로 분할, 그래프 133노드 354엣지, 그래프 노드와 관계형 행을 잇는 브릿지 133건이다. 데이터셋은 배포 조건상 저장소에 포함하지 않고 취득 스크립트와 SHA-256 명세로 재현한다.
 - `npm run demo:ollama`는 네트워크 없이 도구 8종 호출부터 답변 생성, 장애 주입까지 한 번에 보여준다. 기반 데이터나 모델이 없으면 성공으로 끝내지 않고 무엇을 해야 하는지 알리고 멈춘다.
 - 평가 재현은 `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`로 각각 실행하며 결과는 `eval/results/`에 JSON으로 남는다.
@@ -78,9 +78,9 @@ MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`
 | NL2SQL 실행 일치 | 5~7/10, 스키마 카드 제거 시 2/10(재시도 없음) / 재시도 1회면 7~8/10 대 7/10 | 정답 SQL의 실행 결과, 데이터베이스가 채점 |
 | 지식그래프 검색 재현율 | 1.000(개선 전 0.278) | 관계 파일에서 계산한 정답 집합 |  <!--metric:kg_recall-->
 | 벡터 검색 hit@5 | **0.986 = 73/74**(bge-m3), 해시 폴백 0.775 | 원문 키워드 규칙 |  <!--metric:vector_hit5-->
-| 종단 답변 근거 포함 | **17/19 = 89.5%** | 레인별 정답 근거. 사업자 vector 문항 3건 gold 복원 반영 |  <!--metric:ask_evidence-->
-| 답변 접지 위반 | 0건(19/19 접지), 반복 실행에서 동일 | 답변 개체가 컨텍스트에 포함되는지 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | 호스트 GPU 864ms / 컨테이너 CPU 14139ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 13배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
+| 종단 답변 근거 포함 | **18/19 = 94.7%** | 레인별 정답 근거. 사업자 vector 문항 3건 gold 복원 반영 |  <!--metric:ask_evidence-->
+| 답변 접지 위반 | 0건(18/18 접지) | 답변 개체가 컨텍스트에 포함되는지 |  <!--metric:ask_grounded_ratio-->
+| 응답 지연 중앙값 | 호스트 GPU 864ms / 컨테이너 CPU 15746ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 13배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
 
 정확도 채점에 자체 제작한 LLM 심판을 쓰지 않았다. 데이터베이스 실행 결과와 정답 집합이 채점자다.
 

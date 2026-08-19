@@ -35,7 +35,7 @@
         },
         {
           "name": "OLLAMA_MODEL",
-          "description": "답변 생성 모델 태그. 기본값 qwen2.5:7b",
+          "description": "답변 생성 모델 태그. 기본값 qwen2.5-coder:7b",
           "isRequired": false,
           "isSecret": false
         },

@@ -57,7 +57,7 @@ verify-stdio-tools · verify-sse-transport · drill-readonly-defense · verify-s
 - **근거 밖 생성 금지** — 질문이 지목한 개체를 해소하지 못하면 컨텍스트를 비우고 모른다고 답합니다.
 - **감사 레코드** — `audit.explain`이 라우팅 근거, 거부된 SQL과 사유, 융합 합의 소스, 정책 판정, 접지 검사를 한 레코드로 돌려줍니다.
 
-## 실측 (PostgreSQL 16 + pgvector, Ollama qwen2.5:7b / bge-m3)
+## 실측 (PostgreSQL 16 + pgvector, Ollama qwen2.5-coder:7b / bge-m3)
 
 | 지표 | 값 |
 | --- | --- |
@@ -76,7 +76,7 @@ verify-stdio-tools · verify-sse-transport · drill-readonly-defense · verify-s
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull qwen2.5-coder:7b
 docker compose exec ollama ollama pull bge-m3
 cd air-server && npm ci && npx tsc
 export OLLAMA_HOST=http://localhost:11435
