@@ -237,7 +237,11 @@ for (const doc of DOCS) {
           //
           // 정본 값이 줄에 있는데 창이 못 닿았다면 그건 설정 오류가 **확실**하다.
           // 다른 지표의 값은 정본이 다르니 안 걸린다.
-          if (line.includes(canonical[s.key])) {
+          // 단 `strip` 이 있는 규칙은 **일부러 값을 걷어낸다**(예: bench_internal_pct 가
+          // 88/100 을 지우고 퍼센트만 찾는다). 그 줄이 분수만 인용하면 빈 결과가
+          // **정상**이지 사각이 아니다. 2026-08-19 에 README 약점 공개 줄에서 헛 실패가 났다.
+          const strippedAway = s.strip && new RegExp(s.strip.source, s.strip.flags).test(line);
+          if (!strippedAway && line.includes(canonical[s.key])) {
             fails.push(
               `${doc}:${i + 1} - ${s.key} 의 창(${w}자)에 값이 하나도 안 잡혔는데 ` +
                 `줄에는 그 모양의 값이 있다. **창이 좁아 조용히 건너뛰는 중이다** - ` +

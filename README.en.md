@@ -117,6 +117,11 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 ## Limits
 
+- **Community metrics are zero.** 0 stars, 0 forks, and **0 pull requests from outside contributors**. The repository ships issue templates, a contributing guide, good-first-issues and Discussions, and its community profile health is 100% — but **nothing has actually come in from outside yet.** Every PR so far is ours.
+- **The external benchmark scores far below the internal one.**
+  - internal execution-match **88/100** over 100 questions
+  - official set equality **243/500 = 0.486** over all 500 BIRD Mini-Dev questions
+  - The datasets and domains differ so the two are not directly comparable, but read it as this: **the internal number is not this system's general ability.** We wrote the internal questions; somebody else wrote BIRD.
 Vector evaluation now uses **74 questions** covering all 40 documents, 30 of which never repeat the gold keywords; 71 are scored by hit@5 and the rest carry a document-type hint only, so they are scored on type accuracy. The 7B model still makes real interpretation errors, listed openly in the engineering report. Automatic failover is out of scope; replica read fallback with a kill drill is what is verified. CI runs offline unit tests and **eighteen checks** (the subset of the 28 in the checks table that needs no dataset, database or model — metrics, metric prose, test counts, evidence manifest, tool surface, external API, silent fallbacks, dataset redistribution, line endings, demo script, doc links, contribution entry, audit contract, NOTICE attribution, dependabot config, SBOM drift). Database and model suites run locally and their raw output is committed — we do not mark them as running in CI. The integration suites (127 assertions) cannot be reproduced by CI but they are not unverified: 127/127 measured on 2026-08-17, recorded in `eval/results/test-counts.json`.
 
 ## Docs
