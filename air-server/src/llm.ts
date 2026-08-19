@@ -61,8 +61,15 @@ export async function isAvailable(model = MODEL): Promise<boolean> {
  * The three extra rules below are not prompt decoration, they are fixes for
  * failures observed on the sponsor's own 30 questions (eval/results/companyx-ask.json):
  *   * language lock  — Qwen 계열이 한국어 질의에서 답변 중간에 중국어로 넘어가는 것을
- *                      2026-07 에 `qwen2.5:7b` 로 관측했다. 모델을 바꾼 뒤 같은 현상을
- *                      다시 관측하지는 않았다 — 그래도 잠금은 유지한다(비용 0, 위험 큼).
+ *                      2026-07 에 `qwen2.5:7b` 로 관측했다(30문항 중 2건이 못 쓸 답).
+ *
+ *                      2026-08-19: 모델을 `qwen2.5-coder:7b` 로 바꾼 뒤 **잠금을 빼고
+ *                      30문항을 다시 돌렸다 — 한자가 섞인 답변 0건.** 잠금이 있을 때도
+ *                      0건이다. 이 모델에서는 원 결함이 재현되지 않는다.
+ *
+ *                      **그래도 잠금은 유지한다.** 30문항 한 번으로 「절대 안 샌다」를
+ *                      말할 수 없고, 프롬프트 한 줄은 비용이 0이며 실패 비용은 크다.
+ *                      비대칭한 위험 앞에서는 싼 보험을 유지한다.
  *                      원 관측:
  *     business text ("클라우德迁移建议书"). Two of 30 answers were unusable.
  *   * relation lines — the graph lane hands over "A -부서장은-> B" triples; without
