@@ -34,10 +34,16 @@ const docs = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "u
 // 어느 문서도 「이하 air-server/ 기준」이라고 선언하지 않았다 - 심사자가 루트에서
 // 찾으면 없다.
 //
-// datasets/MANIFEST.md 는 예외다. 라이선스상 재배포 못 하는 **압축물 내부 구조**를
-// 서술한 문서라 그 경로들은 저장소에 없는 게 맞다(datasets/companyx-v1.0/ 안에
-// 실재하고 gitignore 됨). **못 담는 것과 없는 것은 다르다.**
-const PATH_EXEMPT = new Set(["datasets/MANIFEST.md"]);
+// datasets/MANIFEST.md 는 라이선스상 재배포 못 하는 **압축물 내부 구조**를 서술한다
+// (datasets/companyx-v1.0/ 안에 실재하고 gitignore 됨).
+// **못 담는 것과 없는 것은 다르다.**
+//
+// 그렇다고 문서를 통째로 면제하지 않는다 - 그러면 그 안의 다른 인용까지 눈이 먼다.
+// **면제의 범위가 곧 눈감는 범위다.** 대신 **압축물 트리에서 실제로 찾는다.**
+// 트리가 없으면(갓 클론·CI) 그때만 넘어간다 - 못 재는 것과 안 재는 것은 다르다.
+const ARCHIVE_DOC = "datasets/MANIFEST.md";
+const ARCHIVE_ROOT = resolve(ROOT, "datasets/companyx-v1.0");
+const ARCHIVE_PRESENT = existsSync(ARCHIVE_ROOT);
 const BACKTICK = /`([A-Za-z0-9_./-]+\/[A-Za-z0-9_./-]+)`/g;
 
 const fails = [];
@@ -81,7 +87,6 @@ if (checked === 0) {
 
 let backtickChecked = 0;
 for (const doc of docs) {
-  if (PATH_EXEMPT.has(doc)) continue;
   const lines = readFileSync(resolve(ROOT, doc), "utf8").split("\n");
   let fenced = false;
   for (let i = 0; i < lines.length; i++) {
@@ -92,16 +97,27 @@ for (const doc of docs) {
     if (fenced) continue;
     for (const m of lines[i].matchAll(BACKTICK)) {
       const p = m[1];
-      if (p.includes("...") || p.includes("://") || p.startsWith("http")) continue;
+      // `DOC-001..040.md` 는 범위 표기지 파일이 아니다. 상대경로(`../`) 인용이
+      // 저장소에 0건임을 확인하고 `..` 을 범위로만 해석한다.
+      if (p.includes("..") || p.includes("://") || p.startsWith("http")) continue;
       if (!/\.[a-z]{2,5}$/.test(p)) continue;
       if (p.startsWith("node_modules/") || p.startsWith("dist/")) continue;
       backtickChecked++;
-      if (!existsSync(resolve(ROOT, p))) {
+      if (existsSync(resolve(ROOT, p))) continue;
+      if (doc === ARCHIVE_DOC) {
+        // 압축물 내부 경로다. 트리가 있으면 거기서 찾고, 없으면 검증 불가.
+        if (!ARCHIVE_PRESENT) continue;
+        if (existsSync(resolve(ARCHIVE_ROOT, p))) continue;
         fails.push(
-          `${doc}:${i + 1} - 백틱으로 인용한 경로가 없다: ${p}\n` +
+          `${doc}:${i + 1} - 압축물 안에도 없는 경로다: ${p}\n` +
             `    ${lines[i].trim().slice(0, 90)}`,
         );
+        continue;
       }
+      fails.push(
+        `${doc}:${i + 1} - 백틱으로 인용한 경로가 없다: ${p}\n` +
+          `    ${lines[i].trim().slice(0, 90)}`,
+      );
     }
   }
 }
