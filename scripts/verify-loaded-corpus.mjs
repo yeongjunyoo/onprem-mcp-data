@@ -124,11 +124,82 @@ const actual = {
 
 await pool.end();
 
+// ── 붙임2(AI 모델 명세서)가 주장하는 모델 제원을 **살아 있는 Ollama** 와 대조한다.
+//
+// 2026-08-18: 제출 PDF 10쪽이 `Q4_K_M · 7.6B · context 32768 · dense 1024 · 8192토큰` 을
+// 적는데 **어느 검사도 안 봤다.** 라이선스 명세서라 틀리면 「라이선스 검증」이 직접 깎인다.
+// 기대값은 문서에서 읽는다 — 손으로 박으면 문서를 고칠 때 갈린다.
+const modelDrift = [];
+{
+  // 이 파일에는 ROOT/OLLAMA 상수가 없다 — **가정하지 않고** 여기서 만든다.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const specPath = resolve(here, "..", "docs", "ai-model-spec.md");
+  const OLLAMA = process.env.OLLAMA_HOST || "http://localhost:11435";
+  const spec = readFileSync(specPath, "utf8");
+  const want = {
+    "qwen2.5:7b": {
+      // 값을 **문서에서 뽑는다.** 2026-08-18 위조 시험: `/Q4_K_M/.test()` 는 문서가
+      // Q8_0 로 바뀌면 그냥 null 이 돼 **검사를 건너뛴다** — 있으면 보고 없으면 안 보는
+      // 규칙은 위조에 무력하다.
+      quantization_level: spec.match(/Ollama `qwen2\.5:7b`, ([A-Z0-9_]+),/)?.[1] ?? null,
+      parameter_size: spec.match(/([\d.]+B) params/)?.[1] ?? null,
+      context_length: Number(spec.match(/context (\d+)/)?.[1] ?? 0) || null,
+    },
+    "bge-m3": {
+      context_length: Number(spec.match(/(\d+) 토큰 컨텍스트/)?.[1] ?? 0) || null,
+      embedding_length: Number(spec.match(/dense (\d+)-dim/)?.[1] ?? 0) || null,
+    },
+  };
+
+  for (const [model, fields] of Object.entries(want)) {
+    let info;
+    try {
+      const r = await fetch(`${OLLAMA}/api/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: model }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      info = await r.json();
+    } catch {
+      console.log(`  (${model} 을 조회하지 못해 제원 대조를 건너뛴다 — 못 본 것을 없다고 적지 않는다.)`);
+      continue;
+    }
+    const det = info.details ?? {};
+    const mi = info.model_info ?? {};
+    const pick = (suffix) => {
+      const k = Object.keys(mi).find((x) => x.endsWith(suffix));
+      return k ? mi[k] : undefined;
+    };
+    const got = {
+      quantization_level: det.quantization_level,
+      parameter_size: det.parameter_size,
+      context_length: pick("context_length"),
+      embedding_length: pick("embedding_length"),
+    };
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === null || v === undefined) continue;
+      console.log(`  ${model} ${k.padEnd(18)} 문서 ${String(v).padStart(7)}  실제 ${String(got[k]).padStart(7)}`);
+      if (String(got[k]) !== String(v)) {
+        modelDrift.push(`${model} ${k}: 문서 ${v} · 실제 ${got[k]}`);
+      }
+    }
+  }
+}
+
 const drift = [];
 for (const [k, want] of Object.entries(EXPECT)) {
   const got = actual[k];
   console.log(`  ${k.padEnd(16)} 문서 ${String(want).padStart(5)}  실제 ${String(got).padStart(5)}`);
   if (got !== want) drift.push(`${k}: 문서는 ${want} 인데 DB 는 ${got}`);
+}
+
+if (modelDrift.length) {
+  console.error("\n붙임2가 적은 모델 제원이 실물과 다르다:");
+  for (const d of modelDrift) console.error(`  - ${d}`);
+  console.error("\n라이선스 명세서는 심사자가 대조하는 문서다 — 제원이 틀리면 나머지 서술도 의심받는다.\n");
+  process.exitCode = 1;
 }
 
 if (drift.length) {
@@ -140,4 +211,6 @@ if (drift.length) {
 
 console.log("\nOK: 적재된 코퍼스가 문서가 말하는 규모와 일치한다.");
 console.log("    (기대값을 명시한다 — 둘 다 없으면 어떤 비교든 참이 되기 때문이다.)");
-process.exit(0);
+// process.exit(0) 을 쓰지 않는다. 2026-08-18: 모델 제원 대조를 넣으면서 fetch 핸들이
+// 남았고, 강제 종료가 Windows libuv 어서션(UV_HANDLE_CLOSING)을 터뜨려 **초록인데
+// exit 9** 가 됐다. 자연 종료를 기다린다 — 종료 코드는 검사의 판정이지 정리 시점이 아니다.
