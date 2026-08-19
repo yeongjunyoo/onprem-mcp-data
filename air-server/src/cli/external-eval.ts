@@ -24,7 +24,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { generate, isAvailable } from "../llm.js";
+import { generate, isAvailable, DEFAULT_MODEL } from "../llm.js";
 import { extractSql } from "../nl2sql.js";
 
 const exec = promisify(execFile);
@@ -124,10 +124,37 @@ async function main() {
   // readdirSync 로 훑어 .json 을 전부 증거로 센다. **부분 파일이 증거로 오인된다.**
   // eval/external/ 은 통째로 gitignore 되므로 거기 둔다.
   const progressPath = resolve(root, "eval/external/.bird-progress.json");
+  const model = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
   let rows: Row[] = [];
   if (process.env.EXT_RESUME === "1" && existsSync(progressPath)) {
-    rows = JSON.parse(await readFile(progressPath, "utf8"));
-    console.log(`[resume] 이전 진행분 ${rows.length}문항을 이어받는다.`);
+    // **체크포인트를 검증하지 않고 이어받으면 두 모델의 결과가 한 파일에 섞인다.**
+    // 그 파일이 그대로 정본 증거가 된다. 2026-08-19 리뷰(P1).
+    //
+    // 이 위험을 손으로 피한 적이 있다 - 모델을 바꾸며 옛 진행분을 옮겨 뒀다.
+    // **손으로 피하는 위험은 언젠가 안 피한다.**
+    const saved = JSON.parse(await readFile(progressPath, "utf8"));
+    if (Array.isArray(saved)) {
+      console.error(
+        `\n실패: 체크포인트가 옛 형식(배열)이라 **어느 모델로 잰 것인지 알 수 없다**.\n` +
+          `  ${progressPath}\n` +
+          `  모르는 것을 맞다고 가정하지 않는다. 지우고 다시 시작하거나 따로 보관한다.\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const meta = saved.meta ?? {};
+    if (meta.model !== model || Number(meta.limit) !== limit) {
+      console.error(
+        `\n실패: 체크포인트가 다른 조건으로 만들어졌다 — 섞으면 결과가 무의미하다.\n` +
+          `  체크포인트: model=${meta.model} limit=${meta.limit}\n` +
+          `  지금       : model=${model} limit=${limit}\n` +
+          `  이어 돌리려면 조건을 맞추고, 새로 재려면 체크포인트를 지운다.\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    rows = saved.rows ?? [];
+    console.log(`[resume] ${meta.model} 로 잰 이전 진행분 ${rows.length}문항을 이어받는다.`);
   }
   const done = new Set(rows.map((r) => r.id));
   let correct = rows.filter((r) => r.ok).length;
@@ -164,7 +191,8 @@ async function main() {
     console.log(`${matched ? "✓" : "✗"} q${it.question_id} [${it.db_id}/${it.difficulty}] ${it.question.slice(0, 60)}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").slice(0, 140)}`);
     // 매 문항마다 저장한다. 3.6시간짜리 실행에서 마지막에만 쓰는 것은 도박이다.
-    await writeFile(progressPath, JSON.stringify(rows, null, 2));
+    await writeFile(progressPath,
+      JSON.stringify({ meta: { model, limit, generated_at: new Date().toISOString() }, rows }, null, 2));
   }
 
   const acc = correct / sample.length;
@@ -191,7 +219,7 @@ async function main() {
 
 
 const summary = {
-    benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+    benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     sampled: sample.length, of: all.length, samplingStride: stride,
     correct, executionAccuracy: Number((acc * 100).toFixed(1)),
     byDifficulty: byDiff, generatedAt: new Date().toISOString(),

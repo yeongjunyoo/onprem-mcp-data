@@ -12,6 +12,7 @@ import { closePool } from "./db.js";
 import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
 import { buildServer, loadRouterOntology } from "./server.js";
+import { DEFAULT_MODEL } from "./llm.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
  *
@@ -19,7 +20,7 @@ import { buildServer, loadRouterOntology } from "./server.js";
  * 있는 DB 풀 핸들 때문에 Windows libuv가 assertion을 내고 종료코드가 9로 바뀐다
  * (QA 재현). 핸들을 정리한 뒤 자연 종료시키는 편이 종료코드를 정확하게 만든다. */
 async function preflight(): Promise<boolean> {
-  const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b"];
+  const need = [process.env.OLLAMA_MODEL ?? DEFAULT_MODEL];
   if ((process.env.EMBEDDER ?? "") === "ollama") need.push(process.env.EMBED_MODEL ?? "bge-m3");
 
   const probe = await probeOllama();
@@ -27,7 +28,7 @@ async function preflight(): Promise<boolean> {
 
   // 태그에 있다고 서빙되는 것은 아니다. 생성은 EMBEDDER 설정과 무관하게 항상
   // 쓰이므로(`ask`, `audit.explain`) 무조건 확인한다.
-  const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
+  const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? DEFAULT_MODEL);
   if (!gen.ok) {
     console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
     console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다. 느린 환경이면 PREFLIGHT_GEN_TIMEOUT_MS 를 올린다.\n`);
