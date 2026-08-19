@@ -132,6 +132,43 @@ for (const doc of docs) {
     }
   }
 }
+// 문서가 안내하는 **명령**도 실재해야 한다.
+//
+// 2026-08-18: 이슈 #7 에 내가 `npm run test:offline`(없는 명령)을 넣었다가 잡혔다.
+// 이슈에는 검사를 넣었는데 **문서는 안 잡고 있었다.** 그런데 심사자가 복사해 붙이는
+// 건 문서의 명령이다. 세션 초반에 「첫 블록 npm 8종 실재」를 손으로 확인했는데
+// **손으로 지키는 규율은 지켜지지 않는다.**
+//
+// 명령은 원래 코드블록에 있으므로 **펜스 안도 본다.**
+const pkgScripts = JSON.parse(
+  readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"),
+).scripts;
+let cmdChecked = 0;
+for (const doc of docs) {
+  const lines = readFileSync(resolve(ROOT, doc), "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    for (const m of lines[i].matchAll(/npm run ([a-z:0-9._-]+)/g)) {
+      cmdChecked++;
+      if (!pkgScripts[m[1]]) {
+        fails.push(
+          `${doc}:${i + 1} - 없는 명령을 안내한다: npm run ${m[1]}\n` +
+            `    ${lines[i].trim().slice(0, 90)}`,
+        );
+      }
+    }
+    for (const m of lines[i].matchAll(/(?:node|bash) (scripts\/[A-Za-z0-9_.-]+\.(?:mjs|sh))/g)) {
+      cmdChecked++;
+      if (!existsSync(resolve(ROOT, m[1]))) {
+        fails.push(
+          `${doc}:${i + 1} - 없는 스크립트를 안내한다: ${m[1]}\n` +
+            `    ${lines[i].trim().slice(0, 90)}`,
+        );
+      }
+    }
+  }
+}
+console.log(`문서가 안내한 명령 ${cmdChecked}건의 실재도 확인했다.`);
+
 console.log(`백틱으로 인용한 경로 ${backtickChecked}건의 실재도 확인했다.`);
 
 if (fails.length) {
