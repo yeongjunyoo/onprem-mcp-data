@@ -117,7 +117,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 
 ## Limits
 
-- **Community metrics are zero.** 0 stars, 0 forks, and **0 pull requests from outside contributors**. The repository ships issue templates, a contributing guide, good-first-issues and Discussions, and its community profile health is 100% — but **nothing has actually come in from outside yet.** Of the 212 PRs so far, 203 are ours and **9 are Dependabot**; **zero were opened by an outside person**.
+- **Community metrics are zero.** 0 stars, 0 forks, and **0 pull requests from outside contributors**. The repository ships issue templates, a contributing guide, good-first-issues and Discussions, and its community profile health is 100% — but **nothing has actually come in from outside yet.** Every PR so far is either ours or **Dependabot**; **zero were opened by an outside person**.
 - **The external benchmark scores far below the internal one.**
   - internal execution-match **88/100** over 100 questions
   - official set equality **243/500 = 0.486** over all 500 BIRD Mini-Dev questions
