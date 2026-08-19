@@ -17,7 +17,7 @@
 //   - mini_dev_sqlite.json  (questions)
 //   - dev_databases/<db_id>/<db_id>.sqlite
 //
-// Run: EXT_LIMIT=50 node dist/cli/external-eval.js   (requires Ollama/qwen2.5:7b)
+// Run: EXT_LIMIT=50 node dist/cli/external-eval.js   (requires Ollama + 생성 모델)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
@@ -104,7 +104,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!(await isAvailable())) { console.log("external:bird SKIPPED (Ollama/qwen2.5:7b unavailable)"); process.exit(0); }
+  if (!(await isAvailable())) { console.log(`external:bird SKIPPED (Ollama/${process.env.OLLAMA_MODEL ?? DEFAULT_MODEL} unavailable)`); process.exit(0); }
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   const base = resolve(root, "eval/external/minidev/MINIDEV");

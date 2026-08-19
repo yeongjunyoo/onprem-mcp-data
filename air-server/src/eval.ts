@@ -5,7 +5,7 @@
 // (evalmatch.resultsMatch). No LLM judge anywhere — the database is the oracle.
 // Reference benchmark from the 리원에이스 brief: ~64.0% accuracy with no tuning.
 //
-// Run: npm run eval   (requires db up + Ollama/qwen2.5:7b). Reports, never fails
+// Run: npm run eval   (requires db up + Ollama + 생성 모델). Reports, never fails
 // the build on model accuracy.
 import { readFile } from "node:fs/promises";
 import { getPool, closePool } from "./db.js";
@@ -21,7 +21,7 @@ const REFERENCE = 0.64; // 리원에이스 brief reference benchmark
 
 async function main() {
   if (!(await isAvailable())) {
-    console.log("eval: SKIPPED (Ollama/qwen2.5:7b not available)");
+    console.log("eval: SKIPPED (Ollama 또는 생성 모델이 없다)");
     process.exit(0);
   }
 
