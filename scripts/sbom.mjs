@@ -60,6 +60,14 @@ function normalizeRepo(url, name) {
   if (!url) return `https://www.npmjs.com/package/${name}`;
   let u = url.replace(/^git\+/, '').replace(/^git:\/\//, 'https://').replace(/^git@github\.com:/, 'https://github.com/').replace(/^ssh:\/\/git@/, 'https://').replace(/\.git$/, '');
   if (!u.startsWith('http')) u = `https://github.com/${u}`;
+  // 2026-08-18: 제출 docx 의 URL 112건을 실제로 열어 보니 **하나가 죽어 있었다** -
+  // `https://git@github.com/EventSource/eventsource`. npm 필드가
+  // `git+https://git@github.com/...` 이라 `git+` 만 떼면 **userinfo 가 남는다.**
+  //
+  // 심사자는 클릭한다. 라이선스 근거로 건 링크가 죽으면 그 표 전체가 의심받는다.
+  // userinfo 를 통째로 벗긴다 - `user:pass@host` 도 같이 처리되어
+  // **자격증명이 SBOM 에 실리는 것**까지 막는다(오늘 db.ts 에서 같은 부류를 겪었다).
+  u = u.replace(/^(https?:\/\/)[^/@]*@/, '$1');
   return u;
 }
 walk(nm);
