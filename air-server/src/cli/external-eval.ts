@@ -17,13 +17,14 @@
 //   - mini_dev_sqlite.json  (questions)
 //   - dev_databases/<db_id>/<db_id>.sqlite
 //
-// Run: EXT_LIMIT=50 node dist/cli/external-eval.js   (requires Ollama/qwen2.5:7b)
+// Run: EXT_LIMIT=50 node dist/cli/external-eval.js   (requires Ollama + 생성 모델)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { generate, isAvailable } from "../llm.js";
+import { generate, isAvailable, DEFAULT_MODEL } from "../llm.js";
 import { extractSql } from "../nl2sql.js";
 
 const exec = promisify(execFile);
@@ -103,7 +104,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!(await isAvailable())) { console.log("external:bird SKIPPED (Ollama/qwen2.5:7b unavailable)"); process.exit(0); }
+  if (!(await isAvailable())) { console.log(`external:bird SKIPPED (Ollama/${process.env.OLLAMA_MODEL ?? DEFAULT_MODEL} unavailable)`); process.exit(0); }
   const here = dirname(fileURLToPath(import.meta.url));
   const root = resolve(here, "../../..");
   const base = resolve(root, "eval/external/minidev/MINIDEV");
@@ -114,10 +115,57 @@ async function main() {
   const stride = Math.max(1, Math.floor(all.length / limit));
   const sample = all.filter((_, i) => i % stride === 0).slice(0, limit);
 
-  const rows: { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; pred: string }[] = [];
-  let correct = 0;
+  type Row = { id: number; db: string; diff: string; ok: boolean; predOk: boolean; goldOk: boolean; pred: string };
+
+  // 전수 500 문항은 26s/문항 실측으로 **3.6시간**이다. 체크포인트가 없으면
+  // Ollama 가 한 번 끊기는 순간 전부 잃는다.
+  //
+  // 부분 결과를 eval/results/ 에 두지 않는다 - evidence-manifest 가 그 폴더를
+  // readdirSync 로 훑어 .json 을 전부 증거로 센다. **부분 파일이 증거로 오인된다.**
+  // eval/external/ 은 통째로 gitignore 되므로 거기 둔다.
+  const progressPath = resolve(root, "eval/external/.bird-progress.json");
+  const model = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
+  let rows: Row[] = [];
+  if (process.env.EXT_RESUME === "1" && existsSync(progressPath)) {
+    // **체크포인트를 검증하지 않고 이어받으면 두 모델의 결과가 한 파일에 섞인다.**
+    // 그 파일이 그대로 정본 증거가 된다. 2026-08-19 리뷰(P1).
+    //
+    // 이 위험을 손으로 피한 적이 있다 - 모델을 바꾸며 옛 진행분을 옮겨 뒀다.
+    // **손으로 피하는 위험은 언젠가 안 피한다.**
+    const saved = JSON.parse(await readFile(progressPath, "utf8"));
+    if (Array.isArray(saved)) {
+      console.error(
+        `\n실패: 체크포인트가 옛 형식(배열)이라 **어느 모델로 잰 것인지 알 수 없다**.\n` +
+          `  ${progressPath}\n` +
+          `  모르는 것을 맞다고 가정하지 않는다. 지우고 다시 시작하거나 따로 보관한다.\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const meta = saved.meta ?? {};
+    if (meta.model !== model || Number(meta.limit) !== limit) {
+      console.error(
+        `\n실패: 체크포인트가 다른 조건으로 만들어졌다 — 섞으면 결과가 무의미하다.\n` +
+          `  체크포인트: model=${meta.model} limit=${meta.limit}\n` +
+          `  지금       : model=${model} limit=${limit}\n` +
+          `  이어 돌리려면 조건을 맞추고, 새로 재려면 체크포인트를 지운다.\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    rows = saved.rows ?? [];
+    console.log(`[resume] ${meta.model} 로 잰 이전 진행분 ${rows.length}문항을 이어받는다.`);
+  }
+  const done = new Set(rows.map((r) => r.id));
+  let correct = rows.filter((r) => r.ok).length;
   const byDiff: Record<string, { c: number; n: number }> = {};
+  for (const r of rows) {
+    byDiff[r.diff] ??= { c: 0, n: 0 };
+    byDiff[r.diff].n++;
+    if (r.ok) byDiff[r.diff].c++;
+  }
   for (const it of sample) {
+    if (done.has(it.question_id)) continue;
     const db = resolve(base, "dev_databases", it.db_id, `${it.db_id}.sqlite`);
     let matched = false, predOk = false, goldOk = false, pred: string | null = null;
     try {
@@ -142,6 +190,9 @@ async function main() {
     rows.push({ id: it.question_id, db: it.db_id, diff: it.difficulty, ok: matched, predOk, goldOk, pred: pred ?? "(no SQL)" });
     console.log(`${matched ? "✓" : "✗"} q${it.question_id} [${it.db_id}/${it.difficulty}] ${it.question.slice(0, 60)}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").slice(0, 140)}`);
+    // 매 문항마다 저장한다. 3.6시간짜리 실행에서 마지막에만 쓰는 것은 도박이다.
+    await writeFile(progressPath,
+      JSON.stringify({ meta: { model, limit, generated_at: new Date().toISOString() }, rows }, null, 2));
   }
 
   const acc = correct / sample.length;
@@ -168,7 +219,7 @@ async function main() {
 
 
 const summary = {
-    benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+    benchmark: "BIRD Mini-Dev (SQLite)", model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     sampled: sample.length, of: all.length, samplingStride: stride,
     correct, executionAccuracy: Number((acc * 100).toFixed(1)),
     byDifficulty: byDiff, generatedAt: new Date().toISOString(),

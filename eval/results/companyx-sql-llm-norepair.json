@@ -2,10 +2,10 @@
   "summary": {
     "dataset": "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     "strategy": "llm",
-    "model": "qwen2.5:7b",
+    "model": "qwen2.5-coder:7b",
     "total": 10,
-    "correct": 5,
-    "accuracy": 50,
+    "correct": 7,
+    "accuracy": 70,
     "gold_execution_failures": 0,
     "repaired_queries": 0,
     "repair_enabled": false,
@@ -15,11 +15,11 @@
         "n": 1
       },
       "filter+aggregate": {
-        "c": 1,
+        "c": 2,
         "n": 2
       },
       "filter+count": {
-        "c": 0,
+        "c": 1,
         "n": 1
       },
       "join+projection": {
@@ -27,7 +27,7 @@
         "n": 1
       },
       "join+group+argmax": {
-        "c": 1,
+        "c": 0,
         "n": 2
       },
       "filter+set-membership": {
@@ -39,12 +39,12 @@
         "n": 1
       },
       "time-filter+count": {
-        "c": 0,
+        "c": 1,
         "n": 1
       }
     },
     "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
-    "generated_at": "2026-08-18T09:01:50.248Z"
+    "generated_at": "2026-08-19T06:23:20.388Z"
   },
   "rows": [
     {
@@ -52,112 +52,110 @@
       "tax": "join+group+top-k",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region = '서울' GROUP BY c.name ORDER BY SUM(s.amount) DESC LIMIT 5",
+      "pred": "SELECT c.name AS customer_name, SUM(s.amount) AS total_sales\nFROM companyx.sales s\nJOIN companyx.clients c ON s.client_id = c.id\nWHERE c.region = '서울'\nGROUP BY c.name\nORDER BY total_sales DESC\nLIMIT 5",
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 6779
+      "ms": 13743
     },
     {
       "id": "CX-SQL-02",
       "tax": "filter+aggregate",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2025-07-01' AND '2025-09-30'",
+      "pred": "SELECT SUM(amount) AS total_sales\nFROM companyx.sales\nWHERE quarter = '2025-Q3'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 7699
+      "ms": 6336
     },
     {
       "id": "CX-SQL-03",
       "tax": "filter+aggregate",
-      "ok": false,
+      "ok": true,
       "repaired": false,
-      "pred": "SELECT p.name AS product_name, AVG(s.amount) AS avg_monthly_revenue FROM companyx.products p JOIN companyx.sales s ON p.id = s.product_id WHERE p.category = 'security' GROUP BY p.name",
+      "pred": "SELECT AVG(s.amount) AS avg_monthly_sales\nFROM companyx.sales s\nJOIN companyx.products p ON s.product_id = p.id\nWHERE p.category = 'security'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 8054
+      "ms": 13759
     },
     {
       "id": "CX-SQL-04",
       "tax": "filter+count",
-      "ok": false,
+      "ok": true,
       "repaired": false,
-      "pred": "SELECT COUNT(*) FROM companyx.contracts WHERE is_active = true",
-      "predOk": false,
-      "predErr": "column \"is_active\" does not exist (42703)",
+      "pred": "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'",
+      "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 2995
+      "ms": 6231
     },
     {
       "id": "CX-SQL-05",
       "tax": "join+projection",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '기술지원팀'",
+      "pred": "SELECT e.name, e.salary \nFROM companyx.employees e \nJOIN companyx.departments d ON e.dept_id = d.id \nWHERE d.name = '기술지원팀'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 4,
-      "ms": 5930
+      "ms": 8837
     },
     {
       "id": "CX-SQL-06",
       "tax": "join+group+argmax",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progress' GROUP BY c.name ORDER BY COUNT(p.id) DESC LIMIT 1",
+      "pred": "SELECT c.name AS client_name, COUNT(p.id) AS project_count\nFROM companyx.clients c\nJOIN companyx.projects p ON c.id = p.client_id\nWHERE p.status = 'in_progress'\nGROUP BY c.name\nORDER BY project_count DESC\nLIMIT 1",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 6807
+      "ms": 9194
     },
     {
       "id": "CX-SQL-07",
       "tax": "filter+set-membership",
       "ok": false,
       "repaired": false,
-      "pred": "SELECT st.title, c.name AS client_name, p.name AS product_name, e.name AS assignee_name, st.description FROM companyx.support_tickets st JOIN companyx.clients c ON st.client_id = c.id JOIN companyx.products p ON st.product_id = p.id JOIN companyx.employees e ON st.assignee_id = e.id WHERE st.priority = 'critical' AND st.status = 'open'",
+      "pred": "SELECT st.id, st.title, st.description, st.priority, st.status, c.name AS client_name, p.name AS product_name, e.name AS assignee_name\nFROM companyx.support_tickets st\nJOIN companyx.clients c ON st.client_id = c.id\nJOIN companyx.products p ON st.product_id = p.id\nJOIN companyx.employees e ON st.assignee_id = e.id\nWHERE st.priority = 'critical' AND st.status = 'open'",
       "predOk": true,
       "goldOk": true,
       "goldRows": 5,
-      "ms": 12271
+      "ms": 15008
     },
     {
       "id": "CX-SQL-08",
       "tax": "join+group+sort",
       "ok": true,
       "repaired": false,
-      "pred": "SELECT p.name AS product_name, SUM(c.amount) AS total_contract_amount FROM companyx.contracts c JOIN companyx.products p ON c.product_id = p.id GROUP BY p.name ORDER BY total_contract_amount DESC",
+      "pred": "SELECT p.name AS product_name, SUM(c.amount) AS total_amount\nFROM companyx.products p\nJOIN companyx.contracts c ON p.id = c.product_id\nGROUP BY p.name\nORDER BY total_amount DESC",
       "predOk": true,
       "goldOk": true,
       "goldRows": 12,
-      "ms": 7682
+      "ms": 7953
     },
     {
       "id": "CX-SQL-09",
       "tax": "time-filter+count",
-      "ok": false,
+      "ok": true,
       "repaired": false,
-      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at) = 2024`",
-      "predOk": false,
-      "predErr": "syntax error at end of input (42601)",
+      "pred": "SELECT COUNT(*) FROM companyx.clients WHERE registered_at BETWEEN '2024-01-01' AND '2024-12-31'",
+      "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 5699
+      "ms": 6831
     },
     {
       "id": "CX-SQL-10",
       "tax": "join+group+argmax",
-      "ok": true,
+      "ok": false,
       "repaired": false,
-      "pred": "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1",
+      "pred": "SELECT d.name, AVG(e.salary) AS avg_salary\nFROM companyx.departments d\nJOIN companyx.employees e ON d.id = e.dept_id\nGROUP BY d.name\nORDER BY avg_salary DESC\nLIMIT 1",
       "predOk": true,
       "goldOk": true,
       "goldRows": 1,
-      "ms": 7154
+      "ms": 11293
     }
   ]
 }

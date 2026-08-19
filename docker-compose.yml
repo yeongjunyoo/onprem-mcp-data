@@ -62,7 +62,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata
       OLLAMA_HOST: http://ollama:11434   # 컨테이너 네트워크 안에서는 그대로 11434
-      OLLAMA_MODEL: qwen2.5:7b
+      OLLAMA_MODEL: qwen2.5-coder:7b
       EMBEDDER: ollama              # 문서에 적힌 기본값과 같게 둔다. hash는 오프라인 CI 폴백 전용이다.
       EMBED_MODEL: bge-m3
     # ★ 포트를 게시하지 않는다. 이 서버는 **stdio 전송**이라 TCP 를 듣지 않는다.

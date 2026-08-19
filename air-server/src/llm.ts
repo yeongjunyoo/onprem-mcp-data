@@ -10,7 +10,11 @@
 // from L4 is fed whole rather than aggressively trimmed.
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
-const MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+/** 기본 생성 모델. **여기서만 정한다** — 2026-08-19 모델 교체에서 이 값을
+ *  한 곳만 바꿨더니 프리플라이트와 결과 JSON 이 옛 태그를 들고 있었다.
+ *  증거 파일이 쓰지도 않은 모델명을 적는 것이 가장 나쁘다. */
+export const DEFAULT_MODEL = "qwen2.5-coder:7b";
+const MODEL = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
 
 export interface GenOptions {
   model?: string;

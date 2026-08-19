@@ -27,7 +27,7 @@ import { getPool, closePool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
 import { ask } from "../pipeline.js";
 import { profile } from "../profile.js";
-import { isAvailable } from "../llm.js";
+import { isAvailable, DEFAULT_MODEL } from "../llm.js";
 import { loadQuestions, loadGraph, datasetDir, type CxQuestion, requireDataset } from "../companyx.js";
 
 interface SqlGold {
@@ -195,7 +195,7 @@ async function main() {
       "eval/companyx/kg_gold.json",
       "eval/companyx/sql_gold.jsonl",
     ]),
-    model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+    model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     embedder: embedder.name,
     // ★ 지연은 환경에 종속된다. 같은 코드가 GPU 호스트 Ollama에서 약 0.8초,
     // GPU 패스스루가 없는 컨테이너 Ollama에서 약 10초다(13배). 어느 엔드포인트에서

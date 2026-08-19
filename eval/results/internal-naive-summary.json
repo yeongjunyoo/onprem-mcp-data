@@ -1,16 +1,16 @@
 {
   "strategy": "naive",
-  "model": "qwen2.5:7b",
+  "model": "qwen2.5-coder:7b",
   "total": 100,
-  "correct": 30,
-  "accuracy": 30,
+  "correct": 37,
+  "accuracy": 37,
   "byTax": {
     "count": {
       "c": 5,
       "n": 5
     },
     "count+filter": {
-      "c": 4,
+      "c": 9,
       "n": 15
     },
     "distinct": {
@@ -22,7 +22,7 @@
       "n": 9
     },
     "aggregate+filter": {
-      "c": 1,
+      "c": 0,
       "n": 9
     },
     "comparison": {
@@ -30,7 +30,7 @@
       "n": 4
     },
     "null": {
-      "c": 3,
+      "c": 1,
       "n": 6
     },
     "groupby": {
@@ -38,11 +38,11 @@
       "n": 11
     },
     "order+limit": {
-      "c": 2,
+      "c": 3,
       "n": 5
     },
     "join": {
-      "c": 2,
+      "c": 3,
       "n": 8
     },
     "filter": {
@@ -50,7 +50,7 @@
       "n": 1
     },
     "time": {
-      "c": 2,
+      "c": 5,
       "n": 7
     },
     "synonym": {
@@ -70,6 +70,6 @@
       "n": 3
     }
   },
-  "generatedAt": "2026-08-18T08:48:35.170Z",
+  "generatedAt": "2026-08-19T06:42:49.267Z",
   "note": "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison."
 }

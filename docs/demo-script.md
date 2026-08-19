@@ -8,7 +8,7 @@
 ```bash
 # 1) 스택 (한 번만)
 docker compose up -d                       # db → host 5433, ollama → host 11435
-docker compose exec -T ollama ollama pull qwen2.5:7b
+docker compose exec -T ollama ollama pull qwen2.5-coder:7b
 docker compose exec -T ollama ollama pull bge-m3
 
 # 2) 빌드 (한 번만)
@@ -17,7 +17,7 @@ cd air-server && npm ci && node node_modules/typescript/bin/tsc
 # 3) 환경 — 매 셸마다
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mcpdata
 export OLLAMA_HOST=http://localhost:11435
-export EMBEDDER=ollama OLLAMA_MODEL=qwen2.5:7b EMBED_MODEL=bge-m3
+export EMBEDDER=ollama OLLAMA_MODEL=qwen2.5-coder:7b EMBED_MODEL=bge-m3
 unset DATASET                              # 남아 있으면 데모가 정당하게 거절한다
 
 # 4) 코퍼스 (한 번만)
@@ -37,7 +37,7 @@ npm run demo:ollama
 어느 쪽으로 찍든 자막으로 환경을 밝힌다.
 
 
-> 사전: `docker compose up -d` → `docker compose exec ollama ollama pull qwen2.5:7b` / `bge-m3` → `npm run gen:bench` → `npm run embed:bench:ollama` → `bash scripts/replica-spike.sh` 1회(로그 확보).
+> 사전: `docker compose up -d` → `docker compose exec ollama ollama pull qwen2.5-coder:7b` / `bge-m3` → `npm run gen:bench` → `npm run embed:bench:ollama` → `bash scripts/replica-spike.sh` 1회(로그 확보).
 >
 > `OLLAMA_HOST=http://localhost:11435` (컨테이너 Ollama. 호스트에 Ollama가 떠 있으면 포트가 갈린다). 그 외 명령에는 셸 전용 문법이 없다 — Windows에서도 그대로 된다.
 >
@@ -52,9 +52,9 @@ npm run demo:ollama
 | 0:45–1:03 | 섹션 1–2: SQL 실행 + `admin_secrets` 접근 거부 화면 | "데이터 접근은 읽기전용 최소권한으로 강등됩니다. 쓰기도, 관리자 파일 함수도, 비밀 테이블도 **거부**. 안전한 기본값이 곧 장애·사고 지점을 줄입니다." |
 | 1:03–1:25 | 섹션 3: BGE-M3 의미검색, 어휘겹침 0 질의 | "'돈 돌려받고 싶어요'처럼 단어가 하나도 안 겹쳐도 환불·반품 정책을 찾습니다. 어휘 매칭이 아니라 **의미**입니다." |
 | 1:25–1:55 | 섹션 4–5 (**핵심**): ontology.search('전자제품')→전자기기, graph.expand, 그리고 **canonical 3-way agreement** 출력(`entity:policy#1001 sources=[graph,vector] rank=1`) | "여기가 차별점입니다. 온톨로지가 '전자제품'을 전자기기로 해소하고, 지식그래프가 정책의 적용 범위를 확장합니다. 그리고 **같은 정책 엔티티가 벡터와 그래프 양쪽에서 나오면 canonical 키로 합쳐집니다.** 여러 갈래가 **합의**하면 그 근거가 위로 올라옵니다 — SQL·벡터·그래프 3-way." |
-| 1:55–2:15 | 섹션 6: 온프렘 Qwen2.5-7B 답변 "전체 주문은 2000건입니다." | "온프렘 7B가 **큐레이션된 컨텍스트에만** 근거해 답합니다. 구조를 안 깨고 담기 때문에 작은 모델도 정확히 답하죠. 근거가 없으면 추측 대신 **거부**합니다." |
+| 1:55–2:15 | 섹션 6: 온프렘 Qwen2.5-Coder-7B 답변 "전체 주문은 2000건입니다." | "온프렘 7B가 **큐레이션된 컨텍스트에만** 근거해 답합니다. 구조를 안 깨고 담기 때문에 작은 모델도 정확히 답하죠. 근거가 없으면 추측 대신 **거부**합니다." |
 | 2:15–2:42 | 섹션 7 장애주입(벡터 브랜치 강제 실패→graceful degradation) + `eval/results/faults.json`(4/4) + `eval/results/replica-spike.log` 스크롤(streaming/kill-drill) | "운영 안정성. 벡터 브랜치를 **죽여도** 크래시 없이 그래프로 부분 컨텍스트를 반환 — no-crash 4/4. 클러스터는 실제 streaming replica로, **primary를 정지시켜도 복제본이 읽기를 계속 서빙**합니다. kill-drill 로그로 증명." |
-| 2:42–2:58 | `internal-llm-summary.json`(81/100) + ablation 3행(1%/30%/81%) 표 플래시 | "품질도 실측입니다. **자작 LLM-저지 없이 DB가 채점** — 내부 100문항 **81%**. 그리고 ablation: 구조보존 큐레이션을 빼면 30%로 떨어집니다. **단순화의 핵심 레버가 바로 이 큐레이션**임을 +51%p로 증명했습니다." |
+| 2:42–2:58 | `internal-llm-summary.json`(88/100) + ablation 3행(1%/37%/88%) 표 플래시 | "품질도 실측입니다. **자작 LLM-저지 없이 DB가 채점** — 내부 100문항 **88%**. 그리고 ablation: 구조보존 큐레이션을 빼면 30%로 떨어집니다. **단순화의 핵심 레버가 바로 이 큐레이션**임을 +51%p로 증명했습니다." |
 | 2:58–3:00 | repo 트리 + LICENSE(Apache-2.0)/NOTICE/model-cards | "전부 오픈소스 Apache-2.0, raw 증거 전부 동봉. 복잡도는 낮추고, 안정성과 품질은 지킵니다. 감사합니다." |
 
 ## 촬영 노트 (서사 강조점)
@@ -78,5 +78,5 @@ npm run demo:ollama
       실행하면 primary 를 잠깐 정지시키므로 녹화 직전보다 **여유 있을 때** 먼저 돌린다.
 - [ ] raw 로그(`eval/results/*`, demo stdout) 별도 저장 → 모든 수치 추적 가능.
 - [ ] 하드웨어/OS 표시, 네트워크 off 표시 상시 노출.
-- [ ] **지연은 환경에 종속된다.** GPU 호스트 Ollama는 중앙값 864ms, GPU 패스스루 없는 컨테이너는 중앙값 14139ms(약 14초, 반복 실측 9.8~18.5초)다. 화면에 뜨는 대기 시간이 문서 수치와 다르면 어느 환경인지 자막으로 밝힌다.
+- [ ] **지연은 환경에 종속된다.** GPU 호스트 Ollama는 중앙값 864ms, GPU 패스스루 없는 컨테이너는 중앙값 15746ms(약 14초, 반복 실측 9.8~18.5초)다. 화면에 뜨는 대기 시간이 문서 수치와 다르면 어느 환경인지 자막으로 밝힌다.
 - [ ] 3:00 초과 금지 — 초과 시 0:45–1:03(권한) 또는 1:03–1:25(의미검색)를 압축.

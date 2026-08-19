@@ -239,15 +239,25 @@ canonical.bird_official_pct = (
   (birdRescore.official_set.correct / birdRescore.official_set.of) *
   100
 ).toFixed(1);
-// bird_sampled(32) 는 **일부러 넣지 않는다.** 위 대역 검사가 부분문자열로 보는데
-// 324(데이터셋 없는 CI 단언 수) 안의 32 에 걸려 거짓 유죄가 났다.
-// **정본에 넣는 값은 자기를 식별할 수 있어야 한다** — 두 자리 수는 못 한다.
+// bird_sampled 는 한때 뺐다 — 대역 검사가 부분문자열로 봐서 324(CI 단언 수) 안의
+// 32 에 걸렸기 때문이다. 2026-08-19 에 그 검사를 **숫자 경계 비교**로 고쳤으므로
+// 증상 처방을 걷고 되돌린다. **값을 피해 다니는 대신 검사를 고쳤다.**
+canonical.bird_sampled = String(birdSummary.sampled);
 
 const benchInternal = readJson("eval/results/internal-llm-summary.json");
 {
   const b = benchInternal.summary ?? benchInternal;
   canonical.bench_internal = `${b.correct}/${b.total}`;
   canonical.bench_internal_pct = String(b.correct);
+}
+// ablation 사다리의 나머지 두 칸도 정본에서 읽는다. 2026-08-19 모델 교체로
+// naive 가 30 → 37 로 움직였는데, vault 검사가 30 을 **하드코딩**하고 있어 갈렸다.
+// **하드코딩된 값은 다시 갈리지만 물어본 값은 안 갈린다.**
+{
+  const nv = readJson("eval/results/internal-naive-summary.json");
+  const tp = readJson("eval/results/internal-template-summary.json");
+  canonical.bench_naive_pct = String((nv.summary ?? nv).correct);
+  canonical.bench_template_pct = String((tp.summary ?? tp).correct);
 }
 
 // ── B. 정합성 ───────────────────────────────────────────────────────────
@@ -344,9 +354,19 @@ if (kr.length && en.length) {
   const enText = existsSync(resolve(ROOT, "README.en.md")) ? read("README.en.md") : null;
   if (enText) {
     // 한쪽에만 등장하는 지표. 둘 다 없는 것은 의도적 생략일 수 있어 보지 않는다.
+    // **부분문자열로 보면 두 자리 수가 아무 데나 걸린다.**
+    // 2026-08-19: bench_internal_pct 가 81 → 88 이 되자 zenodo ID `18808598` 안의
+    // 88 에 걸려 「한국어에만」이 됐다. 같은 뿌리로 bird_sampled(32) 가 324 안의 32 에
+    // 걸린 적도 있다 — 그때는 값을 정본에서 뺐는데 그건 증상 처방이다.
+    //
+    // 숫자 경계로 본다. `18808598` 안의 88 은 앞뒤가 숫자라 안 걸리고
+    // `88/100`·`88%` 는 걸린다. 값에 정규식 특수문자가 있으므로(`17/19`·`0.986`)
+    // 반드시 이스케이프한다.
+    const hasValue = (text, v) =>
+      new RegExp(`(?<!\\d)${v.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&")}(?!\\d)`).test(text);
     const lopsided = Object.entries(canonical)
-      .filter(([, v]) => koText.includes(v) !== enText.includes(v))
-      .map(([k, v]) => `${k}(${v}) — ${koText.includes(v) ? "한국어에만" : "영어에만"}`);
+      .filter(([, v]) => hasValue(koText, v) !== hasValue(enText, v))
+      .map(([k, v]) => `${k}(${v}) — ${hasValue(koText, v) ? "한국어에만" : "영어에만"}`);
     if (lopsided.length) {
       fails.push(`대역 지표: 한쪽 README 에만 있는 지표 ${lopsided.length}개 — ${lopsided.join(", ")}`);
     }

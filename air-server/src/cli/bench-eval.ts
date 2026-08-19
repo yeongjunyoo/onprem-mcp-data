@@ -7,7 +7,7 @@
 // No LLM judge — the database is the oracle. Raw predictions + summary are
 // written to eval/results/ so every reported number is traceable.
 //
-// Run: node dist/cli/bench-eval.js   (requires bench seeded + Ollama/qwen2.5:7b)
+// Run: node dist/cli/bench-eval.js   (requires bench seeded + Ollama + 생성 모델)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -15,7 +15,7 @@ import { getPool, closePool } from "../db.js";
 import { sqlQuery } from "../sql.js";
 import { benchNL2SQL, benchNL2SQLNaive, templateNL2SQL } from "../nl2sql.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
-import { isAvailable } from "../llm.js";
+import { isAvailable, DEFAULT_MODEL } from "../llm.js";
 
 interface Q {
   id: string; q: string; gold: string; tax: string;
@@ -44,7 +44,7 @@ async function main() {
   }
 
   if (strategy !== "template" && !(await isAvailable())) {
-    console.log("bench:internal SKIPPED (Ollama/qwen2.5:7b unavailable)");
+    console.log(`bench:internal SKIPPED (Ollama/${process.env.OLLAMA_MODEL ?? DEFAULT_MODEL} unavailable)`);
     process.exit(0);
   }
   const here = dirname(fileURLToPath(import.meta.url));
@@ -86,7 +86,7 @@ async function main() {
     byTax[k].n++; if (r.ok) byTax[k].c++;
   }
   const summary = {
-    strategy, model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+    strategy, model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     total: items.length, correct, accuracy: Number((acc * 100).toFixed(1)),
     byTax, generatedAt: new Date().toISOString(),
     note: "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison.",

@@ -18,7 +18,7 @@ Company data usually cannot leave the network, yet document search, SQL analytic
 ```bash
 git clone https://github.com/yeongjunyoo/onprem-mcp-data.git && cd onprem-mcp-data
 docker compose up -d                                     # PostgreSQL 16 + pgvector, Ollama
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull qwen2.5-coder:7b
 docker compose exec ollama ollama pull bge-m3
 
 cd air-server && npm ci && npx tsc
@@ -58,7 +58,7 @@ replacing `<repo>` with the actual path.
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5433/mcpdata",
         "OLLAMA_HOST": "http://localhost:11435",
         "EMBEDDER": "ollama",
-        "OLLAMA_MODEL": "qwen2.5:7b",
+        "OLLAMA_MODEL": "qwen2.5-coder:7b",
         "EMBED_MODEL": "bge-m3",
         "DATASET": "companyx"
       }
@@ -97,10 +97,10 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | NL2SQL with one repair pass | **7-8/10** (7/10 without the schema card) | failed SQL fed back with the database catalogue; **2 vs 6 repairs** |
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
 | Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
-| End-to-end evidence in context | **17/19 = 89.5%** (4 of 5 runs; 18/19 once) | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
-| Grounding violations | **0** — 19/19 answers grounded (100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
+| End-to-end evidence in context | **18/19 = 94.7%** | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
+| Grounding violations | **0** — 18/18 answers grounded (100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
 | **Multi-step task completion** | **5/6 = 0.833**, 14/15 steps passed | six tasks chaining entity resolution -> relation walk -> aggregation | measured |  <!--metric:multistep-->
-| Median latency | **14139 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms-->
+| Median latency | **15746 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end; repeated runs vary 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **864 ms** (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms-->
 | Median latency (host GPU) | **864 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
 | Tests | **462 assertions passing** | 290 offline + 127 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 279, since 11 ontology-coverage assertions need `edges.json`. CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
@@ -126,4 +126,4 @@ Vector evaluation now uses **74 questions** covering all 40 documents, 30 of whi
 
 ## Licence
 
-Apache License 2.0 for the code. Bundled models are open-weight and run locally: qwen2.5:7b (Apache-2.0) and bge-m3 (MIT). Third-party components are listed in [NOTICE](NOTICE) and `docs/sbom.md`.
+Apache License 2.0 for the code. Bundled models are open-weight and run locally: qwen2.5-coder:7b (Apache-2.0) and bge-m3 (MIT). Third-party components are listed in [NOTICE](NOTICE) and `docs/sbom.md`.

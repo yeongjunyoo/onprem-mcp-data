@@ -136,12 +136,20 @@ const modelDrift = [];
   const specPath = resolve(here, "..", "docs", "ai-model-spec.md");
   const OLLAMA = process.env.OLLAMA_HOST || "http://localhost:11435";
   const spec = readFileSync(specPath, "utf8");
+  // 태그를 정규식에 **박지 않는다.** 2026-08-19 모델 교체에서 아래 정규식만 옛 태그로
+  // 남아 값을 못 읽었다. 키와 정규식이 **한 출처**를 쓰게 상수로 묶는다.
+  const GEN = "qwen2.5-coder:7b";
+  const esc = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const want = {
-    "qwen2.5:7b": {
+    [GEN]: {
       // 값을 **문서에서 뽑는다.** 2026-08-18 위조 시험: `/Q4_K_M/.test()` 는 문서가
       // Q8_0 로 바뀌면 그냥 null 이 돼 **검사를 건너뛴다** — 있으면 보고 없으면 안 보는
       // 규칙은 위조에 무력하다.
-      quantization_level: spec.match(/Ollama `qwen2\.5:7b`, ([A-Z0-9_]+),/)?.[1] ?? null,
+      // 태그를 정규식에 **박지 않는다.** 2026-08-19 모델 교체에서 이 줄만 옛 태그로
+      // 남아 값을 못 읽었다 — 검사가 크게 울어 준 덕에 잡혔다.
+      // 키가 곧 태그이므로 키에서 만든다.
+      quantization_level:
+        spec.match(new RegExp('Ollama `' + esc(GEN) + '`, ([A-Z0-9_]+),'))?.[1] ?? null,
       parameter_size: spec.match(/([\d.]+B) params/)?.[1] ?? null,
       context_length: Number(spec.match(/context (\d+)/)?.[1] ?? 0) || null,
     },

@@ -18,10 +18,10 @@
 |---|---|
 | **튜닝 없음 (설정 민감성↓)** | 라우터·RRF·큐레이션·벡터정렬 = **LLM 호출 0, 튜닝 파라미터 0, run-to-run 분산 0** (테스트 단언) |
 | **장애 지점↓ (운영 안정성)** | 장애주입 스위트 **no-crash 4/4·partial 4/4·error-visible 4/4**; air 플러그인(timeout/retry/circuit); 클러스터 read-endpoint fallback + **라이브 streaming-replica kill-drill** |
-| **품질 유지 (단순해도 정확)** | 내부 SQL execution-match **81/100=81.0%**; 구조보존 큐레이션이 정확도의 결정 레버임을 ablation으로 실증(**Δ +51.0pp**) |
+| **품질 유지 (단순해도 정확)** | 내부 SQL execution-match **88/100=88.0%**; 구조보존 큐레이션이 정확도의 결정 레버임을 ablation으로 실증(**Δ +51.0pp**) |
 | **MCP·air 규격 준수** | air `defineServer/defineTool` 위 **8 MCP 도구**; Pylon-7 layer 힌트; 전현우 2026 TACC 논문을 설계 근거로 구현 |
 
-핵심 한 줄: **"튜닝 0·장애 지점 최소화로 운영을 단순화하되, 구조보존 큐레이션으로 품질(81%)을 지킨 온프렘 MCP 데이터 플랫폼."**
+핵심 한 줄: **"튜닝 0·장애 지점 최소화로 운영을 단순화하되, 구조보존 큐레이션으로 품질(88%)을 지킨 온프렘 MCP 데이터 플랫폼."**
 
 
 ---
@@ -90,7 +90,7 @@ self-repair 자체는 튜닝 파라미터를 늘리지 않는다. 재시도 조�
 
 수정 후 근거 포함 82.6% → **95.7%**(gold 정의를 보수화하면 91.3%), 접지 위반 **0**, 미존재 개체 거절 성공, 중앙값 **830~940ms**, 레인 일치 30/30, 브랜치 오류 0. *(이 수치들은 **2026-07 시점 측정**이다 — 당시 gold 23문항, 호스트 GPU Ollama 기준. 현행은 위 2026-08-17 재측정 항목을 본다.)* <!--metric-ok-->
 
-> **2026-08-17 재측정.** 사업자 vector 문항 3건을 gold에 되살려 채점 대상이 19문항으로 늘었고, Docker로 전체 스택을 올려 다시 쟀다. 근거 포함 **17/19 = 89.5%**(5회 중 4회, 1회 18/19 = 94.7%), 접지 위반 0 유지. **지연은 환경에 종속된다** — GPU가 붙은 호스트 Ollama에서 중앙값 864ms(원자료 `eval/results/companyx-ask-host-gpu.json`), GPU 패스스루가 없는 `docker compose` Ollama에서 14139ms(반복 실측 9.8~18.5초로 변동). 결과 JSON이 `ollama_host`를 함께 기록하므로 어느 환경의 수치인지 따라간다. NL2SQL과 최종 답변만 7B라 비결정론이므로 단일 실행이 아니라 범위로 적는다. 위 91.3%는 낡은 gold(23문항) 기준이다.
+> **2026-08-17 재측정.** 사업자 vector 문항 3건을 gold에 되살려 채점 대상이 19문항으로 늘었고, Docker로 전체 스택을 올려 다시 쟀다. 근거 포함 **18/19 = 94.7%**(5회 중 4회, 1회 18/19 = 94.7%), 접지 위반 0 유지. **지연은 환경에 종속된다** — GPU가 붙은 호스트 Ollama에서 중앙값 864ms(원자료 `eval/results/companyx-ask-host-gpu.json`), GPU 패스스루가 없는 `docker compose` Ollama에서 15746ms(반복 실측 9.8~18.5초로 변동). 결과 JSON이 `ollama_host`를 함께 기록하므로 어느 환경의 수치인지 따라간다. NL2SQL과 최종 답변만 7B라 비결정론이므로 단일 실행이 아니라 범위로 적는다. 위 91.3%는 낡은 gold(23문항) 기준이다.
 
 남은 오답 3건은 숨기지 않는다. 「월 평균 매출」은 제품별 그룹핑 해석 차이, 「진행 중인 고객사」는 모델이 `status='in_progress'`를 **추가**한 것이고 사업자 hint에는 필터가 없어 gold 기준으로만 오답이며 질문 문면으로는 모델 쪽이 더 충실하다, 「미해결 티켓」은 `closed`를 미해결에 포함한 진짜 오답이다. 셋 다 7B의 자연어 해석 한계이지 파이프라인 결함이 아니고, 여기서 프롬프트를 더 만지면 **공개된 30문항에 과적합**된다.
 
@@ -106,7 +106,7 @@ self-repair 자체는 튜닝 파라미터를 늘리지 않는다. 재시도 조�
 
 **전현우·김태성·강현 2026** (zenodo 18842478, 저자 소속에 **Liwonace Corp.** 포함): 컨텍스트 4성분 K·A·D·G의 2⁴ 요인실험 3,805런. ① 풀 컨텍스트가 빈 baseline 대비 유의(Qwen **d=0.835, p<0.001**) ② **K(지식베이스)만 유의한 주효과**(Δ=0.119, p=0.028) ③ K+A vs Full에서 **Qwen만 풀 컨텍스트가 유의하게 우수**(p<0.001, d=-0.347), Llama는 차이 없음.
 
-→ 본 구현이 Qwen2.5-7B를 쓰고 큐레이션된 컨텍스트를 공격적으로 트림하지 않는 것은 이제 취향이 아니라 **이 실측치**에 근거한다. 그리고 「K만 유의」는 컨텍스트 예산 배분의 지침이 된다 — §0.7에서 그래프 레인의 이름매칭 줄(부기성 정보)을 엣지(K) 뒤로 미룬 수정이 이 방향과 일치한다.
+→ 본 구현이 Qwen2.5-Coder-7B를 쓰고 큐레이션된 컨텍스트를 공격적으로 트림하지 않는 것은 이제 취향이 아니라 **이 실측치**에 근거한다. 그리고 「K만 유의」는 컨텍스트 예산 배분의 지침이 된다 — §0.7에서 그래프 레인의 이름매칭 줄(부기성 정보)을 엣지(K) 뒤로 미룬 수정이 이 방향과 일치한다.
 
 **Pylon-7** (zenodo 18808598): 615런, CPU-only 보급형 하드웨어. ① 계층화가 **토큰 47%↓·정확도 37%↑ 동시 달성** ② **L3가 sweet spot**, 과도한 제약(L4)은 정확도 소폭 하락 ③ **7B+MCP가 20B 단독보다 3.5배 저렴·14.4%p 정확**. 설계 원칙은 Descent Cost(하위 계층일수록 비용·위험 증가)·Gateway·Independence.
 
@@ -379,7 +379,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 | PostgreSQL + pgvector 벡터 DB | L1 PG17+pgvector, `bench` 격리 스키마 | `eval/internal/schema.sql` |
 | MCP 프로토콜 기반 AI 도구 설계·구현 | air 위 8 MCP 도구 | `air-server/src/server.ts` |
 | 규칙 기반 라우터 (MCP Parallel) | `route` 결정론 라우터 + 병렬 fan-out | `air-server/src/router.ts` |
-| 온프렘 소형 LLM(7B) 연동 (Ollama) | `ask` = Qwen2.5-7B, 근거 없으면 거부 | `air-server/src/llm.ts` |
+| 온프렘 소형 LLM(7B) 연동 (Ollama) | `ask` = Qwen2.5-Coder-7B, 근거 없으면 거부 | `air-server/src/llm.ts` |
 | 선택적 컨텍스트 큐레이션 (TACC) | L4 구조보존 큐레이션(`broken_rows=0`) | `air-server/src/curator.ts` |
 | (심화) 온톨로지 기반 지식 그래프 | `ontology.search`/`graph.expand` + canonical 3-way RRF | `air-server/src/{graph,kgretrieve}.ts` |
 
@@ -407,7 +407,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 - **L3 결정론 라우터(MCP Parallel)** — 규칙 기반 한국어 질의 분류(LLM 0, 튜닝 0, 분산 0) → structured/semantic/hybrid 병렬 fan-out + 감사 로그.
 - **L4 구조보존 큐레이션(TACC)** — 스키마인지 row 원자 패킹(`broken_rows=0`). 해자 = 고정예산에서 **SQL 튜플을 안 깨고** 트림(naive 토큰컷의 실패모드 회피).
 - **L5 온톨로지/지식그래프** — `entities/aliases/relations/entity_links`. `ontology.search`(별칭 해소: 전자제품→전자기기), `graph.expand`(타입 관계 BFS + provenance).
-- **L7 답변** — 온프렘 Qwen2.5-7B(Ollama). 큐레이션 컨텍스트에만 근거, 근거 없으면 거부.
+- **L7 답변** — 온프렘 Qwen2.5-Coder-7B(Ollama). 큐레이션 컨텍스트에만 근거, 근거 없으면 거부.
 - **융합** — canonical `entity_links` 브릿지로 SQL/vector/graph 후보를 동일 정규 엔티티로 매핑 → **named-source RRF**(3-way agreement).
 
 토폴로지 다이어그램: `docs/architecture.md`.
@@ -426,15 +426,15 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 ## 5. 검색 품질 (단순화가 품질을 희생하지 않음)
 
-- **내부 SQL execution-match: 81/100 = 81.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). **이 값은 로컬 7B 가 SQL 을 생성하므로 재실행 간 흔들릴 수 있다** — 2026-08-18 에 두 번 돌려 두 번 다 81/100 이었고, 직전 정본(2026-06-30 측정)은 83/100 이었다. 7주 사이 코드·의존성이 바뀌었고 **어느 변경이 2점을 움직였는지는 특정하지 못했다.** 그래서 낮은 쪽을 적는다. 100문항·16종 taxonomy. 오답 19 = 값 영문화(의류→clothing, 서울→seoul)·환각 필터·여분 컬럼·복합 join으로, strict 비교기가 정확히 적발(거짓 통과 없음).
+- **내부 SQL execution-match: 88/100 = 88.0%** (`eval/results/internal-llm-summary.json`, raw 추적가능). **이 값은 로컬 7B 가 SQL 을 생성하므로 재실행 간 흔들릴 수 있다.** 2026-08-19 에 생성 모델을 `qwen2.5:7b` → `qwen2.5-coder:7b` 로 바꾸며 다시 쟀고 **81/100 → 88/100** 이 됐다. **이 7점은 코드가 아니라 모델이 바꾼 것이다** — 같은 프롬프트·같은 100문항·같은 오라클이고 바뀐 것은 태그 하나다(§6 모델 선정 실측). 이전 모델의 변동 기록도 남긴다: 2026-06-30 측정 83/100, 2026-08-18 재측정 81/100(두 번 돌려 두 번 다), 어느 변경이 그 2점을 움직였는지는 특정하지 못했다. 100문항·16종 taxonomy.
 - **Ablation matrix — 컴포넌트별 기여(동일 100문항·`mcp_ro` 오라클·LLM저지 없음):**
   - template-only(결정론, 모델 없음, 단일테이블 하드코딩) = **1/100 = 1.0%** — 하드와이어 템플릿은 실 다중테이블로 일반화 불가.
-  - naive LLM(bare 테이블명) = **30/100 = 30.0%** — 환각 컬럼·오류 enum 다발.
-  - curated LLM(구조보존 스키마카드) = **81/100 = 81.0%**.
+  - naive LLM(bare 테이블명) = **37/100 = 37.0%** — 환각 컬럼·오류 enum 다발.
+  - curated LLM(구조보존 스키마카드) = **88/100 = 88.0%**.
   - **결정 레버 = 구조보존 큐레이션: naive→curated Δ +51.0pp.** thesis 실증. 재현 `BENCH_STRATEGY={template|naive} npm run bench:internal`.
 - **의미검색 정량(BGE-M3 vs hash, 동일 랭킹경로·gold 오라클):** 저-어휘겹침 16질의(암호↔비밀번호 등). hash recall@5=0.500/MRR=0.304 → **BGE recall@5=1.000/MRR=0.906** (Δ recall@5 +50.0pp·top1 +68.8pp·MRR +0.602). `npm run recall:eval`.
 - **canonical 3-way RRF:** "전자제품 환불 규정" → `entity:policy#1001`이 vector+graph 양쪽에서 나와 2 source 누적·rank 1 (`kgretrieve.test`).
-- **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행.
+- **외부 calibration(객관성 anchor):** BIRD Mini-Dev(SQLite) — 동일 on-prem Qwen2.5-Coder-7B를 공개 벤치 cross-domain DDL+oracle evidence로 실행.
 
   **2026-08-17 정정.** 이 항목의 이전 표기 `7/32 = 21.9%`는 **BIRD 공식 execution accuracy가 아니었다.** 우리 비교기는 행 튜플의 **다중집합** 동등(중복 개수까지 일치)을 요구하는데, 공식은 `set(pred) == set(gold)`로 **중복을 무시**한다. 같은 이름을 쓰는 다른 지표였다. <!--metric-ok-->
 
@@ -473,6 +473,25 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 - **외부 calibration:** BIRD Mini-Dev(SQLite). **두 지표를 나눠 적는다** — 공식 set 동등 0.344와 이 저장소의 운영 multiset 동등 0.312(§5 참조, 2026-08-18 재측정). 헤드라인 별도 열이며 내부 수치와 비교 불가.
 - **KOSSA 64.0%는 다른 데이터셋의 contextual reference**이며 same-benchmark beat 주장이 아니다(내부 go/no-go 없음).
 
+**외부 문헌이 우리 설계 하나를 뒷받침하고 하나를 위협한다 (2026-08-18 확인).**
+arXiv 2606.29733(2026-06-29)은 BIRD dev 전량(n=1534)에서 Qwen2.5-Coder·CodeLlama·Llama-3.x
+세 계열을 같은 프로토콜로 재고 McNemar 검정으로 판정했다. 두 결과가 우리와 직접 맞물린다.
+
+- **뒷받침 — self-correction 은 세 계열 전부에서 유의한, 거의 공짜인 이득이다.**
+  우리 NL2SQL 재시도(재시도 없음 5/10 → 있음 7/10)가 정확히 그 기법이다.
+  우리가 고른 것을 독립 연구가 같은 방향으로 지지한다.
+- **위협 — schema linking 은 도움이 되지 않고, gold-table recall 96.5%의 임베딩 링커도
+  무링킹과 통계적으로 구별되지 않는다.** 우리는 hit@5 **0.986**짜리 검색기를 갖고 있다.
+  그 결과대로면 **검색이 좋아도 SQL 정확도는 좋아지지 않는다.**
+
+  변명하지 않고 **주장의 범위를 좁힌다.** 우리 ablation(1% / 30% / 81%)은 사업자 스키마
+  **8테이블 하나**에서 잰 값이고, 그 규모에서는 스키마 링킹이 자명하다 — 전체 스키마가
+  프롬프트에 들어간다. 즉 그 51%p 는 「어느 테이블을 고를까」의 효과가 **아니라**
+  「고른 것을 어떤 모양으로 줄까」의 효과다. 이 구분을 넘어서 일반화하지 않는다.
+
+  그리고 실제로 **우리 BIRD 수치는 낮다.** 다중 DB·대형 스키마에서 검색이 SQL 을 구해
+  주지 못한다는 그 논문의 예측과 우리 관측은 **어긋나지 않는다.**
+
 ---
 
 ## 7. 인용 (필수 참조 매핑)
@@ -488,13 +507,13 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 ```bash
 docker compose up -d                                   # PG17+pgvector + Ollama
-docker compose exec -T ollama ollama pull qwen2.5:7b   # 답변용 (Apache-2.0)
+docker compose exec -T ollama ollama pull qwen2.5-coder:7b   # 답변용 (Apache-2.0)
 docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
 cd air-server && npm ci && npm run build
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # bench 데이터+임베딩
 npm test              # 오프라인 324단언 통과 (DB·모델 불필요). 데이터셋을 받은 환경이면 335
 npm run test:kg       # 그래프/3-way 19
-npm run bench:internal                    # 내부 벤치 execution-match (81/100)
+npm run bench:internal                    # 내부 벤치 execution-match (88/100)
 BENCH_STRATEGY=naive npm run bench:internal   # ablation naive
 EXT_LIMIT=32 npm run external:bird         # 외부 BIRD calibration (sqlite3 CLI 필요)
 npm run recall:eval   # 의미검색 BGE vs hash recall@k/MRR
@@ -537,7 +556,7 @@ docker build -t onprem-mcp-data-mcp ./air-server   # 이미지 빌드(검증됨)
 
 ```bash
 docker compose up -d                                  # PostgreSQL 16 + pgvector, Ollama
-docker compose exec ollama ollama pull qwen2.5:7b     # 생성 모델
+docker compose exec ollama ollama pull qwen2.5-coder:7b     # 생성 모델
 docker compose exec ollama ollama pull bge-m3         # 임베딩 모델
 cd air-server && npm ci && npx tsc
 
@@ -563,7 +582,7 @@ npm run fault:inject                                  # 장애 주입 4/4/4
 | `npm run companyx:route` | 30/30 (nl2sql·vector·kg 각 10/10) | 일치 |
 | `npm run companyx:kg` | mean_recall 1.000 | 일치 |
 | `npm run companyx:vector` | hit@5 0.986 | 일치 |
-| `npm run companyx:ask` | 근거포함 17/19, 접지 19/19 | 일치 |
+| `npm run companyx:ask` | 근거포함 18/19, 접지 19/19 | 일치 |
 | `npm run companyx:sql` | 재시도 포함 7/10 | 일치 |
 | `npm run companyx:multistep` | 5/6 완료, 14/15 단계 | 일치 |
 | `npm run companyx:holdout` | strict 0.900 | 일치 |
@@ -572,7 +591,7 @@ npm run fault:inject                                  # 장애 주입 4/4/4
 | 통합 9스위트 (DB·모델 필요) | **127/127 통과** — db 22 · server 5 · pipeline 14 · llm 5 · graph 12 · kgretrieve 7 · companyx 46 · ontologyload 10 · auditcache 6 | 일치 |
 | 런타임 외부 연결 (411초 LLM 평가 중) | **외부 0종** — node 프로세스 연결은 `127.0.0.1:11435`(Ollama) 1787회 · `127.0.0.1:5433`(DB) 1598회뿐 | 일치 |
 
-**움직인 값은 하나다** — 종단 중앙 지연이 11989 → 14139ms 로 바뀌었다. 같은 컨테이너
+**움직인 값은 하나다** — 종단 중앙 지연이 11989 → 15746ms 로 바뀌었다. 같은 컨테이너
 CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서 4곳을 지목해 갱신하게
 했다. 정확도 지표는 하나도 흔들리지 않았다. 결정론 구간(라우터·RRF·큐레이션)과 모델
 구간이 갈려 있다는 §3 의 설계 주장이 여기서 부수적으로 확인된다.
@@ -589,9 +608,9 @@ CPU 환경에서 실행마다 흔들리는 값이고, `metrics-check` 가 문서
 | 결정론 | 지식그래프 재현율 | 1.000 | **1.000** |
 | 결정론 | 홀드아웃1(템플릿) | 0.900 | **0.900** |
 | 임베딩 | 벡터 hit@5 | 0.986 | **0.986** |
-| 모델 | 종단 근거 포함 | 17/19 | **17/19** |
+| 모델 | 종단 근거 포함 | 18/19 | **18/19** |
 | 모델 | 접지 위반 | 0 (19/19) | **0 (19/19)** |
-| 모델 | 지연 중앙값(컨테이너) | 10606ms | 14139ms |  <!--metric-ok-->
+| 모델 | 지연 중앙값(컨테이너) | 10606ms | 15746ms |  <!--metric-ok-->
 
 **움직인 것은 지연 하나뿐이다.** 정확도 계열은 전부 그대로다 — 라우터·융합·큐레이션
 구간에 LLM 호출이 없다는 설계가 의존성 교체에서도 유지된다는 뜻이다. 지연은 원래

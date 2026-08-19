@@ -13,7 +13,7 @@ import { vectorSearch } from "../vector.js";
 import { ontologySearch, graphExpand } from "../graph.js";
 import { kgRetrieve } from "../kgretrieve.js";
 import { benchNL2SQL } from "../nl2sql.js";
-import { answer, isAvailable } from "../llm.js";
+import { answer, isAvailable, DEFAULT_MODEL } from "../llm.js";
 
 const line = (s = "") => console.log(s);
 const hr = (t: string) => line(`\n=== ${t} ===`);
@@ -48,12 +48,12 @@ async function main() {
     // 이 데모는 위에서 OllamaEmbedder를 **무조건** 만든다. 그러므로 임베딩 모델도
     // EMBEDDER 설정과 무관하게 항상 필요하고 항상 확인해야 한다. 설정 플래그가
     // 아니라 실제로 만드는 객체가 의존 관계를 정한다(4세대 리뷰 지적).
-    const need = [process.env.OLLAMA_MODEL ?? "qwen2.5:7b", "bge-m3"];
+    const need = [process.env.OLLAMA_MODEL ?? DEFAULT_MODEL, "bge-m3"];
     const probe = await probeOllama();
     if (!reportOllama(probe, need)) await shutdown(1);
     // 태그에 있다고 서빙되는 것은 아니다. 실제로 한 번씩 불러본다.
     // 생성은 EMBEDDER 설정과 무관하게 항상 쓰이므로 무조건 확인한다.
-    const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? "qwen2.5:7b");
+    const gen = await probeGeneration(probe.host, process.env.OLLAMA_MODEL ?? DEFAULT_MODEL);
     if (!gen.ok) {
       console.error(`\n[환경] 생성 모델이 태그에는 있으나 서빙되지 않는다: ${gen.error}`);
       console.error(`  ${probe.host} 의 /api/generate 가 응답하지 않는다. 느린 환경이면 PREFLIGHT_GEN_TIMEOUT_MS 를 올린다.\n`);

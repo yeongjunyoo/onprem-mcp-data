@@ -16,7 +16,7 @@ import { getPool, closePool } from "../db.js";
 import { sqlQuery, columnsForSql } from "../sql.js";
 import { companyxNL2SQL, companyxNL2SQLNaive, repairSql } from "../nl2sql.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
-import { isAvailable } from "../llm.js";
+import { isAvailable, DEFAULT_MODEL } from "../llm.js";
 
 interface Q {
   id: string;
@@ -103,7 +103,7 @@ async function main() {
   const summary = {
     dataset: "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     strategy,
-    model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+    model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     total: items.length,
     correct,
     accuracy: Number(((correct / items.length) * 100).toFixed(1)),
