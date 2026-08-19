@@ -50,7 +50,10 @@ async function main() {
   // 하위 실행이 적은 모델을 **버리지 않고 전달한다.** 2026-08-19 리뷰: 집계기가
   // model 을 안 담아 7월 옛 모델 반복 결과가 현재 결과와 구별되지 않았다.
   // 라벨 사고를 **라벨 부재**로 재현한 것이다. 회차마다 다르면 그건 섞인 측정이라 실패시킨다.
-  const models = [...new Set(runs.map((r) => r.model).filter(Boolean))];
+  // null 을 **버리지 않고** 센다. filter(Boolean) 이면 「모델을 적은 회차 + 안 적은 회차」
+  // 혼합이 불일치로 안 잡힌다(2026-08-19 리뷰 P2). 전부 null 인 것은 정상(비-LLM 전략),
+  // null 과 이름이 섞이거나 이름끼리 다르면 **섞인 측정**이라 반복이 아니다.
+  const models = [...new Set(runs.map((r) => r.model ?? null))];
   if (models.length > 1) {
     console.error(`\n실패: 회차마다 모델이 다르다 (${models.join(", ")}) — 섞인 측정은 반복이 아니다.\n`);
     process.exit(1);

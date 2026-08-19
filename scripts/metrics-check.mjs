@@ -306,25 +306,25 @@ const CLAIMS = [
     // "내부 SQL execution-match: **81/100 = 81.0%**" / "execution-match (81/100)"
     // 2026-08-18 리뷰 지적: 정본에 등록만 하고 **아무 검사도 소비하지 않았다.**
     // 정본에 넣는 것과 검사가 보는 것은 다르다.
-    re: /execution-match[^\n]*?(\d{1,3}\/100)/g,
+    anchor: /execution-match/, shape: /(?<!\d)\d{1,3}\/\d{2,4}(?!\d)/, re: /execution-match[^\n]*?(\d{1,3}\/\d{2,4})/g,
     label: "내부 벤치 execution-match",
   },
   {
     metric: "vector_hit5",
     // "hit@5 | **0.986 (73/74)**" / "hit@5 ... 0.986"
-    re: /hit@5[^\n]*?(0\.\d{3})/g,
+    anchor: /hit@5/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /hit@5[^\n]*?(0\.\d{3,})/g,
     label: "벡터 hit@5",
   },
   {
     metric: "holdout1_strict",
     // "라우팅 일반화 (홀드아웃)" 행. 구어체(holdout2)와 구분하기 위해 구어체 표기가
     // 없는 홀드아웃 행만 본다.
-    re: /홀드아웃(?![^\n]*구어체)[^\n]*?(0\.\d{3})/g,
+    anchor: /홀드아웃(?![^\n]*구어체)/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /홀드아웃(?![^\n]*구어체)[^\n]*?(0\.\d{3,})/g,
     label: "홀드아웃1 strict",
   },
   {
     metric: "holdout2_strict",
-    re: /(?:구어체|colloquial)[^\n]{0,60}?(0\.\d{3})/g,
+    anchor: /(?:구어체|colloquial)/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /(?:구어체|colloquial)[^\n]{0,60}?(0\.\d{3,})/g,
     label: "홀드아웃 2차(구어체) strict",
   },
 ];
@@ -341,7 +341,12 @@ for (const doc of DOCS) {
     for (const claim of CLAIMS) {
       const want = canonical[claim.metric];
       if (want === undefined) continue;
-      for (const m of line.matchAll(claim.re)) {
+      const hits = [...line.matchAll(claim.re)];
+      // **주제어는 있는데 값을 하나도 못 잡으면 조용히 통과한다.**
+      // 2026-08-19 실측: `0.986` 을 `0.9861` 로 바꾸니 (0\.\d{3,}) 가
+      // 아무것도 못 잡아 이 루프가 한 번도 안 돌고 초록이었다.
+      // **빈 창은 거짓 무죄를 만든다** — 오늘 같은 뿌리를 세 번째 고친다.
+      for (const m of hits) {
         const got = m[1] ?? m[2];
         if (!got || got === want) continue;
         // 경계 일치로 확인한 값은 정상이다(0.9001 같은 더 긴 값만 걸러낸다).
