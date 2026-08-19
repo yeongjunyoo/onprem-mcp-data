@@ -131,10 +131,17 @@ canonical.vector_hit5 = vec.detail[vecKey]["hit@5"].toFixed(3);
 
 const h1 = readJson("eval/results/companyx-holdout-route.json");
 canonical.holdout1_strict = h1.summary.strict_accuracy.toFixed(3);
+// 커버율은 strict 를 **해명하는** 값이다. 발표 대본 35행이 구어체 0.633 을 정면으로
+// 받는 답의 핵심 논거로 쓴다 - 엄격 라벨 일치는 0.633 이지만 기대 레인 도달률은
+// 0.933 이고 아예 못 닿은 것은 2건. **그 답 전체가 이 값에 걸려 있다.**
+// strict 는 넣어 놓고 그것을 해명하는 값은 안 넣었다.
+canonical.holdout1_coverage = h1.summary.coverage.toFixed(3);
 
 if (existsSync(resolve(ROOT, "eval/results/companyx-holdout2-route.json"))) {
   const h2 = readJson("eval/results/companyx-holdout2-route.json");
   canonical.holdout2_strict = h2.summary.strict_accuracy.toFixed(3);
+  canonical.holdout2_coverage = h2.summary.coverage.toFixed(3);
+  canonical.holdout2_true_miss = String(h2.summary.true_miss);
 }
 
 // 종단 근거 포함은 공개 헤드라인인데 정본에서 읽지 않아 drift가 재발할 수 있었다(H3).
