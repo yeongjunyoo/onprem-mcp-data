@@ -299,6 +299,9 @@ const DOCS = [
   "docs/report.md",
   "docs/submission-report.md",
   "CONTRIBUTING.md",
+  // 2026-08-20: 시연 대본이 빠져 있어 ablation naive 가 30% 로 낡은 채
+  // 살아남았다(정본 37). **말로 하는 대본이라 더 나쁘다 — 발언은 정정이 안 된다.**
+  "docs/demo-script.md",
 ];
 const CLAIMS = [
   {
@@ -326,6 +329,15 @@ const CLAIMS = [
     metric: "holdout2_strict",
     anchor: /(?:구어체|colloquial)/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /(?:구어체|colloquial)[^\n]{0,60}?(0\.\d{3,})/g,
     label: "홀드아웃 2차(구어체) strict",
+  },
+  {
+    // 2026-08-20: 시연 대본이 「큐레이션을 빼면 30%로 떨어집니다」라고 말하고
+    // 있었다(정본 37). 문서를 DOCS 에 넣기만 하고 **아무 CLAIM 도 그 값을
+    // 소비하지 않아** 검사가 조용히 통과했다 — 등록은 소비가 아니다.
+    // 표 형태(`| naive | 37 |`)가 아니라 **서사 형태**를 무는 것이 요점이다.
+    metric: "bench_naive_pct",
+    anchor: /큐레이션을 빼면/, shape: /(?<!\d)\d{1,3}(?=%)/, re: /큐레이션을 빼면[^\n]{0,20}?(\d{1,3})%/g,
+    label: "ablation naive(큐레이션 제거)",
   },
 ];
 
