@@ -261,7 +261,9 @@ export function buildServer(): AirServer {
 
       defineTool("ask", {
         description:
-          "한국어 질의에 대해 route→병렬 fan-out→RRF 머지→구조보존 큐레이션→온프렘 7B(Qwen2.5) " +
+          // 모델 버전을 여기 박지 않는다. 툴 설명은 계약이고 모델명의 소유자는
+          // 모델 카드 하나다. 박아 두면 모델을 갈 때마다 조용히 낡는다.
+          "한국어 질의에 대해 route→병렬 fan-out→RRF 머지→구조보존 큐레이션→온프렘 7B " +
           "최종 답변까지 end-to-end로 수행한다. 답변은 큐레이션된 컨텍스트에만 근거(추측 금지).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },

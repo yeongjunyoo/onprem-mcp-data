@@ -145,7 +145,10 @@ async function main() {
   line(`  audit: vector=${kg.audit.vector} graph=${kg.audit.graph} fused=${kg.audit.fused} agreement=${kg.audit.agreement}`);
   if (agree) line(`  합의 엔티티: ${agree.canonicalKey} sources=${JSON.stringify(agree.sources)} rank=${agree.rank}`);
 
-  hr("6) 온프렘 7B 최종 답변 (Qwen2.5)");
+  // 모델명을 손으로 적지 않는다. 이 줄은 **시연영상에 그대로 찍히는 자리**라
+  // 모델을 갈아끼우면 화면과 문서가 조용히 갈린다 — 실제로 2026-08-19 모델
+  // 교체 때 「Qwen2.5」가 남았고, 정확한 리터럴이 아니라서 검사도 못 봤다.
+  hr(`6) 온프렘 7B 최종 답변 (${process.env.OLLAMA_MODEL ?? DEFAULT_MODEL})`);
   // 프리플라이트가 생성 서빙까지 확인한 **뒤**에 잰다. 예전에는 프리플라이트보다
   // 먼저 재서, 그 사이 상태가 달라져도 답변을 조용히 건너뛰고 DEMO OK 로 끝났다.
   const haveLLM = await isAvailable();
