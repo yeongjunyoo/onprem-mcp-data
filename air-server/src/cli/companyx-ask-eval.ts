@@ -81,7 +81,13 @@ async function main() {
   const root = resolve(here, "../../..");
   const dir = datasetDir();
 
-  const questions: CxQuestion[] = await loadQuestions(dir);
+  const allQuestions: CxQuestion[] = await loadQuestions(dir);
+  // CX_LIMIT: 앞의 N 문항만 돌린다. 시연·빠른 점검용이다.
+  // 부분 실행은 **정본 산출물을 쓰지 않는다** — n=3 짜리 요약이 40지표 정본을
+  // 덮으면 그 순간 증거가 거짓이 된다. 라벨과 어긋나는 결과는 옮기지 않는다.
+  const limit = Number(process.env.CX_LIMIT ?? 0);
+  const partial = Number.isFinite(limit) && limit > 0 && limit < allQuestions.length;
+  const questions: CxQuestion[] = partial ? allQuestions.slice(0, limit) : allQuestions;
   const sqlGold: SqlGold[] = (await readFile(resolve(root, "eval/companyx/sql_gold.jsonl"), "utf8"))
     .split("\n")
     .filter((l) => l.trim())
@@ -224,6 +230,15 @@ async function main() {
       "감사 산출물의 원문 스니펫은 redactForPublication 으로 가린다.",
     generated_at: new Date().toISOString(),
   };
+
+  if (partial) {
+    console.log(
+      `\n[부분 실행] CX_LIMIT=${limit} — ${allQuestions.length} 문항 중 ${questions.length} 문항만 돌렸다.` +
+        `\n정본 eval/results/companyx-ask.json 은 쓰지 않는다. 전량 수치는 그 파일을 본다.`,
+    );
+    await closePool();
+    return;
+  }
 
   await mkdir(resolve(root, "eval/results"), { recursive: true });
   await writeFile(resolve(root, "eval/results/companyx-ask.json"), JSON.stringify({ summary, rows }, null, 2) + "\n");
