@@ -5,59 +5,47 @@
 // 보이고, 로컬에서 아무 검사도 이를 잡지 못했다. 표 행은 줄 단위로 매치되는
 // 검사들(verify-tool-surface)은 그대로 통과했다.
 //
-// 규칙: 빈 줄 다음 줄이 `|` 로 시작하는데 그 직전 블록도 표였다면, 이는 하나의
-// 표가 쪼개진 것이다. (의도적인 두 표 사이에는 헤더 행이 온다 — 헤더 없이
-// 바로 데이터 행(`| x | y |` 아래 `| --- |`)으로 시작하는 표는 존재하지 않는다.)
+// 규칙. 표 블록(연속한 `|` 시작 행) 뒤의 빈 줄 다음에:
+//   - 구분행(| --- |)이 오면       → 실패. 헤더와 구분행이 갈라져 GitHub 는 표를
+//     아예 그리지 않는다. 구분행으로 시작하는 올바른 표는 존재하지 않는다.
+//   - 헤더행 + 구분행이 오면       → 통과. 의도적인 새 표다.
+//   - 그 외 표 행이 오면           → 실패. 하나의 표가 쪼개진 것이다.
 //
 // 실행: node scripts/verify-table-integrity.mjs   (파일만 읽는다)
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = resolve(dirnameOf(import.meta.url), "..");
-
-function dirnameOf(u) {
-  return new URL(".", u).pathname.replace(/^\/([A-Za-z]:)/, "$1");
-}
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const fails = [];
-let checked = 0;
+let scanned = 0;
 
 const tracked = execFileSync("git", ["ls-files", "*.md"], { cwd: ROOT, encoding: "utf8" })
   .split("\n")
   .map((f) => f.trim())
   .filter(Boolean);
 
+const isRow = (s) => s.startsWith("|");
+const isDelim = (s) => /^\|\s*:?-{3,}/.test(s);
+
 for (const rel of tracked) {
   const lines = readFileSync(resolve(ROOT, rel), "utf8").split(/\r?\n/);
-  let prevWasTable = false;
-  let prevTableStart = -1;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const isTable = line.startsWith("|");
-    if (!isTable && line.trim() === "" && prevWasTable) {
-      // 빈 줄 뒤가 표 재개인지는 다음 줄에서 판정
-      const next = lines[i + 1] ?? "";
-      if (next.startsWith("|") && !/^\|\s*-{2,}/.test(next)) {
-        // 다음 표 블록의 첫 행이 구분행이면 새 표의 헤더가 아니라 데이터행 — 쪼개진 것
-        // (정상적인 새 표라면 헤더행 다음에 구분행이 오고, 구분행이 첫 줄로 오는 일은 없다)
-        const headerCandidate = next;
-        const sep = lines[i + 2] ?? "";
-        const looksLikeNewTable = /^\|/.test(sep) && /^\|\s*:?-{3,}/.test(sep);
-        if (!looksLikeNewTable) {
-          fails.push(`${rel}:${i + 2} 표가 빈 줄로 쪼개졌다 (원래 표 시작 ${prevTableStart + 1}행)`);
-        }
-      }
+    if (lines[i].trim() !== "" || !isRow(lines[i - 1] ?? "")) continue;
+    // 여기서 lines[i] 는 표 블록 바로 뒤의 빈 줄이다.
+    const next = lines[i + 1] ?? "";
+    if (!isRow(next)) continue; // 표가 정상적으로 닫혔다.
+    const after = lines[i + 2] ?? "";
+    if (isDelim(next)) {
+      fails.push(`${rel}:${i + 2} 구분행이 빈 줄 뒤에서 표를 시작한다 — 헤더와 갈라진 표`);
+    } else if (!(isRow(after) && isDelim(after))) {
+      // 새 표라면 헤더행 다음에 구분행이 와야 한다.
+      fails.push(`${rel}:${i + 2} 표가 빈 줄로 쪼개졌다 (헤더 없는 표 행)`);
     }
-    if (isTable) {
-      if (!prevWasTable) prevTableStart = i;
-      prevWasTable = true;
-    } else if (line.trim() !== "") {
-      prevWasTable = false;
-    }
-    checked++;
   }
+  scanned++;
 }
 
 if (fails.length) {
@@ -65,4 +53,4 @@ if (fails.length) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log(`표 무결성: ${tracked.length}개 문서 검사, 쪼개진 표 없음.`);
+console.log(`표 무결성: ${scanned}개 문서 검사, 쪼개진 표 없음.`);
