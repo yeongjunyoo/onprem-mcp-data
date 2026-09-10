@@ -4,8 +4,21 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5--coder%3A7b%20(local)-success)](docs/model-cards/qwen2.5-coder-7b.md)
+[![Node](https://img.shields.io/badge/node-20%2B-339933)](https://nodejs.org/)
 
 **사내 데이터베이스에 자연어로 묻고, 근거와 함께 답을 받는 온프렘 MCP 서버.** 질문 하나를 벡터 검색, NL2SQL, 지식그래프 세 갈래로 자동 분기해 동시에 조회하고, 결과를 합쳐 로컬 소형 모델이 답합니다. 모델은 전부 로컬에서 돌고 **외부 API를 호출하지 않습니다.** 이 주장은 CI가 검사합니다 — `node scripts/verify-no-external-api.mjs`가 런타임 소스의 네트워크 호출 대상과 관련 환경변수 기본값을 훑어, 루프백과 compose 형제 서비스가 아닌 곳이 하나라도 있으면 실패합니다.
+
+```mermaid
+flowchart LR
+    Q["💬 자연어 질문"] --> R["route<br/>규칙 기반 라우터<br/>LLM 호출 0"]
+    R --> S["🗄️ sql.query"]
+    R --> V["🔎 vector.search"]
+    R --> G["🕸️ kgRetrieve"]
+    S --> F["RRF 융합 + 큐레이션"]
+    V --> F
+    G --> F
+    F --> A["🤖 로컬 7B<br/>근거 기반 답변"]
+```
 
 | | |
 | --- | --- |
@@ -148,13 +161,13 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 | `verify-no-external-api` | "외부 API 0" 주장이 코드와 어긋나는 것 | 예 |
 | `verify-loud-failure` | 실패 경로가 조용히 다른 값을 돌려주는 것 | 예 |
 | `verify-line-endings` | 셸·shebang 파일이 CRLF 로 체크아웃돼 실행이 깨지는 것 | 예 |
+| `verify-table-integrity` | 마크다운 표가 빈 줄로 쪼개져 GitHub 가 두 표로 렌더하는 것 | 예 |
 | `verify-demo-script` | 녹화 대본이 띄우는 수치가 실물과 달라 영상에 남는 것 | 예 |
 | `verify-doc-links` | 문서 링크가 없는 파일을 가리키는 것 | 예 |
 | `verify-contribution-entry` | 빈 이슈를 막고 질문 창구를 안 알려 기여자가 막다른 길에 서는 것 | 예 |
 | `verify-audit-contract` | audit 계약이 설명하지 않는 값·필드를 코드가 넣는 것 (`--live` 로 실물 대조) | 예 |
 | `verify-notice-attribution` | Apache-2.0 의존성 귀속이 NOTICE 에서 빠지는 것 | 예 |
 | `verify-dependabot-config` | 공급망 정책(의존성 갱신·워크플로 권한)이 저장소 밖(UI)에만 있는 것 | 예 |
-
 | `verify-no-dataset-redistribution` | 산출물이 사업자 코퍼스를 실어 나르는 것 | 예 |
 | `verify-bird-consistency` | BIRD 의 raw·summary·rescore 가 **다른 실행을 가리키는 것** (부분 실행이 전수 정본을 덮은 적이 있다) | 예 |
 | `evidence-manifest` | 증거 목록과 실제 파일이 어긋나는 것 | 예 |
@@ -197,7 +210,7 @@ exit 1 을 확인한 뒤** 커밋했습니다 — 통과만 하는 검사는 아
 - 벡터 평가 문항은 **74개**입니다(2026-07-29 확장, 구 8개). 40개 문서를 모두 덮고 30문항은 키워드를 질문에 노출하지 않는 의미검색 전용입니다. 이 중 71문항이 hit@5 로 채점되고 나머지는 문서 **타입**만 지정한 힌트라 타입 정확도로 봅니다. 그래도 코퍼스가 문서 40건이라 절대 성능을 일반화할 수는 없습니다.
 - 7B 모델은 자연어 해석에서 실제 오답을 냅니다. 남은 오답 3건의 원인을 `docs/report.md`에 그대로 적었습니다. 공개된 30문항에 맞춰 프롬프트를 더 손대면 과적합이 됩니다.
 - 자동 장애 조치(failover)는 범위 밖입니다. 읽기 엔드포인트의 replica 폴백과 kill drill 로그까지가 검증된 범위입니다.
-- CI는 오프라인 단위 테스트와 **검사 19종**(아래 표의 29종 중 데이터셋·DB·모델 없이 도는 것들 — 지표·지표 산문·테스트 수·증거 매니페스트·도구 표면·외부 API·조용한 폴백·데이터셋 재배포·줄바꿈·시연 대본·문서 링크·기여 진입 경로·audit 계약·NOTICE 귀속·의존성 갱신 정책·저장소 활동 수치·저장소 페이지 표면·BIRD 산출물 일관성·SBOM 드리프트)을 돌립니다. 데이터베이스와 모델이 필요한 스위트와 드릴은 로컬에서 돌고, 그 원자료를 저장소에 커밋합니다. **CI에서 도는 것처럼 표시하지 않습니다** — 「주장을 지키는 검사」 표의 CI 열이 워크플로와 일치하는지도 검사가 대조합니다. 통합 127단언은 CI가 재현할 수 없지만 미확인은 아닙니다(2026-08-17 실측 127/127, `eval/results/test-counts.json`).
+- CI는 오프라인 단위 테스트와 **검사 20종**(아래 표의 30종 중 데이터셋·DB·모델 없이 도는 것들 — 지표·지표 산문·테스트 수·증거 매니페스트·도구 표면·외부 API·조용한 폴백·데이터셋 재배포·줄바꿈·표 무결성·시연 대본·문서 링크·기여 진입 경로·audit 계약·NOTICE 귀속·의존성 갱신 정책·저장소 활동 수치·저장소 페이지 표면·BIRD 산출물 일관성·SBOM 드리프트)을 돌립니다. 데이터베이스와 모델이 필요한 스위트와 드릴은 로컬에서 돌고, 그 원자료를 저장소에 커밋합니다. **CI에서 도는 것처럼 표시하지 않습니다** — 「주장을 지키는 검사」 표의 CI 열이 워크플로와 일치하는지도 검사가 대조합니다. 통합 127단언은 CI가 재현할 수 없지만 미확인은 아닙니다(2026-08-17 실측 127/127, `eval/results/test-counts.json`).
 
 ## 프로젝트 구조
 

@@ -100,6 +100,11 @@ jobs:
       - name: 실행되는 파일이 LF 인지
         working-directory: .
         run: node scripts/verify-line-endings.mjs
+      # 표가 빈 줄 하나로 두 동강 나면 GitHub 는 아래쪽을 헤더 없는 표로
+      # 렌더한다 — 깨진 것처럼 보이는데 줄 단위 검사는 전부 통과했다(2026-09-10 실측).
+      - name: 마크다운 표가 빈 줄로 쪼개지지 않는지
+        working-directory: .
+        run: node scripts/verify-table-integrity.mjs
       # 녹화 대본이 띄우는 수치는 영상에 그대로 찍힌다.
       - name: 시연 대본이 약속하는 수치가 실물과 같은지
         working-directory: .
