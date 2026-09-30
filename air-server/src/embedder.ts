@@ -15,6 +15,7 @@
 
 import { contentTerms } from "./text.js";
 import { profile } from "./profile.js";
+import { postJson } from "./ollamahttp.js";
 
 export const EMBED_DIM = 1024;
 
@@ -86,14 +87,13 @@ export class OllamaEmbedder implements Embedder {
     const n = Number(process.env.OLLAMA_EMBED_TIMEOUT_MS);
     const deadline = Number.isFinite(n) && n > 0 ? n : 60_000;
     try {
-      const res = await fetch(`${this.host}/api/embeddings`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: this.model, prompt: text }),
-        signal: AbortSignal.timeout(deadline),
-      });
-      if (!res.ok) throw new Error(`ollama embeddings ${res.status}: ${await res.text()}`);
-      const json = (await res.json()) as { embedding: number[] };
+      const res = await postJson(
+        `${this.host}/api/embeddings`,
+        { model: this.model, prompt: text },
+        AbortSignal.timeout(deadline),
+      );
+      if (res.status < 200 || res.status >= 300) throw new Error(`ollama embeddings ${res.status}: ${res.text}`);
+      const json = JSON.parse(res.text) as { embedding: number[] };
       if (!Array.isArray(json.embedding)) throw new Error("ollama: missing embedding in response");
       return json.embedding;
     } catch (e) {

@@ -11,6 +11,7 @@
 // 실행: npm run warmup    (OLLAMA_HOST 기본 http://localhost:11434, compose 컨테이너는 11435)
 import { DEFAULT_MODEL } from "../llm.js";
 import { probeOllama, reportOllama } from "../preflight.js";
+import { postJson } from "../ollamahttp.js";
 
 const host = (process.env.OLLAMA_HOST ?? "http://localhost:11434").replace(/\/$/, "");
 const genModel = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
@@ -27,14 +28,10 @@ interface Timed {
 }
 
 async function post(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const res = await fetch(`${host}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...body, keep_alive: keepAlive }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new Error(`${path} HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return (await res.json()) as Record<string, unknown>;
+  // fetch 는 응답 헤더를 300초까지만 기다려 WARMUP_TIMEOUT_MS 를 그 위로 올려도 소용이 없었다(ollamahttp.ts).
+  const res = await postJson(`${host}${path}`, { ...body, keep_alive: keepAlive }, AbortSignal.timeout(timeoutMs));
+  if (res.status < 200 || res.status >= 300) throw new Error(`${path} HTTP ${res.status}: ${res.text.slice(0, 200)}`);
+  return JSON.parse(res.text) as Record<string, unknown>;
 }
 
 async function embedOnce(): Promise<Timed> {

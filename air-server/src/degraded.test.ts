@@ -13,10 +13,14 @@
 // 실패를 **던지지 않고 `{ok:false, error}` 로 돌려주기** 때문이다.
 //
 // ★ 실패하는 pool 을 주입해 DB 없이 잰다. 가짜 단언이 아니라 진짜 분기를 탄다.
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
 import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
+import { postJson } from "./ollamahttp.js";
+import { describeError } from "./errors.js";
 
 let passed = 0;
 let failed = 0;
@@ -247,6 +251,67 @@ const deadEmbedder: Embedder = {
     },
   });
   ok(gen.answer.includes("답변 생성에 실패") && gen.answer.includes("salary: 9520"), "생성이 죽어도 조회 결과는 보여준다");
+}
+
+// Ollama POST(ollamahttp.ts). 마감은 signal 하나가 정하고, 시간 초과는 호출부가 가릴 수 있는 이름으로 온다.
+// fetch 의 300초 헤더 한도 자체는 단위 테스트로 재현할 수 없어(300초) 계약만 잰다.
+{
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const wait = req.url === "/slow" ? 1500 : 30;
+      setTimeout(() => {
+        if (res.destroyed) return;
+        if (req.url === "/missing") {
+          res.writeHead(404).end("model not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ response: ` 받음:${JSON.parse(body).prompt} `, embedding: [0.5, 0.25] }));
+      }, wait);
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const port = (server.address() as AddressInfo).port;
+  const base = `http://127.0.0.1:${port}`;
+
+  const okRes = await postJson(`${base}/api/generate`, { prompt: "안녕" }, AbortSignal.timeout(5000));
+  ok(okRes.status === 200 && JSON.parse(okRes.text).response === " 받음:안녕 ", `응답 본문을 그대로 돌려준다 (got ${okRes.status} ${okRes.text})`);
+  const miss = await postJson(`${base}/missing`, { prompt: "x" }, AbortSignal.timeout(5000));
+  ok(miss.status === 404 && miss.text === "model not found", "2xx 가 아니어도 상태와 본문을 돌려준다(판단은 호출부)");
+
+  let slowErr: unknown;
+  const t0 = Date.now();
+  try {
+    await postJson(`${base}/slow`, { prompt: "x" }, AbortSignal.timeout(200));
+  } catch (e) {
+    slowErr = e;
+  }
+  ok(slowErr instanceof Error && slowErr.name === "TimeoutError", `마감에 걸리면 TimeoutError (got ${String(slowErr)})`);
+  ok(Date.now() - t0 < 1200, "마감에서 끊는다(서버를 끝까지 기다리지 않는다)");
+
+  let refused: unknown;
+  const closed = createServer();
+  await new Promise<void>((r) => closed.listen(0, "127.0.0.1", () => r()));
+  const deadPort = (closed.address() as AddressInfo).port;
+  await new Promise<void>((r) => closed.close(() => r()));
+  try {
+    await postJson(`http://127.0.0.1:${deadPort}/api/generate`, {}, AbortSignal.timeout(5000));
+  } catch (e) {
+    refused = e;
+  }
+  ok(describeError(refused).includes("ECONNREFUSED"), `꺼진 포트는 이유를 말한다 (got ${describeError(refused)})`);
+
+  // 생성과 임베딩이 이 호출을 쓰고, 시간 초과를 사용자가 고칠 값으로 말한다.
+  process.env.OLLAMA_HOST = base;
+  const llm = (await import(new URL("./llm.js?ollamahttp", import.meta.url).href)) as typeof import("./llm.js");
+  delete process.env.OLLAMA_HOST;
+  ok((await llm.generate("질문")) === "받음:질문", "generate 는 응답을 다듬어 돌려준다");
+  const { OllamaEmbedder } = await import("./embedder.js");
+  const emb = await new OllamaEmbedder("bge-m3", base).embed("x");
+  ok(emb.length === 2 && emb[0] === 0.5, `embed 는 벡터를 돌려준다 (got ${JSON.stringify(emb)})`);
+  server.close();
+  server.closeAllConnections();
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

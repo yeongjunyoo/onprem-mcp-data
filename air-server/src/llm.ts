@@ -9,6 +9,8 @@
 // Qwen benefits from fuller context (p<0.001) — which is why the curated context
 // from L4 is fed whole rather than aggressively trimmed.
 
+import { postJson } from "./ollamahttp.js";
+
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 /** 기본 생성 모델. **여기서만 정한다** — 2026-08-19 모델 교체에서 이 값을
  *  한 곳만 바꿨더니 프리플라이트와 결과 JSON 이 옛 태그를 들고 있었다.
@@ -43,10 +45,9 @@ function genTimeoutMs(): number {
 export async function generate(prompt: string, opts: GenOptions = {}): Promise<string> {
   const deadline = opts.timeoutMs ?? genTimeoutMs();
   try {
-    const res = await fetch(`${HOST}/api/generate`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    const res = await postJson(
+      `${HOST}/api/generate`,
+      {
         model: opts.model ?? MODEL,
         prompt,
         stream: false,
@@ -59,11 +60,11 @@ export async function generate(prompt: string, opts: GenOptions = {}): Promise<s
           seed: opts.seed ?? 42,
           num_ctx: opts.numCtx ?? 4096,
         },
-      }),
-      signal: AbortSignal.timeout(deadline),
-    });
-    if (!res.ok) throw new Error(`ollama generate ${res.status}: ${await res.text()}`);
-    const json = (await res.json()) as { response?: string };
+      },
+      AbortSignal.timeout(deadline),
+    );
+    if (res.status < 200 || res.status >= 300) throw new Error(`ollama generate ${res.status}: ${res.text}`);
+    const json = JSON.parse(res.text) as { response?: string };
     return (json.response ?? "").trim();
   } catch (e) {
     // AbortSignal.timeout 은 영어 DOMException 을 던진다. 사용자가 고칠 값을 말한다.
