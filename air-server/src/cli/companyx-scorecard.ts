@@ -25,6 +25,7 @@ import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, getReadPool, type Pool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
+import { initRouting } from "../routerinit.js";
 import { ask } from "../pipeline.js";
 import { DEFAULT_MODEL } from "../llm.js";
 import { probeOllama, reportOllama } from "../preflight.js";
@@ -402,6 +403,8 @@ async function main() {
   }
 
   const embedder = getEmbedder();
+  // 서버 기동과 같은 라우터 상태(온톨로지, 시맨틱 앵커). 재채점은 모델을 부르지 않으므로 필요 없다.
+  const routing = stored ? null : await initRouting();
   const rows: Row[] = [];
   tableHeader();
   for (const [n, item] of questions.entries()) {
@@ -539,6 +542,12 @@ async function main() {
   const loaded = ps?.models?.map((m) => ({ name: m.name, size_vram: m.size_vram ?? null })) ?? null;
   const cpu = cpus();
   const summary = {
+    routing: routing && {
+      ontology_entities: routing.ontology.entities,
+      ontology_error: routing.ontology.error ?? null,
+      semantic_anchors: routing.semantic.anchors,
+      semantic_error: routing.semantic.error ?? null,
+    },
     dataset: isHoldout
       ? `${HOLDOUT_FILES[set as Exclude<ScoreSet, "sponsor30">]} (봉인 홀드아웃, 기능테스트 스코어카드: 최종 답 일치)`
       : "companyx-dataset-v1.0 / questions.json (기능테스트 스코어카드: 최종 답 일치)",

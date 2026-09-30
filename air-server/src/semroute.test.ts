@@ -3,7 +3,7 @@
 // 시맨틱 폴백의 정확도는 bge-m3 로만 잴 수 있으므로 여기서 재지 않는다
 // (npm run companyx:boundary, companyx:holdout3). 여기서는 배선을 잰다:
 // 게이트가 언제 열리는지, 열렸을 때 무엇으로 바뀌는지, 없을 때 규칙 그대로인지.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -159,6 +159,27 @@ const marker = new MarkerEmbedder();
   ok(!semanticReady(), "설치 실패 후 폴백 비활성");
   eq((await semanticVerdict(q, marker)), null, "비활성이면 판정 없음");
   uninstallSemanticRouter();
+}
+
+// ── 평가는 서버와 같은 라우터 상태에서 돈다 ─────────────────────────────
+//
+// 서버는 기동 때 온톨로지와 시맨틱 앵커를 설치한다(routerinit.ts). 종단 평가 CLI 가 이것을
+// 빼먹으면 규칙만 쓰는 경로를 재고, 그 수치가 서버의 수치인 척 문서에 실린다(2026-09-30 실제로
+// 그랬다). companyx 평가 CLI 중 ask/retrieve 를 부르는 파일은 initRouting 도 불러야 한다.
+{
+  const here = dirname(fileURLToPath(import.meta.url));
+  const cliDir = resolve(here, "../src/cli");
+  if (existsSync(cliDir)) {
+    const missing = readdirSync(cliDir)
+      .filter((f) => /^companyx-.*\.ts$/.test(f))
+      .filter((f) => {
+        const src = readFileSync(resolve(cliDir, f), "utf8");
+        return /\b(?:ask|retrieve)\(/.test(src) && /from "\.\.\/pipeline\.js"/.test(src) && !/initRouting\(/.test(src);
+      });
+    eq(missing, [], "ask/retrieve 를 부르는 companyx 평가 CLI 는 initRouting 을 부른다");
+  } else {
+    console.log("  SKIP: 평가 CLI 라우터 초기화 검사 (소스 없음)");
+  }
 }
 
 console.log(`semroute.test: ${pass} passed, ${fail} failed`);

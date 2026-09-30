@@ -16,6 +16,7 @@ import { buildAuditRecord, redactForPublication, type AuditRecord } from "../aud
 import { datasetDir, requireDataset } from "../companyx.js";
 import { closePool, getPool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
+import { initRouting } from "../routerinit.js";
 import { ask } from "../pipeline.js";
 
 async function main() {
@@ -29,6 +30,7 @@ async function main() {
 
   const pool = getPool();
   const embedder = getEmbedder();
+  await initRouting(); // 서버와 같은 라우터 상태
   const records: AuditRecord[] = [];
   const determinism: {
     q: string;

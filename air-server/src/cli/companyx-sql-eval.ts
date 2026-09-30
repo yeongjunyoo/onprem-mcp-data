@@ -90,7 +90,7 @@ async function main() {
       : strategy === "naive" ? await companyxNL2SQLNaive(it.q) : await companyxNL2SQL(it.q);
     // eval == live: 파이프라인과 같은 함수(executeWithRepair)로 실행하고 고친다. 따로 베낀
     // 수리 로직은 파이프라인이 바뀌어도 그대로 남아 평가가 사용자가 안 타는 경로를 잰다.
-    // CX_REPAIR=0 은 고치지 않은 값, SQL_EMPTY_REPAIR=1 은 0행 수리까지 켠 값.
+    // CX_REPAIR=0 은 고치지 않은 값, SQL_EMPTY_REPAIR=0 은 0행 수리를 끈 값.
     let repaired = saved?.repaired ?? false;
     let repairReason: string | undefined;
     if (!saved && pred) {
@@ -142,7 +142,7 @@ async function main() {
     gold_execution_failures: goldFailures,
     repaired_queries: rows.filter((r) => r.repaired).length,
     repair_enabled: process.env.CX_REPAIR !== "0",
-    empty_repair: process.env.SQL_EMPTY_REPAIR === "1",
+    empty_repair: process.env.SQL_EMPTY_REPAIR !== "0",
     rescored_from: rescoreFrom ?? null,
     gold_id_dropped: items.filter((i) => i.dropGoldId).length,
     byTax,
@@ -155,7 +155,7 @@ async function main() {
   const suffix =
     (process.env.CX_REPAIR === "0" ? "-norepair" : "") +
     (strategy !== "naive" && process.env.SQL_CARD === "compact" ? "-compact" : "") +
-    (process.env.SQL_EMPTY_REPAIR === "1" ? "-emptyrepair" : "") +
+    (process.env.SQL_EMPTY_REPAIR === "0" ? "-noemptyrepair" : "") +
     (process.env.OLLAMA_MODEL ? `-${process.env.OLLAMA_MODEL.replace(/[^a-zA-Z0-9.]+/g, "_")}` : "") +
     (extra ? `-${extra.replace(/^.*[/\\]/, "").replace(/_route\.json$|\.json$/, "")}` : "");
   await writeFile(

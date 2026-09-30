@@ -5,11 +5,13 @@
 //
 // 고치는 조건은 둘이다.
 //   error — 엔진이 거부했다(없는 컬럼, 잘못된 함수). 2026-08 부터 기본.
-//   empty — 실행은 됐는데 0행이다. 기본은 꺼져 있고 SQL_EMPTY_REPAIR=1 로 켠다.
+//   empty — 실행은 됐는데 0행이다. 기본으로 켜져 있고 SQL_EMPTY_REPAIR=0 으로 끈다(ablation).
 //           「2026년 10월 종료」를 날짜 하나와 같다고 비교한 식의 필터 오류가 0행으로
 //           드러난다(홀드아웃3 h3-11). 온프렘 텍스트-SQL 비교 연구(arXiv 2606.29733)는
 //           실행 결과를 되먹이는 자기수정이 계열과 크기에 상관없이 유의하게 도왔다고 보고했다.
 //           0행이 정답인 질문도 있으므로, 고친 쿼리가 행을 돌려줄 때만 바꾼다.
+//           기본값으로 켠 근거(2026-09-30, 개발용 사업자 10 + 홀드아웃3 정형 20): 7/10, 11/20 에서
+//           7/10, 12/20. 바뀐 문항은 h3-11 하나이고 나빠진 문항은 없다.
 import type { Pool } from "./db.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
@@ -17,7 +19,7 @@ import { repairSql } from "./nl2sql.js";
 export interface RepairOpts {
   /** 엔진 오류일 때 고친다. false 면 한 번만 실행한다. */
   repair?: boolean;
-  /** 0행일 때도 고친다. 미지정이면 SQL_EMPTY_REPAIR 환경변수를 따른다. */
+  /** 0행일 때도 고친다. 미지정이면 켜져 있고, SQL_EMPTY_REPAIR=0 이면 끈다. */
   emptyRepair?: boolean;
   /** 컬럼 목록을 읽을 스키마. */
   schema?: string;
@@ -37,7 +39,7 @@ const EMPTY_FEEDBACK =
 
 export async function executeWithRepair(pool: Pool, query: string, text: string, opts: RepairOpts = {}): Promise<Executed> {
   const first = await sqlQuery(pool, text);
-  const emptyRepair = opts.emptyRepair ?? process.env.SQL_EMPTY_REPAIR === "1";
+  const emptyRepair = opts.emptyRepair ?? process.env.SQL_EMPTY_REPAIR !== "0";
   const failed = !first.ok;
   const empty = first.ok && first.rows.length === 0;
   if (opts.repair === false || (!failed && !(empty && emptyRepair))) return { text, result: first, repaired: false };
