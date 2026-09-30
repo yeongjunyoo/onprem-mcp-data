@@ -14,7 +14,8 @@ import {
   jsonLoggerPlugin,
   type AirServer,
 } from "@airmcp-dev/core";
-import { route, audit, installOntology, SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { audit, installOntology, SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { routeQuery, installSemanticRouter, semanticState } from "./semroute.js";
 import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { sqlQuery } from "./sql.js";
@@ -80,6 +81,14 @@ export async function loadRouterOntology(): Promise<Readonly<typeof ontologyStat
     console.warn(`[router] 온톨로지 적재 실패 — 폴백으로 동작한다: ${ontologyState.error}`);
   }
   return ontologyState;
+}
+
+/** 기동 시 1회. 임베딩 모델(bge-m3)이 있을 때만 시맨틱 폴백 앵커를 임베딩한다.
+ * 해시 임베더는 의미를 담지 않으므로 설치하지 않는다 — 그때 라우터는 규칙만으로 돈다. */
+export async function loadSemanticRouter(): Promise<{ anchors: number; error?: string }> {
+  const embedder = getEmbedder();
+  if (!embedder.name.startsWith("ollama")) return { anchors: 0, error: `embedder ${embedder.name}: 규칙만 사용` };
+  return installSemanticRouter(embedder);
 }
 
 /** 캐시에서 제외하는 도구. 감사 레코드가 이 목록을 직접 읽어 정책을 적으므로,
@@ -205,9 +214,10 @@ export function buildServer(): AirServer {
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
         handler: async ({ query }) => ({
-          ...audit(route(query as string)),
+          ...audit(await routeQuery(query as string, getEmbedder())),
           // 사전이 적재됐는지 시연 중에 바로 보이게 한다. 0이면 폴백 경로다.
           entity_lexicon: ontologyState.entities,
+          semantic_anchors: semanticState().anchors,
         }),
       }),
 

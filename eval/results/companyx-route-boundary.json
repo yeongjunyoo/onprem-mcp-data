@@ -1,0 +1,1165 @@
+{
+  "note": "개발용 문항(사업자 30, 홀드아웃 1·2차)에서 규칙과 시맨틱의 경계를 잰 결과. 이 문항들은 라우터를 고치며 본 것이라 일반화 수치가 아니다. 일반화는 수정 전에 봉인한 홀드아웃 3차가 잰다. grid 는 상수 후보의 모사, deployed 는 배포 상수로 routeQuery 를 실제로 돌린 값이다.",
+  "input_hashes": {
+    "datasets/companyx-v1.0/questions.json": "26d2d578e081b10a",
+    "eval/companyx/holdout_route.json": "79031d568953c15a",
+    "eval/companyx/holdout2_route.json": "6353f029efcea1e9"
+  },
+  "embedder": "ollama:bge-m3@768",
+  "semantic_anchors": 130,
+  "constants": {
+    "RULE_MIN_MARGIN": 1,
+    "SEMANTIC_MIN_MARGIN": 0.02
+  },
+  "n": 90,
+  "rule_only": 76,
+  "semantic_only": 89,
+  "deployed": 89,
+  "by_set": {
+    "sponsor30": {
+      "n": 30,
+      "rule_only": 30,
+      "semantic_only": 29,
+      "deployed": 30
+    },
+    "holdout1": {
+      "n": 30,
+      "rule_only": 27,
+      "semantic_only": 30,
+      "deployed": 30
+    },
+    "holdout2": {
+      "n": 30,
+      "rule_only": 19,
+      "semantic_only": 30,
+      "deployed": 29
+    }
+  },
+  "buckets": {
+    "margin 2": {
+      "n": 30,
+      "rule": 29,
+      "semantic": 30
+    },
+    "margin 1": {
+      "n": 9,
+      "rule": 9,
+      "semantic": 8
+    },
+    "margin 3": {
+      "n": 12,
+      "rule": 12,
+      "semantic": 12
+    },
+    "margin 5": {
+      "n": 14,
+      "rule": 14,
+      "semantic": 14
+    },
+    "margin 4": {
+      "n": 9,
+      "rule": 9,
+      "semantic": 9
+    },
+    "margin 0.5": {
+      "n": 2,
+      "rule": 2,
+      "semantic": 2
+    },
+    "margin 2.5": {
+      "n": 1,
+      "rule": 1,
+      "semantic": 1
+    },
+    "hybrid(판단 포기)": {
+      "n": 13,
+      "rule": 0,
+      "semantic": 13
+    }
+  },
+  "grid": [
+    {
+      "tau": 0,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 0,
+      "sigma": 0.02,
+      "correct": 89
+    },
+    {
+      "tau": 0,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 0,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 0.5,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 0.5,
+      "sigma": 0.02,
+      "correct": 89
+    },
+    {
+      "tau": 0.5,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 0.5,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 1,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 1,
+      "sigma": 0.02,
+      "correct": 89
+    },
+    {
+      "tau": 1,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 1,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 1.5,
+      "sigma": 0,
+      "correct": 88
+    },
+    {
+      "tau": 1.5,
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": 1.5,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 1.5,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 2,
+      "sigma": 0,
+      "correct": 88
+    },
+    {
+      "tau": 2,
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": 2,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 2,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 2.5,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 2.5,
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": 2.5,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 2.5,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 3,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 3,
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": 3,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 3,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": 3.5,
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": 3.5,
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": 3.5,
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": 3.5,
+      "sigma": 0.1,
+      "correct": 88
+    },
+    {
+      "tau": "inf",
+      "sigma": 0,
+      "correct": 89
+    },
+    {
+      "tau": "inf",
+      "sigma": 0.02,
+      "correct": 88
+    },
+    {
+      "tau": "inf",
+      "sigma": 0.05,
+      "correct": 89
+    },
+    {
+      "tau": "inf",
+      "sigma": 0.1,
+      "correct": 88
+    }
+  ],
+  "rows": [
+    {
+      "set": "sponsor30",
+      "q": "서울 지역 매출 상위 5개 고객사를 알려줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0283,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "2025년 3분기 총 매출액은 얼마야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.4268,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.133,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "현재 활성 상태인 계약 수는 몇 개야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.384,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "기술지원팀 직원 목록과 연봉을 알려줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0286,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1103,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2439,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3161,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "2024년에 등록된 고객사는 몇 개야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 3,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1646,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "평균 연봉이 가장 높은 부서는 어디야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 3,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.21,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "sponsor30",
+      "q": "최근 서버 장애 사례와 원인을 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 1,
+      "semantic": "vector_search",
+      "semantic_margin": 0.224,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Product-C1 설치 방법이 궁금해",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2907,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Kubernetes 관련 장애 대응 방법은?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 5,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1649,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2286,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "보안 취약점 점검 관련 내용이 있어?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2164,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "백업 정책은 어떻게 되어 있어?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 3,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2836,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "API 인증 방식은 뭐야?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.47,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1832,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 3,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0972,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "SSL 인증서 관련 장애가 있었어?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 3,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1215,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Client-A가 사용 중인 제품 목록은?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1411,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Product-C1을 사용하는 고객사는 어디야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.2004,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "클라우드사업부 소속 직원들은 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0561,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "서울물산 담당 엔지니어는 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 3,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0555,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Product-D1 제품과 관련된 프로젝트는?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 0.5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1316,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "기술 지원 이슈가 가장 많은 제품은?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 0.5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1635,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "경영지원팀 팀장은 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.3596,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "진행 중인 프로젝트를 이끄는 직원 목록",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 3,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0238,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "Product-S1 관련 고객 이슈 현황은?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2.5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.182,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "sponsor30",
+      "q": "가장 많은 고객을 담당하는 직원은?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0919,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-T1 제품의 올해 총 판매액은 얼마야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3105,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-C2 제품의 올해 총 판매액은 얼마야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3105,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-A 고객사와 체결된 계약은 몇 건이야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1186,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-X 고객사와 체결된 계약은 몇 건이야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1186,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "부서별 평균 연봉을 큰 순서로 보여줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 4,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1426,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "제주 지역에서 발생한 매출 합계는?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2638,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "경기 지역에서 발생한 매출 합계는?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2619,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "계약 금액이 가장 큰 카테고리는 뭐야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1586,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "2025년 4분기에 등록된 신규 고객사 수는?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1445,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "재직 중인 직원의 평균 연봉은 얼마야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1446,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "상태가 활성인 계약의 총액은 얼마야?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3272,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1848,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1848,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "데이터베이스 백업과 복원 절차가 궁금해",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.265,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "보안 감사 대비 점검 항목이 뭐야?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1236,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "클라우드 인프라 이전 계획을 세우고 싶어",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0598,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "서버 성능 튜닝 방법을 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2285,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "API 인증 방식과 토큰 갱신 방법을 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.3103,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout1",
+      "q": "강현우 직원이 소속된 부서는 어디야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.2196,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "장미라 직원이 소속된 부서는 어디야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.2196,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-X 고객사와 연결된 직원은 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 4,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1207,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-AC 고객사와 연결된 직원은 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 4,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1207,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-D3 제품을 담당하는 팀은 어디야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 3,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1138,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Product-C2 제품을 담당하는 팀은 어디야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 3,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1138,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "기술지원팀 부서에 소속된 직원 전원을 보여줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1328,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "데이터플랫폼팀 부서에 소속된 직원 전원을 보여줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1328,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-B 고객사가 사용하는 제품을 전부 보여줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0477,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "Client-A 고객사가 사용하는 제품을 전부 보여줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0477,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "김지훈 직원이 관여하는 프로젝트는 뭐야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1577,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout1",
+      "q": "권승호 직원이 관여하는 프로젝트는 뭐야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1577,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "작년 대비 올해 계약 금액이 얼마나 늘었어?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2145,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "연봉 상위 10명의 평균이 궁금한데",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 3,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1692,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "Product-S3 이거 분기별로 얼마나 팔렸어?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2279,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "신규로 들어온 고객사가 몇 군데나 돼?",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3003,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "아직 안 닫힌 티켓 몇 건이나 남았지?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3085,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "계약 규모 큰 순으로 스무 곳만 뽑아줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1729,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "퇴사자 빼고 인원수만 알려줄래?",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2836,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "지역별로 매출 얼마씩 나왔는지 정리해줘",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3141,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "예산 초과한 프로젝트 총액이 얼마지?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2169,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "우선순위별 티켓 분포 좀 보여줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 3,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2346,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "신규 입사자가 개발 환경 세팅하려면 뭐부터 해야 해?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.3186,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "지난번 디스크 꽉 찼을 때 어떻게 복구했더라?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1763,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "재해 복구 절차가 문서로 정리된 게 있나?",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 4,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2648,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "로그 수집 파이프라인을 어떤 식으로 꾸렸는지 설명해줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 1,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1036,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "지난 분기 회고에서 나온 개선 안건 뭐였지?",
+      "expected": "vector_search",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.014,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout2",
+      "q": "고객사에 낸 제안서 중에 아키텍처 설명한 부분 찾아줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 3,
+      "semantic": "vector_search",
+      "semantic_margin": 0.169,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "권한 요청은 어떤 절차를 밟아야 하는지 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.3475,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "네트워크 지연 때문에 생긴 사고 기록 있어?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2744,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "모니터링 알람 임계값은 어떤 기준으로 잡았어?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.3822,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "개인정보 처리할 때 지켜야 하는 원칙이 뭐야?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.4469,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout2",
+      "q": "Client-P 여기는 우리 솔루션 중에 뭘 쓰지?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1005,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "Product-D2 이거 깔려 있는 데가 어디어디야?",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1282,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "신하은 사원은 어느 조직 사람이야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1452,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "보안솔루션팀 인원 구성 좀 보여줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.158,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "Client-A 여기 창구가 누구야?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.3364,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "고객사를 제일 많이 끼고 있는 사람이 누구지?",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1644,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "신미라 직원이 리드하는 건이 뭐가 있어?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1703,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "영업팀 윗선이 누구인지 알려줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.3722,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "Product-C3 이거 말썽 많이 나는 편이야?",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.3282,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout2",
+      "q": "김도윤 직원 지금 무슨 건 붙어 있어?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1763,
+      "deployed": "knowledge_graph"
+    }
+  ],
+  "generated_at": "2026-09-30T08:05:08.198Z"
+}

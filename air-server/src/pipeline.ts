@@ -9,6 +9,7 @@
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
 import { route, audit as routeAuditLog, type RouteDecision, type GraphPlan } from "./router.js";
+import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
 import { vectorSearch, type VectorResult } from "./vector.js";
@@ -190,7 +191,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const k = deps.k ?? 5;
   const budget = deps.budget ?? 256;
 
-  const decision = route(query);
+  // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
+  const decision = await routeQuery(query, embedder);
   const wantSql = decision.route === "structured" || decision.route === "hybrid";
   const wantVec = decision.route === "semantic" || decision.route === "hybrid";
   const wantGraph = decision.route === "graph";

@@ -15,6 +15,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { route, installOntology, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL } from "../router.js";
+import { routeQuery, installSemanticRouter, semanticState } from "../semroute.js";
+import { getEmbedder } from "../embedder.js";
 
 /** 데이터셋 그래프 노드에서 엔티티 사전을 만든다(오프라인 평가 경로).
  * 운영 경로는 DB에서 만든다 — server.ts 참조. */
@@ -53,6 +55,15 @@ async function main() {
   };
   console.log(`gold=${goldPath}`);
   const lexSize = await installLexiconFromDataset();
+  // 서버와 같은 경로로 잰다. 임베딩 모델이 있으면 규칙 → 시맨틱 폴백, 없으면 규칙만.
+  // 어느 쪽으로 쟀는지는 결과 파일의 router 필드에 남는다.
+  const embedder = (process.env.EMBEDDER ?? "hash") === "ollama" ? getEmbedder() : undefined;
+  if (embedder) {
+    const sem = await installSemanticRouter(embedder);
+    if (sem.error) throw new Error(`시맨틱 앵커 임베딩 실패: ${sem.error}`);
+    console.log(`semantic anchors: ${sem.anchors}개 (${embedder.name})`);
+  }
+  const routerMode = embedder ? "rule+semantic" : "rule";
 
   // 라우팅 결과를 기대 라벨로 매핑한다. 라우터가 고른 레인과 평가자가 정한 신호 라벨을
   // 같은 공간에 둔다.
@@ -83,12 +94,16 @@ async function main() {
     reached: boolean;
     tools: string[];
     rationale: string;
+    rule_only: string;
   };
   const rows: Row[] = [];
   let hits = 0;
   let reachedCount = 0;
+  let ruleOnlyHits = 0;
   for (const item of gold.items) {
-    const d = route(item.q);
+    const d = await routeQuery(item.q, embedder);
+    const ruleOnly = LANE[route(item.q).route];
+    if (ruleOnly === item.expected) ruleOnlyHits++;
     const got = LANE[d.route] ?? d.route;
     const hit = got === item.expected;
     const want = LANE_TOOLS[item.expected] ?? [];
@@ -105,6 +120,7 @@ async function main() {
       reached,
       tools: d.tools,
       rationale: d.rationale,
+      rule_only: ruleOnly,
     });
     const mark = hit ? "HIT " : reached ? "FAN " : "MISS";
     console.log(`${mark} 기대=${item.expected} 실제=${got} :: ${item.q}`);
@@ -135,6 +151,8 @@ async function main() {
     input_hashes,
     gold: goldPath,
     entity_lexicon_size: lexSize,
+    router: routerMode,
+    semantic_anchors: semanticState().anchors,
     note:
       "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. " +
       "라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. " +
@@ -151,6 +169,7 @@ async function main() {
       conservative_fanout: conservativeFanout,
       true_miss: trueMiss,
       coverage: Number((reachedCount / total).toFixed(3)),
+      rule_only_strict_accuracy: Number((ruleOnlyHits / total).toFixed(3)),
     },
     confusion,
     rows,

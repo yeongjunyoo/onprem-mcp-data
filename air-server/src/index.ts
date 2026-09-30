@@ -11,7 +11,7 @@
 import { closePool } from "./db.js";
 import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
-import { buildServer, loadRouterOntology } from "./server.js";
+import { buildServer, loadRouterOntology, loadSemanticRouter } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
@@ -62,6 +62,13 @@ async function main(): Promise<void> {
     ont.error
       ? `[router] 온톨로지 미적재(${ont.error}) — 폴백 경로로 동작한다`
       : `[router] 온톨로지 적재: 개체 ${ont.entities}개, 타입쌍 ${ont.typePairs}개`,
+  );
+
+  const sem = await loadSemanticRouter();
+  console.error(
+    sem.error
+      ? `[router] 시맨틱 폴백 없음(${sem.error})`
+      : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
 
   buildServer().start();

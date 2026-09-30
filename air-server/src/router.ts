@@ -131,6 +131,20 @@ export interface GraphPlan {
   filter?: { side: "source" | "target"; key: string; value: string };
 }
 
+/** 사업자 라벨 공간의 세 도구. 규칙 점수와 시맨틱 폴백이 같은 공간에서 비교된다. */
+export type Lane = "nl2sql" | "vector_search" | "knowledge_graph";
+export const LANES: readonly Lane[] = ["nl2sql", "vector_search", "knowledge_graph"];
+
+/** 규칙이 확신하는 정도. 사다리가 고른 도구의 점수에서 나머지 중 최고점을 뺀 값이다. */
+export interface RuleGate {
+  scores: Record<Lane, number>;
+  /** 사다리가 고른 도구. hybrid 로 떨어졌으면 null — 확신이 없다는 뜻이다. */
+  pick: Lane | null;
+  margin: number;
+  /** pick 이 있고 margin 이 RULE_MIN_MARGIN 이상일 때만 true. false 면 시맨틱 폴백 차례다. */
+  confident: boolean;
+}
+
 export interface RouteDecision {
   route: Route;
   tools: string[];
@@ -143,7 +157,52 @@ export interface RouteDecision {
   typePair?: { relation: string; from: string; to: string };
   graphPlan?: GraphPlan;
   rationale: string;
+  gate: RuleGate;
+  /** 규칙이 확신하지 못해 시맨틱 폴백이 판단했을 때만 붙는다(semroute.ts). */
+  semantic?: {
+    lane: Lane;
+    margin: number;
+    scores: Record<Lane, number>;
+    nearest: { lane: Lane; type: string; text: string; score: number };
+    applied: boolean;
+  };
 }
+
+// ── 신호 가중치 합산 ────────────────────────────────────────────────
+//
+// 사다리(아래 route())는 첫 일치에서 멈추므로 "얼마나 확실한가"를 말하지 못한다.
+// 「매출」은 정형 신호지만 「매출 관련 보고서」는 문서 질문이다. 두 신호가 함께
+// 있을 때 사다리는 여전히 한쪽을 고르고, 그 선택이 박빙이었다는 사실은 버려진다.
+// 그래서 같은 신호를 도구별 점수로 합산해 1위와 2위의 격차를 남긴다.
+//
+// 가중치는 사다리의 우선순위를 수치로 옮긴 것이다. 엣지를 직접 부르는 관계 동사가
+// 가장 무겁고(3), 문서 어휘와 타입쌍이 그다음(2), 개체에 걸린 관계 명사(1.5),
+// 나머지 정형·의미 신호는 개당 1이다.
+const WEIGHT = {
+  relationVerb: 3,
+  genericRelation: 2,
+  typePair: 2,
+  relationNoun: 1.5,
+  doc: 2,
+  semantic: 1,
+  structured: 1,
+} as const;
+
+/** 이 격차 미만이면 규칙은 판단을 시맨틱 폴백에 넘긴다.
+ *
+ * 값은 개발용 문항 90개(사업자 30, 홀드아웃 1·2차)에서 격차 구간별로 규칙만,
+ * 시맨틱만의 정확도를 따로 재서 정했다(`npm run companyx:boundary`,
+ * eval/results/companyx-route-boundary.json). 규칙이 도구를 고른 구간에서는 격차 1
+ * 부터 규칙이 시맨틱과 같거나 나았고(격차 1: 9/9 대 8/9), 규칙이 판단을 포기한
+ * 13문항에서는 시맨틱이 13/13, 규칙이 0/13 이었다. 그래서 경계는 1이다. */
+export const RULE_MIN_MARGIN = 1;
+
+const LANE_OF: Record<Route, Lane | null> = {
+  structured: "nl2sql",
+  semantic: "vector_search",
+  graph: "knowledge_graph",
+  hybrid: null,
+};
 
 /** Which endpoint a superlative counts over, per relation type.
  * "이슈가 가장 많은 제품" counts REPORTED_ISSUE by its TARGET (the product);
@@ -165,7 +224,7 @@ const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value
   [/계획\s*(중|단계)/, { side: "target", key: "status", value: "planning" }],
 ];
 
-function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
+export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   if (superlative && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
@@ -245,6 +304,25 @@ export function installOntology(
 /** 테스트와 재현성을 위해 현재 사전 크기를 노출한다. */
 export function entityLexiconSize(): number {
   return ENTITY_LEXICON.length;
+}
+
+const TYPE_PLACEHOLDER: Record<string, string> = {
+  client: "{고객사}",
+  product: "{제품}",
+  employee: "{직원}",
+  department: "{부서}",
+  project: "{프로젝트}",
+};
+
+/** 실재 개체명을 타입 자리표시로 바꾼다. 시맨틱 폴백은 「무엇을 묻는가」를 비교해야
+ * 하는데, "Product-C3" 같은 고유명은 의미가 없는 토큰이라 유사도를 흐린다. */
+export function maskEntities(q: string): string {
+  let out = q;
+  for (const e of ENTITY_LEXICON) {
+    const ph = TYPE_PLACEHOLDER[e.type];
+    if (ph && out.includes(e.name)) out = out.split(e.name).join(ph);
+  }
+  return out;
 }
 
 /** 질문에 등장하는 실재 개체의 타입들. */
@@ -371,6 +449,20 @@ export function route(query: string): RouteDecision {
     // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
+
+  const scores: Record<Lane, number> = {
+    nl2sql: WEIGHT.structured * s.length,
+    vector_search: WEIGHT.doc * docs.length + WEIGHT.semantic * m.length,
+    knowledge_graph:
+      WEIGHT.relationVerb * verbs.length +
+      (generic.length && ents.length ? WEIGHT.genericRelation : 0) +
+      (typePair && !columnish.length ? WEIGHT.typePair : 0) +
+      (nouns.length && (ents.length || s.includes("superlative")) ? WEIGHT.relationNoun : 0),
+  };
+  const pick = LANE_OF[route];
+  const margin = pick ? scores[pick] - Math.max(...LANES.filter((l) => l !== pick).map((l) => scores[l])) : 0;
+  const gate: RuleGate = { scores, pick, margin, confident: pick !== null && margin >= RULE_MIN_MARGIN };
+
   return {
     route,
     tools,
@@ -382,6 +474,7 @@ export function route(query: string): RouteDecision {
     typePair: typePair ?? undefined,
     graphPlan,
     rationale,
+    gate,
   };
 }
 
@@ -399,6 +492,17 @@ export function audit(d: RouteDecision) {
     entity_signals: d.entityHits,
     type_pair: d.typePair ?? null,
     rationale: d.rationale,
+    rule_scores: d.gate.scores,
+    rule_margin: d.gate.margin,
+    rule_confident: d.gate.confident,
+    semantic_fallback: d.semantic
+      ? {
+          lane: d.semantic.lane,
+          margin: Number(d.semantic.margin.toFixed(4)),
+          applied: d.semantic.applied,
+          nearest_anchor: d.semantic.nearest.text,
+        }
+      : null,
     deterministic: true,
   };
 }
