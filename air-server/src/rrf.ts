@@ -12,6 +12,8 @@
 // one entity emits many edges that all point at the same node, and without the
 // dedupe that node would collect a dozen increments and outrank a genuine
 // cross-source agreement. Degree is a graph fact, not retrieval evidence.
+// Ranks count DISTINCT keys too: a hub repeated ten times must not push the next
+// item of its list to rank 11, or the repetition still decides the fusion.
 
 import type { Candidate, CandidateSource } from "./candidate.js";
 export interface Ranked<T> {
@@ -33,10 +35,10 @@ export function rrfMerge<T>(lists: Ranked<T>[][], k = RRF_K): Fused<T>[] {
   const acc = new Map<string, { value: T; score: number; sources: Set<number> }>();
   lists.forEach((list, li) => {
     const seen = new Set<string>(); // best rank only, once per list
-    list.forEach((r, idx) => {
+    list.forEach((r) => {
       if (seen.has(r.key)) return;
       seen.add(r.key);
-      const inc = 1 / (k + idx + 1); // rank is 1-based
+      const inc = 1 / (k + seen.size); // 1-based rank among distinct keys
       const cur = acc.get(r.key);
       if (cur) {
         cur.score += inc;
@@ -72,10 +74,10 @@ export function rrfMergeNamed(lists: Candidate[][], k = RRF_K): FusedCandidate[]
   const acc = new Map<string, { candidate: Candidate; score: number; sources: Set<CandidateSource> }>();
   for (const list of lists) {
     const seen = new Set<string>(); // best rank only, once per list (see header)
-    list.forEach((c, idx) => {
+    list.forEach((c) => {
       if (seen.has(c.canonicalKey)) return;
       seen.add(c.canonicalKey);
-      const inc = 1 / (k + idx + 1); // 1-based rank within its own list
+      const inc = 1 / (k + seen.size); // 1-based rank among distinct keys of its own list
       const cur = acc.get(c.canonicalKey);
       if (cur) {
         cur.score += inc;

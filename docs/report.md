@@ -53,7 +53,7 @@
 
 **그래프 레인은 이번에 새로 만들었다.** 공식 라벨이 요구하는 `knowledge_graph`가 기존 라우터에 아예 없었고(구 라우터 = structured/semantic 2레인), 초기 실측 평균 recall은 **0.278**이었다. 원인 4가지를 고쳐 **1.000**으로 올렸다: ① 확장이 out 방향뿐이라 역방향 질의("Product-C1을 **사용하는** 고객사")가 조용히 0건 반환 → 양방향 BFS, ② 시드가 substring 매칭 상위 5건이라 `Product-C1`을 물으면 엉뚱한 제품이 시드 → exact>prefix>substring 랭킹, ③ 노드를 지목하지 않고 **관계만** 지목하는 질의("가장 많은 고객을 **담당하는** 직원")는 시드가 없어 시작 불가 → 관계 단위 스캔·차수 집계 도입(집계는 DB가 하고 모델은 읽기만), ④ 노드 속성 미적재로 `status='in_progress'` 필터 불가 → 속성 적재.
 
-**환각 방지 게이트(실측).** 사업자 예시 24번 `서울물산 담당 엔지니어는 누구야?`의 **서울물산은 데이터셋에 존재하지 않는다**(고객사는 `Client-A…Client-AD`, questions.json에만 등장). 이때 관계 전체(MANAGES_ACCOUNT 63엣지)를 컨텍스트로 밀어 넣으면 7B는 그럴듯한 담당자를 **지어낸다**. 그래서 "질의가 개체를 지목했는데 온톨로지에서 해소 실패 + 관계 단위 의도 없음" 조건에서 컨텍스트를 **0엣지 + 명시적 not-found 한 줄**로 만든다(`eval/results/companyx-kg.json → unresolved_gate_fired: 1`). 데이터셋 결함은 사업자에게 별도 문의했다.
+**환각 방지 게이트(실측).** 사업자 예시 24번 `서울물산 담당 엔지니어는 누구야?`의 **서울물산은 데이터셋에 존재하지 않는다**(고객사는 `Client-A…Client-AD`, questions.json에만 등장). 이때 관계 전체(MANAGES_ACCOUNT 63엣지)를 컨텍스트로 밀어 넣으면 7B는 그럴듯한 담당자를 **지어낸다**. 그래서 "질의가 개체를 지목했는데 온톨로지에서 해소 실패 + 관계 단위 의도 없음" 조건에서 컨텍스트를 **0엣지 + 명시적 not-found 한 줄**로 만든다(`eval/results/companyx-kg.json → unresolved_gate_fired: 1`). 데이터셋 결함은 사업자에게 별도 문의했다. 게이트는 못 찾은 이유도 `not_found` 로 낸다 — 비슷한 이름도 없으면 `not_in_database`, 이름이 비슷한 다른 개체(`클라우드사업팀` → `클라우드사업부`)만 있으면 `similar_name_mismatch` 이고 그 개체는 후보로만 알린다. 이때 `ask` 는 7B 를 부르지 않고 사유 문장으로 답한다(2026-09-30 실측: 「질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.」). 위 표의 「주어진 정보로는 알 수 없습니다」는 이 변경 전 실행의 7B 답이다.
 
 ## 0.6 자기 반증, 그리고 그 반증이 다시 뒤집힌 것 — 스키마 카드의 기여는 모델에 의존했다
 
@@ -516,7 +516,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 - **L2 데이터 도구** — `sql.query`(읽기전용 트랜잭션 + 최소권한 `mcp_ro` 강등 → `pg_read_file` 등 superuser 함수·쓰기 거부, statement/lock timeout), `vector.search`(pgvector 코사인, BGE-M3, id 2차정렬로 tie 결정성, k 클램프).
 - **L3 결정론 라우터(MCP Parallel)** — 규칙 기반 한국어 질의 분류(LLM 0, 튜닝 0, 분산 0) → structured/semantic/hybrid 병렬 fan-out + 감사 로그.
 - **L4 구조보존 큐레이션(TACC)** — 스키마인지 row 원자 패킹(`broken_rows=0`). 해자 = 고정예산에서 **SQL 튜플을 안 깨고** 트림(naive 토큰컷의 실패모드 회피).
-- **L5 온톨로지/지식그래프** — `entities/aliases/relations/entity_links`. `ontology.search`(별칭 해소: 전자제품→전자기기), `graph.expand`(타입 관계 BFS + provenance).
+- **L5 온톨로지/지식그래프** — `entities/aliases/relations/entity_links`. `ontology.search`(별칭 해소: 전자제품→전자기기), `graph.expand`(타입 관계 BFS + provenance, 홉·노드·엣지 상한 `GRAPH_MAX_HOPS`/`GRAPH_MAX_NODES`/`GRAPH_MAX_EDGES` — 걸리면 예외가 아니라 `truncated`).
 - **L7 답변** — 온프렘 Qwen2.5-Coder-7B(Ollama). 큐레이션 컨텍스트에만 근거, 근거 없으면 거부.
 - **융합** — canonical `entity_links` 브릿지로 SQL/vector/graph 후보를 동일 정규 엔티티로 매핑 → **named-source RRF**(3-way agreement).
 
@@ -576,7 +576,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 335(claims/normalize/auditrecord/surfaces/router/curator/rrf/evalmatch/errors/degraded) + DB·모델 통합 127(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **462단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 324. tsc strict clean.
+- **테스트:** 오프라인 409(claims/normalize/auditrecord/surfaces/router/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound) + DB·모델 통합 137(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **546단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 398. tsc strict clean.
 
 ---
 
@@ -624,7 +624,7 @@ docker compose exec -T ollama ollama pull qwen2.5-coder:7b   # 답변용 (Apache
 docker compose exec -T ollama ollama pull bge-m3       # 임베딩용 (MIT)
 cd air-server && npm ci && npm run build
 npm run gen:bench && EMBEDDER=ollama npm run embed:bench # bench 데이터+임베딩
-npm test              # 오프라인 324단언 통과 (DB·모델 불필요). 데이터셋을 받은 환경이면 335
+npm test              # 오프라인 398단언 통과 (DB·모델 불필요). 데이터셋을 받은 환경이면 409
 npm run test:kg       # 그래프/3-way 19
 npm run bench:internal                    # 내부 벤치 execution-match (88/100)
 BENCH_STRATEGY=naive npm run bench:internal   # ablation naive
@@ -807,7 +807,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 335단언(데이터셋 없는 CI 는 324), 전체 462단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 409단언(데이터셋 없는 CI 는 398), 전체 546단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp**, 사업자 NL2SQL 무재시도 Δ **+60pp**, 둘 다 2026-08-19 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |

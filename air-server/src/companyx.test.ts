@@ -5,10 +5,11 @@
 // skips cleanly when it is absent, exactly like the other live-PG suites.
 // Run after build: node dist/companyx.test.js
 import { route, LANE_LABEL, ONTOLOGY_TOOL, GRAPH_TOOL, VECTOR_TOOL, SQL_TOOL } from "./router.js";
-import { seedTerms, ontologySearch, graphExpand, relationScan, edgeCandidates } from "./graph.js";
+import { seedTerms, ontologySearch, graphExpand, relationScan, edgeCandidates, GRAPH_LIMITS } from "./graph.js";
 import { chunkMarkdown, nodePk, NODE_TABLE } from "./companyx.js";
-import { graphLane } from "./pipeline.js";
+import { graphLane, ask } from "./pipeline.js";
 import { getPool, closePool } from "./db.js";
+import { getEmbedder } from "./embedder.js";
 
 let pass = 0,
   fail = 0;
@@ -158,11 +159,51 @@ async function live() {
   eq(missing.edgeCount, 0, "absent entity contributes zero edges");
   eq(missing.items.length, 1, "gate emits exactly one explicit not-found item");
   ok(missing.items[0].text.includes("찾지 못했습니다"), "not-found item says so in the context");
+  eq(missing.not_found?.reason, "not_in_database", "서울물산: nothing similar in the lexicon -> not_in_database");
+  eq(missing.not_found?.query_entity, "서울물산", "not_found names the missing entity");
+
+  // A near-miss name is reported with its candidate but never expanded.
+  const near = await graphLane(pool, "클라우드사업팀 소속 직원들은 누구야?", 5, 2, schema);
+  eq(near.strategy, "unresolved", "similar name does not resolve");
+  eq(near.edgeCount, 0, "similar name contributes zero edges");
+  eq(near.not_found?.reason, "similar_name_mismatch", "near-miss -> similar_name_mismatch");
+  eq(near.not_found?.candidates[0]?.name, "클라우드사업부", "candidate is the similarly named department");
 
   // A real entity still traverses.
   const found = await graphLane(pool, "Client-A가 사용 중인 제품 목록은?", 5, 2, schema);
   ok(found.strategy.startsWith("seeded"), `real entity -> seeded traversal (got ${found.strategy})`);
   ok(found.edgeCount > 0, "real entity yields edges");
+  eq(found.not_found, undefined, "found entity carries no not_found");
+
+  // ask answers the gate from not_found without calling the model.
+  let llmCalled = false;
+  const answered = await ask("서울물산 담당 엔지니어는 누구야?", {
+    pool,
+    embedder: getEmbedder(),
+    llm: async () => {
+      llmCalled = true;
+      return "";
+    },
+  });
+  ok(!llmCalled && answered.answer.includes("서울물산") && answered.answer.includes("비슷한 개체도 없습니다"),
+    `ask states the reason without the LLM (got ${answered.answer})`);
+
+  // Traversal caps never bind on the sponsor graph: from EVERY entity at the maximum
+  // depth, the capped BFS equals an uncapped one edge for edge.
+  const ids = (await pool.query(`SELECT id FROM ${schema}.entities ORDER BY id`)).rows.map((r) => Number(r.id));
+  const open = { maxHops: GRAPH_LIMITS.maxHops, maxNodes: Number.MAX_SAFE_INTEGER, maxEdges: 1_000_000 };
+  let capped = 0,
+    differ = 0,
+    widest = 0;
+  for (const id of ids) {
+    const g = await graphExpand(pool, id, GRAPH_LIMITS.maxHops, undefined, schema);
+    const u = await graphExpand(pool, id, GRAPH_LIMITS.maxHops, undefined, schema, "both", open);
+    if (g.truncated) capped++;
+    if (JSON.stringify(g.edges) !== JSON.stringify(u.edges)) differ++;
+    widest = Math.max(widest, g.edges.length);
+  }
+  eq(capped, 0, `default caps never truncate on the sponsor graph (${ids.length} seeds, widest ${widest} edges)`);
+  eq(differ, 0, "capped BFS == uncapped BFS on every seed");
 
   await closePool();
 }

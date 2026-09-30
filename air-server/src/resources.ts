@@ -150,12 +150,16 @@ export function buildResources() {
               pipeline_fingerprint:
                 "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
-              retrieval: "레인별 실행 결과와 후보 수",
+              retrieval:
+                "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null",
               fusion: "RRF 상위 항목과 합의한 소스",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",
               grounding:
                 "답변이 컨텍스트 밖 개체를 만들었는지. **ask 처럼 답변을 만드는 경로에서만 붙는다** — retrieve 감사에는 없다",
+              not_found:
+                "미해소 개체 게이트가 발동했을 때만 붙는다. {reason, query_entity, candidates[{name, type, score}]}. "
+                + "reason 은 not_in_database(비슷한 이름도 없음) 또는 similar_name_mismatch(비슷한 이름의 다른 개체만 있음 — 후보로만 알리고 해소하지 않는다)",
               branch_errors:
                 "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword) 이거나 답변 생성(answer)이다. "
                 + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",

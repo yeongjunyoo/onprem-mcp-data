@@ -14,6 +14,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
+import { classifyNotFound, type NotFound } from "./notfound.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -110,6 +111,8 @@ export function seedTerms(query: string): string[] {
 export interface OntologyResult {
   ok: boolean;
   hits: OntologyHit[];
+  /** 질의어가 있는데 하나도 해소되지 않았을 때만. 왜 못 찾았는지(notfound.ts). */
+  not_found?: NotFound;
   error?: string;
 }
 
@@ -188,6 +191,14 @@ export async function ontologySearch(
       score: Number(r.score),
       properties: (r.properties ?? undefined) as Record<string, unknown> | undefined,
     }));
+    if (hits.length === 0) {
+      // 정본 이름만 대조한다. 별칭에는 속성값(지역·직급·상태)이 섞여 있어 "서울물산"이
+      // 지역 별칭 "서울"과 비슷하다는 식의 후보를 만든다. 사전 전체를 읽지만 못 찾은
+      // 질의에서만 돈다.
+      const lex = await pool.query(`SELECT canonical_name AS name, type FROM ${s}.entities`);
+      const lexicon = lex.rows.map((r) => ({ name: String(r.name), type: String(r.type) }));
+      return { ok: true, hits, not_found: classifyNotFound(terms, lexicon) };
+    }
     return { ok: true, hits };
   } catch (err) {
     return { ok: false, hits: [], error: describeError(err) };
@@ -207,11 +218,45 @@ export interface GraphEdge {
   depth: number;
 }
 
+/** 탐색이 상한에 걸려 멈췄다는 표시. 예외가 아니라 결과의 상태다. */
+export interface GraphTruncation {
+  by: "hops" | "nodes" | "edges";
+  limit: number;
+}
+
 export interface GraphResult {
   ok: boolean;
   edges: GraphEdge[];
+  /** 상한 때문에 덜 탐색했으면 채운다. 비어 있으면 요청한 범위를 끝까지 봤다. */
+  truncated?: GraphTruncation;
   error?: string;
 }
+
+export interface GraphLimits {
+  maxHops: number;
+  maxNodes: number;
+  maxEdges: number;
+}
+
+function capFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  // 오타를 기본값으로 메우면 상한이 걸린 줄 알고 무한정 도는 서버가 된다.
+  if (!Number.isInteger(n) || n < 1) throw new Error(`${name}="${raw}" 는 1 이상의 정수여야 한다.`);
+  return n;
+}
+
+/** 그래프 탐색 상한. 양방향 BFS 는 홉마다 이웃이 곱으로 늘어 큰 그래프에서는 비용이
+ * 폭증한다. 홉·노드만으로는 허브 하나가 엣지 수십만 개를 가진 경우를 못 막으므로,
+ * 한 번에 읽는 행 수도 엣지 상한으로 묶는다(SQL LIMIT).
+ *
+ * 기본값은 사업자 그래프 전체(133노드·354엣지)보다 크다. 정상 질의는 닿지 않는다. */
+export const GRAPH_LIMITS: Readonly<GraphLimits> = Object.freeze({
+  maxHops: capFromEnv("GRAPH_MAX_HOPS", 3),
+  maxNodes: capFromEnv("GRAPH_MAX_NODES", 500),
+  maxEdges: capFromEnv("GRAPH_MAX_EDGES", 2000),
+});
 
 export type Direction = "out" | "in" | "both";
 
@@ -221,7 +266,10 @@ export type Direction = "out" | "in" | "both";
  * reverse traversals ("Product-C1을 사용하는 고객사" = client -[USES]-> product read
  * backwards). An out-only expansion silently returns nothing for those, which is the
  * worst failure mode — a confident empty answer. Edges are emitted in a canonical
- * direction (src -rel-> dst) regardless of which way they were traversed. */
+ * direction (src -rel-> dst) regardless of which way they were traversed.
+ *
+ * Bounded by `limits` (GRAPH_LIMITS). Hitting a cap stops the walk and reports
+ * `truncated` — a silently cut result reads as "no such relation". */
 export async function graphExpand(
   pool: Pool,
   entityId: number,
@@ -229,38 +277,56 @@ export async function graphExpand(
   relTypes?: string[],
   schema = kgSchema(),
   direction: Direction = "both",
+  limits: GraphLimits = GRAPH_LIMITS,
 ): Promise<GraphResult> {
   try {
     const s = safeSchema(schema);
-    const d = Math.min(3, Math.max(1, Math.floor(depth) || 1));
+    const requested = Math.max(1, Math.floor(depth) || 1);
+    const d = Math.min(limits.maxHops, requested);
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
+    const seenIds: number[] = [];
     const visited = new Set<number>([entityId]);
     let frontier = [entityId];
+    let truncated: GraphTruncation | undefined;
     const match =
       direction === "out"
         ? "r.src_entity_id = ANY($1::int[])"
         : direction === "in"
           ? "r.dst_entity_id = ANY($1::int[])"
           : "(r.src_entity_id = ANY($1::int[]) OR r.dst_entity_id = ANY($1::int[]))";
-    for (let level = 1; level <= d && frontier.length > 0; level++) {
+    for (let level = 1; level <= d && frontier.length > 0 && !truncated; level++) {
+      // 이미 담은 엣지는 SQL 에서 뺀다. 안 빼면 앞 단계 엣지가 LIMIT 을 차지해
+      // 새 엣지가 없는데도 잘렸다고 보고한다. 한 줄 더 읽어 넘침을 확인한다.
+      const room = limits.maxEdges - edges.length;
       const res = await pool.query(
-        `SELECT r.src_entity_id, se.canonical_name AS src_name, se.type AS src_type, r.rel_type,
+        `SELECT r.id, r.src_entity_id, se.canonical_name AS src_name, se.type AS src_type, r.rel_type,
                 r.dst_entity_id, de.canonical_name AS dst_name, de.type AS dst_type, r.confidence, r.provenance
            FROM ${s}.relations r
            JOIN ${s}.entities se ON se.id = r.src_entity_id
            JOIN ${s}.entities de ON de.id = r.dst_entity_id
           WHERE ${match}
             AND ($2::text[] IS NULL OR r.rel_type = ANY($2::text[]))
-          ORDER BY r.id`,
-        [frontier, relTypes && relTypes.length ? relTypes : null],
+            AND NOT (r.id = ANY($3::int[]))
+          ORDER BY r.id
+          LIMIT $4`,
+        [frontier, relTypes && relTypes.length ? relTypes : null, seenIds, room + 1],
       );
+      const overflow = res.rows.length > room;
+      const rows = overflow ? res.rows.slice(0, room) : res.rows;
       const next: number[] = [];
-      for (const row of res.rows) {
+      for (const row of rows) {
         const srcId = Number(row.src_entity_id);
         const dstId = Number(row.dst_entity_id);
+        seenIds.push(Number(row.id));
         const key = `${srcId}-${row.rel_type}-${dstId}`;
         if (seen.has(key)) continue;
+        // 새 노드를 들일 자리가 없으면 그 엣지는 버린다. 이미 방문한 노드끼리의 엣지는 담는다.
+        const fresh = [...new Set([srcId, dstId])].filter((n) => !visited.has(n));
+        if (visited.size + fresh.length > limits.maxNodes) {
+          truncated ??= { by: "nodes", limit: limits.maxNodes };
+          continue;
+        }
         seen.add(key);
         edges.push({
           srcId,
@@ -274,16 +340,21 @@ export async function graphExpand(
           provenance: String(row.provenance),
           depth: level,
         });
-        for (const nid of [srcId, dstId]) {
-          if (!visited.has(nid)) {
-            visited.add(nid);
-            next.push(nid);
-          }
+        for (const nid of fresh) {
+          visited.add(nid);
+          next.push(nid);
         }
       }
+      // 읽은 행 안에서 노드 상한이 먼저 걸렸으면 그쪽이 결과를 자른 것이다(id 순).
+      if (overflow) truncated ??= { by: "edges", limit: limits.maxEdges };
       frontier = next;
     }
-    return { ok: true, edges };
+    // 홉 상한은 요청이 상한을 넘었고 아직 안 펼친 노드가 남았을 때만 잘림이다.
+    // 요청한 깊이에서 멈춘 것은 요청대로 한 것이다.
+    if (!truncated && requested > d && frontier.length > 0) {
+      truncated = { by: "hops", limit: limits.maxHops };
+    }
+    return truncated ? { ok: true, edges, truncated } : { ok: true, edges };
   } catch (err) {
     return { ok: false, edges: [], error: describeError(err) };
   }

@@ -97,6 +97,24 @@ function main() {
   ok(gate?.verdict === "deny", "미해소 개체 게이트를 deny로 기록한다");
   ok(Boolean(gate && gate.detail.includes("환각")), "게이트의 목적을 사유에 적는다");
 
+  // 못 찾은 이유가 있으면 판정 사유와 레코드 필드 둘 다에 남는다.
+  const notFound = {
+    reason: "similar_name_mismatch" as const,
+    query_entity: "클라우드사업팀",
+    candidates: [{ name: "클라우드사업부", type: "department", score: 0.857 }],
+  };
+  const gatedWhy = buildAuditRecord(
+    base({
+      route: "graph",
+      graph: { strategy: "unresolved", seeds: [], edgeCount: 0, items: [], not_found: notFound },
+      not_found: notFound,
+    } as unknown as Partial<RetrieveResult>),
+  );
+  const why = gatedWhy.policies.find((p) => p.policy === "graph-unresolved-gate");
+  ok(Boolean(why?.detail.includes("클라우드사업부")), "판정 사유가 비슷한 이름 후보를 말한다");
+  ok(gatedWhy.not_found?.reason === "similar_name_mismatch", "레코드에 not_found 가 실린다");
+  ok(gated.not_found === undefined && gated.retrieval.graph.truncated === null, "사유·잘림이 없으면 필드도 없다");
+
   // --- 4. 브랜치 격리 ---
   const degraded = buildAuditRecord(
     base({ audit: { ...base().audit, branch_errors: ["vector: timeout"] } } as unknown as Partial<RetrieveResult>),

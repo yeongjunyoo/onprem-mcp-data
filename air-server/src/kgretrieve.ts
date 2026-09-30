@@ -13,7 +13,7 @@
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
 import { vectorSearch } from "./vector.js";
-import { ontologySearch, graphExpand, ontologyCandidates, edgeCandidates } from "./graph.js";
+import { ontologySearch, graphExpand, ontologyCandidates, edgeCandidates, type GraphTruncation } from "./graph.js";
 import { rrfMergeNamed, type FusedCandidate } from "./rrf.js";
 import { type Candidate, entityKey, documentKey } from "./candidate.js";
 
@@ -69,6 +69,7 @@ export interface KgRetrieveResult {
     graph: number;
     fused: number;
     agreement: number; // # fused candidates with >1 named source
+    truncated?: GraphTruncation; // first expansion that hit a traversal cap
   };
 }
 
@@ -88,11 +89,13 @@ export async function kgRetrieve(
 
   const vc = vec.ok ? await vectorCandidates(pool, vec.hits, schema) : [];
   const graphList: Candidate[] = onto.ok ? [...ontologyCandidates(onto.hits)] : [];
+  let truncated: GraphTruncation | undefined;
   // expand 1 hop from each resolved entity to pull related entities (edge-required answers)
   if (onto.ok) {
     for (const h of onto.hits.slice(0, 3)) {
       const g = await graphExpand(pool, h.entityId, 1, undefined, schema);
       if (g.ok) graphList.push(...edgeCandidates(g.edges));
+      truncated ??= g.truncated;
     }
   }
 
@@ -104,6 +107,7 @@ export async function kgRetrieve(
       graph: graphList.length,
       fused: fused.length,
       agreement: fused.filter((f) => f.sources.length > 1).length,
+      ...(truncated ? { truncated } : {}),
     },
   };
 }

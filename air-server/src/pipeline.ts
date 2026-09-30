@@ -27,9 +27,11 @@ import {
   edgeCandidates,
   rankingCandidates,
   kgSchema,
+  type GraphTruncation,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
+import { describeNotFound, type NotFound } from "./notfound.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -49,11 +51,16 @@ export interface RetrieveResult {
   fused: Fused<ContextItem>[];
   curated: Curated;
   context: string;
+  /** 미해소 개체 게이트가 발동했을 때 그 사유. 그 밖에는 없다. */
+  not_found?: NotFound;
   audit: {
     route: ReturnType<typeof routeAudit>;
     candidates: { sql: number; vector: number; graph: number; fused: number };
     branch_errors: string[];
     curate: ReturnType<typeof curateAudit>;
+    // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
+    not_found?: NotFound;
+    graph_truncated?: GraphTruncation;
   };
 }
 
@@ -68,6 +75,10 @@ export interface GraphLaneResult {
   strategy: "seeded" | "relation-scan" | "seeded+relation-scan" | "unresolved" | "none";
   ranking?: { name: string; type: string; count: number }[];
   items: Candidate[];
+  /** strategy 가 unresolved 일 때 왜 못 찾았는지. */
+  not_found?: NotFound;
+  /** 시드 확장 중 하나라도 탐색 상한에 걸렸으면 처음 걸린 것. */
+  truncated?: GraphTruncation;
   error?: string;
 }
 
@@ -108,18 +119,23 @@ export async function graphLane(
   // would hand the 7B a context that CONTAINS plausible-looking wrong answers
   // (the sponsor's own example "서울물산 담당 엔지니어" names a client absent from the
   // dataset; the honest output is "없음", not the 63 MANAGES_ACCOUNT edges).
+  // The line names WHY (onto.not_found): absent vs. a similarly-named entity that
+  // does not match. A similar name is reported, never expanded.
   if (onto.hits.length === 0 && !(p?.aggregate || p?.filter)) {
     const terms = seedTerms(query);
     return {
       seeds: [],
       edgeCount: 0,
       strategy: "unresolved",
+      not_found: onto.not_found,
       items: [
         {
           canonicalKey: `unresolved#${terms.join("+")}`,
           sourceKey: "graph#unresolved",
           source: "graph" as const,
-          text: `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`,
+          text: onto.not_found
+            ? `[그래프] ${describeNotFound(onto.not_found)}`
+            : `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`,
           provenance: "ontology:unresolved",
         },
       ],
@@ -130,9 +146,11 @@ export async function graphLane(
   // single well-named entity is not drowned by substring noise.
   const best = Math.max(0, ...onto.hits.map((h) => h.score));
   const expandFrom = onto.hits.filter((h) => h.score === best);
+  let truncated: GraphTruncation | undefined;
   for (const hit of expandFrom) {
     const exp = await graphExpand(pool, hit.entityId, hops, relTypes, schema, "both");
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
+    truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
     items.push(...edgeCandidates(exp.edges, hit.entityId));
   }
@@ -171,7 +189,9 @@ export async function graphLane(
         : needScan
           ? "relation-scan"
           : "none";
-  return { seeds, edgeCount, strategy, ranking, items };
+  return truncated
+    ? { seeds, edgeCount, strategy, ranking, items, truncated }
+    : { seeds, edgeCount, strategy, ranking, items };
 }
 
 function renderRow(row: Record<string, unknown>): string {
@@ -332,6 +352,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     fused,
     curated,
     context: render(curated),
+    ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
     audit: {
       route: routeAudit(decision),
       candidates: {
@@ -342,6 +363,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       },
       branch_errors: branchErrors,
       curate: curateAudit(curated),
+      ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
+      ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
     },
   };
 }
@@ -379,6 +402,12 @@ export async function ask(
         "조회에 실패해 답할 근거를 가져오지 못했습니다. 데이터가 없는 것이 아니라 " +
         `조회 자체가 실패했습니다: ${branchErrors.join(" / ")}`,
     };
+  }
+
+  // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
+  // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다.
+  if (r.not_found) {
+    return { ...r, answer: describeNotFound(r.not_found) };
   }
 
   const gen = deps.llm ?? llmAnswer;

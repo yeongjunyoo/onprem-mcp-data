@@ -13,6 +13,8 @@
 //   2. 모델 출력과 결정론 부분을 분리한다. 답변 텍스트를 뺀 나머지는 같은 질의에 대해 항상 같다.
 //   3. 정책은 "거부했다"가 아니라 "무엇을, 왜"까지 적는다. 사유 없는 거부 기록은 감사에 쓸모가 없다.
 import type { AskResult, RetrieveResult } from "./pipeline.js";
+import type { GraphTruncation } from "./graph.js";
+import type { NotFound } from "./notfound.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
@@ -46,7 +48,7 @@ export interface AuditRecord {
   retrieval: {
     sql: { text: string | null; ok: boolean | null; rows: number | null; error: string | null; repaired: boolean };
     vector: { hits: number | null };
-    graph: { strategy: string | null; seeds: number | null; edges: number | null };
+    graph: { strategy: string | null; seeds: number | null; edges: number | null; truncated: GraphTruncation | null };
     candidates: { sql: number; vector: number; graph: number; fused: number };
   };
   /** 융합 결과 상위 항목. 어떤 소스들이 합의했는지가 핵심이다. */
@@ -61,6 +63,8 @@ export interface AuditRecord {
   policies: PolicyVerdict[];
   /** 답변이 있을 때만. 컨텍스트 밖 개체를 답이 언급했는지. */
   grounding?: { checked: boolean; answer_chars: number; outside_context: string[] };
+  /** 미해소 개체 게이트가 발동했을 때만. 왜 못 찾았는지. */
+  not_found?: NotFound;
   branch_errors: string[];
   generated_at: string;
 }
@@ -141,10 +145,15 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
 
   // 3) 미해소 개체 게이트
   if (r.graph?.strategy === "unresolved") {
+    const nf = r.graph.not_found;
+    const why = nf
+      ? ` — 사유 ${nf.reason}: ${nf.query_entity}` +
+        (nf.candidates.length ? ` (비슷한 이름: ${nf.candidates.map((c) => c.name).join(", ")})` : "")
+      : "";
     policies.push({
       policy: "graph-unresolved-gate",
       verdict: "deny",
-      detail: "질의가 지목한 개체를 온톨로지에서 해소하지 못해 컨텍스트를 0건으로 만들었다(환각 차단)",
+      detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 컨텍스트를 0건으로 만들었다(환각 차단)${why}`,
     });
   }
 
@@ -219,6 +228,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         strategy: r.graph?.strategy ?? null,
         seeds: r.graph?.seeds?.length ?? null,
         edges: r.graph?.edgeCount ?? null,
+        truncated: r.graph?.truncated ?? null,
       },
       candidates: a.candidates,
     },
@@ -235,6 +245,8 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
     branch_errors: a.branch_errors,
     generated_at: new Date().toISOString(),
   };
+
+  if (r.not_found) record.not_found = r.not_found;
 
   if (answer !== undefined) {
     record.grounding = {
