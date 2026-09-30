@@ -150,7 +150,8 @@ export function buildResources() {
               pipeline_fingerprint:
                 "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
-              retrieval: "레인별 실행 결과와 후보 수",
+              retrieval:
+                "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null",
               fusion: "RRF 상위 항목과 합의한 소스",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",

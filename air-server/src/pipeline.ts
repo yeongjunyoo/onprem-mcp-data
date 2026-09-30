@@ -26,6 +26,7 @@ import {
   edgeCandidates,
   rankingCandidates,
   kgSchema,
+  type GraphTruncation,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
@@ -53,6 +54,8 @@ export interface RetrieveResult {
     candidates: { sql: number; vector: number; graph: number; fused: number };
     branch_errors: string[];
     curate: ReturnType<typeof curateAudit>;
+    // retrieve 도구는 audit 만 돌려주므로 탐색 잘림을 여기에도 싣는다.
+    graph_truncated?: GraphTruncation;
   };
 }
 
@@ -67,6 +70,8 @@ export interface GraphLaneResult {
   strategy: "seeded" | "relation-scan" | "seeded+relation-scan" | "unresolved" | "none";
   ranking?: { name: string; type: string; count: number }[];
   items: Candidate[];
+  /** 시드 확장 중 하나라도 탐색 상한에 걸렸으면 처음 걸린 것. */
+  truncated?: GraphTruncation;
   error?: string;
 }
 
@@ -129,9 +134,11 @@ export async function graphLane(
   // single well-named entity is not drowned by substring noise.
   const best = Math.max(0, ...onto.hits.map((h) => h.score));
   const expandFrom = onto.hits.filter((h) => h.score === best);
+  let truncated: GraphTruncation | undefined;
   for (const hit of expandFrom) {
     const exp = await graphExpand(pool, hit.entityId, hops, relTypes, schema, "both");
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
+    truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
     items.push(...edgeCandidates(exp.edges, hit.entityId));
   }
@@ -170,7 +177,9 @@ export async function graphLane(
         : needScan
           ? "relation-scan"
           : "none";
-  return { seeds, edgeCount, strategy, ranking, items };
+  return truncated
+    ? { seeds, edgeCount, strategy, ranking, items, truncated }
+    : { seeds, edgeCount, strategy, ranking, items };
 }
 
 function renderRow(row: Record<string, unknown>): string {
@@ -340,6 +349,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       },
       branch_errors: branchErrors,
       curate: curateAudit(curated),
+      ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
     },
   };
 }
