@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**24/36 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**28/40 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -19,13 +19,17 @@
 | `companyx-ask-host-gpu.json` | 24,183 | `bccfcd80c2551e20` | 2026-08-19T13:16:26 |
 | `companyx-ask.json` | 23,984 | `c6e624264ab44a9b` | 2026-08-19T06:34:05 |
 | `companyx-audit.json` | 82,149 | `673dbf863f81a2d2` | 2026-08-19T06:55:48 |
-| `companyx-holdout-route.json` | 11,104 | `5cafe91be728cd73` | 2026-08-19T06:42:59 |
-| `companyx-holdout2-route.json` | 11,103 | `b83e0130e355c823` | 2026-08-19T06:43:01 |
+| `companyx-holdout-route.json` | 12,996 | `610a167871885494` | 2026-09-30T08:20:24 |
+| `companyx-holdout2-route.json` | 13,496 | `830701be1afb9f25` | 2026-09-30T08:22:23 |
+| `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
+| `companyx-holdout3-route.json` | 28,226 | `3eef7bb632a4911f` | 2026-09-30T08:47:21 |
+| `companyx-holdout4-route.json` | 28,134 | `d44d053b6d4d4164` | 2026-09-30T08:48:12 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
 | `companyx-kg.json` | 6,369 | `9c2cc0c7c049812f` | 2026-08-19T06:48:56 |
 | `companyx-language-lock.json` | 973 | `98bfe23d21c9e06d` | 2026-08-19T12:10:13 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `074ee8ea197187fa` | 2026-08-19T06:42:52 |
+| `companyx-route-boundary.json` | 50,244 | `e8af51147ca055c0` | 2026-09-30T08:18:40 |
 | `companyx-route.json` | 23,256 | `d926ae3076ee9264` | 2026-08-19T06:42:57 |
 | `companyx-sql-llm-norepair.json` | 4,978 | `43c526bd73a4f407` | 2026-08-19T13:29:31 |
 | `companyx-sql-llm.json` | 4,977 | `6ab121ab31fa7853` | 2026-08-19T13:24:26 |
@@ -51,7 +55,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 2,916 | `60b921da57941d0f` | 2026-08-18T00:00:00 |
+| `test-counts.json` | 3,041 | `8436a324dce61746` | 2026-08-18T00:00:00 |
 
 ## 재생성
 

@@ -62,7 +62,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"{제품} 월 이용료 얼마야\", margin 0.218)",
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"{제품} 월 이용료 얼마야\", margin 0.217)",
       "rule_only": "hybrid"
     },
     {
@@ -89,7 +89,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 연락처 이름이랑 메일 줘\", margin 0.220)",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 연락처 이름이랑 메일 줘\", margin 0.219)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -141,7 +141,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 티켓 언제 접수되고 언제 해결됐어\", margin 0.199)",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 티켓 언제 접수되고 언제 해결됐어\", margin 0.198)",
       "rule_only": "vector_search"
     },
     {
@@ -167,7 +167,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 계약 언제 끝나\", margin 0.136)",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 계약 언제 끝나\", margin 0.135)",
       "rule_only": "nl2sql"
     },
     {
@@ -206,7 +206,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"보류 중인 프로젝트 이름만\", margin 0.154)",
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"보류 중인 프로젝트 이름만\", margin 0.153)",
       "rule_only": "hybrid"
     },
     {
@@ -349,7 +349,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} API 호출 방법\", margin 0.132)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} API 호출 방법\", margin 0.133)",
       "rule_only": "hybrid"
     },
     {
@@ -401,7 +401,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.135)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.134)",
       "rule_only": "hybrid"
     },
     {
@@ -414,7 +414,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.071)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.070)",
       "rule_only": "hybrid"
     },
     {
@@ -440,7 +440,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"그 장애 때 조치한 내용\", margin 0.058)",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"그 장애 때 조치한 내용\", margin 0.057)",
       "rule_only": "vector_search"
     },
     {
@@ -453,7 +453,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"그날 미팅에서 일정 얼마나 늘려주기로 했어\", margin 0.155)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"그날 미팅에서 일정 얼마나 늘려주기로 했어\", margin 0.154)",
       "rule_only": "hybrid"
     },
     {
@@ -479,7 +479,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.026)",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.028)",
       "rule_only": "nl2sql"
     },
     {
@@ -492,7 +492,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"킥오프 때 들어온 사람 이름\", margin 0.174)",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"킥오프 때 들어온 사람 이름\", margin 0.173)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -544,7 +544,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"제안한 투자 비용 얼마였어\", margin 0.115)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"제안한 투자 비용 얼마였어\", margin 0.114)",
       "rule_only": "hybrid"
     },
     {
@@ -755,7 +755,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"{고객사}가 문제 제기한 제품\", margin 0.043)",
+      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"{고객사}가 문제 제기한 제품\", margin 0.042)",
       "rule_only": "vector_search"
     },
     {
@@ -783,7 +783,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.050)",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.049)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -829,5 +829,5 @@
       "rule_only": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-09-30T08:24:34.969Z"
+  "generated_at": "2026-09-30T08:47:21.885Z"
 }

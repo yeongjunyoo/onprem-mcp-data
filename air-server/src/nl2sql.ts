@@ -252,9 +252,11 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   ");",
 ].join("\n");
 
-/** 생성과 수리가 같은 카드를 쓴다. SQL_CARD=compact 면 한 줄 카드(ablation). */
+/** 생성과 수리가 같은 카드를 쓴다. 기본은 한 줄 카드이고 SQL_CARD=annotated 로 주석
+ * 카드를 켠다. 주석 카드가 실행 일치를 올리는지 재기 전에는 기본값을 바꾸지 않는다 —
+ * README 의 NL2SQL 수치가 한 줄 카드로 잰 값이기 때문이다. */
 export function companyxSchemaCard(): string {
-  return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
+  return process.env.SQL_CARD === "annotated" ? COMPANYX_SCHEMA_ANNOTATED : COMPANYX_SCHEMA_DDL;
 }
 
 /** Company-X NL2SQL 프롬프트 원문.

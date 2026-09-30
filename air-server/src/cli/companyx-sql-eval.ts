@@ -7,7 +7,7 @@
 //
 //   CX_STRATEGY=llm   (default) curated schema card
 //   CX_STRATEGY=naive           bare table names (ablation)
-//   SQL_CARD=compact            한 줄 카드(주석 없는 종전 카드). 기본은 주석 카드.
+//   SQL_CARD=annotated          컬럼마다 뜻과 단위를 주석으로 붙인 카드. 기본은 한 줄 카드.
 //   CX_GOLD=eval/companyx/holdout3_route.json
 //                               사업자 10문항 뒤에 홀드아웃의 nl2sql 문항(gold_sql)을
 //                               붙인다. n=10 은 한 문항이 10pp 라 카드 비교를 못 가른다.
@@ -122,7 +122,7 @@ async function main() {
   const summary = {
     dataset: extra ? `questions.json (nl2sql subset) + ${extra} (nl2sql)` : "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     strategy,
-    schema_card: strategy === "naive" ? "table-names" : process.env.SQL_CARD === "compact" ? "compact" : "annotated",
+    schema_card: strategy === "naive" ? "table-names" : process.env.SQL_CARD === "annotated" ? "annotated" : "compact",
     model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     total: items.length,
     correct,
@@ -139,7 +139,7 @@ async function main() {
   // 중 두 칸만 저장소에 남고 보고서가 인용하는 나머지 두 칸은 근거가 사라진다.
   const suffix =
     (process.env.CX_REPAIR === "0" ? "-norepair" : "") +
-    (strategy !== "naive" && process.env.SQL_CARD === "compact" ? "-compact" : "") +
+    (strategy !== "naive" && process.env.SQL_CARD === "annotated" ? "-annotated" : "") +
     (extra ? `-${extra.replace(/^.*[/\\]/, "").replace(/_route\.json$|\.json$/, "")}` : "");
   await writeFile(
     resolve(root, `eval/results/companyx-sql-${strategy}${suffix}.json`),
