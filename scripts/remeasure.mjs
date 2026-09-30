@@ -74,13 +74,29 @@ const SKIPPED = [
   ["external:bird", "32문항 재추론 + sqlite3 필요"],
 ];
 
+/** 정본 지표를 metrics-check 출력에서 읽는다.
+ *
+ * metrics-check 는 문서가 결과와 어긋나면 실패하지만 정본 값은 전부 찍은 뒤에 실패한다.
+ * 다시 재는 도구가 그 실패에 막히면 안 된다. 재측정은 결과가 문서보다 앞서는 순간이라
+ * 어긋남이 정상이고, 문서는 재측정 뒤에 고친다(2026-09-30, 10-01 두 번 막혔다). 정본 값이
+ * 하나도 없을 때만(결과 파일이 없거나 깨짐) 멈춘다. */
 function canonical() {
-  const out = execFileSync(process.execPath, [resolve(ROOT, "scripts/metrics-check.mjs")], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
+  let out;
+  let drift = false;
+  try {
+    out = execFileSync(process.execPath, [resolve(ROOT, "scripts/metrics-check.mjs")], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (e) {
+    out = String(e.stdout ?? "");
+    drift = true;
+  }
   const map = {};
   for (const m of out.matchAll(/^\s+([a-z_0-9]+) = (.+)$/gm)) map[m[1]] = m[2].trim();
+  if (!Object.keys(map).length) throw new Error("metrics-check 가 정본 값을 하나도 내지 않았다. eval/results 를 확인하라.");
+  if (drift) console.log("  (metrics-check 는 문서와 결과의 어긋남으로 실패했다. 값은 읽었고, 문서는 재측정 뒤에 고친다.)");
   return map;
 }
 
