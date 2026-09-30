@@ -48,7 +48,7 @@ jobs:
       - run: npm ci
       - name: typecheck + build
         run: npx tsc
-      - name: offline unit tests (표준 표면, router, curator, RRF, execution-match)
+      - name: offline unit tests (표준 표면, router, curator, RRF, 그래프 상한, execution-match, not-found)
         run: |
           node dist/claims.test.js
           node dist/normalize.test.js
@@ -57,7 +57,9 @@ jobs:
           node dist/router.test.js
           node dist/curator.test.js
           node dist/rrf.test.js
+          node dist/graphcaps.test.js
           node dist/evalmatch.test.js
+          node dist/notfound.test.js
       # 문서가 주장하는 단언 수를 **러너 출력에서 다시 세어** 대조한다.
       # 정본 JSON 은 손으로 고칠 수 있으므로, 문서-정본 일치만으로는 정본 자체의
       # 거짓을 못 잡는다(QA 레드팀 실증). CI 가 돌릴 수 있는 부분은 CI 가 센다.
