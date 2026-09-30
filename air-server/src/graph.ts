@@ -14,6 +14,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
+import { classifyNotFound, type NotFound } from "./notfound.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -110,6 +111,8 @@ export function seedTerms(query: string): string[] {
 export interface OntologyResult {
   ok: boolean;
   hits: OntologyHit[];
+  /** 질의어가 있는데 하나도 해소되지 않았을 때만. 왜 못 찾았는지(notfound.ts). */
+  not_found?: NotFound;
   error?: string;
 }
 
@@ -188,6 +191,14 @@ export async function ontologySearch(
       score: Number(r.score),
       properties: (r.properties ?? undefined) as Record<string, unknown> | undefined,
     }));
+    if (hits.length === 0) {
+      // 정본 이름만 대조한다. 별칭에는 속성값(지역·직급·상태)이 섞여 있어 "서울물산"이
+      // 지역 별칭 "서울"과 비슷하다는 식의 후보를 만든다. 사전 전체를 읽지만 못 찾은
+      // 질의에서만 돈다.
+      const lex = await pool.query(`SELECT canonical_name AS name, type FROM ${s}.entities`);
+      const lexicon = lex.rows.map((r) => ({ name: String(r.name), type: String(r.type) }));
+      return { ok: true, hits, not_found: classifyNotFound(terms, lexicon) };
+    }
     return { ok: true, hits };
   } catch (err) {
     return { ok: false, hits: [], error: describeError(err) };
