@@ -16,7 +16,7 @@
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ask, retrieve } from "./pipeline.js";
+import { ask, retrieve, renderValue } from "./pipeline.js";
 
 let passed = 0;
 let failed = 0;
@@ -182,6 +182,22 @@ const deadEmbedder: Embedder = {
     else process.env.DATASET = saved;
     if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
   }
+}
+
+// SQL 값 표기. Date 와 interval 이 「Thu Aug 01 ...」「[object Object]」로 컨텍스트에 들어가면
+// 기간을 묻는 질문은 정답 행을 찾고도 답할 수 없다.
+{
+  // node-postgres 의 interval 객체와 같은 모양(postgres-interval). 하위 의존성을 직접 부르지 않는다.
+  const PI = (s: string) => {
+    const [d, t = "00:00:00"] = s.includes("days") ? s.split(" days ") : ["0", s];
+    const [h, m, sec] = t.split(":").map(Number);
+    return { days: Number(d) || undefined, hours: h || undefined, minutes: m || undefined, seconds: sec || undefined, toPostgres: () => s };
+  };
+  ok(renderValue(new Date(2024, 7, 1)) === "2024-08-01", "date 는 로컬 날짜로 (UTC 로 하루 당겨지지 않는다)");
+  ok(renderValue(new Date(2024, 7, 1, 13, 24, 5)) === "2024-08-01 13:24:05", "timestamp 는 로컬 시각까지");
+  ok(renderValue(PI("6 days 21:50:21")) === "6일 21시간 50분 21초", "interval 은 채점기와 같은 한국어 기간 표기");
+  ok(renderValue(PI("00:00:00")) === "0초", "0 기간도 비우지 않는다");
+  ok(renderValue(1234) === "1234" && renderValue("x") === "x" && renderValue(null) === "null", "나머지 값은 종전 그대로");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

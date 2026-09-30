@@ -194,9 +194,42 @@ export async function graphLane(
     : { seeds, edgeCount, strategy, ranking, items };
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** SQL 값 하나를 모델이 읽을 표기로.
+ *
+ * node-postgres 는 date, timestamp 를 Date 로, interval 을 객체로 준다. 템플릿 문자열에
+ * 그대로 넣으면 「Thu Aug 01 2024 00:00:00 GMT+0900」과 「[object Object]」가 컨텍스트에
+ * 들어갔고, 기간을 묻는 질문은 정답 행을 찾고도 답할 수 없었다(홀드아웃 채점표에서 발견).
+ * Date 는 드라이버가 로컬 시각으로 만들므로 로컬 성분으로 적는다 — toISOString 은 UTC 라
+ * 한국 시간 자정의 날짜가 하루 앞당겨진다. */
+export function renderValue(v: unknown): string {
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    const day = `${v.getFullYear()}-${pad2(v.getMonth() + 1)}-${pad2(v.getDate())}`;
+    const midnight = !v.getHours() && !v.getMinutes() && !v.getSeconds() && !v.getMilliseconds();
+    return midnight ? day : `${day} ${pad2(v.getHours())}:${pad2(v.getMinutes())}:${pad2(v.getSeconds())}`;
+  }
+  if (v && typeof v === "object" && "toPostgres" in v) {
+    const iv = v as { years?: number; months?: number; days?: number; hours?: number; minutes?: number; seconds?: number };
+    const parts: string[] = [];
+    for (const [n, unit] of [
+      [iv.years, "년"],
+      [iv.months, "개월"],
+      [iv.days, "일"],
+      [iv.hours, "시간"],
+      [iv.minutes, "분"],
+      [iv.seconds, "초"],
+    ] as const) {
+      if (n) parts.push(`${n}${unit}`);
+    }
+    return parts.length ? parts.join(" ") : "0초";
+  }
+  return String(v);
+}
+
 function renderRow(row: Record<string, unknown>): string {
   return Object.entries(row)
-    .map(([k, v]) => `${k}=${v}`)
+    .map(([k, v]) => `${k}=${renderValue(v)}`)
     .join(" | ");
 }
 
