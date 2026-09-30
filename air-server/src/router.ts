@@ -255,8 +255,13 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
 // 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
 let ENTITY_LEXICON: { name: string; type: string }[] = [];
 
-/** 타입쌍 -> 엣지 타입. edges.json에서 유도하며 사람이 적지 않는다. */
-let TYPE_PAIR_EDGE = new Map<string, string>();
+/** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
+ *
+ * 한 타입쌍에 엣지가 여럿일 수 있다. 고객과 제품 사이에는 USES 와 REPORTED_ISSUE 가,
+ * 부서와 직원 사이에는 BELONGS_TO 와 HEAD_IS 가 있다. 종전에는 먼저 나온 하나만 남겨서,
+ * 「Product-S1 관련 고객 이슈 현황은?」(사업자 예시 29번)이 이슈를 묻는데 USES 로 탐색했다.
+ * 온톨로지를 적재한 서버에서만 생기는 결함이라 온톨로지 없이 돌던 평가들이 몰랐다(2026-09-30). */
+let TYPE_PAIR_EDGE = new Map<string, string[]>();
 
 /** 노드 타입을 가리키는 말. 관계 동사와 달리 **닫힌 집합**이다 — 온톨로지의
  * 노드 타입이 5종이므로 이 표도 5행에서 끝난다. 관계 표현은 무한하지만
@@ -294,12 +299,17 @@ export function installOntology(
     if (n.id) typeOf.set(n.id, n.type);
   }
   TYPE_PAIR_EDGE = new Map();
+  const add = (key: string, rel: string) => {
+    const list = TYPE_PAIR_EDGE.get(key) ?? [];
+    if (!list.includes(rel)) list.push(rel);
+    TYPE_PAIR_EDGE.set(key, list);
+  };
   for (const e of edges) {
     const st = typeOf.get(e.source) ?? e.source.replace(/_\d+$/, "");
     const tt = typeOf.get(e.target) ?? e.target.replace(/_\d+$/, "");
-    // 같은 타입쌍에 여러 엣지가 있으면 먼저 나온 것을 쓴다(데이터 순서 = 결정론).
-    if (!TYPE_PAIR_EDGE.has(`${st}|${tt}`)) TYPE_PAIR_EDGE.set(`${st}|${tt}`, e.relation);
-    if (!TYPE_PAIR_EDGE.has(`${tt}|${st}`)) TYPE_PAIR_EDGE.set(`${tt}|${st}`, e.relation);
+    // 데이터 순서를 지킨다(결정론). 질문이 엣지를 지목하지 않으면 첫 엣지를 쓴다.
+    add(`${st}|${tt}`, e.relation);
+    add(`${tt}|${st}`, e.relation);
   }
   return { entities: ENTITY_LEXICON.length, typePairs: TYPE_PAIR_EDGE.size };
 }
@@ -341,16 +351,19 @@ function entityTypesIn(q: string): string[] {
   return [...out];
 }
 
-/** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지. */
-function inferByTypePair(q: string): { relation: string; from: string; to: string } | null {
+/** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지.
+ *
+ * 그 타입쌍의 엣지가 여럿이면 질문의 관계 명사(「이슈」 → REPORTED_ISSUE)가 지목한 엣지를 쓰고,
+ * 지목이 없으면 데이터 순서의 첫 엣지를 쓴다. */
+function inferByTypePair(q: string, named: string[] = []): { relation: string; from: string; to: string } | null {
   const froms = entityTypesIn(q);
   if (!froms.length) return null;
   const tos = scan(q, NODE_TYPE_TERMS);
   for (const from of froms) {
     for (const to of tos) {
       if (to === from) continue;
-      const rel = TYPE_PAIR_EDGE.get(`${from}|${to}`);
-      if (rel) return { relation: rel, from, to };
+      const rels = TYPE_PAIR_EDGE.get(`${from}|${to}`);
+      if (rels?.length) return { relation: rels.find((r) => named.includes(r)) ?? rels[0], from, to };
     }
   }
   return null;
@@ -390,7 +403,7 @@ export function route(query: string): RouteDecision {
   }
   const graphHits = [...verbs, ...generic, ...nouns];
 
-  const typePair = inferByTypePair(q);
+  const typePair = inferByTypePair(q, nouns);
   // 최상급은 그래프 집계일 수 있으므로 구조화 신호에서 분리한다.
   const columnish = s.filter((x) => x !== "superlative");
 

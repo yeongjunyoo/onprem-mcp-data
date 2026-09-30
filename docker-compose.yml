@@ -8,7 +8,9 @@
 #       라이선스 근거 = NOTICE · docs/sbom.md · docs/model-cards/qwen2.5-coder-7b.md
 services:
   db:
-    image: pgvector/pgvector:pg16   # 문서와 측정 환경이 16이다. 이미지도 16으로 고정한다.
+    # pg16 은 pgvector 새 버전이 나오면 움직이는 태그다. 측정한 이미지로 고정한다(2026-09-30 확인:
+    # 컨테이너 실물 pgvector 0.8.6 / PostgreSQL 16.15, Docker Hub 0.8.6-pg16 과 다이제스트 일치).
+    image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mcpdata
@@ -24,7 +26,10 @@ services:
       retries: 10
 
   ollama:
-    image: ollama/ollama:latest
+    # 버전과 다이제스트를 고정한다. latest 면 심사 기관이 받는 날의 Ollama 가 돈다 — 9월에만
+    # 0.34.x 가 나왔다. 이 저장소의 CPU 수치와 docs/sbom.md 는 0.32.14 에서 쟀다(2026-09-30 확인:
+    # 컨테이너 실물 0.32.14, Docker Hub 0.32.14 태그와 다이제스트 일치).
+    image: ollama/ollama:0.32.14@sha256:9d30908e41144b1f1da89b9d8e33c07e4aeb43ff41a8660241b1686e2cc330ad
     ports:
       # host 11435. 11434로 게시하면 호스트에 이미 설치된 Ollama와 충돌하는데,
       # Docker는 이때 **조용히 게시를 포기한다**(PublishedPort: 0). 컨테이너는
@@ -56,7 +61,7 @@ services:
   # 받지 못하면 exit 1 로 끝나 `docker compose ps -a` 에 남는다 — 조용히 넘어가지 않는다.
   # 컨테이너 안에서 ollama CLI 는 OLLAMA_HOST 의 서버에 붙는 클라이언트다.
   models:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.32.14@sha256:9d30908e41144b1f1da89b9d8e33c07e4aeb43ff41a8660241b1686e2cc330ad
     depends_on:
       ollama:
         condition: service_healthy

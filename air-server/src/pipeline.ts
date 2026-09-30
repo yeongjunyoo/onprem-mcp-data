@@ -39,7 +39,7 @@ export interface RetrieveDeps {
   embedder: Embedder;
   nl2sql?: NL2SQL; // default: deterministic template fast-path
   k?: number; // vector top-k (default 5)
-  budget?: number; // curator token budget (default 256)
+  budget?: number; // curator token budget (default DEFAULT_BUDGET)
   repair?: boolean; // retry a rejected SQL once with the DB error (default true)
 }
 
@@ -234,6 +234,14 @@ function renderRow(row: Record<string, unknown>): string {
     .join(" | ");
 }
 
+/** 큐레이터가 모델에 넘기는 컨텍스트 예산(토큰 근사). 256 → 1024 (2026-09-30).
+ *
+ * 채점 기준이 최종 답 일치라(리원에이스 멘토링 09-22) 답을 기준으로 골랐다. 개발용 세트(사업자 30,
+ * 홀드아웃3 채점 가능 38)에서 서버와 같은 라우터 상태로 잰 정답 합이 256: 21+18=39, 512: 22+19=41,
+ * 1024: 24+20=44. 256 에서 틀린 목록형 답은 근거가 잘려 목록 일부만 말한 것이었다. 규칙은
+ * 「최고치에서 1문항 이내인 가장 작은 예산」이고 1024 만 해당한다. 봉인 홀드아웃4 는 따로 한 번 잰다. */
+export const DEFAULT_BUDGET = 1024;
+
 /** Run the retrieval spine for one query.
  * Deterministic parts: route (L3) + RRF merge + L4 curation. The structured
  * path's NL2SQL is the 7B by default (faithful to the brief; this is the path
@@ -243,7 +251,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const { pool, embedder } = deps;
   const nl2sql = deps.nl2sql ?? profile().nl2sql;
   const k = deps.k ?? 5;
-  const budget = deps.budget ?? 256;
+  const budget = deps.budget ?? DEFAULT_BUDGET;
 
   // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
   const decision = await routeQuery(query, embedder);

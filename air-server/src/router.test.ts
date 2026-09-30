@@ -143,5 +143,23 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   }
 }
 
+// 한 타입쌍에 엣지가 여럿이면 질문의 관계 명사가 고른다(데이터셋 없이 도는 합성 온톨로지).
+// 고객-제품 사이에 USES 가 먼저, REPORTED_ISSUE 가 나중에 나온다. 「이슈」를 물으면 뒤의 것이다.
+{
+  installOntology(
+    [
+      { id: "client_1", name: "Client-A", type: "client" },
+      { id: "product_7", name: "Product-S1", type: "product" },
+    ] as { id: string; name: string; type: string }[],
+    [
+      { source: "client_1", target: "product_7", relation: "USES" },
+      { source: "client_1", target: "product_7", relation: "REPORTED_ISSUE" },
+    ],
+  );
+  eq(route("Product-S1 관련 고객 이슈 현황은?").graphPlan?.relTypes, ["REPORTED_ISSUE"], "관계 명사가 타입쌍의 엣지를 고른다");
+  eq(route("Product-S1 쓰는 고객 어디야?").graphPlan?.relTypes, ["USES"], "지목이 없으면 데이터 순서의 첫 엣지");
+  installOntology([], []);
+}
+
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

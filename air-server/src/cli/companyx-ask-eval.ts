@@ -152,7 +152,8 @@ async function main() {
 
   for (const item of questions) {
     const t0 = Date.now();
-    const r = await ask(item.q, { pool, embedder, budget: Number(process.env.CX_BUDGET ?? 512) });
+    // 예산을 따로 정하지 않으면 서버 기본값(DEFAULT_BUDGET)으로 잰다. 종전에는 512 를 박아 서버(256)와 다른 조건을 쟀다.
+    const r = await ask(item.q, { pool, embedder, budget: process.env.CX_BUDGET ? Number(process.env.CX_BUDGET) : undefined });
     const ms = Date.now() - t0;
 
     const gold = await goldEvidence(item);

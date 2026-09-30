@@ -18,6 +18,8 @@ import {
   SEMANTIC_MIN_MARGIN,
 } from "./semroute.js";
 import type { Embedder } from "./embedder.js";
+import { z } from "zod";
+import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -159,6 +161,27 @@ const marker = new MarkerEmbedder();
   ok(!semanticReady(), "설치 실패 후 폴백 비활성");
   eq((await semanticVerdict(q, marker)), null, "비활성이면 판정 없음");
   uninstallSemanticRouter();
+}
+
+// ── route 도구 출력은 공개한 스키마를 통과한다 ──────────────────────────
+//
+// SDK 는 outputSchema 를 추가 필드 금지로 공개하고, 엄격한 클라이언트(MCP Inspector 2.8)는
+// 스키마 밖의 필드가 하나라도 있으면 결과를 거부한다. 규칙 결정, 시맨틱 적용, 시맨틱 박빙 세
+// 경우의 출력을 같은 엄격도로 검사한다.
+{
+  const strict = z.object(ROUTE_OUTPUT_SCHEMA).strict();
+  await installSemanticRouter(marker);
+  const outs = [
+    routeToolOutput(route("Client-A가 사용 중인 제품 목록은?")),
+    routeToolOutput(await routeQuery("Product-C3 이거 말썽 많이 나는 편이야?", marker)),
+  ];
+  class Flat2 implements Embedder { readonly name = "flat"; readonly dim = 3; async embed() { return [1, 0, 0]; } }
+  await installSemanticRouter(new Flat2());
+  outs.push(routeToolOutput(await routeQuery("주문", new Flat2())));
+  uninstallSemanticRouter();
+  const failures = outs.map((o) => strict.safeParse(o)).filter((r) => !r.success).map((r) => (r.success ? "" : r.error.issues[0]?.message));
+  eq(failures, [], "route 출력 세 경우가 공개 스키마를 통과한다");
+  ok(!strict.safeParse({ ...outs[0], surprise: 1 }).success, "스키마 밖의 필드는 거부된다(클라이언트와 같은 엄격도)");
 }
 
 // ── 평가는 서버와 같은 라우터 상태에서 돈다 ─────────────────────────────

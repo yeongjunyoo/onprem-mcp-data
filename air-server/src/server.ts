@@ -14,9 +14,9 @@ import {
   jsonLoggerPlugin,
   type AirServer,
 } from "@airmcp-dev/core";
-import { audit, SQL_TOOL, VECTOR_TOOL } from "./router.js";
-import { routeQuery, semanticState } from "./semroute.js";
-import { routerOntologyState } from "./routerinit.js";
+import { SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { routeQuery } from "./semroute.js";
+import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { sqlQuery } from "./sql.js";
@@ -159,37 +159,19 @@ export function buildServer(): AirServer {
           "한국어 질문 하나를 어느 데이터 레인으로 보낼지 결정만 한다. 조회도 답변도 하지 않는다. " +
           "레인: structured → sql.query(표의 값·집계), semantic → vector.search(문서 서술), " +
           "graph → ontology.search + graph.expand(개체 사이 관계), hybrid → sql.query 와 vector.search 병렬. " +
-          "결정에 LLM 을 부르지 않아 같은 질문은 항상 같은 결정을 낸다(MCP Parallel 패턴). " +
+          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. 생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). " +
           "예: 「서울 지역 매출 상위 5개 고객사를 알려줘」→ structured, 「Product-C1 설치 방법이 궁금해」→ semantic, " +
           "「Client-A가 사용 중인 제품 목록은?」→ graph. " +
           "돌려주는 것: route, lane, tools(부를 도구), 판단 근거 신호와 rationale. " +
           "쓰지 말 것: 데이터나 답이 필요할 때 — retrieve·ask 가 이 결정을 안에서 다시 한다.",
         params: { query: { type: "string", description: "사용자의 한국어 질의" } },
         // 구조화 출력. 라우팅 결정은 사람이 읽는 문장이 아니라 기계가 검증할 계약이다.
-        // 호스트가 이 스키마로 결과를 파싱하면 감사와 재현이 가능해진다.
-        outputSchema: {
-          route: { type: "string", description: "structured | semantic | graph | hybrid" },
-          lane: { type: "string", description: "사람이 읽는 레인 이름" },
-          // 배열은 배열로 선언한다. 종전에는 넷 다 `type: "object"` 였고, MCP 출력
-          // 검증이 "Expected object, received array" 로 **도구 호출 자체를 거부**했다.
-          // demo 는 내부 호출이라 이 검증을 안 거쳐서 초록이었다 — 전선까지 가 보기
-          // 전에는 보이지 않는 결함이다.
-          tools: z.array(z.string()).describe("호출할 도구 이름 목록"),
-          structured_signals: z.array(z.string()).describe("관계형 레인을 고르게 한 어휘"),
-          semantic_signals: z.array(z.string()).describe("의미 검색 레인을 고르게 한 어휘"),
-          graph_signals: z.array(z.string()).describe("그래프 레인을 고르게 한 어휘"),
-          rationale: { type: "string", description: "결정 근거 한 줄" },
-          deterministic: { type: "boolean", description: "항상 true. LLM 호출 없이 규칙으로만 결정한다" },
-        },
+        // 스키마와 출력은 routeschema.ts 가 함께 만든다(어긋나면 엄격한 클라이언트가 거부한다).
+        outputSchema: ROUTE_OUTPUT_SCHEMA,
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
-        handler: async ({ query }) => ({
-          ...audit(await routeQuery(query as string, getEmbedder())),
-          // 사전이 적재됐는지 시연 중에 바로 보이게 한다. 0이면 폴백 경로다.
-          entity_lexicon: routerOntologyState().entities,
-          semantic_anchors: semanticState().anchors,
-        }),
+        handler: async ({ query }) => routeToolOutput(await routeQuery(query as string, getEmbedder())),
       }),
 
       defineTool(SQL_TOOL, {
@@ -241,7 +223,7 @@ export function buildServer(): AirServer {
           "쓰지 말 것: 완성된 한국어 답이 필요할 때(→ ask), SQL 이 이미 있을 때(→ sql.query).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
+          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 7, // air Meter: orchestrates several tools in one call
@@ -270,7 +252,7 @@ export function buildServer(): AirServer {
           "답의 근거와 판정만 필요할 때(→ audit.explain).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
+          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
         layer: 7, // air Meter: agent chain (retrieval + generation)
