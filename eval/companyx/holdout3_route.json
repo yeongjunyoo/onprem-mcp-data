@@ -1,0 +1,1094 @@
+{
+  "note": "홀드아웃 3차. 독립 에이전트 gpt-6-astra가 2026-09-30에 데이터셋의 SQL 스키마와 적재 데이터, 문서 원문, 그래프 노드와 엣지만을 근거로 작성했다. 작성자는 라우터 코드, 라우팅 어휘 목록, 평가 결과 파일을 보지 않았으며, 앞선 두 홀드아웃은 문구 중복을 피하는 용도로만 확인했다. 사무실 채팅의 구어체와 반말, 줄임말, 어순 변경, 조사 생략, 한두 글자 오탈자를 섞었고, 관계 용어 없는 관계 질문과 집계 용어 없는 수치 질문, 제품명과 짧은 사용법 의도만 있는 질문, 표면상 다른 도구를 떠올리게 하는 질문을 포함했다. 정답 도구는 표현이 아니라 명시한 데이터 근거로 정했으며, SQL은 실행하지 않고 DDL에 맞춰 작성했다.",
+  "author": "independent agent (gpt-6-astra), router code unseen",
+  "created": "2026-09-30",
+  "items": [
+    {
+      "id": "h3-01",
+      "q": "부산 쪽 2025년 장사 어땠어, 돈으로 보면?",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "집계용어없음"
+      ],
+      "basis": "sales.region='부산', sale_date의 2025년 범위, amount. 장사 실적은 해당 기간 매출액으로 해석한다.",
+      "gold_sql": "SELECT COALESCE(SUM(amount), 0) AS sales_amount FROM sales WHERE region = '부산' AND sale_date >= DATE '2025-01-01' AND sale_date < DATE '2026-01-01';"
+    },
+    {
+      "id": "h3-02",
+      "q": "보안이랑 클라우드 중 돈 더 들어온 쪽 어디야? 대전, 2025년 얘기임. 양쪽 금액도 같이",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "줄임말",
+        "어순변경",
+        "조사생략",
+        "집계용어없음"
+      ],
+      "basis": "sales.region, sale_date, category의 security/cloud, amount. 두 카테고리 매출액을 계산해 큰 쪽부터 표시한다.",
+      "gold_sql": "SELECT c.category, COALESCE(SUM(s.amount), 0) AS sales_amount FROM (VALUES ('security'), ('cloud')) AS c(category) LEFT JOIN sales s ON s.category = c.category AND s.region = '대전' AND s.sale_date >= DATE '2025-01-01' AND s.sale_date < DATE '2026-01-01' GROUP BY c.category ORDER BY sales_amount DESC, c.category;"
+    },
+    {
+      "id": "h3-03",
+      "q": "Product-D2 말고 Product-D1 고르면 월 요금 얼마나 더 붙어?",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "집계용어없음"
+      ],
+      "basis": "products.name, price_monthly. Product-D1의 월 요금에서 Product-D2의 월 요금을 뺀다.",
+      "gold_sql": "SELECT d1.price_monthly AS d1_price_monthly, d2.price_monthly AS d2_price_monthly, d1.price_monthly - d2.price_monthly AS extra_monthly FROM products d1 CROSS JOIN products d2 WHERE d1.name = 'Product-D1' AND d2.name = 'Product-D2';"
+    },
+    {
+      "id": "h3-04",
+      "q": "Product-C4 제품 등록정보에 버전 뭐라고 돼 있나, 출시 날짜랑 같이 보여쥬",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "오탈자",
+        "혼동유도"
+      ],
+      "basis": "products.name='Product-C4', version, release_date. 설치나 배포 방법이 아니라 제품 테이블의 등록값이다. 오탈자: 보여쥬→보여줘.",
+      "gold_sql": "SELECT name, version, release_date FROM products WHERE name = 'Product-C4';"
+    },
+    {
+      "id": "h3-05",
+      "q": "Client-N에 메일 보내야 돼. 우리 직원 말고 그쪽 연락처로 적힌 이름이랑 메일 주소 줘",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "혼동유도"
+      ],
+      "basis": "clients.name='Client-N', contact_name, contact_email. 사내 직원과 고객사를 잇는 MANAGES_ACCOUNT가 아닌 고객사 연락처 컬럼이다.",
+      "gold_sql": "SELECT contact_name, contact_email FROM clients WHERE name = 'Client-N';"
+    },
+    {
+      "id": "h3-06",
+      "q": "2024년 7월 입사한 사람들, 이름 옆에 입사 날짜 붙여서 주라",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "employees.name, hire_date의 2024년 7월 범위.",
+      "gold_sql": "SELECT name, hire_date FROM employees WHERE hire_date >= DATE '2024-07-01' AND hire_date < DATE '2024-08-01' ORDER BY hire_date, id;"
+    },
+    {
+      "id": "h3-07",
+      "q": "연봉 4천 이상 5천 미만인 사람 이름이랑 금액 좀. 재직 중인 사람만 ㅇㅇ",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략"
+      ],
+      "basis": "employees.name, salary >= 4000 AND salary < 5000, is_active. 급여는 데이터의 만원 단위 값을 사용한다.",
+      "gold_sql": "SELECT name, salary FROM employees WHERE is_active = TRUE AND salary >= 4000 AND salary < 5000 ORDER BY salary, id;"
+    },
+    {
+      "id": "h3-08",
+      "q": "critical인데 open으로 그대로 있는 티켓, 제목이랑 접수일 보여줘봐. 어느 고객 건인지도",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략"
+      ],
+      "basis": "support_tickets.priority='critical', status='open', title, created_at, client_id를 clients.id/name과 조인.",
+      "gold_sql": "SELECT t.id, t.title, t.created_at, c.name AS client_name FROM support_tickets t JOIN clients c ON c.id = t.client_id WHERE t.priority = 'critical' AND t.status = 'open' ORDER BY t.created_at, t.id;"
+    },
+    {
+      "id": "h3-09",
+      "q": "Client-X 스테이징 환경 장애 티켓 있잖아, 언제 접수됐고 언제 해결됐는지만 필요해",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "혼동유도"
+      ],
+      "basis": "support_tickets.title='스테이징 환경 장애', created_at, resolved_at, client_id와 clients.name='Client-X'. 원인 보고서가 아니라 티켓의 두 시각을 조회한다.",
+      "gold_sql": "SELECT t.id, t.created_at, t.resolved_at FROM support_tickets t JOIN clients c ON c.id = t.client_id WHERE c.name = 'Client-X' AND t.title = '스테이징 환경 장애' ORDER BY t.created_at, t.id;"
+    },
+    {
+      "id": "h3-10",
+      "q": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "조사생략"
+      ],
+      "basis": "support_tickets.created_at의 2025년 범위, resolved_at IS NOT NULL, title. resolved_at-created_at으로 소요 시간을 정렬한다.",
+      "gold_sql": "SELECT id, title, resolved_at - created_at AS resolution_time FROM support_tickets WHERE created_at >= TIMESTAMP '2025-01-01 00:00:00' AND created_at < TIMESTAMP '2026-01-01 00:00:00' AND resolved_at IS NOT NULL ORDER BY resolution_time DESC, id LIMIT 3;"
+    },
+    {
+      "id": "h3-11",
+      "q": "종료일이 2026년 10월인 계약들 미리 챙기게, active인 것만 고객 이름이랑 종료일 부탁",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "조사생략"
+      ],
+      "basis": "contracts.status='active', end_date의 2026년 10월 범위, client_id와 clients.name. 현재 날짜를 추정하지 않고 명시된 상태값으로 거른다.",
+      "gold_sql": "SELECT co.id, c.name AS client_name, co.end_date FROM contracts co JOIN clients c ON c.id = co.client_id WHERE co.status = 'active' AND co.end_date >= DATE '2026-10-01' AND co.end_date < DATE '2026-11-01' ORDER BY co.end_date, co.id;"
+    },
+    {
+      "id": "h3-12",
+      "q": "Client-B 구독 계약만 따로 볼래. 상품 이름, 금액, 시작일, 끝나는 날 이렇게",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "contracts.contract_type='subscription', amount, start_date, end_date, client_id/product_id와 clients.name/products.name.",
+      "gold_sql": "SELECT co.id, p.name AS product_name, co.amount, co.start_date, co.end_date FROM contracts co JOIN clients c ON c.id = co.client_id JOIN products p ON p.id = co.product_id WHERE c.name = 'Client-B' AND co.contract_type = 'subscription' ORDER BY co.start_date, co.id;"
+    },
+    {
+      "id": "h3-13",
+      "q": "예산 얼마 잡혀 있었지, Client-E 로그 분석 시스템? 시작 날짜도 같이 줘",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "projects.name='Client-E 로그 분석 시스템', budget, start_date. 프로젝트 연결 관계나 회의의 예산 집행률이 아닌 프로젝트 등록값이다.",
+      "gold_sql": "SELECT name, budget, start_date FROM projects WHERE name = 'Client-E 로그 분석 시스템';"
+    },
+    {
+      "id": "h3-14",
+      "q": "보류해 둔 프로젝트 중 끝나는 날짜도 안 적힌 거 뭐뭐야? 이름만 쭉",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "projects.status='on_hold', end_date IS NULL, name.",
+      "gold_sql": "SELECT name FROM projects WHERE status = 'on_hold' AND end_date IS NULL ORDER BY name, id;"
+    },
+    {
+      "id": "h3-15",
+      "q": "의료/바이오 고객 명단 필요함. 회사명 옆에 지역 써주면 됨",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략"
+      ],
+      "basis": "clients.industry='의료/바이오', name, region.",
+      "gold_sql": "SELECT name, region FROM clients WHERE industry = '의료/바이오' ORDER BY name, id;"
+    },
+    {
+      "id": "h3-16",
+      "q": "고객 등록일 제일 옛날인 곳부터 다섯 군데만 훑어보자. 날짜 빼먹지 말고",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "clients.name, registered_at 오름차순의 처음 5개 행.",
+      "gold_sql": "SELECT name, registered_at FROM clients ORDER BY registered_at, id LIMIT 5;"
+    },
+    {
+      "id": "h3-17",
+      "q": "Product-S2 2025년 1분기 매출, 묶지 말고 한 줄씩 날짜랑 금액 볼 수 있나",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "sales.product_id, quarter='2025-Q1', sale_date, amount와 products.name='Product-S2'. 집계하지 않은 매출 행이다.",
+      "gold_sql": "SELECT s.id, s.sale_date, s.amount FROM sales s JOIN products p ON p.id = s.product_id WHERE p.name = 'Product-S2' AND s.quarter = '2025-Q1' ORDER BY s.sale_date, s.id;"
+    },
+    {
+      "id": "h3-18",
+      "q": "김준혁 급여랑 입사일 확안 좀 해줘",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "오탈자"
+      ],
+      "basis": "employees.name='김준혁', salary, hire_date. 오탈자: 확안→확인.",
+      "gold_sql": "SELECT name, salary, hire_date FROM employees WHERE name = '김준혁';"
+    },
+    {
+      "id": "h3-19",
+      "q": "2025년에 시작한 계약에서 취소된 거, 구독/프로젝트/유지보수 각각 몇개임?",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략"
+      ],
+      "basis": "contracts.start_date의 2025년 범위, status='cancelled', contract_type별 건수. 해당 유형에 행이 없어도 0을 표시한다.",
+      "gold_sql": "SELECT t.contract_type, COUNT(co.id) AS cancelled_count FROM (VALUES ('subscription'), ('project'), ('maintenance')) AS t(contract_type) LEFT JOIN contracts co ON co.contract_type = t.contract_type AND co.status = 'cancelled' AND co.start_date >= DATE '2025-01-01' AND co.start_date < DATE '2026-01-01' GROUP BY t.contract_type ORDER BY t.contract_type;"
+    },
+    {
+      "id": "h3-20",
+      "q": "서울에서 2026년 상반기 제일 돈 잘 들어온 달 언제야? 그달 금액도 궁금",
+      "expected": "nl2sql",
+      "surface": [
+        "구어체",
+        "반말",
+        "줄임말",
+        "집계용어없음"
+      ],
+      "basis": "sales.region='서울', sale_date의 2026년 상반기 범위, amount의 월별 매출액. 동률이면 모든 해당 월을 반환한다.",
+      "gold_sql": "WITH monthly AS (SELECT DATE_TRUNC('month', sale_date)::date AS month, SUM(amount) AS sales_amount FROM sales WHERE region = '서울' AND sale_date >= DATE '2026-01-01' AND sale_date < DATE '2026-07-01' GROUP BY DATE_TRUNC('month', sale_date)::date) SELECT month, sales_amount FROM monthly WHERE sales_amount = (SELECT MAX(sales_amount) FROM monthly) ORDER BY month;"
+    },
+    {
+      "id": "h3-21",
+      "q": "Product-C1 일단 띄우려먄 어케 해",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "줄임말",
+        "조사생략",
+        "오탈자",
+        "제품명과사용의도"
+      ],
+      "basis": "DOC-011.md의 설치 절차. 의존성 설치, .env 준비, 서비스 시작, 헬스체크 순서가 있다. 오탈자: 띄우려먄→띄우려면.",
+      "gold_docs": [
+        "DOC-011.md"
+      ]
+    },
+    {
+      "id": "h3-22",
+      "q": "Product-D2 처음 켜보려는데 뭐부터 만져야 됨",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략",
+        "제품명과사용의도"
+      ],
+      "basis": "DOC-016.md의 설치 절차. Docker와 Docker Compose, .env 설정, docker-compose up -d, /health 확인을 설명한다.",
+      "gold_docs": [
+        "DOC-016.md"
+      ]
+    },
+    {
+      "id": "h3-23",
+      "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "오탈자",
+        "제품명과사용의도"
+      ],
+      "basis": "DOC-013.md의 업데이트 항목. 블루/그린 배포와 이전 버전 컨테이너 이미지로 롤백하는 방법. 오탈자: 되돌리려먼→되돌리려면.",
+      "gold_docs": [
+        "DOC-013.md"
+      ]
+    },
+    {
+      "id": "h3-24",
+      "q": "Product-S2 DB 연결 너무 많이 열리는 거 같아. 풀 위아래 값 어떻게 잡으랬지?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-014.md의 DB 최적화 항목. Connection Pool 최소 12, 최대 90을 명시한다.",
+      "gold_docs": [
+        "DOC-014.md"
+      ]
+    },
+    {
+      "id": "h3-25",
+      "q": "알림 하나 만들려는데 어디로 뭘 보내? Product-D1 API 얘기야",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경"
+      ],
+      "basis": "DOC-015.md의 주요 API. 알림 설정에 사용하는 HTTP 메서드 POST와 /api/v1/alerts 경로. 요청 본문의 스키마는 묻지 않는다.",
+      "gold_docs": [
+        "DOC-015.md"
+      ]
+    },
+    {
+      "id": "h3-26",
+      "q": "Product-C4 백업본 며칠 지나면 없어져? 저장해 두는 곳도 알려줘",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-018.md의 백업 항목. 보관 90일과 S3 호환 스토리지를 명시한다. 숫자 질문이지만 관계형 테이블에 없는 운영 규칙이다.",
+      "gold_docs": [
+        "DOC-018.md"
+      ]
+    },
+    {
+      "id": "h3-27",
+      "q": "Product-D3 스레드풀, 코어 수 그대로 넣는 거 맞아? 권장값 좀",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-019.md의 애플리케이션 최적화 항목. 스레드풀은 코어 수 × 4 설정이다.",
+      "gold_docs": [
+        "DOC-019.md"
+      ]
+    },
+    {
+      "id": "h3-28",
+      "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "줄임말"
+      ],
+      "basis": "DOC-020.md의 에러 코드 항목. 403은 권한 없음이다.",
+      "gold_docs": [
+        "DOC-020.md"
+      ]
+    },
+    {
+      "id": "h3-29",
+      "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-001.md의 원인 분석. 보안 패치를 스테이징 환경의 충분한 테스트 없이 프로덕션에 적용했다.",
+      "gold_docs": [
+        "DOC-001.md"
+      ]
+    },
+    {
+      "id": "h3-30",
+      "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략"
+      ],
+      "basis": "DOC-003.md의 원인 분석. 모니터링 임계값이 적절하지 않아 사전 감지가 되지 않았다는 설명이다.",
+      "gold_docs": [
+        "DOC-003.md"
+      ]
+    },
+    {
+      "id": "h3-31",
+      "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-005.md의 담당자 항목. 검토자는 강현우이며 대응자 권승호와 구분된다. 사고 보고서의 검토 역할은 제공된 그래프 엣지에 없다.",
+      "gold_docs": [
+        "DOC-005.md"
+      ]
+    },
+    {
+      "id": "h3-32",
+      "q": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들 인수인계에 넣게 짚어줘",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-008.md의 조치 사항. 로드밸런서 설정 복구, 모니터링 알림 임계값 재설정, 재발 방지 자동화 스크립트 작성이다.",
+      "gold_docs": [
+        "DOC-008.md"
+      ]
+    },
+    {
+      "id": "h3-33",
+      "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-021.md의 결정 사항. 일정 2주 연장 합의가 답이며 계약 종료일 계산이 아니다.",
+      "gold_docs": [
+        "DOC-021.md"
+      ]
+    },
+    {
+      "id": "h3-34",
+      "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-024.md의 결정 사항. 추가 인력 투입 승인과 주간 리포트 형식 변경을 확인한다.",
+      "gold_docs": [
+        "DOC-024.md"
+      ]
+    },
+    {
+      "id": "h3-35",
+      "q": "Client-G 2026년 5월 20일 만났을 때 돈 얼마나 썼다고 했어? 매출 말고 예산 쓴 비율",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-027.md의 일정 조정 항목에 있는 예산 집행률 46%. projects.budget이나 sales.amount로는 답할 수 없다.",
+      "gold_docs": [
+        "DOC-027.md"
+      ]
+    },
+    {
+      "id": "h3-36",
+      "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-028.md의 기본 정보 참석자. 박민수, 오수진, 장미라, 강동현, 권소연. 회의 참석 엣지는 그래프에 없다.",
+      "gold_docs": [
+        "DOC-028.md"
+      ]
+    },
+    {
+      "id": "h3-37",
+      "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "혼동유도"
+      ],
+      "basis": "DOC-031.md의 투자 비용. 제안서에 적힌 초기 구축비 7917만원을 조회하며 계약 테이블의 amount가 아니다.",
+      "gold_docs": [
+        "DOC-031.md"
+      ]
+    },
+    {
+      "id": "h3-38",
+      "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "DOC-033.md의 구축 계획 3단계. 테스트 및 안정화 3주.",
+      "gold_docs": [
+        "DOC-033.md"
+      ]
+    },
+    {
+      "id": "h3-39",
+      "q": "Product-C4 얘길 왜 꺼냈던 거야 Client-M한테? 제안할 때 적은 그쪽 IT 숙제 두 가지가 뭐였지",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경"
+      ],
+      "basis": "DOC-038.md의 고객 현황 분석. 데이터 기반 의사결정 체계 구축과 개인정보보호법 강화에 따른 컴플라이언스 대응이다.",
+      "gold_docs": [
+        "DOC-038.md"
+      ]
+    },
+    {
+      "id": "h3-40",
+      "q": "Client-O Product-S3 도입안에 투자금 회수 몇 달로 봤음?",
+      "expected": "vector_search",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략",
+        "혼동유도"
+      ],
+      "basis": "DOC-040.md의 기대 효과. ROI는 13개월 내 투자 회수 예상이라고 명시되어 있다.",
+      "gold_docs": [
+        "DOC-040.md"
+      ]
+    },
+    {
+      "id": "h3-41",
+      "q": "Client-H 쪽 제품 조합이 뭐였더라? 이름만 툭 던져줘",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "client_8(Client-H)에서 USES로 이어지는 product_1(Product-C1), product_7(Product-C3), product_2(Product-C2). 도입 제안 제품이 아닌 이용 제품 조합이다.",
+      "gold_edges": [
+        {
+          "source": "client_8",
+          "relation": "USES",
+          "target": "product_1"
+        },
+        {
+          "source": "client_8",
+          "relation": "USES",
+          "target": "product_7"
+        },
+        {
+          "source": "client_8",
+          "relation": "USES",
+          "target": "product_2"
+        }
+      ],
+      "gold_answer_names": [
+        "Product-C1",
+        "Product-C3",
+        "Product-C2"
+      ]
+    },
+    {
+      "id": "h3-42",
+      "q": "Client-N 환경에 우리 거 뭐뭐 들어가 있더라, 제품 이름 까먹음",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "줄임말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "client_14(Client-N)의 USES 대상은 product_8(Product-C4), product_3(Product-S1).",
+      "gold_edges": [
+        {
+          "source": "client_14",
+          "relation": "USES",
+          "target": "product_8"
+        },
+        {
+          "source": "client_14",
+          "relation": "USES",
+          "target": "product_3"
+        }
+      ],
+      "gold_answer_names": [
+        "Product-C4",
+        "Product-S1"
+      ]
+    },
+    {
+      "id": "h3-43",
+      "q": "Product-S1하고 Product-C4 둘 다 쓰는 고객만 만나보려는데 어디로 가면 돼?",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "다중홉"
+      ],
+      "basis": "product_3(Product-S1)와 product_8(Product-C4)로 각각 USES가 있는 client의 교집합. 유일한 공통 source는 client_14(Client-N).",
+      "gold_edges": [
+        {
+          "source": "client_14",
+          "relation": "USES",
+          "target": "product_3"
+        },
+        {
+          "source": "client_14",
+          "relation": "USES",
+          "target": "product_8"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-N"
+      ]
+    },
+    {
+      "id": "h3-44",
+      "q": "오수진 명함에 팀 이름 뭐라고 넣지?",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "employee_29(오수진) BELONGS_TO dept_1(경영지원팀).",
+      "gold_edges": [
+        {
+          "source": "employee_29",
+          "relation": "BELONGS_TO",
+          "target": "dept_1"
+        }
+      ],
+      "gold_answer_names": [
+        "경영지원팀"
+      ]
+    },
+    {
+      "id": "h3-45",
+      "q": "조예진이랑 같은 팀인 사람 이름 좀, 조예진 본인은 빼고",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "조사생략",
+        "다중홉"
+      ],
+      "basis": "employee_32(조예진) BELONGS_TO dept_5(기술지원팀)를 따라간 뒤 같은 부서로 BELONGS_TO가 있는 직원 중 본인을 제외한다.",
+      "gold_edges": [
+        {
+          "source": "employee_32",
+          "relation": "BELONGS_TO",
+          "target": "dept_5"
+        },
+        {
+          "source": "employee_5",
+          "relation": "BELONGS_TO",
+          "target": "dept_5"
+        },
+        {
+          "source": "employee_14",
+          "relation": "BELONGS_TO",
+          "target": "dept_5"
+        },
+        {
+          "source": "employee_41",
+          "relation": "BELONGS_TO",
+          "target": "dept_5"
+        }
+      ],
+      "gold_answer_names": [
+        "박소연",
+        "권승호",
+        "임우진"
+      ]
+    },
+    {
+      "id": "h3-46",
+      "q": "한도윤 팀 이름이 기억이 안 나네, 어딘지 알랴줘",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "오탈자",
+        "관계용어없음"
+      ],
+      "basis": "employee_40(한도윤) BELONGS_TO dept_6(영업팀). 오탈자: 알랴줘→알려줘.",
+      "gold_edges": [
+        {
+          "source": "employee_40",
+          "relation": "BELONGS_TO",
+          "target": "dept_6"
+        }
+      ],
+      "gold_answer_names": [
+        "영업팀"
+      ]
+    },
+    {
+      "id": "h3-47",
+      "q": "Client-K 건 얘기하려면 사내에서 누구한테 말 걸면 돼? 영업 계정 얘기",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "employee_45(김준혁) MANAGES_ACCOUNT client_11(Client-K). 고객사 외부 연락처나 프로젝트 LEADS가 아니라 사내 계정 창구다.",
+      "gold_edges": [
+        {
+          "source": "employee_45",
+          "relation": "MANAGES_ACCOUNT",
+          "target": "client_11"
+        }
+      ],
+      "gold_answer_names": [
+        "김준혁"
+      ]
+    },
+    {
+      "id": "h3-48",
+      "q": "이지훈 앞으로 묶인 고객 계정들 이름만 보내봐",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "employee_22(이지훈)의 MANAGES_ACCOUNT 대상 client_20(Client-T), client_7(Client-G).",
+      "gold_edges": [
+        {
+          "source": "employee_22",
+          "relation": "MANAGES_ACCOUNT",
+          "target": "client_20"
+        },
+        {
+          "source": "employee_22",
+          "relation": "MANAGES_ACCOUNT",
+          "target": "client_7"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-T",
+        "Client-G"
+      ]
+    },
+    {
+      "id": "h3-49",
+      "q": "Client-R 계정 맡은 분한테 연락해야 하는데 성함이 뭐였지? 고객 쪽 직원 말고 우리 쪽",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "혼동유도"
+      ],
+      "basis": "employee_6(김지훈) MANAGES_ACCOUNT client_18(Client-R). clients.contact_name의 외부 연락 담당자가 아니다.",
+      "gold_edges": [
+        {
+          "source": "employee_6",
+          "relation": "MANAGES_ACCOUNT",
+          "target": "client_18"
+        }
+      ],
+      "gold_answer_names": [
+        "김지훈"
+      ]
+    },
+    {
+      "id": "h3-50",
+      "q": "권소연 요즘 뭐 해? 프로젝트 이름 하나만 알려줘봐",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "employee_13(권소연)의 유일한 LEADS 대상 project_28(Client-V DevOps 전환). 해당 노드 status는 in_progress다.",
+      "gold_edges": [
+        {
+          "source": "employee_13",
+          "relation": "LEADS",
+          "target": "project_28"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-V DevOps 전환"
+      ]
+    },
+    {
+      "id": "h3-51",
+      "q": "서재원 쪽 프로젝트 묶음에 뭐뭐 있지? 계획 중인 것도 빼지 마",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "employee_8(서재원)의 LEADS 대상 project_19, project_22, project_31, project_38을 상태 제한 없이 모두 반환한다.",
+      "gold_edges": [
+        {
+          "source": "employee_8",
+          "relation": "LEADS",
+          "target": "project_19"
+        },
+        {
+          "source": "employee_8",
+          "relation": "LEADS",
+          "target": "project_22"
+        },
+        {
+          "source": "employee_8",
+          "relation": "LEADS",
+          "target": "project_31"
+        },
+        {
+          "source": "employee_8",
+          "relation": "LEADS",
+          "target": "project_38"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-M 하이브리드 클라우드",
+        "Client-B 하이브리드 클라우드",
+        "Client-Z CI/CD 파이프라인 구축",
+        "Client-J API 게이트웨이 구축"
+      ]
+    },
+    {
+      "id": "h3-52",
+      "q": "Client-C DB 마이그레이션, 누가 끌고 가는 거야?",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략"
+      ],
+      "basis": "employee_2(안진우) LEADS project_20(Client-C DB 마이그레이션).",
+      "gold_edges": [
+        {
+          "source": "employee_2",
+          "relation": "LEADS",
+          "target": "project_20"
+        }
+      ],
+      "gold_answer_names": [
+        "안진우"
+      ]
+    },
+    {
+      "id": "h3-53",
+      "q": "클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "dept_2(클라우드사업부) HEAD_IS employee_2(안진우).",
+      "gold_edges": [
+        {
+          "source": "dept_2",
+          "relation": "HEAD_IS",
+          "target": "employee_2"
+        }
+      ],
+      "gold_answer_names": [
+        "안진우"
+      ]
+    },
+    {
+      "id": "h3-54",
+      "q": "보안솔루션팀 수장 성함 다시 좀. 내가 메모를 날렷네",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "오탈자"
+      ],
+      "basis": "dept_3(보안솔루션팀) HEAD_IS employee_3(조재원). 오탈자: 날렷네→날렸네.",
+      "gold_edges": [
+        {
+          "source": "dept_3",
+          "relation": "HEAD_IS",
+          "target": "employee_3"
+        }
+      ],
+      "gold_answer_names": [
+        "조재원"
+      ]
+    },
+    {
+      "id": "h3-55",
+      "q": "Client-G가 문제 있다고 접수했던 제품 이름 뭐였어? 조치 내용은 필요 없고",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "혼동유도"
+      ],
+      "basis": "client_7(Client-G) REPORTED_ISSUE product_4(Product-S2). 고객과 이슈 접수 제품의 관계이며 DOC-007의 별도 장애 사례를 묻지 않는다.",
+      "gold_edges": [
+        {
+          "source": "client_7",
+          "relation": "REPORTED_ISSUE",
+          "target": "product_4"
+        }
+      ],
+      "gold_answer_names": [
+        "Product-S2"
+      ]
+    },
+    {
+      "id": "h3-56",
+      "q": "Client-H 쪽에서 이슈 올린 제품만 골라줘. 도입된 제품 명단이랑 헷갈리지 말고",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "혼동유도"
+      ],
+      "basis": "client_8(Client-H)의 REPORTED_ISSUE 대상 product_12(Product-T2), product_5(Product-D1). USES 대상 제품과 구분한다.",
+      "gold_edges": [
+        {
+          "source": "client_8",
+          "relation": "REPORTED_ISSUE",
+          "target": "product_12"
+        },
+        {
+          "source": "client_8",
+          "relation": "REPORTED_ISSUE",
+          "target": "product_5"
+        }
+      ],
+      "gold_answer_names": [
+        "Product-T2",
+        "Product-D1"
+      ]
+    },
+    {
+      "id": "h3-57",
+      "q": "Product-C4 때문에 연락 왔던 곳들 중 Client-AD랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "어순변경",
+        "다중홉",
+        "혼동유도"
+      ],
+      "basis": "client_30(Client-AD) USES product_3(Product-S1)를 확인하고, product_8(Product-C4)에 REPORTED_ISSUE가 있으며 product_3에 USES가 있는 고객을 교차한다. 공통 고객은 client_30(Client-AD)다. 이슈 접수 관계만을 뜻하며 장애 원인을 추론하지 않는다.",
+      "gold_edges": [
+        {
+          "source": "client_30",
+          "relation": "USES",
+          "target": "product_3"
+        },
+        {
+          "source": "client_30",
+          "relation": "REPORTED_ISSUE",
+          "target": "product_8"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-AD"
+      ]
+    },
+    {
+      "id": "h3-58",
+      "q": "Client-V 프로젝트 탭 채우려는데 거기 들어갈 이름들 좀 줘",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "client_22(Client-V)의 HAS_PROJECT 대상 project_11(Client-V 하이브리드 클라우드), project_28(Client-V DevOps 전환). 탭은 사용자가 작성하려는 목록을 뜻한다.",
+      "gold_edges": [
+        {
+          "source": "client_22",
+          "relation": "HAS_PROJECT",
+          "target": "project_11"
+        },
+        {
+          "source": "client_22",
+          "relation": "HAS_PROJECT",
+          "target": "project_28"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-V 하이브리드 클라우드",
+        "Client-V DevOps 전환"
+      ]
+    },
+    {
+      "id": "h3-59",
+      "q": "Client-N 밑에 적어둔 프로젝트 이름 뭐뭐였지, K8s 말고도 있었던 거 같은데",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "관계용어없음"
+      ],
+      "basis": "client_14(Client-N)의 HAS_PROJECT 대상 project_6(Client-N K8s 클러스터 구축)와 project_26(Client-N 보안 감사 자동화). K8s를 제외하라는 뜻이 아니라 전체 목록을 묻는다.",
+      "gold_edges": [
+        {
+          "source": "client_14",
+          "relation": "HAS_PROJECT",
+          "target": "project_6"
+        },
+        {
+          "source": "client_14",
+          "relation": "HAS_PROJECT",
+          "target": "project_26"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-N K8s 클러스터 구축",
+        "Client-N 보안 감사 자동화"
+      ]
+    },
+    {
+      "id": "h3-60",
+      "q": "Client-R 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
+      "expected": "knowledge_graph",
+      "surface": [
+        "구어체",
+        "반말",
+        "조사생략",
+        "다중홉"
+      ],
+      "basis": "client_18(Client-R) HAS_PROJECT project_29/client_18 HAS_PROJECT project_35를 따라가고, 각 프로젝트로 들어오는 LEADS를 역으로 탐색한다. Client-R 보안 감사 자동화=강현우, Client-R MLOps 파이프라인=조동현.",
+      "gold_edges": [
+        {
+          "source": "client_18",
+          "relation": "HAS_PROJECT",
+          "target": "project_29"
+        },
+        {
+          "source": "employee_7",
+          "relation": "LEADS",
+          "target": "project_29"
+        },
+        {
+          "source": "client_18",
+          "relation": "HAS_PROJECT",
+          "target": "project_35"
+        },
+        {
+          "source": "employee_20",
+          "relation": "LEADS",
+          "target": "project_35"
+        }
+      ],
+      "gold_answer_names": [
+        "Client-R 보안 감사 자동화",
+        "강현우",
+        "Client-R MLOps 파이프라인",
+        "조동현"
+      ]
+    }
+  ]
+}
