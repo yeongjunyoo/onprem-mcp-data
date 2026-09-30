@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**24/36 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**25/37 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -27,6 +27,7 @@
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `074ee8ea197187fa` | 2026-08-19T06:42:52 |
 | `companyx-route.json` | 23,256 | `d926ae3076ee9264` | 2026-08-19T06:42:57 |
+| `companyx-scorecard.json` | 22,051 | `344c86be246c2e37` | 2026-09-30T08:38:08 |
 | `companyx-sql-llm-norepair.json` | 4,978 | `43c526bd73a4f407` | 2026-08-19T13:29:31 |
 | `companyx-sql-llm.json` | 4,977 | `6ab121ab31fa7853` | 2026-08-19T13:24:26 |
 | `companyx-sql-naive-norepair.json` | 5,555 | `0ff089f56aaba54e` | 2026-08-19T13:44:25 |
@@ -58,6 +59,9 @@
 ```bash
 # 라우팅·벡터·KG·종단 (DATASET 은 스크립트가 스스로 넘긴다)
 npm run companyx:route && npm run companyx:vector && npm run companyx:kg && npm run companyx:ask
+
+# 기능테스트 스코어카드 (최종 답 일치, 레인별 지연)
+npm run companyx:score
 
 # 홀드아웃 2벌
 node dist/cli/companyx-holdout-route-eval.js

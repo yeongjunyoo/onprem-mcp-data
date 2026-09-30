@@ -81,15 +81,29 @@ export class OllamaEmbedder implements Embedder {
     this.dim = Number(process.env.EMBED_DIM) || MODEL_DIMS[base] || EMBED_DIM;
   }
   async embed(text: string): Promise<number[]> {
-    const res = await fetch(`${this.host}/api/embeddings`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: this.model, prompt: text }),
-    });
-    if (!res.ok) throw new Error(`ollama embeddings ${res.status}: ${await res.text()}`);
-    const json = (await res.json()) as { embedding: number[] };
-    if (!Array.isArray(json.embedding)) throw new Error("ollama: missing embedding in response");
-    return json.embedding;
+    // 마감이 없으면 포트만 살아 있는 Ollama 앞에서 벡터 레인이 영원히 기다린다(생성의
+    // OLLAMA_TIMEOUT_MS 와 같은 이유). 넘기면 레인이 실패를 돌려주고 ask 는 상태로 끝난다.
+    const n = Number(process.env.OLLAMA_EMBED_TIMEOUT_MS);
+    const deadline = Number.isFinite(n) && n > 0 ? n : 60_000;
+    try {
+      const res = await fetch(`${this.host}/api/embeddings`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: this.model, prompt: text }),
+        signal: AbortSignal.timeout(deadline),
+      });
+      if (!res.ok) throw new Error(`ollama embeddings ${res.status}: ${await res.text()}`);
+      const json = (await res.json()) as { embedding: number[] };
+      if (!Array.isArray(json.embedding)) throw new Error("ollama: missing embedding in response");
+      return json.embedding;
+    } catch (e) {
+      if (e instanceof Error && e.name === "TimeoutError") {
+        throw new Error(
+          `임베딩 모델이 ${deadline / 1000}초 안에 응답하지 않았다(시간 초과). 느린 환경이면 OLLAMA_EMBED_TIMEOUT_MS 를 올린다.`,
+        );
+      }
+      throw e;
+    }
   }
 }
 

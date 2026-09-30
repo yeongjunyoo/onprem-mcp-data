@@ -55,6 +55,7 @@
     "companyx:load": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-load.js",
     "companyx:multistep": "node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-multi-step-eval.js",
     "companyx:route": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-route-eval.js",
+    "companyx:score": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-scorecard.js",
     "companyx:sql": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-sql-eval.js",
     "companyx:toolselect": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-llm-toolselect-eval.js",
     "companyx:vector": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-vector-eval.js",
@@ -65,6 +66,7 @@
     "embed:bench:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama DATASET=bench -- dist/cli/embed-bench.js",
     "eval": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/eval.js",
     "external:bird": "node node_modules/typescript/bin/tsc && node dist/cli/external-eval.js",
+    "fault:demo": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/fault-demo.js",
     "fault:inject": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/cli/fault-eval.js",
     "gen:bench": "node node_modules/typescript/bin/tsc && node dist/cli/gen-bench.js",
     "keyword:index": "node scripts/with-dataset.mjs companyx dist/cli/keyword-index.js",
@@ -74,7 +76,8 @@
     "test": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/claims.test.js && node scripts/with-dataset.mjs smoke dist/normalize.test.js && node scripts/with-dataset.mjs smoke dist/auditrecord.test.js && node scripts/with-dataset.mjs smoke dist/surfaces.test.js && node scripts/with-dataset.mjs smoke dist/router.test.js && node scripts/with-dataset.mjs smoke dist/semroute.test.js && node scripts/with-dataset.mjs smoke dist/curator.test.js && node scripts/with-dataset.mjs smoke dist/rrf.test.js && node scripts/with-dataset.mjs smoke dist/graphcaps.test.js && node scripts/with-dataset.mjs smoke dist/evalmatch.test.js && node scripts/with-dataset.mjs smoke dist/errors.test.js && node scripts/with-dataset.mjs smoke dist/degraded.test.js && node scripts/with-dataset.mjs smoke dist/notfound.test.js",
     "test:companyx": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/companyx.test.js",
     "test:integration": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs smoke dist/db.test.js && node scripts/with-dataset.mjs smoke dist/server.test.js && node scripts/with-dataset.mjs smoke dist/pipeline.test.js && node scripts/with-dataset.mjs smoke dist/llm.test.js && node scripts/with-dataset.mjs smoke dist/graph.test.js && node scripts/with-dataset.mjs smoke dist/kgretrieve.test.js && node scripts/with-dataset.mjs smoke dist/auditcache.test.js && node scripts/with-dataset.mjs companyx dist/companyx.test.js && node scripts/with-dataset.mjs companyx dist/ontologyload.test.js",
-    "test:kg": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs bench dist/cli/gen-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=bench -- dist/cli/embed-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/graph.test.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/kgretrieve.test.js"
+    "test:kg": "node node_modules/typescript/bin/tsc && node scripts/with-dataset.mjs bench dist/cli/gen-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=bench -- dist/cli/embed-bench.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/graph.test.js && node scripts/with-env.mjs EMBEDDER=ollama DATASET=smoke -- dist/kgretrieve.test.js",
+    "warmup": "node node_modules/typescript/bin/tsc && node dist/cli/warmup.js"
   },
   "dependencies": {
     "@airmcp-dev/core": "^0.3.0",

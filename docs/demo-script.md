@@ -1,5 +1,64 @@
 # 3분 시연영상 스크립트 (네트워크 OFF 녹화)
 
+## 시연 전 체크리스트 (기능테스트, 2026-10-12~10-28)
+
+외부 심사자가 온라인으로 직접 돌려 보는 기능테스트용이다. 아래 영상 대본과는 따로 쓴다.
+채점은 **최종 답이 정답과 같은가** 하나다. 라우팅이 맞아도 답이 틀리면 오답이고, 라우팅이
+달라도 답이 맞으면 정답이다(리원에이스 멘토링). 이 순서대로 친다.
+
+```bash
+# 1) 스택: db, ollama, 모델 캐시 확인(models 서비스는 한 번 돌고 끝난다)
+docker compose up -d
+docker compose logs models           # "cached: qwen2.5-coder:7b", "cached: bge-m3" 두 줄
+docker compose ps -a models          # Exited (0). 1 이면 모델을 못 받았다(아래 첫 항목)
+
+# 2) 환경: 매 셸마다. companyx 적재는 처음 한 번 npm run companyx:load
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mcpdata
+export OLLAMA_HOST=http://localhost:11435
+export DATASET_DIR=/path/to/companyx-v1.0   # 저장소의 datasets 폴더에 풀었으면 필요 없다
+
+# 3) 워밍업: 시연 직전 마지막 준비. 7B 적재(콜드 스타트)를 심사자 대신 치른다
+cd air-server && npm run warmup
+
+# 4) 스코어카드: 30문항을 실제 ask 로 돌려 레인별 정답과 지연을 한 화면에
+npm run companyx:score               # 빠른 확인은 npm run companyx:score -- --limit 3 (정본을 안 쓴다)
+
+# 5) 장애 상태: DB 끊김, 모델 시간 초과, 빈 결과가 예외 없이 상태로 끝나는지
+npm run fault:demo
+```
+
+- **모델은 시연 전에 받아 둔다.** 당일 pull 은 온라인에서 멈출 수 있다. `models` 서비스는
+  볼륨에 모델이 있으면 네트워크 없이 확인만 하고 끝나고, 없을 때만 받는다. 못 받으면 exit 1 로
+  남으므로 `docker compose ps -a` 에서 보인다.
+- **워밍업은 한 번이면 된다.** 첫 호출은 7B 를 메모리에 올리느라 느리고 두 번째부터 빠르다.
+  워밍업이 찍는 두 값이 그 차이다. 워밍업이 올린 모델은 30분 동안 내려가지 않는다
+  (`WARMUP_KEEP_ALIVE`). 모델이 없으면 받을 명령을 알려주고 멈춘다.
+- **멈춘 모델이나 DB 앞에서 무한정 기다리지 않는다.** 생성 한 번(`OLLAMA_TIMEOUT_MS`, 기본 110초),
+  임베딩 한 번(`OLLAMA_EMBED_TIMEOUT_MS`, 기본 60초), DB 접속(`PG_CONNECT_TIMEOUT_MS`, 기본 15초)에
+  마감이 있다. 포트만 열려 있고 응답이 없는 상태에서도 「조회 실패」나 「생성 실패」로 끝난다.
+  스코어카드와 장애 시연의 상태 칸은 같은 다섯 가지다: 정상, 부분 실패, 근거 없음, 조회 실패, 생성 실패.
+- **채점 규칙**은 `air-server/src/scorecard.ts` 머리말에 있다. LLM 심판 없이 정답 파일
+  (`eval/companyx/`)에서 계산한 정답과 최종 답을 대조하고, 확신이 없으면 오답으로 센다.
+  스코어카드는 모델을 부르기 전에 30문항의 모범 답은 정답, 기권은 오답으로 가르는지 스스로 점검한다.
+
+<!-- scorecard:begin (node scripts/scorecard-docs.mjs --write 로 생성한다. 손으로 고치지 않는다) -->
+**실측** (2026-09-30, `eval/results/companyx-scorecard.json`, 커밋 1a5af37). 호스트 AMD Ryzen 5 7500F 6-Core Processor 12스레드, 메모리 32GB, Ollama http://localhost:11435(추론 장치 미기록), 모델 qwen2.5-coder:7b, 임베더 ollama:bge-m3@768. ms 는 질문 하나의 `ask()` 벽시계 시간(조회와 생성의 합)이고 컨텍스트 예산은 MCP `ask` 도구 기본값이다.
+
+| 레인 | 최종 답 정답 | 라우트 일치 | 중앙값 ms | p90 ms | 7B 호출 |
+|---|---|---|---:|---:|---|
+| nl2sql | 7/10 | 10/10 | 29500 | 57458 | 두 번(SQL 생성, 답변). 엔진이 SQL 을 거부하면 수리 한 번 더 |
+| vector_search | 7/10 | 10/10 | 49964 | 60711 | 한 번(답변). 조회에 질의 임베딩 한 번 |
+| knowledge_graph | 5/10 | 10/10 | 30015 | 62208 | 한 번(답변). 조회는 모델 없는 결정론 순회 |
+| 전체 | 19/30 | 30/30 | 30660 | 62208 | |
+
+**잠정치.** 이 실행에서 4문항이 답 대신 상태로 끝났다. 채점은 규칙대로 오답으로 셌고, 지연도 그 실패를 포함한다. 같은 명령으로 다시 재면 이 문단은 사라진다.
+
+- 18번 vector_search 조회 실패, 40.5초 만에: vector: read ECONNRESET (ECONNRESET)
+- 28번 knowledge_graph 생성 실패, 110.1초 만에: 생성 모델이 110초 안에 응답하지 않았다(시간 초과). 느린 환경이면 OLLAMA_TIMEOUT_MS 를 올린다.
+- 29번 knowledge_graph 조회 실패, 30.0초 만에: graph: read ECONNRESET (ECONNRESET)
+- 30번 knowledge_graph 조회 실패, 30.0초 만에: graph: read ECONNRESET (ECONNRESET)
+<!-- scorecard:end -->
+
 ## 촬영 전 준비 (그대로 붙여넣는다)
 
 무엇을 보여줄지는 아래 타임코드에 있고, **띄우는 방법은 여기 있다.** 환경변수 하나가

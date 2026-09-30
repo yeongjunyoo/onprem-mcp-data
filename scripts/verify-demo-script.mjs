@@ -159,6 +159,40 @@ const readJson = (rel) => {
   }
 }
 
+// 0-d) 대본이 치라는 npm 명령이 실제로 있는가
+//
+//   0-b 는 타임라인과 준비 블록이 **서로** 같은지만 본다. 둘 다 없는 스크립트를
+//   가리켜도 통과한다. 기능테스트 체크리스트는 심사 당일 그대로 따라 치는 목록이라
+//   `npm run warmup` 하나가 없으면 그 자리에서 `Missing script` 로 멈춘다.
+{
+  const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server", "package.json"), "utf8"));
+  const cmds = new Set([...script.matchAll(/npm run ([a-z0-9:_-]+)/g)].map((m) => m[1]));
+  if (cmds.size === 0) fails.push("대본에서 npm run 명령을 하나도 못 읽었다 — 매처가 낡았다");
+  for (const c of cmds) {
+    checked++;
+    if (!pkg.scripts?.[c]) fails.push(`대본이 \`npm run ${c}\` 을 치라는데 air-server/package.json 에 그 스크립트가 없다`);
+  }
+}
+
+// 0-e) 기능테스트 스코어카드 블록이 정본 JSON 에서 만든 것과 같은가
+//
+//   체크리스트의 레인별 표는 심사 당일 「이만큼 맞고 이만큼 걸린다」의 근거다. 재측정마다
+//   값이 바뀌므로 손으로 옮기지 않고 생성한다. 여기서는 생성물과 대본이 같은지만 본다.
+{
+  const { renderScorecardBlock, BEGIN, END, RESULT } = await import("./scorecard-docs.mjs");
+  const data = readJson(RESULT);
+  if (data) {
+    checked++;
+    const a = script.indexOf(BEGIN);
+    const b = script.indexOf(END);
+    if (a < 0 || b < a) {
+      fails.push("대본에 스코어카드 블록 표식(scorecard:begin/end)이 없다");
+    } else if (script.slice(a, b + END.length).replace(/\r\n/g, "\n") !== renderScorecardBlock(data)) {
+      fails.push(`스코어카드 블록이 ${RESULT} 와 다르다 — node scripts/scorecard-docs.mjs --write`);
+    }
+  }
+}
+
 // 1) internal-llm-summary 의 정확도
 const llmClaim = script.match(/internal-llm-summary[^)]*?\((\d+)\/(\d+)\)/);
 if (llmClaim) {

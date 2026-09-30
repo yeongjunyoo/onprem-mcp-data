@@ -17,18 +17,11 @@ import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { graphLane } from "../pipeline.js";
 import { route } from "../router.js";
-import { loadGraph, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
-
-type Spec =
-  | { kind: "neighbors"; seed: string; rel: string; dir: "in" | "out" }
-  | { kind: "two_hop"; seed: string; rel1: string; dir1: "in" | "out"; rel2: string; dir2: "in" | "out" }
-  | { kind: "argmax"; rel: string; over: "source" | "target" }
-  | { kind: "leads_status"; rel: string; status: string }
-  | { kind: "absent"; note: string };
+import { loadGraph, datasetDir, CX_SCHEMA, requireDataset, kgGoldIds, type KgSpec } from "../companyx.js";
 
 interface GoldItem {
   q: string;
-  spec: Spec;
+  spec: KgSpec;
 }
 
 async function main() {
@@ -39,42 +32,7 @@ async function main() {
   const goldPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "eval", "companyx", "kg_gold.json");
   const gold: GoldItem[] = JSON.parse(await readFile(goldPath, "utf-8"));
 
-  const neighbors = (seed: string, rel: string, dir: "in" | "out"): string[] =>
-    edges
-      .filter((e) => e.relation === rel && (dir === "out" ? e.source === seed : e.target === seed))
-      .map((e) => (dir === "out" ? e.target : e.source));
-
-  function goldSet(spec: Spec): string[] {
-    switch (spec.kind) {
-      case "neighbors":
-        return neighbors(spec.seed, spec.rel, spec.dir);
-      case "two_hop": {
-        const mid = neighbors(spec.seed, spec.rel1, spec.dir1);
-        return [...new Set(mid.flatMap((m) => neighbors(m, spec.rel2, spec.dir2)))];
-      }
-      case "argmax": {
-        const counts = new Map<string, number>();
-        for (const e of edges) {
-          if (e.relation !== spec.rel) continue;
-          const key = spec.over === "target" ? e.target : e.source;
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-        const max = Math.max(...counts.values());
-        return [...counts.entries()].filter(([, c]) => c === max).map(([k]) => k);
-      }
-      case "leads_status": {
-        const out: string[] = [];
-        for (const e of edges) {
-          if (e.relation !== spec.rel) continue;
-          const proj = byId.get(e.target);
-          if (proj && (proj.properties as { status?: string })?.status === spec.status) out.push(e.source);
-        }
-        return [...new Set(out)];
-      }
-      case "absent":
-        return [];
-    }
-  }
+  const goldSet = (spec: KgSpec): string[] => kgGoldIds(spec, nodes, edges);
 
   const pool = getPool();
   const schema = process.env.KG_SCHEMA ?? CX_SCHEMA;

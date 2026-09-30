@@ -427,7 +427,8 @@ export async function ask(
     return {
       ...r,
       answer:
-        `근거는 ${r.context.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
+        // 건수는 큐레이션이 남긴 항목 수다. context.length 는 글자 수라 「412건」이 됐다.
+        `근거는 ${r.curated.kept.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
         "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
       audit: {
         ...r.audit,

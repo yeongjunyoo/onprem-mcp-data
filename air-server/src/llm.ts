@@ -21,26 +21,56 @@ export interface GenOptions {
   temperature?: number;
   seed?: number;
   numCtx?: number;
+  /** 이 호출 하나의 마감(ms). 없으면 OLLAMA_TIMEOUT_MS, 그것도 없으면 110초. */
+  timeoutMs?: number;
+}
+
+/** 생성 한 번의 마감.
+ *
+ * 마감이 없으면 멈춘 Ollama 앞에서 `ask` 가 **영원히** 기다린다 — 상태가 아니라
+ * 멈춤이다. 마감이 있으면 파이프라인의 생성 실패 분기가 받아서 「근거는 찾았지만
+ * 생성에 실패했다」는 답으로 끝난다.
+ *
+ * 110초인 이유: CPU 컨테이너에서 답변 한 번이 70초 넘게 걸린 적이 있다
+ * (eval/results/companyx-ask.json 최댓값). 그보다 넉넉하되, MCP 도구 마감(120초,
+ * server.ts timeoutPlugin)보다는 짧게 둬서 생성 하나가 도구 전체 마감을 혼자
+ * 먹지 않게 한다. 느린 환경은 OLLAMA_TIMEOUT_MS 로 올린다. */
+function genTimeoutMs(): number {
+  const n = Number(process.env.OLLAMA_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 110_000;
 }
 
 export async function generate(prompt: string, opts: GenOptions = {}): Promise<string> {
-  const res = await fetch(`${HOST}/api/generate`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model ?? MODEL,
-      prompt,
-      stream: false,
-      options: {
-        temperature: opts.temperature ?? 0,
-        seed: opts.seed ?? 42,
-        num_ctx: opts.numCtx ?? 4096,
-      },
-    }),
-  });
-  if (!res.ok) throw new Error(`ollama generate ${res.status}: ${await res.text()}`);
-  const json = (await res.json()) as { response?: string };
-  return (json.response ?? "").trim();
+  const deadline = opts.timeoutMs ?? genTimeoutMs();
+  try {
+    const res = await fetch(`${HOST}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: opts.model ?? MODEL,
+        prompt,
+        stream: false,
+        options: {
+          temperature: opts.temperature ?? 0,
+          seed: opts.seed ?? 42,
+          num_ctx: opts.numCtx ?? 4096,
+        },
+      }),
+      signal: AbortSignal.timeout(deadline),
+    });
+    if (!res.ok) throw new Error(`ollama generate ${res.status}: ${await res.text()}`);
+    const json = (await res.json()) as { response?: string };
+    return (json.response ?? "").trim();
+  } catch (e) {
+    // AbortSignal.timeout 은 영어 DOMException 을 던진다. 사용자가 고칠 값을 말한다.
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new Error(
+        `생성 모델이 ${(deadline / 1000).toFixed(deadline < 1000 ? 2 : 0)}초 안에 응답하지 않았다(시간 초과). ` +
+          "느린 환경이면 OLLAMA_TIMEOUT_MS 를 올린다.",
+      );
+    }
+    throw e;
+  }
 }
 
 /** True if Ollama is reachable and the model is pulled. Used to skip live tests. */

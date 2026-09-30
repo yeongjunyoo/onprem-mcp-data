@@ -178,6 +178,54 @@ export async function loadGraph(dir = datasetDir()): Promise<{ nodes: GraphNode[
   return { nodes, edges };
 }
 
+/** kg_gold.json 의 문항 명세. 정답 집합은 이 명세를 graph/edges.json 위에서 풀어 얻는다. */
+export type KgSpec =
+  | { kind: "neighbors"; seed: string; rel: string; dir: "in" | "out" }
+  | { kind: "two_hop"; seed: string; rel1: string; dir1: "in" | "out"; rel2: string; dir2: "in" | "out" }
+  | { kind: "argmax"; rel: string; over: "source" | "target" }
+  | { kind: "leads_status"; rel: string; status: string }
+  | { kind: "absent"; note: string };
+
+/** 명세의 정답 노드 id 집합. 검색 재현율(companyx:kg)과 최종 답 채점(companyx:score)이
+ * **같은 정답**을 보도록 한 곳에 둔다 — 정답 계산이 두 벌이면 한쪽만 고치게 된다. */
+export function kgGoldIds(spec: KgSpec, nodes: GraphNode[], edges: GraphEdgeRaw[]): string[] {
+  const neighbors = (seed: string, rel: string, dir: "in" | "out"): string[] =>
+    edges
+      .filter((e) => e.relation === rel && (dir === "out" ? e.source === seed : e.target === seed))
+      .map((e) => (dir === "out" ? e.target : e.source));
+  switch (spec.kind) {
+    case "neighbors":
+      return neighbors(spec.seed, spec.rel, spec.dir);
+    case "two_hop": {
+      const mid = neighbors(spec.seed, spec.rel1, spec.dir1);
+      return [...new Set(mid.flatMap((m) => neighbors(m, spec.rel2, spec.dir2)))];
+    }
+    case "argmax": {
+      // 동점은 전부 정답이다. 하나만 고르면 데이터가 말하지 않은 순위를 지어낸다.
+      const counts = new Map<string, number>();
+      for (const e of edges) {
+        if (e.relation !== spec.rel) continue;
+        const key = spec.over === "target" ? e.target : e.source;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      const max = Math.max(...counts.values());
+      return [...counts.entries()].filter(([, c]) => c === max).map(([k]) => k);
+    }
+    case "leads_status": {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const out: string[] = [];
+      for (const e of edges) {
+        if (e.relation !== spec.rel) continue;
+        const proj = byId.get(e.target);
+        if (proj && (proj.properties as { status?: string })?.status === spec.status) out.push(e.source);
+      }
+      return [...new Set(out)];
+    }
+    case "absent":
+      return [];
+  }
+}
+
 /** Sponsor node id (`client_7`) -> the relational row it denotes (clients.id = 7).
  * Verified 1:1 against sql/02-data.sql for every node type in the dataset. */
 export const NODE_TABLE: Record<string, string> = {
