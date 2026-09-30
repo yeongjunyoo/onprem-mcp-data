@@ -8,7 +8,7 @@
 
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
-import { route, audit as routeAuditLog, type RouteDecision, type GraphPlan } from "./router.js";
+import { route, audit as routeAuditLog, fitPlanToSeed, type RouteDecision, type GraphPlan } from "./router.js";
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
@@ -23,9 +23,11 @@ import {
   ontologySearch,
   seedTerms,
   graphExpand,
+  graphWalk,
   relationScan,
   ontologyCandidates,
   edgeCandidates,
+  pathCandidates,
   rankingCandidates,
   kgSchema,
   type GraphTruncation,
@@ -62,6 +64,8 @@ export interface RetrieveResult {
     // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
     not_found?: NotFound;
     graph_truncated?: GraphTruncation;
+    /** 탐색 계획을 시드 타입에 맞게 고쳤으면 무엇을 고쳤는지(시드마다 한 줄). */
+    graph_fitted?: string[];
   };
 }
 
@@ -80,6 +84,8 @@ export interface GraphLaneResult {
   not_found?: NotFound;
   /** 시드 확장 중 하나라도 탐색 상한에 걸렸으면 처음 걸린 것. */
   truncated?: GraphTruncation;
+  /** 계획을 시드 타입에 맞게 고친 내용(router.ts fitPlanToSeed). */
+  fitted?: string[];
   error?: string;
 }
 
@@ -100,8 +106,10 @@ export async function graphLane(
   // When the question names a RELATION, one hop is the answer and every extra hop
   // is noise: "Product-S1 관련 고객 이슈" pulled in Client-X -> Product-C2 edges two
   // hops away and the 7B, reading a context full of other products, concluded there
-  // were no Product-S1 issues at all. Unspecified relations (two-hop questions like
-  // "Product-D1 관련 프로젝트") keep the requested depth.
+  // were no Product-S1 issues at all. Unspecified relations keep the requested depth.
+  // A named relation that cannot start from the seed's type ("Product-D1 관련 프로젝트":
+  // HAS_PROJECT starts at a client, not a product) is re-planned per seed below
+  // (fitPlanToSeed) into a typed two-hop walk instead of an empty one-hop expansion.
   const hops = relTypes ? 1 : depth;
 
   const onto = await ontologySearch(pool, query, k, schema);
@@ -148,12 +156,20 @@ export async function graphLane(
   const best = Math.max(0, ...onto.hits.map((h) => h.score));
   const expandFrom = onto.hits.filter((h) => h.score === best);
   let truncated: GraphTruncation | undefined;
+  const fitted: string[] = [];
   for (const hit of expandFrom) {
-    const exp = await graphExpand(pool, hit.entityId, hops, relTypes, schema, "both");
+    // 계획의 엣지가 이 시드의 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다.
+    // GRAPH_PATH_FIT=0 은 검증용 제거 스위치다(고치기 전 동작).
+    const walk = p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, query) : undefined;
+    if (walk?.fitted) fitted.push(`${hit.canonicalName}: ${walk.fitted}`);
+    const exp =
+      walk && walk.hops.length > 1
+        ? await graphWalk(pool, hit.entityId, walk.hops, schema)
+        : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both");
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
-    items.push(...edgeCandidates(exp.edges, hit.entityId));
+    items.push(...(walk && walk.hops.length > 1 ? pathCandidates(exp.edges, hit.entityId) : edgeCandidates(exp.edges, hit.entityId)));
   }
 
   // Relation-level scan: needed when the question names no node (aggregate /
@@ -190,9 +206,15 @@ export async function graphLane(
         : needScan
           ? "relation-scan"
           : "none";
-  return truncated
-    ? { seeds, edgeCount, strategy, ranking, items, truncated }
-    : { seeds, edgeCount, strategy, ranking, items };
+  return {
+    seeds,
+    edgeCount,
+    strategy,
+    ranking,
+    items,
+    ...(truncated ? { truncated } : {}),
+    ...(fitted.length ? { fitted } : {}),
+  };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -232,6 +254,35 @@ function renderRow(row: Record<string, unknown>): string {
   return Object.entries(row)
     .map(([k, v]) => `${k}=${renderValue(v)}`)
     .join(" | ");
+}
+
+/** 정형 레인 답 끝에 그대로 싣는 조회 결과의 최대 행 수. 넘으면 남은 건수만 적는다. */
+export const SQL_ROWS_MAX = 30;
+
+/** 정형 레인 답의 끝에 붙이는 조회 결과. 값과 목록은 DB 가 말한다.
+ *
+ * 7B 는 SQL 결과를 읽고도 목록 일부나 열 하나를 빠뜨린다. 사업자 예시 5번 「기술지원팀
+ * 직원 목록과 연봉」은 SQL 이 이름과 연봉 네 행을 돌려줬는데 답에는 이름만 있었다. 같은
+ * 모델, 같은 시드인데 Ollama 0.34.2 에서 틀리고 0.35.0 에서 맞았다. 답의 정확도가 런타임
+ * 버전 운에 달리지 않게, 행을 답에 그대로 싣는다. 모델은 문장을 쓰고 값은 옮겨 적지 않는다.
+ * 싣는 행은 큐레이션이 모델에게 넘긴 행이다. 그래서 답에 나오는 값은 전부 컨텍스트에 있다
+ * (companyx:ask 의 answer_grounded 가 그대로 성립한다). 예산 밖으로 밀린 행은 건수만 적는다.
+ * ANSWER_SQL_ROWS=0 은 검증용 제거 스위치다. */
+export function sqlRowsBlock(rows: Record<string, unknown>[], total = rows.length, max = SQL_ROWS_MAX): string {
+  if (!rows.length) return "";
+  const shown = rows
+    .slice(0, max)
+    .map((r) => `- ${Object.entries(r).map(([k, v]) => `${k}: ${renderValue(v)}`).join(", ")}`);
+  const rest = total > shown.length ? [`- 외 ${total - shown.length}건`] : [];
+  return [`[조회 결과 ${total}건]`, ...shown, ...rest].join("\n");
+}
+
+function withSqlRows(r: RetrieveResult, text: string): string {
+  if (r.route !== "structured" || !r.sql.result?.ok || process.env.ANSWER_SQL_ROWS === "0") return text;
+  const seen = new Set(r.curated.kept.filter((it) => it.source.startsWith("sql#")).map((it) => Number(it.source.slice(4))));
+  const rows = r.sql.result.rows.filter((_, i) => seen.has(i));
+  const block = sqlRowsBlock(rows, r.sql.result.rows.length);
+  return block ? `${text.trimEnd()}\n\n${block}` : text;
 }
 
 /** 큐레이터가 모델에 넘기는 컨텍스트 예산(토큰 근사). 256 → 1024 (2026-09-30).
@@ -405,6 +456,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       curate: curateAudit(curated),
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
+      ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
     },
   };
 }
@@ -453,7 +505,7 @@ export async function ask(
   const gen = deps.llm ?? llmAnswer;
   try {
     const answer = await gen(query, r.context);
-    return { ...r, answer };
+    return { ...r, answer: withSqlRows(r, answer) };
   } catch (e) {
     // ★ 생성 LLM 이 **기동 후** 죽는 경우.
     //
@@ -466,10 +518,13 @@ export async function ask(
     const why = describeError(e);
     return {
       ...r,
-      answer:
+      // 정형 레인이면 조회 결과는 생성 없이도 보여줄 수 있다.
+      answer: withSqlRows(
+        r,
         // 건수는 큐레이션이 남긴 항목 수다. context.length 는 글자 수라 「412건」이 됐다.
         `근거는 ${r.curated.kept.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
-        "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
+          "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
+      ),
       audit: {
         ...r.audit,
         branch_errors: [...(r.audit?.branch_errors ?? []), `answer: ${why}`],

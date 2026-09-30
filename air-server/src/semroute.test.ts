@@ -188,7 +188,9 @@ const marker = new MarkerEmbedder();
 //
 // 서버는 기동 때 온톨로지와 시맨틱 앵커를 설치한다(routerinit.ts). 종단 평가 CLI 가 이것을
 // 빼먹으면 규칙만 쓰는 경로를 재고, 그 수치가 서버의 수치인 척 문서에 실린다(2026-09-30 실제로
-// 그랬다). companyx 평가 CLI 중 ask/retrieve 를 부르는 파일은 initRouting 도 불러야 한다.
+// 그랬다). companyx 평가 CLI 중 ask/retrieve/graphLane 을 부르는 파일은 initRouting 도 불러야 한다.
+// graphLane 은 2026-10-01 에 더했다. KG 재현율 평가가 규칙만의 계획으로 1.0 을 내는 동안 서버는
+// 사업자 예시 25번에서 빈손이었다.
 {
   const here = dirname(fileURLToPath(import.meta.url));
   const cliDir = resolve(here, "../src/cli");
@@ -197,9 +199,9 @@ const marker = new MarkerEmbedder();
       .filter((f) => /^companyx-.*\.ts$/.test(f))
       .filter((f) => {
         const src = readFileSync(resolve(cliDir, f), "utf8");
-        return /\b(?:ask|retrieve)\(/.test(src) && /from "\.\.\/pipeline\.js"/.test(src) && !/initRouting\(/.test(src);
+        return /\b(?:ask|retrieve|graphLane)\(/.test(src) && /from "\.\.\/pipeline\.js"/.test(src) && !/initRouting\(/.test(src);
       });
-    eq(missing, [], "ask/retrieve 를 부르는 companyx 평가 CLI 는 initRouting 을 부른다");
+    eq(missing, [], "ask/retrieve/graphLane 을 부르는 companyx 평가 CLI 는 initRouting 을 부른다");
   } else {
     console.log("  SKIP: 평가 CLI 라우터 초기화 검사 (소스 없음)");
   }

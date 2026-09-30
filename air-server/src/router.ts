@@ -81,8 +81,9 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/담당(하는|자|해|인)?/, "MANAGES_ACCOUNT"],
   [/이끄는|이끌고|리드하는|맡고\s*있는|맡은/, "LEADS"],
   [/팀장|부서장|본부장|책임자/, "HEAD_IS"],
-  // HAS_PROJECT — employee→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
-  // 오직 엣지만이 답할 수 있는 질문이다.
+  // HAS_PROJECT — client→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
+  // 오직 엣지만이 답할 수 있는 질문이다. 주어가 직원이면 이 엣지가 닿지 않으므로
+  // 그래프 레인이 시드 타입에 맞춰 employee→project 엣지(LEADS)로 바꾼다(fitPlanToSeed).
   [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
 ];
 
@@ -263,6 +264,9 @@ let ENTITY_LEXICON: { name: string; type: string }[] = [];
  * 온톨로지를 적재한 서버에서만 생기는 결함이라 온톨로지 없이 돌던 평가들이 몰랐다(2026-09-30). */
 let TYPE_PAIR_EDGE = new Map<string, string[]>();
 
+/** 엣지 타입 -> 그 엣지가 잇는 (출발 타입, 도착 타입). 역시 데이터에서 유도한다. */
+let REL_ENDS = new Map<string, [string, string][]>();
+
 /** 노드 타입을 가리키는 말. 관계 동사와 달리 **닫힌 집합**이다 — 온톨로지의
  * 노드 타입이 5종이므로 이 표도 5행에서 끝난다. 관계 표현은 무한하지만
  * "무엇을 묻는가"의 대상 타입은 유한하다. 이것이 이 설계의 요점이다. */
@@ -299,6 +303,7 @@ export function installOntology(
     if (n.id) typeOf.set(n.id, n.type);
   }
   TYPE_PAIR_EDGE = new Map();
+  REL_ENDS = new Map();
   const add = (key: string, rel: string) => {
     const list = TYPE_PAIR_EDGE.get(key) ?? [];
     if (!list.includes(rel)) list.push(rel);
@@ -310,6 +315,9 @@ export function installOntology(
     // 데이터 순서를 지킨다(결정론). 질문이 엣지를 지목하지 않으면 첫 엣지를 쓴다.
     add(`${st}|${tt}`, e.relation);
     add(`${tt}|${st}`, e.relation);
+    const ends = REL_ENDS.get(e.relation) ?? [];
+    if (!ends.some(([a, b]) => a === st && b === tt)) ends.push([st, tt]);
+    REL_ENDS.set(e.relation, ends);
   }
   return { entities: ENTITY_LEXICON.length, typePairs: TYPE_PAIR_EDGE.size };
 }
@@ -367,6 +375,117 @@ function inferByTypePair(q: string, named: string[] = []): { relation: string; f
     }
   }
   return null;
+}
+
+/** 시드 개체에서 출발하는 탐색. hops[i] 는 i+1 번째 홉에서 탈 엣지 타입들이다.
+ * 빈 배열이면 엣지 타입을 정하지 않은 무타입 확장이다. */
+export interface SeedWalk {
+  hops: string[][];
+  /** 계획을 시드 타입에 맞게 고쳤으면 그 내용. 감사 로그에 남는다. */
+  fitted?: string;
+}
+
+/** 질문이 묻는 노드 타입. 한국어는 머리말이 끝에 오므로 마지막에 나온 타입 어휘다.
+ * 「Product-S1 이슈를 올린 고객사의 프로젝트는?」은 고객사가 아니라 프로젝트를 묻는다.
+ * 개체 이름 속의 타입 어휘(「기술지원팀」의 팀)는 세지 않는다. 시드 타입은 뺀다. */
+function askedType(q: string, except: string): string | undefined {
+  let text = q;
+  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  let best: { at: number; type: string } | undefined;
+  for (const [re, type] of NODE_TYPE_TERMS) {
+    if (type === except) continue;
+    for (const m of text.matchAll(new RegExp(re.source, "g"))) {
+      if (m.index !== undefined && (!best || m.index >= best.at)) best = { at: m.index, type };
+    }
+  }
+  return best?.type;
+}
+
+/** 탐색 계획을 시드 개체의 타입에 맞춘다.
+ *
+ * 계획의 엣지는 질문의 말(관계어, 시맨틱 앵커)에서 나오고 시드는 개체 해소에서 나온다.
+ * 둘이 어긋나면 시드에서 그 엣지를 탈 수 없어 탐색이 빈손으로 끝나고, 7B 는 「알 수
+ * 없다」고 답한다. 사업자 예시 25번 「Product-D1 제품과 관련된 프로젝트는?」이 그랬다.
+ * 계획은 HAS_PROJECT(고객사 → 프로젝트)인데 시드가 제품이라 닿는 엣지가 0개였다. 제품과
+ * 프로젝트 사이에는 엣지가 없고 고객사를 거쳐야 한다. 사업자 그래프 스키마 문서의 예시
+ * 질의도 같은 모양이다(「Product-C1 담당 엔지니어」 = product ←[USES]- client
+ * ←[MANAGES_ACCOUNT]- employee).
+ *
+ * 규칙은 온톨로지의 타입 그래프와 질문이 묻는 타입(askedType)만 본다. 어휘를 늘리지 않는다.
+ *   0. 「같은 팀」, 「같은 제품」처럼 시드와 같은 무리를 물으면 무리 타입으로 갔다가 같은 엣지로
+ *      돌아온다.
+ *   1. 계획의 엣지가 시드 타입에 닿으면 그 엣지로 한 홉. 닿는 엣지와 안 닿는 엣지가 이어지면
+ *      시드에서부터 한 홉씩 탄다(담당 직원 → 그 직원이 이끄는 프로젝트). 한 홉으로 묻는
+ *      타입에 못 닿으면 그 타입으로 가는 엣지를 한 홉 더 잇는다(직원 → 담당 고객사 → 그
+ *      고객사의 프로젝트).
+ *   2. 닿지 않으면, 묻는 타입이 그 엣지의 끝이고 시드 타입과 그 타입을 바로 잇는 엣지가
+ *      있을 때 그 엣지 한 홉으로 바꾼다(직원이 「관여하는 프로젝트」 = LEADS).
+ *   3. 그것도 없으면 시드 타입과 그 엣지의 한쪽 끝을 잇는 다리 엣지를 찾아 두 홉으로 잇는다.
+ *   다리나 대체 엣지가 여럿이면 질문이 지목한 엣지, 없으면 데이터 순서의 첫 엣지다(타입쌍
+ *   추론과 같은 규칙). 어느 것도 안 되거나 온톨로지가 없으면 계획을 그대로 둔다. */
+export function fitPlanToSeed(relTypes: string[], seedType: string, query: string): SeedWalk {
+  const rels = relTypes.filter((r) => r !== "RELATED_TO");
+  const named = [...scan(query, RELATION_VERBS), ...scan(query, RELATION_NOUNS)];
+  const pick = (cands: string[]) => cands.find((r) => named.includes(r)) ?? cands[0];
+
+  // 0. 시드 자신의 엣지는 둘째 홉에서 다시 줍지 않는다(이미 본 엣지 id 는 빠진다).
+  const same = /같은\s*([가-힣]+)/.exec(query);
+  const group = same ? scan(same[1], NODE_TYPE_TERMS)[0] : undefined;
+  if (group && group !== seedType) {
+    const via = TYPE_PAIR_EDGE.get(`${seedType}|${group}`);
+    if (via?.length) {
+      const e = via.find((r) => rels.includes(r)) ?? pick(via);
+      return { hops: [[e], [e]], fitted: `같은 ${group}: ${e} 로 갔다가 같은 엣지로 돌아옴` };
+    }
+  }
+
+  if (!rels.length) return { hops: [] };
+  const ends = (r: string) => REL_ENDS.get(r) ?? [];
+  if (!rels.every((r) => ends(r).length)) return { hops: [rels] };
+  /** 엣지 r 에서 타입 t 의 반대편 타입들. t 에 닿지 않으면 빈 배열. */
+  const across = (r: string, t: string) => ends(r).flatMap(([a, b]) => (a === t ? [b] : b === t ? [a] : []));
+  const asked = askedType(query, seedType);
+
+  const touching = rels.filter((r) => across(r, seedType).length);
+  if (touching.length) {
+    for (const first of touching) {
+      const mids = across(first, seedType);
+      const second = rels.find((r) => !touching.includes(r) && mids.some((m) => across(r, m).length));
+      if (second) return { hops: [[first], [second]], fitted: `${first} 다음 ${second}` };
+    }
+    if (rels.length === 1 && asked) {
+      const reached = across(rels[0], seedType);
+      for (const m of reached.includes(asked) ? [] : reached) {
+        const next = TYPE_PAIR_EDGE.get(`${m}|${asked}`);
+        if (next?.length) {
+          const n = pick(next);
+          return { hops: [[rels[0]], [n]], fitted: `${rels[0]} 로는 ${asked} 에 못 닿아 ${n} 를 이어 탐` };
+        }
+      }
+    }
+    return { hops: [rels] };
+  }
+
+  const rel = rels[0];
+  const relEnds = [...new Set(ends(rel).flat())];
+  if (asked && relEnds.includes(asked)) {
+    const direct = TYPE_PAIR_EDGE.get(`${seedType}|${asked}`);
+    if (direct?.length) {
+      const d = pick(direct);
+      return { hops: [[d]], fitted: `${rel} 는 ${seedType} 에 닿지 않아 ${seedType}-${asked} 엣지 ${d}` };
+    }
+  }
+  // 다리 반대편(= 답)이 묻는 타입인 쪽을 먼저 본다.
+  const answersAsked = (m: string) => Number(asked !== undefined && across(rel, m).includes(asked));
+  const mids = relEnds.filter((m) => m !== seedType).sort((a, b) => answersAsked(b) - answersAsked(a));
+  for (const m of mids) {
+    const bridge = TYPE_PAIR_EDGE.get(`${seedType}|${m}`);
+    if (bridge?.length) {
+      const b = pick(bridge);
+      return { hops: [[b], [rel]], fitted: `${rel} 는 ${seedType} 에 닿지 않아 ${m} 를 거침: ${b} 다음 ${rel}` };
+    }
+  }
+  return { hops: [rels] };
 }
 
 /** 라우터가 신호를 가진 관계 타입 전체.

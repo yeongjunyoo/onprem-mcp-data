@@ -246,7 +246,10 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  title text,",
   "  description text,",
   "  priority text,      -- 'critical' | 'high' | 'medium' | 'low' (소문자)",
-  "  status text,        -- 'open' | 'in_progress' | 'resolved' | 'closed' (미해결 = open, in_progress)",
+  // 괄호 속 「미해결 = open, in_progress」만 있을 때 7B 는 「아직 해결되지 않은」을
+  // status = 'open' 하나로 썼다(사업자 예시 7번, 5건 중 1건). 조건을 SQL 그대로 적으면
+  // IN ('open','in_progress') 로 쓴다(2026-10-01, 문구 넷을 같은 시드로 비교).
+  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress')",
   "  created_at timestamp,  -- 접수 시각",
   "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL",
   ");",

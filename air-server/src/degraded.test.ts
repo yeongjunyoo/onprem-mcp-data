@@ -16,7 +16,7 @@
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ask, retrieve, renderValue } from "./pipeline.js";
+import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
 
 let passed = 0;
 let failed = 0;
@@ -198,6 +198,55 @@ const deadEmbedder: Embedder = {
   ok(renderValue(PI("6 days 21:50:21")) === "6일 21시간 50분 21초", "interval 은 채점기와 같은 한국어 기간 표기");
   ok(renderValue(PI("00:00:00")) === "0초", "0 기간도 비우지 않는다");
   ok(renderValue(1234) === "1234" && renderValue("x") === "x" && renderValue(null) === "null", "나머지 값은 종전 그대로");
+}
+
+// 정형 레인의 답에는 조회 행이 그대로 붙는다. 7B 가 목록 일부나 열 하나를 빠뜨려도 값은 답에 있다.
+{
+  const rows = [
+    { name: "박소연", salary: 9520 },
+    { name: "권승호", salary: 5378 },
+  ];
+  const block = sqlRowsBlock(rows);
+  ok(block.startsWith("[조회 결과 2건]") && block.includes("- name: 박소연, salary: 9520"), `행마다 모든 열 (got ${block})`);
+  ok(sqlRowsBlock([]) === "", "행이 없으면 붙일 것도 없다");
+  const many = sqlRowsBlock(Array.from({ length: SQL_ROWS_MAX + 3 }, (_, i) => ({ n: i })));
+  ok(many.includes("- 외 3건") && many.split("\n").length === SQL_ROWS_MAX + 2, "상한을 넘으면 남은 건수만 적는다");
+  const cut = sqlRowsBlock(rows.slice(0, 1), 2);
+  ok(cut.startsWith("[조회 결과 2건]") && cut.includes("박소연") && !cut.includes("권승호") && cut.includes("- 외 1건"), "모델에게 안 간 행은 건수만");
+
+  const rowsPool = {
+    connect: async () => ({
+      query: async (sql: string) =>
+        /FROM companyx\.employees/.test(sql) ? { rows, rowCount: rows.length, fields: [{ name: "name" }, { name: "salary" }] } : { rows: [], rowCount: 0 },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  const deps = {
+    pool: rowsPool,
+    embedder: deadEmbedder,
+    nl2sql: async () => "SELECT name, salary FROM companyx.employees",
+    llm: async () => "기술지원팀 직원은 박소연, 권승호입니다.",
+  };
+  const r = await ask("기술지원팀 직원 목록과 연봉을 알려줘", deps);
+  ok(r.route === "structured", `정형 질문 (got ${r.route})`);
+  ok(r.answer.startsWith("기술지원팀 직원은") && r.answer.includes("salary: 9520") && r.answer.includes("salary: 5378"), `모델 문장 뒤에 연봉이 붙는다 (got ${r.answer})`);
+  ok(r.answer.split("\n").filter((l) => l.startsWith("- ")).every((l) => r.context.includes(l.slice(2).split(", ")[0].replace(": ", "="))), "붙인 행은 전부 컨텍스트에 있다");
+  // 한 행이 약 22 토큰(estTokens)이라 예산 30 이면 한 행만 모델에게 간다.
+  const tight = await ask("기술지원팀 직원 목록과 연봉을 알려줘", { ...deps, budget: 30 });
+  const tail = tight.answer.slice(tight.answer.indexOf("[조회 결과"));
+  ok(tight.curated.kept.length === 1 && tail.startsWith("[조회 결과 2건]") && tail.includes("salary: 9520") && !tail.includes("salary: 5378") && tail.includes("- 외 1건"), `예산 밖으로 밀린 행은 싣지 않고 건수만 (got ${tail})`);
+  process.env.ANSWER_SQL_ROWS = "0";
+  const off = await ask("기술지원팀 직원 목록과 연봉을 알려줘", deps);
+  delete process.env.ANSWER_SQL_ROWS;
+  ok(off.answer === "기술지원팀 직원은 박소연, 권승호입니다.", "ANSWER_SQL_ROWS=0 이면 종전 그대로");
+  const gen = await ask("기술지원팀 직원 목록과 연봉을 알려줘", {
+    ...deps,
+    llm: async () => {
+      throw new Error("fetch failed");
+    },
+  });
+  ok(gen.answer.includes("답변 생성에 실패") && gen.answer.includes("salary: 9520"), "생성이 죽어도 조회 결과는 보여준다");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

@@ -112,7 +112,13 @@ export async function isAvailable(model = MODEL): Promise<boolean> {
  *     an explicit instruction the model read the triple as unrelated tokens and
  *     answered "알 수 없습니다" while the answer sat in its context.
  *   * ids vs names   — asked for a department, it answered "dept_id 5번". The user
- *     asked for a thing, not a foreign key. */
+ *     asked for a thing, not a foreign key.
+ *
+ * 시도했다가 되돌린 것(2026-10-01): 「보안 취약점 점검 관련 내용이 있어?」에 회의록 다섯 건이
+ * 컨텍스트에 있었는데 답이 「네, 각 회의록에서 언급되었습니다」 한 줄이라, 「문서를 근거로
+ * 답할 때는 제목이나 날짜와 구체적인 사실을 적으라」는 줄을 넣어 봤다. 그 문항의 답은 한 글자도
+ * 바뀌지 않았고, 다른 문항(진행 중 프로젝트 리드 11명)이 한 명을 빠뜨렸다. 효과 없는 문장은
+ * 남기지 않는다. */
 export function buildAnswerPrompt(query: string, context: string): string {
   return [
     "당신은 온프렘 데이터 플랫폼의 한국어 어시스턴트입니다.",

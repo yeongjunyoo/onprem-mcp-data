@@ -9,7 +9,7 @@
 // 그래프 위에서 확인한다.
 import type { Pool } from "pg";
 
-import { GRAPH_LIMITS, graphExpand, type GraphLimits } from "./graph.js";
+import { GRAPH_LIMITS, graphExpand, graphWalk, pathCandidates, type GraphLimits } from "./graph.js";
 
 let passed = 0;
 let failed = 0;
@@ -128,6 +128,29 @@ ok(
   ];
   const t = await expand(tri, 2, { maxHops: 3, maxNodes: 10, maxEdges: 3 });
   ok(t.r.truncated === undefined && t.r.edges.length === 3, `다시 걸린 엣지가 상한을 먹지 않는다 (got ${t.r.edges.length}, ${JSON.stringify(t.r.truncated)})`);
+}
+
+// ── 4b) 홉마다 엣지 타입이 정해진 경로(graphWalk) ────────────────────────
+// 제품(1) ←[USES]- 고객사(2) -[HAS_PROJECT]→ 프로젝트(3). 고객사는 다른 제품(4)도 쓰고, 제품 1 에
+// 이슈도 올렸다. 두 홉 모두 두 엣지를 허용하는 확장은 제품 4 를 끌어오지만, 경로는 프로젝트만 낸다.
+{
+  const g: Rel[] = [
+    { id: 1, src: 2, dst: 1, rel: "USES" },
+    { id: 2, src: 2, dst: 4, rel: "USES" },
+    { id: 3, src: 2, dst: 3, rel: "HAS_PROJECT" },
+    { id: 4, src: 2, dst: 1, rel: "REPORTED_ISSUE" },
+    { id: 5, src: 5, dst: 3, rel: "LEADS" },
+  ];
+  const { pool } = fakePool(g);
+  const w = await graphWalk(pool, 1, [["USES"], ["HAS_PROJECT"]], "synthetic");
+  ok(w.ok && w.edges.map((e) => `${e.depth}:${e.srcId}-${e.relType}-${e.dstId}`).join(",") === "1:2-USES-1,2:2-HAS_PROJECT-3", `홉마다 그 엣지만 탄다 (got ${w.edges.map((e) => `${e.depth}:${e.srcId}-${e.relType}-${e.dstId}`).join(",")})`);
+  const loose = await graphExpand(fakePool(g).pool, 1, 2, ["USES", "HAS_PROJECT"], "synthetic", "both");
+  ok(loose.edges.some((e) => e.dstId === 4), "대조: 두 엣지를 두 홉 모두 허용하면 다른 제품이 섞인다");
+  const lines = pathCandidates(w.edges, 1);
+  ok(lines.length === 1 && lines[0].canonicalKey.endsWith("3"), `경로 한 줄, 답은 경로 끝 개체 (got ${JSON.stringify(lines.map((l) => l.canonicalKey))})`);
+  ok(/n2의 .*: n1 → n2의 .*: n3/.test(lines[0].text), `경로 전체가 한 줄에 있다 (got ${lines[0].text})`);
+  const dead = await graphWalk(fakePool(g).pool, 1, [["USES"], ["LEADS"]], "synthetic");
+  ok(pathCandidates(dead.edges, 1).length === 0, "다음 홉이 없는 중간 개체는 답이 아니다");
 }
 
 // ── 5) 환경변수로 바꾸고, 잘못된 값은 기동에서 거절한다 ─────────────────

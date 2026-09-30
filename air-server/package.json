@@ -51,7 +51,7 @@
     "companyx:holdout3": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama HOLDOUT=eval/companyx/holdout3_route.json -- dist/cli/companyx-holdout-route-eval.js",
     "companyx:holdout4": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama HOLDOUT=eval/companyx/holdout4_route.json -- dist/cli/companyx-holdout-route-eval.js",
     "companyx:hybrid": "node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-hybrid-eval.js",
-    "companyx:kg": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-kg-eval.js",
+    "companyx:kg": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-kg-eval.js",
     "companyx:load": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-load.js",
     "companyx:multistep": "node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-multi-step-eval.js",
     "companyx:route": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-route-eval.js",

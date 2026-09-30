@@ -79,7 +79,8 @@ export interface OntologyHit {
   canonicalName: string;
   via: "canonical" | "alias";
   matched: string;
-  /** 4 = exact canonical name, 3 = exact alias, 2 = prefix, 1 = substring. Ranks
+  /** 5 = 여러 낱말로 된 정본 이름이 질문에 통째로 있음, 4 = exact canonical name,
+   * 3 = exact alias, 2 = prefix, 1 = substring. Ranks
    * seeds so a query naming "Product-C1" seeds THAT product instead of the first 5
    * rows containing "product", and "경영지원팀" seeds the department rather than its
    * members (who carry the same string as a property alias). */
@@ -157,9 +158,19 @@ export async function ontologySearch(
             WHEN lower(${col}) = lower(t.term) THEN ${exact}
             WHEN lower(${col}) LIKE lower(t.term) || '%' THEN 2
             ELSE 1 END`;
+    // 여러 낱말로 된 이름(프로젝트 「Client-C DB 마이그레이션」)은 낱말로 쪼갠 대조로는
+    // 통째로 잡히지 않는다. 「Client-C」가 고객사와 정확히 맞아 고객사가 시드가 되고,
+    // 질문이 가리킨 프로젝트는 접두 일치 후보로 밀려 탐색되지 않았다(홀드아웃3 「Client-C DB
+    // 마이그레이션, 누가 끌고 가는 거야?」). 이름이 질문에 그대로 있으면 가장 강한 시드다.
     const res = await pool.query(
       `WITH t AS (SELECT unnest($1::text[]) AS term),
             m AS (
+              SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
+                     'canonical'::text AS via, e.canonical_name AS matched, 5 AS score
+                FROM ${s}.entities e
+               WHERE e.canonical_name LIKE '% %'
+                 AND strpos(lower($3::text), lower(e.canonical_name)) > 0
+              UNION ALL
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
                      'canonical'::text AS via, t.term AS matched,
                      ${scoreExpr("e.canonical_name", 4)} AS score
@@ -180,7 +191,7 @@ export async function ontologySearch(
         GROUP BY id, type, canonical_name, properties
         ORDER BY max(score) DESC, length(canonical_name) ASC, id
         LIMIT $2`,
-      [terms, k],
+      [terms, k, query],
     );
     const hits: OntologyHit[] = res.rows.map((r) => ({
       entityId: Number(r.id),
@@ -279,10 +290,39 @@ export async function graphExpand(
   direction: Direction = "both",
   limits: GraphLimits = GRAPH_LIMITS,
 ): Promise<GraphResult> {
+  const requested = Math.max(1, Math.floor(depth) || 1);
+  const d = Math.min(limits.maxHops, requested);
+  const rel = relTypes && relTypes.length ? relTypes : null;
+  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d);
+}
+
+/** 홉마다 탈 엣지 타입을 따로 정한 탐색. hops[i] 가 i+1 번째 홉의 엣지 타입이다.
+ * 「제품 → 그 제품을 쓰는 고객사 → 그 고객사의 프로젝트」처럼 경로가 정해진 질문은
+ * 두 홉 모두 두 엣지를 허용하면 첫 홉에서 프로젝트 엣지를, 둘째 홉에서 다른 제품을
+ * 끌어와 답이 아닌 것이 섞인다(router.ts fitPlanToSeed). */
+export async function graphWalk(
+  pool: Pool,
+  entityId: number,
+  hops: string[][],
+  schema = kgSchema(),
+  limits: GraphLimits = GRAPH_LIMITS,
+): Promise<GraphResult> {
+  const levels = hops.slice(0, limits.maxHops).map((h) => (h.length ? h : null));
+  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops);
+}
+
+async function walk(
+  pool: Pool,
+  entityId: number,
+  levels: (string[] | null)[],
+  schema: string,
+  direction: Direction,
+  limits: GraphLimits,
+  cutByHops: boolean,
+): Promise<GraphResult> {
   try {
     const s = safeSchema(schema);
-    const requested = Math.max(1, Math.floor(depth) || 1);
-    const d = Math.min(limits.maxHops, requested);
+    const d = levels.length;
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
     const seenIds: number[] = [];
@@ -310,7 +350,7 @@ export async function graphExpand(
             AND NOT (r.id = ANY($3::int[]))
           ORDER BY r.id
           LIMIT $4`,
-        [frontier, relTypes && relTypes.length ? relTypes : null, seenIds, room + 1],
+        [frontier, levels[level - 1], seenIds, room + 1],
       );
       const overflow = res.rows.length > room;
       const rows = overflow ? res.rows.slice(0, room) : res.rows;
@@ -351,7 +391,7 @@ export async function graphExpand(
     }
     // 홉 상한은 요청이 상한을 넘었고 아직 안 펼친 노드가 남았을 때만 잘림이다.
     // 요청한 깊이에서 멈춘 것은 요청대로 한 것이다.
-    if (!truncated && requested > d && frontier.length > 0) {
+    if (!truncated && cutByHops && frontier.length > 0) {
       truncated = { by: "hops", limit: limits.maxHops };
     }
     return truncated ? { ok: true, edges, truncated } : { ok: true, edges };
@@ -498,6 +538,38 @@ export function edgeCandidates(edges: GraphEdge[], seedId?: number): Candidate[]
       provenance: `relation:${e.relType}:${e.provenance}`,
     };
   });
+}
+
+/** 두 홉 경로(graphWalk)를 경로마다 한 줄로. 답은 경로 끝의 개체다.
+ *
+ * 홉마다 따로 적으면 7B 가 「Client-Y 가 Product-D1 을 쓴다」와 「Client-Y 의 프로젝트」를
+ * 스스로 이어 읽어야 한다. 한 줄에 경로 전체를 적어 잇는 일을 모델에 맡기지 않는다.
+ * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다. */
+export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
+  const viaMid = new Map<number, GraphEdge>();
+  for (const e of edges) {
+    if (e.depth !== 1) continue;
+    const mid = e.srcId === seedId ? e.dstId : e.srcId;
+    if (!viaMid.has(mid)) viaMid.set(mid, e);
+  }
+  const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
+  const out: Candidate[] = [];
+  edges.forEach((e2, i) => {
+    if (e2.depth !== 2) return;
+    const [mid, ansType, ansId] = viaMid.has(e2.srcId)
+      ? [e2.srcId, e2.dstType, e2.dstId]
+      : [e2.dstId, e2.srcType, e2.srcId];
+    const e1 = viaMid.get(mid);
+    if (!e1) return;
+    out.push({
+      canonicalKey: entityKey(ansType, ansId),
+      sourceKey: `graph#p${i}`,
+      source: "graph" as const,
+      text: `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`,
+      provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
+    });
+  });
+  return out;
 }
 
 /** Convert a relation-degree ranking to candidates (superlative questions).

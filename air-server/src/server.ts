@@ -219,7 +219,8 @@ export function buildServer(): AirServer {
           "답하는 질문: 레인을 미리 모르는 자연어 질문 전부. 호출하는 LLM 이 근거를 직접 읽고 답을 쓸 때 쓴다. " +
           "예: 「평균 연봉이 가장 높은 부서는 어디야?」, 「Kubernetes 관련 장애 대응 방법은?」, 「진행 중인 프로젝트를 이끄는 직원 목록」. " +
           "돌려주는 것: route, context, audit(라우팅 근거, 레인별 후보 수, branch_errors, 큐레이션 통계. " +
-          "질문의 개체를 못 찾았으면 not_found{reason, query_entity, candidates}, 그래프 탐색이 상한에 걸렸으면 graph_truncated). " +
+          "질문의 개체를 못 찾았으면 not_found{reason, query_entity, candidates}, 그래프 탐색이 상한에 걸렸으면 graph_truncated, " +
+          "탐색 경로를 시드 개체의 타입에 맞게 고쳤으면 graph_fitted). " +
           "쓰지 말 것: 완성된 한국어 답이 필요할 때(→ ask), SQL 이 이미 있을 때(→ sql.query).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },
@@ -245,6 +246,7 @@ export function buildServer(): AirServer {
           "retrieve 와 같은 조회를 한 뒤 온프렘 LLM 이 그 근거만으로 한국어 답을 만든다(근거 밖 추측 금지). " +
           "질문이 지목한 개체를 데이터에서 찾지 못하면 LLM 을 부르지 않고 그 이유(없음 / 비슷한 이름만 있음)로 답하고, " +
           "조회 자체가 실패하면 데이터가 없다고 하지 않고 실패했다고 답한다. " +
+          "정형(SQL) 질문의 답 끝에는 조회 결과 행을 그대로 붙인다(모델이 값을 옮겨 적다 빠뜨리지 않게). " +
           "예: 「클라우드사업부 소속 직원들은 누구야?」, 「2025년 3분기 총 매출액은 얼마야?」, " +
           "「서울물산 담당 엔지니어는 누구야?」(데이터에 없는 개체 → 없다고 답한다). " +
           "돌려주는 것: answer, route, context, audit(감사 레코드. 못 찾은 개체가 있으면 not_found). " +

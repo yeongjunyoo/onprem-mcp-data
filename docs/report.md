@@ -477,10 +477,35 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 종전 문서는 라우터가 LLM 호출 0, 튜닝 파라미터 0이라고 적었다. 지금 라우터는 생성 호출은 여전히 0이지만 임베딩 모델을 한 번 부르고, 튜닝 값이 둘 생겼다(두 격차 경계). 값은 위의 경계 실측 파일이 정하고 배포마다 조정하지 않는다. 결정론은 「같은 임베딩 모델이면 같은 결정」으로 좁혀 적는다. 같은 가중치의 bge-m3 를 도커 컨테이너(CPU)와 호스트에서 각각 돌려 홀드아웃3 60문항의 결정이 전부 같았다. 해당 주장은 README, 결과보고서, 이 문서 §0, §2 에서 함께 고쳤다.
 
-### 아직 재지 않은 것
+### 스키마 카드, 도구 선택, 컨텍스트 예산 (2026-09-30, 호스트 GPU 개발 측정)
 
-- **답변 수준 채점.** 멘토가 말한 채점 기준은 최종 답변 일치다. 위 수치는 라우팅(선행 지표)이다. 홀드아웃3과 4에는 정답 SQL, 문서, 엣지가 있어 답변 수준 채점이 가능하고, 다음 측정 대상이다.
-- **스키마 카드 인라인 주석**(`SQL_CARD=annotated`)과 **LLM 자율 도구 선택 대 규칙 라우터**(`npm run companyx:toolselect`)는 도구를 넣었고 측정 전이다. 결과가 나오면 이 절에 붙인다. 주석 카드는 측정 전이라 기본값이 아니다.
+위 표는 라우팅(선행 지표)이다. 채점 기준인 최종 답 일치는 채점표(`npm run companyx:score`, 봉인 세트는 `CX_SET=holdout3|holdout4`)로 잰다. 판정은 LLM 심판 없이 답 문자열과 정답 파일만 본다(`air-server/src/scorecard.ts` 머리말). 아래는 결정을 내리려고 호스트 GPU 에서 잰 개발 측정이고, 정본 수치는 컨테이너 CPU 측정이다(§9).
+
+- **스키마 카드 인라인 주석**(멘토 제안). 질문이 묻지 않은 id 열을 뺀 실행 일치로 개발용 홀드아웃3 정형 20문항 주석 11 대 한 줄 9, 사업자 10문항 7 대 7. 봉인 홀드아웃4 정형 20문항 1회 13 대 8. 기본값을 주석 카드로 바꿨다(`SQL_CARD=compact` 가 종전 카드).
+- **0행 수리.** 결과가 0행이면 한 번 고쳐 보고, 고친 쿼리가 행을 돌려줄 때만 쓴다. 개발용 11 → 12, 퇴보 없음. 기본값으로 켰다(`SQL_EMPTY_REPAIR=0` 이 끈다).
+- **생성 모델.** 개발용 30문항에서 qwen2.5-coder:7b 18, qwen3.5:9b 20, gemma4:e4b 19. 미리 정한 교체 기준(+3)에 못 미쳐 유지했다.
+- **LLM 자율 도구 선택 대 규칙 라우터**(멘토 제안, `npm run companyx:toolselect`). 같은 7B 에게 MCP tools/list 설명만 주고 고르게 하면 봉인 홀드아웃4 38/60, 규칙만 45/60, 규칙+시맨틱 54/60. 개발용 150문항 113 대 109 대 145. 7B 는 선택 150건 중 148건을 tool_calls 가 아니라 본문 JSON 으로 냈다.
+- **컨텍스트 예산.** 서버와 같은 라우터 상태로 개발용(사업자 30 + 홀드아웃3 채점 가능 38) 정답 합이 256: 39, 512: 41, 1024: 44 라 기본값을 1024 로 올렸다(`pipeline.ts` `DEFAULT_BUDGET`).
+
+## 0.16 남은 오답을 하나씩: 답변 수준 수정 (2026-10-01)
+
+기본 설정에서 사업자 30문항 중 틀린 답을 하나씩 컨텍스트와 SQL 까지 찍어 원인을 확인했다. 고친 것은 전부 일반 기법이고, 특정 문항을 겨냥한 규칙은 없다.
+
+| 사업자 문항 | 증상 | 원인 | 고친 것 |
+|---|---|---|---|
+| 25 「Product-D1 제품과 관련된 프로젝트는?」 | 기권 | 탐색 계획의 엣지(HAS_PROJECT, 고객사 → 프로젝트)가 시드(제품)에 닿지 않아 탐색이 빈손 | **탐색 계획을 시드 타입에 맞춘다**(`router.ts` `fitPlanToSeed`). 온톨로지 타입 그래프에서 다리 엣지를 찾아 제품 ←[USES]- 고객사 -[HAS_PROJECT]→ 프로젝트로 두 홉을 탄다. 경로는 한 줄로 컨텍스트에 싣는다(`graph.ts` `graphWalk`, `pathCandidates`) |
+| 7 「Critical 우선순위 티켓 중 아직 해결되지 않은 건은?」 | 5건 중 1건 | 카드의 「미해결 = open, in_progress」를 7B 가 `status = 'open'` 하나로 썼다 | **조건을 SQL 그대로 적었다**: `미해결(해결되지 않은) 티켓 = status IN ('open','in_progress')`. 문구 넷을 같은 시드로 비교해 조건을 SQL 로 적은 둘만 IN 을 썼다 |
+| 5 「기술지원팀 직원 목록과 연봉을 알려줘」 | 이름만, 연봉 없음 | SQL 은 맞았다. 7B 가 옮겨 적다 열 하나를 뺐다. 같은 모델, 같은 시드인데 Ollama 0.34.2 에서 틀리고 0.35.0 에서 맞았다 | **정형 답 끝에 조회 행을 그대로 싣는다**(`pipeline.ts` `sqlRowsBlock`). 모델에게 간 행만 싣고 예산 밖의 행은 건수만 적어, 답의 값은 전부 컨텍스트에 있다 |
+
+같은 설계가 개발용 홀드아웃3 의 그래프 오답 셋도 푼다. 「Client-R 계정 맡은 분 성함」은 계획이 LEADS(직원 → 프로젝트)인데 시드가 고객사라, 시드 타입과 묻는 타입(직원)을 바로 잇는 MANAGES_ACCOUNT 로 바꾼다. 묻는 타입은 질문의 마지막 타입 어휘다(한국어는 머리말이 끝에 온다). 「조예진이랑 같은 팀인 사람」은 같은 무리 질문이라 부서로 갔다가 같은 엣지로 돌아온다. 「Client-C DB 마이그레이션, 누가 끌고 가는 거야?」는 여러 낱말로 된 프로젝트 이름이 낱말 대조로 쪼개져 고객사가 시드가 됐다. 이름이 질문에 통째로 있으면 가장 강한 시드로 둔다(`graph.ts` `ontologySearch`).
+
+검증용 제거 스위치: `GRAPH_PATH_FIT=0`(경로 보정 끔), `ANSWER_SQL_ROWS=0`(조회 행 첨부 끔).
+
+**되돌린 것.** 「보안 취약점 점검 관련 내용이 있어?」에 근거 다섯 건을 받고도 「네, 각 회의록에서 언급되었습니다」라고만 답해서, 문서 근거로 답할 때 제목, 날짜, 구체 사실을 적으라는 줄을 답변 프롬프트에 넣어 봤다. 그 문항의 답은 한 글자도 바뀌지 않았고 다른 문항(진행 중 프로젝트를 이끄는 11명)이 한 명을 빠뜨려 뺐다.
+
+**못 고친 둘.**
+- 「Kubernetes 관련 장애 대응 방법은?」: 장애 보고서가 같은 틀이라 다른 장애의 「조치 사항」 조각이 1~5위를 차지하고, Kubernetes 는 DOC-007 의 「장애 내용」 조각(8위)에만 있다. 조각마다 문서의 첫 서술 문장을 붙여 임베딩하는 방식(문맥 헤더)을 오프라인으로 시험하니, 다른 질문에서 한 문서의 조각들이 상위를 채워 문서 다양성이 무너졌다(「보안 취약점 점검」 상위 5가 회의록 다섯 건에서 두 건으로). 문서 단위 다양화와 함께 다시 재야 할 과제로 남긴다.
+- 「보안 취약점 점검 관련 내용이 있어?」: 위의 되돌린 시도.
 
 ## 1. 미션 적합성 — 개발과제 예시 100% 충족
 
@@ -576,7 +601,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 510(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 137(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **647단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 490. tsc strict clean.
+- **테스트:** 오프라인 537(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 137(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **674단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 517. tsc strict clean.
 
 ---
 
@@ -807,7 +832,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 510단언(데이터셋 없는 CI 는 490), 전체 647단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 537단언(데이터셋 없는 CI 는 517), 전체 674단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp**, 사업자 NL2SQL 무재시도 Δ **+60pp**, 둘 다 2026-08-19 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |

@@ -10,13 +10,21 @@
 // candidate context? (Answer generation is measured separately; a lane that
 // never retrieves the gold entity can only answer by luck.)
 //
+// ★ 서버와 같은 라우터 상태에서 잰다(initRouting + routeQuery, 2026-10-01).
+// 종전에는 온톨로지도 시맨틱 앵커도 없는 규칙만의 route() 로 탐색 계획을 만들었다. 그 상태에서
+// 「Product-D1 제품과 관련된 프로젝트는?」은 무타입 두 홉 확장이라 재현율 1.0 이었지만, 서버는
+// 시맨틱 폴백이 준 HAS_PROJECT 로 제품에서 출발해 빈손이었다. 평가가 서버가 아닌 경로를 재면
+// 정본 1.0 이 서버의 오답을 가린다.
+//
 // Run: KG_SCHEMA=companyx npm run companyx:kg
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { graphLane } from "../pipeline.js";
-import { route } from "../router.js";
+import { routeQuery } from "../semroute.js";
+import { initRouting } from "../routerinit.js";
+import { getEmbedder } from "../embedder.js";
 import { loadGraph, datasetDir, CX_SCHEMA, requireDataset, kgGoldIds, type KgSpec } from "../companyx.js";
 
 interface GoldItem {
@@ -36,14 +44,16 @@ async function main() {
 
   const pool = getPool();
   const schema = process.env.KG_SCHEMA ?? CX_SCHEMA;
+  const routing = await initRouting();
+  const embedder = getEmbedder();
   const rows = [] as Record<string, unknown>[];
   let recallSum = 0;
   let full = 0;
   let scored = 0;
 
   for (const item of gold) {
-    const d = route(item.q);
-    const lane = await graphLane(pool, item.q, Number(process.env.KG_SEEDS ?? 5), 2, schema);
+    const d = await routeQuery(item.q, embedder);
+    const lane = await graphLane(pool, item.q, Number(process.env.KG_SEEDS ?? 5), 2, schema, d.graphPlan);
     const retrievedText = lane.items.map((i) => i.text).join("\n");
     const g = goldSet(item.spec);
     const goldNames = g.map((id) => byId.get(id)?.name ?? id);
@@ -59,6 +69,7 @@ async function main() {
       routed: d.route,
       strategy: lane.strategy,
       plan: d.graphPlan ?? null,
+      fitted: lane.fitted ?? null,
       spec: item.spec.kind,
       gold_n: goldNames.length,
       gold: goldNames,
@@ -82,6 +93,13 @@ async function main() {
     mean_recall: scored ? Number((recallSum / scored).toFixed(3)) : null,
     full_recall_questions: full,
     routed_to_graph: rows.filter((r) => r.routed === "graph").length,
+    routing: {
+      ontology_entities: routing.ontology.entities,
+      ontology_error: routing.ontology.error ?? null,
+      semantic_anchors: routing.semantic.anchors,
+      semantic_error: routing.semantic.error ?? null,
+      embedder: embedder.name,
+    },
     generated_at: new Date().toISOString(),
   };
 
