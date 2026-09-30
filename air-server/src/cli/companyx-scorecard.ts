@@ -106,6 +106,8 @@ interface Row {
   anchors?: string[];
   gold_source?: string;
   branch_errors: string[];
+  /** 큐레이션이 남긴 항목과 예산 때문에 뺀 항목 — 목록 답의 누락이 모델 탓인지 예산 탓인지 가른다 */
+  context_items?: { kept: number; dropped: number };
   answer: string;
 }
 
@@ -327,6 +329,7 @@ async function main() {
   tableHeader();
   for (const [n, item] of questions.entries()) {
     let answer: string, ms: number, routed: string, state: AnswerState, errs: string[];
+    let items: Row["context_items"];
     if (stored) {
       const s = stored.get(item.q);
       if (!s) {
@@ -346,6 +349,7 @@ async function main() {
       routed = r.route;
       state = answerState(r);
       errs = r.audit.branch_errors;
+      items = { kept: r.audit.curate.kept.length, dropped: r.audit.curate.dropped.length };
     }
     const v = judge(item, answer, state);
     const flat = answer.replace(/\s+/g, " ").trim();
@@ -365,6 +369,7 @@ async function main() {
       ...(v.anchors ? { anchors: v.anchors } : {}),
       ...(v.gold_source ? { gold_source: v.gold_source } : {}),
       branch_errors: errs,
+      ...(items ? { context_items: items } : {}),
       // 판정은 전문으로 했다. 저장만 상한 안에서 자른다(재배포 금지 조건의 길이 상한).
       answer: flat.length > ANSWER_CAP ? `${flat.slice(0, ANSWER_CAP)}…(전체 ${flat.length}자, 판정은 전문으로 했다)` : flat,
     };
@@ -486,6 +491,8 @@ async function main() {
   await mkdir(resolve(root, "eval/results"), { recursive: true });
   await writeFile(resolve(root, OUT), JSON.stringify({ summary, rows }, null, 2) + "\n");
   console.log(`\n정본을 썼다: ${OUT}`);
+  // 대본의 표와 증거 매니페스트는 이 파일에서 만든다. 안 돌리면 CI 가 어긋남으로 멈춘다.
+  console.log("  이어서(저장소 루트에서): node scripts/scorecard-docs.mjs --write && node scripts/evidence-manifest.mjs --write");
   await shutdown(0);
 }
 

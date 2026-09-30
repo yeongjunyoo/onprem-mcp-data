@@ -16,6 +16,18 @@ const DEFAULT_URL = "postgresql://postgres:postgres@localhost:5433/mcpdata";
 let shared: pg.Pool | undefined;
 let readShared: pg.Pool | undefined;
 
+/** 접속 마감. statement_timeout 은 **붙은 뒤에만** 센다.
+ *
+ * 2026-09-30 실측: Docker VM 이 멈춘 뒤에도 5433 은 포트 프록시가 TCP 를 받고 아무 말도
+ * 안 했다. 마감이 없는 풀은 그 앞에서 영원히 기다렸고, 스코어카드는 실패도 성공도 없이
+ * 멈췄다. 마감이 있으면 레인이 실패를 돌려주고 ask 는 「조회 실패」 상태로 끝난다.
+ * 기본 15초는 statement_timeout(10초)보다 길다 — 풀이 꽉 찼을 때 빈 연결을 기다리는
+ * 시간에도 같은 마감이 걸리므로, 정상적으로 끝날 쿼리를 기다리다 먼저 포기하지 않게 한다. */
+function connectTimeoutMs(): number {
+  const n = Number(process.env.PG_CONNECT_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 15_000;
+}
+
 /** 연결 실패를 사람 말로 바꾼다.
  *
  * 2026-08-18 전제 스윕: DB 가 없을 때 `fault:inject` 는 원시 `AggregateError
@@ -65,7 +77,7 @@ function explainConnection(e: unknown, endpoint?: string): Error {
   // "붙지 못했다 ... docker compose up -d" 가 떴다. **연결은 성공했는데** 스택을
   // 띄우라고 말하면 진짜 문제(테이블 부재)를 가린다.
   // 데이터베이스 자체가 없는 경우(`database "x" does not exist`)만 연결 문제로 본다.
-  const connIssue = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|password authentication/i.test(msg)
+  const connIssue = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|connection timeout|password authentication/i.test(msg)
     || /database "[^"]*" does not exist/i.test(msg);
   if (!connIssue) {
     return e instanceof Error ? e : new Error(msg);
@@ -111,6 +123,7 @@ export function getPool(): pg.Pool {
       idleTimeoutMillis: 30_000,
       // Bound every statement so a runaway query can never wedge the server.
       statement_timeout: 10_000,
+      connectionTimeoutMillis: connectTimeoutMs(),
     });
     explainOn(shared, process.env.DATABASE_URL ?? DEFAULT_URL);
   }
@@ -135,6 +148,7 @@ export function getReadPool(): pg.Pool {
       max: 8,
       idleTimeoutMillis: 30_000,
       statement_timeout: 10_000,
+      connectionTimeoutMillis: connectTimeoutMs(),
     });
     explainOn(readShared, url);
   }
