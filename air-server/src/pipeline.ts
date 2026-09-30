@@ -15,7 +15,8 @@ import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./ke
 import { vectorSearch, type VectorResult } from "./vector.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
-import { type NL2SQL, repairSql } from "./nl2sql.js";
+import { type NL2SQL } from "./nl2sql.js";
+import { executeWithRepair } from "./sqlrepair.js";
 import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
@@ -257,15 +258,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     if (!wantSql) return { text: null };
     const text = await nl2sql(query);
     if (!text) return { text: null };
-    const first = await sqlQuery(pool, text);
-    if (first.ok || deps.repair === false) return { text, result: first };
-    // The engine rejected it (unknown column, bad function, ...). Feed the error
-    // back exactly once — an empty context is a worse failure than a second call.
-    const cols = await columnsForSql(pool, text, profile().kgSchema === "companyx" ? "companyx" : "public").catch(() => "");
-    const fixed = await repairSql(query, text, first.error ?? "unknown error", cols);
-    if (!fixed) return { text, result: first };
-    const second = await sqlQuery(pool, fixed);
-    return second.ok ? { text: fixed, result: second, repaired: true } : { text, result: first };
+    // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
+    // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다.
+    const ex = await executeWithRepair(pool, query, text, {
+      repair: deps.repair !== false,
+      schema: profile().kgSchema === "companyx" ? "companyx" : "public",
+    });
+    return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
     ? vectorSearch(pool, embedder, query, k)

@@ -19,7 +19,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { sqlQuery, columnsForSql } from "../sql.js";
-import { companyxNL2SQL, companyxNL2SQLNaive, repairSql } from "../nl2sql.js";
+import { companyxNL2SQL, companyxNL2SQLNaive } from "../nl2sql.js";
+import { executeWithRepair } from "../sqlrepair.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
 import { isAvailable, DEFAULT_MODEL } from "../llm.js";
 import { qualifyCompanyx } from "../companyx.js";
@@ -87,23 +88,16 @@ async function main() {
     let pred: string | null = saved
       ? saved.pred === "(no SQL)" ? null : saved.pred
       : strategy === "naive" ? await companyxNL2SQLNaive(it.q) : await companyxNL2SQL(it.q);
-    // eval == live: the pipeline repairs a rejected query once with the database's
-    // own catalogue, so the benchmark must do the same or it measures a path no
-    // user ever runs. CX_REPAIR=0 reproduces the un-repaired number.
+    // eval == live: 파이프라인과 같은 함수(executeWithRepair)로 실행하고 고친다. 따로 베낀
+    // 수리 로직은 파이프라인이 바뀌어도 그대로 남아 평가가 사용자가 안 타는 경로를 잰다.
+    // CX_REPAIR=0 은 고치지 않은 값, SQL_EMPTY_REPAIR=1 은 0행 수리까지 켠 값.
     let repaired = saved?.repaired ?? false;
-    if (!saved && pred && process.env.CX_REPAIR !== "0") {
-      const probe = await sqlQuery(pool, pred);
-      if (!probe.ok) {
-        const cols = await columnsForSql(pool, pred, "companyx").catch(() => "");
-        const fixed = await repairSql(it.q, pred, probe.error ?? "unknown error", cols);
-        if (fixed) {
-          const second = await sqlQuery(pool, fixed);
-          if (second.ok) {
-            pred = fixed;
-            repaired = true;
-          }
-        }
-      }
+    let repairReason: string | undefined;
+    if (!saved && pred) {
+      const ex = await executeWithRepair(pool, it.q, pred, { repair: process.env.CX_REPAIR !== "0", schema: "companyx" });
+      pred = ex.text;
+      repaired = ex.repaired;
+      repairReason = ex.repairReason;
     }
     const ms = Date.now() - t0;
     const opts: MatchOpts = {
@@ -126,7 +120,7 @@ async function main() {
       matched = p.ok && g.ok && resultsMatch(p.rows, g.rows, opts);
     }
     if (matched) correct++;
-    rows.push({ id: it.id, tax: it.tax, ok: matched, repaired, pred: pred ?? "(no SQL)", predOk, predErr, goldOk: g.ok, goldRows: g.rows.length, ms });
+    rows.push({ id: it.id, tax: it.tax, ok: matched, repaired, repairReason, pred: pred ?? "(no SQL)", predOk, predErr, goldOk: g.ok, goldRows: g.rows.length, ms });
     console.log(`${matched ? "✓" : "✗"} ${it.id} [${it.tax}] ${it.q}`);
     if (!matched) console.log(`    pred: ${(pred ?? "(no SQL)").replace(/\s+/g, " ")}${predErr ? ` | err: ${predErr}` : ""}`);
   }
@@ -148,6 +142,7 @@ async function main() {
     gold_execution_failures: goldFailures,
     repaired_queries: rows.filter((r) => r.repaired).length,
     repair_enabled: process.env.CX_REPAIR !== "0",
+    empty_repair: process.env.SQL_EMPTY_REPAIR === "1",
     rescored_from: rescoreFrom ?? null,
     gold_id_dropped: items.filter((i) => i.dropGoldId).length,
     byTax,
@@ -160,6 +155,8 @@ async function main() {
   const suffix =
     (process.env.CX_REPAIR === "0" ? "-norepair" : "") +
     (strategy !== "naive" && process.env.SQL_CARD === "compact" ? "-compact" : "") +
+    (process.env.SQL_EMPTY_REPAIR === "1" ? "-emptyrepair" : "") +
+    (process.env.OLLAMA_MODEL ? `-${process.env.OLLAMA_MODEL.replace(/[^a-zA-Z0-9.]+/g, "_")}` : "") +
     (extra ? `-${extra.replace(/^.*[/\\]/, "").replace(/_route\.json$|\.json$/, "")}` : "");
   await writeFile(
     resolve(root, `eval/results/companyx-sql-${strategy}${suffix}.json`),

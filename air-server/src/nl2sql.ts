@@ -308,20 +308,32 @@ export async function repairSql(
   failedSql: string,
   dbError: string,
   realColumns?: string,
+  kind: "error" | "empty" = "error",
 ): Promise<string | null> {
+  // 0행 수리는 거부가 아니라 필터 점검이다. 오류 전용 문장(「지목한 컬럼은 없다」)을 주면
+  // 멀쩡한 컬럼을 바꾸라는 뜻으로 읽힌다.
+  const intro =
+    kind === "empty"
+      ? [
+          "아래 SQL은 실행됐지만 결과가 0행입니다. 아래 안내를 보고 조건을 고친 SQL 한 문장만 출력하세요.",
+          "아래 실제 컬럼 목록에 있는 컬럼만 씁니다.",
+        ]
+      : [
+          "아래 SQL이 데이터베이스에서 오류로 거부되었습니다. 오류 메시지를 보고 고친 SQL 한 문장만 출력하세요.",
+          "오류가 지목한 컬럼은 이 데이터베이스에 존재하지 않습니다. 테이블 이름을 앞에 붙여도 생기지 않습니다.",
+          "아래 실제 컬럼 목록에 있는 컬럼만 쓰고, 의미가 비슷한 다른 컬럼으로 대체하세요.",
+        ];
   const prompt = [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
     companyxSchemaCard(),
     "",
-    "아래 SQL이 데이터베이스에서 오류로 거부되었습니다. 오류 메시지를 보고 고친 SQL 한 문장만 출력하세요.",
-    "오류가 지목한 컬럼은 이 데이터베이스에 존재하지 않습니다. 테이블 이름을 앞에 붙여도 생기지 않습니다.",
-    "아래 실제 컬럼 목록에 있는 컬럼만 쓰고, 의미가 비슷한 다른 컬럼으로 대체하세요.",
+    ...intro,
     "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
     "",
     `질문: ${query}`,
     `실패한 SQL: ${failedSql}`,
-    `오류: ${dbError}`,
+    `${kind === "empty" ? "안내" : "오류"}: ${dbError}`,
     "수정된 SQL:",
   ].join("\n");
   const raw = await generate(prompt);

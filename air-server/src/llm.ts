@@ -50,6 +50,10 @@ export async function generate(prompt: string, opts: GenOptions = {}): Promise<s
         model: opts.model ?? MODEL,
         prompt,
         stream: false,
+        // 생각 모드가 있는 모델(qwen3.5, gemma4 등)을 비교할 때 OLLAMA_THINK=false 로 끈다.
+        // 기본 모델에는 생각 모드가 없어 이 필드를 보내지 않는다(없는 기능을 켜라고 하면
+        // Ollama 가 거부한다).
+        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === "true" } : {}),
         options: {
           temperature: opts.temperature ?? 0,
           seed: opts.seed ?? 42,
