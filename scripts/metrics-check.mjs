@@ -93,6 +93,7 @@ const FRESHNESS = [
   { result: "eval/results/companyx-vector.json", inputs: ["eval/companyx/vector_gold.json"] },
   { result: "eval/results/companyx-holdout-route.json", inputs: ["eval/companyx/holdout_route.json"] },
   { result: "eval/results/companyx-holdout2-route.json", inputs: ["eval/companyx/holdout2_route.json"] },
+  { result: "eval/results/companyx-scorecard.json", inputs: ["eval/companyx/vector_gold.json", "eval/companyx/kg_gold.json", "eval/companyx/sql_gold.jsonl"] },
 ];
 
 const staleNotes = [];
@@ -286,6 +287,18 @@ const benchInternal = readJson("eval/results/internal-llm-summary.json");
   canonical.bench_naive_pct = String((nv.summary ?? nv).correct);
   canonical.bench_template_pct = String((tp.summary ?? tp).correct);
 }
+
+// 기능테스트 스코어카드(최종 답 일치). 시연 대본이 레인별 정답 수와 CPU 지연을 표로 띄운다.
+//
+// canonical 에는 넣지 않는다. 아래 대역 검사가 canonical 의 모든 값을 두 README 에서
+// 찾는데, 「8/10」 같은 짧은 값은 다른 지표와 우연히 겹쳐 거짓 유죄를 낸다.
+// 대본의 표는 이 JSON 에서 생성하고(scripts/scorecard-docs.mjs), 어긋남은
+// verify-demo-script 가 잡는다. 여기서는 신선도와 현행 지연값만 맡는다.
+const score = readJson("eval/results/companyx-scorecard.json");
+const scoreRows = {
+  ...score.summary.by_lane,
+  overall: { correct: score.summary.correct, median_ms: score.summary.median_ms, p90_ms: score.summary.p90_ms },
+};
 
 // ── B. 정합성 ───────────────────────────────────────────────────────────
 // 문서에서 지표가 쓰인 자리를 찾아, 거기 적힌 값이 정본과 같은지 본다.
@@ -623,7 +636,12 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
 // 정본이 아닌 지연값이 문서에 있으면 실패시킨다. 과거 서술이 필요하면
 // "이전 측정" 처럼 맥락을 붙이지 말고 아예 값을 빼거나 표에 metric-ok 로 남긴다.
 const LATENCY_DOCS = DOCS;
-const liveLatency = new Set([canonical.ask_median_ms, canonical.ask_median_ms_host]);
+const liveLatency = new Set([
+  canonical.ask_median_ms,
+  canonical.ask_median_ms_host,
+  // 스코어카드의 레인별 지연도 현행 측정이다. 옛 값이 산문에 남으면 여기서 걸린다.
+  ...Object.values(scoreRows).flatMap((r) => [String(r.median_ms), String(r.p90_ms)]),
+]);
 
 for (const doc of LATENCY_DOCS) {
   if (!existsSync(resolve(ROOT, doc))) continue;
@@ -642,6 +660,10 @@ for (const doc of LATENCY_DOCS) {
 // ── 결과 ────────────────────────────────────────────────────────────────
 console.log("정본 지표 (eval/results 에서 읽음):");
 for (const [k, v] of Object.entries(canonical)) console.log(`  ${k} = ${v}`);
+console.log("스코어카드 (companyx-scorecard.json, 대본 표는 scorecard-docs.mjs 가 생성):");
+for (const [k, v] of Object.entries(scoreRows)) {
+  console.log(`  스코어카드 ${k}: 정답 ${v.correct}, 중앙값 ${v.median_ms}, p90 ${v.p90_ms}`);
+}
 
 if (fails.length) {
   console.error(`\n실패 ${fails.length}건:`);

@@ -33,6 +33,12 @@ npm run demo:ollama                                      # offline end-to-end de
 > the host daemon instead — whatever models it happens to hold. Splitting the port keeps
 > the binding explicit. To use a host Ollama instead, set `OLLAMA_HOST=http://localhost:11434`.
 >
+> **For the functional test on the sponsor dataset**, follow the pre-demo checklist in
+> [docs/demo-script.md](docs/demo-script.md): `docker compose up -d` verifies the model cache
+> (pulling only what is missing), `npm run warmup` pays the cold start up front,
+> `npm run companyx:score` grades the final answers to the 30 example questions, and
+> `npm run fault:demo` shows failures ending as states rather than exceptions.
+>
 > Both the server and the demo print the Ollama endpoint they actually reached and its
 > model list on startup, and refuse to run when a required model is missing.
 
