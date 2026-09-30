@@ -21,6 +21,7 @@ import { sqlQuery, columnsForSql } from "../sql.js";
 import { companyxNL2SQL, companyxNL2SQLNaive, repairSql } from "../nl2sql.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
 import { isAvailable, DEFAULT_MODEL } from "../llm.js";
+import { qualifyCompanyx } from "../companyx.js";
 
 interface Q {
   id: string;
@@ -52,14 +53,10 @@ async function main() {
     const h = JSON.parse(await readFile(resolve(root, extra), "utf8")) as {
       items: { id: string; q: string; expected: string; gold_sql?: string }[];
     };
-    // 홀드아웃 작성자는 테이블 이름을 스키마 없이 썼다. 실행 역할의 search_path 에
-    // 기대지 않고 이름을 한정한다.
-    const TABLES = "departments|employees|clients|products|contracts|projects|sales|support_tickets";
-    const qualify = (sql: string) => sql.replace(new RegExp(`\\b(from|join)\\s+(${TABLES})\\b`, "gi"), "$1 companyx.$2");
     for (const it of h.items) {
       if (it.expected !== "nl2sql" || !it.gold_sql) continue;
       // 투영 폭은 질문이 정하지 못한다. 행 수와 값은 엄격하게, 여분 컬럼은 허용한다.
-      items.push({ id: it.id, q: it.q, gold: qualify(it.gold_sql), tax: "holdout", hint: "", subsetColumns: true });
+      items.push({ id: it.id, q: it.q, gold: qualifyCompanyx(it.gold_sql), tax: "holdout", hint: "", subsetColumns: true });
     }
   }
 

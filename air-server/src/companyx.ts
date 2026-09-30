@@ -241,6 +241,18 @@ export function nodePk(id: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** 사업자 DDL 의 테이블 8개. */
+export const CX_TABLES = ["departments", "employees", "clients", "products", "contracts", "projects", "sales", "support_tickets"];
+
+/** 스키마 없이 쓴 테이블 이름을 `companyx.` 로 한정한다.
+ *
+ * 홀드아웃 작성자는 테이블 이름을 스키마 없이 썼다. 실행 역할의 search_path 에 기대지
+ * 않고 이름을 한정한다. companyx:sql(CX_GOLD)과 스코어카드가 같은 정답을 실행해야
+ * 하므로 한 곳에 둔다 — 한정 규칙이 두 벌이면 한쪽만 고친다. */
+export function qualifyCompanyx(sql: string): string {
+  return sql.replace(new RegExp(`\\b(from|join)\\s+(${CX_TABLES.join("|")})\\b`, "gi"), `$1 ${CX_SCHEMA}.$2`);
+}
+
 // ---------- questions ----------
 
 export interface CxQuestion {
