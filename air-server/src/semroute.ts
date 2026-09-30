@@ -107,6 +107,8 @@ export async function installSemanticRouter(embedder: Embedder): Promise<{ ancho
       }
     }
   } catch (e) {
+    // 실패는 error 필드로 돌려준다. 기동 경로(index.ts)가 그것을 경고로 찍고, route
+    // 도구 응답의 semantic_anchors 가 0으로 남아 시연 중에도 보인다.
     ANCHORS = [];
     EMBEDDER_NAME = "";
     return { anchors: 0, error: String(e).slice(0, 200) };

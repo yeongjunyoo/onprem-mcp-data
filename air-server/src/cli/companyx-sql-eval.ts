@@ -7,6 +7,10 @@
 //
 //   CX_STRATEGY=llm   (default) curated schema card
 //   CX_STRATEGY=naive           bare table names (ablation)
+//   SQL_CARD=compact            한 줄 카드(주석 없는 종전 카드). 기본은 주석 카드.
+//   CX_GOLD=eval/companyx/holdout3_route.json
+//                               사업자 10문항 뒤에 홀드아웃의 nl2sql 문항(gold_sql)을
+//                               붙인다. n=10 은 한 문항이 10pp 라 카드 비교를 못 가른다.
 //
 // Run: npm run companyx:sql
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -43,6 +47,21 @@ async function main() {
     .split("\n")
     .filter((l) => l.trim())
     .map((l) => JSON.parse(l));
+  const extra = process.env.CX_GOLD;
+  if (extra) {
+    const h = JSON.parse(await readFile(resolve(root, extra), "utf8")) as {
+      items: { id: string; q: string; expected: string; gold_sql?: string }[];
+    };
+    // 홀드아웃 작성자는 테이블 이름을 스키마 없이 썼다. 실행 역할의 search_path 에
+    // 기대지 않고 이름을 한정한다.
+    const TABLES = "departments|employees|clients|products|contracts|projects|sales|support_tickets";
+    const qualify = (sql: string) => sql.replace(new RegExp(`\\b(from|join)\\s+(${TABLES})\\b`, "gi"), "$1 companyx.$2");
+    for (const it of h.items) {
+      if (it.expected !== "nl2sql" || !it.gold_sql) continue;
+      // 투영 폭은 질문이 정하지 못한다. 행 수와 값은 엄격하게, 여분 컬럼은 허용한다.
+      items.push({ id: it.id, q: it.q, gold: qualify(it.gold_sql), tax: "holdout", hint: "", subsetColumns: true });
+    }
+  }
 
   const pool = getPool();
   const rows = [];
@@ -101,8 +120,9 @@ async function main() {
     if (r.ok) byTax[r.tax].c++;
   }
   const summary = {
-    dataset: "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
+    dataset: extra ? `questions.json (nl2sql subset) + ${extra} (nl2sql)` : "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     strategy,
+    schema_card: strategy === "naive" ? "table-names" : process.env.SQL_CARD === "compact" ? "compact" : "annotated",
     model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     total: items.length,
     correct,
@@ -117,7 +137,10 @@ async function main() {
   await mkdir(resolve(root, "eval/results"), { recursive: true });
   // 재시도 유무는 같은 전략의 다른 조건이다. 한 파일에 덮어쓰면 2x2(스키마카드 x 재시도)
   // 중 두 칸만 저장소에 남고 보고서가 인용하는 나머지 두 칸은 근거가 사라진다.
-  const suffix = process.env.CX_REPAIR === "0" ? "-norepair" : "";
+  const suffix =
+    (process.env.CX_REPAIR === "0" ? "-norepair" : "") +
+    (strategy !== "naive" && process.env.SQL_CARD === "compact" ? "-compact" : "") +
+    (extra ? `-${extra.replace(/^.*[/\\]/, "").replace(/_route\.json$|\.json$/, "")}` : "");
   await writeFile(
     resolve(root, `eval/results/companyx-sql-${strategy}${suffix}.json`),
     JSON.stringify({ summary, rows }, null, 2) + "\n",

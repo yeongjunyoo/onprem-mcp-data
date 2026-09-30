@@ -55,6 +55,7 @@
     "companyx:multistep": "node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-multi-step-eval.js",
     "companyx:route": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-route-eval.js",
     "companyx:sql": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-sql-eval.js",
+    "companyx:toolselect": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-llm-toolselect-eval.js",
     "companyx:vector": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-vector-eval.js",
     "demo": "node node_modules/typescript/bin/tsc && node dist/cli/demo.js",
     "demo:ollama": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs EMBEDDER=ollama -- dist/cli/demo.js",
