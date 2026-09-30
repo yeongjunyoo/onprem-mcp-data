@@ -180,7 +180,7 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  position text,  -- 직급: 사원, 대리, 과장, 차장, 부장, 이사",
   "  dept_id int REFERENCES companyx.departments(id),  -- 소속 부서",
   "  hire_date date, -- 입사일",
-  "  salary int,     -- 연봉, 단위 만원",
+  "  salary int,     -- 연봉, 단위 만원 (연봉 5천만 원 = 5000)",
   "  is_active bool  -- 재직 중이면 true, 퇴사자는 false",
   ");",
   "CREATE TABLE companyx.clients (",
@@ -199,7 +199,7 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  name text,          -- 제품명: Product-C1 … Product-T2",
   "  category text,      -- 'cloud' | 'security' | 'data' | 'consulting' (보안 솔루션 = 'security')",
   "  description text,",
-  "  price_monthly int,  -- 월 이용료, 단위 만원",
+  "  price_monthly int,  -- 월 이용료, 단위 만원 (월 150만 원 = 150)",
   "  version text,",
   "  release_date date,  -- 출시일",
   "  status text         -- 'active' | 'beta'",
@@ -210,7 +210,7 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  product_id int REFERENCES companyx.products(id),",
   "  manager_id int REFERENCES companyx.employees(id),  -- 계약 담당 직원",
   "  contract_type text, -- 'subscription' | 'project' | 'maintenance'",
-  "  amount int,         -- 계약 금액, 단위 만원(매출 아님)",
+  "  amount int,         -- 계약 금액, 단위 만원(매출 아님, 1억 원 = 10000)",
   "  start_date date,",
   "  end_date date,      -- 종료일, 없으면 NULL",
   "  status text         -- 'active' | 'completed' | 'cancelled' (활성 계약 = 'active')",
@@ -224,7 +224,7 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  status text,        -- 'planning' | 'in_progress' | 'completed' | 'on_hold' (보류 = 'on_hold')",
   "  start_date date,",
   "  end_date date,      -- 종료(예정)일, 없으면 NULL",
-  "  budget int,         -- 예산, 단위 만원",
+  "  budget int,         -- 예산, 단위 만원 (1억 원 = 10000)",
   "  description text",
   ");",
   "CREATE TABLE companyx.sales (",
@@ -252,11 +252,16 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   ");",
 ].join("\n");
 
-/** 생성과 수리가 같은 카드를 쓴다. 기본은 한 줄 카드이고 SQL_CARD=annotated 로 주석
- * 카드를 켠다. 주석 카드가 실행 일치를 올리는지 재기 전에는 기본값을 바꾸지 않는다 —
- * README 의 NL2SQL 수치가 한 줄 카드로 잰 값이기 때문이다. */
+/** 생성과 수리가 같은 카드를 쓴다. 기본은 주석 카드이고 SQL_CARD=compact 로 종전 한 줄
+ * 카드를 켠다(ablation).
+ *
+ * 기본값을 바꾼 근거(2026-09-30): 사업자 10문항과 홀드아웃3 정형 20문항에서 주석 카드는
+ * 한 줄 카드와 사업자 7/10 동률, 홀드아웃3 11/20 대 9/20(질문이 묻지 않은 id 열을 뺀
+ * 채점). 주석 카드만 맞힌 3문항, 한 줄 카드만 맞힌 1문항이고 그 1문항은 「연봉 4천」을
+ * 4 로 읽은 단위 문제라 금액 주석에 환산 예시를 붙였다. 개발용 세트에서 고른 것이므로
+ * 효과는 봉인 홀드아웃4 로 따로 잰다. */
 export function companyxSchemaCard(): string {
-  return process.env.SQL_CARD === "annotated" ? COMPANYX_SCHEMA_ANNOTATED : COMPANYX_SCHEMA_DDL;
+  return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
 /** Company-X NL2SQL 프롬프트 원문.

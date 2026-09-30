@@ -112,7 +112,7 @@ async function listServerTools(root: string): Promise<McpTool[]> {
   }
 }
 
-async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string | null; ms: number }> {
+async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
   const t0 = Date.now();
   const res = await fetch(`${HOST}/api/chat`, {
     method: "POST",
@@ -132,9 +132,31 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string |
     }),
   });
   if (!res.ok) throw new Error(`Ollama /api/chat ${res.status}: ${await res.text()}`);
-  const data = (await res.json()) as { message?: { tool_calls?: { function?: { name?: string } }[] } };
-  const name = data.message?.tool_calls?.[0]?.function?.name ?? null;
-  return { tool: name, ms: Date.now() - t0 };
+  const data = (await res.json()) as { message?: { content?: string; tool_calls?: { function?: { name?: string } }[] } };
+  const called = data.message?.tool_calls?.[0]?.function?.name;
+  if (called) return { tool: called, via: "tool_calls", ms: Date.now() - t0 };
+  // qwen2.5-coder 는 호출을 tool_calls 필드 대신 본문에 JSON 으로 적기도 한다. 호스트마다
+  // 파싱이 다르므로, 본문에 도구 이름이 있으면 그것을 선택으로 읽고 경로를 따로 센다.
+  // 이것을 빼면 모델의 선택 능력이 아니라 출력 형식을 재게 된다.
+  const content = data.message?.content ?? "";
+  const named = LANE_TOOLS.find((t) => content.includes(t)) ?? null;
+  return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0 };
+}
+
+/** 한 문항의 호출이 실패해도 실험 전체를 죽이지 않는다. GPU 를 다른 작업과 나눠 쓰면
+ * 응답이 5분을 넘겨 fetch 가 끊긴다(2026-09-30 실측). 한 번 다시 부르고, 그래도 안 되면
+ * 그 문항을 오류로 세고 넘어간다 — 오류는 선택이 아니므로 정답에도 오답에도 넣지 않는다. */
+async function chooseToolOrError(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await chooseTool(q, tools);
+    } catch (e) {
+      if (attempt >= 2) {
+        console.error(`  ! 호출 실패(${String(e).slice(0, 120)}) :: ${q}`);
+        return { tool: null, via: "error", ms: 0 };
+      }
+    }
+  }
 }
 
 async function main() {
@@ -155,7 +177,7 @@ async function main() {
 
   const want = (process.env.TOOLSELECT_SETS ?? "sponsor30,holdout1,holdout2,holdout3").split(",");
   const rows: Record<string, unknown>[] = [];
-  const bySet: Record<string, { n: number; llm: number; rule_only: number; router: number; no_tool: number }> = {};
+  const bySet: Record<string, { n: number; llm: number; rule_only: number; router: number; no_tool: number; errors: number }> = {};
   const input_hashes: Record<string, string> = {};
   for (const name of want) {
     const set = SETS[name];
@@ -166,9 +188,14 @@ async function main() {
     const items: { q: string; expected: string }[] = (Array.isArray(raw) ? raw : raw.items).map(
       (x: Record<string, string>) => ({ q: x.q, expected: x[set.label] }),
     );
-    const s = (bySet[name] = { n: 0, llm: 0, rule_only: 0, router: 0, no_tool: 0 });
+    const s = (bySet[name] = { n: 0, llm: 0, rule_only: 0, router: 0, no_tool: 0, errors: 0 });
     for (const it of items) {
-      const c = await chooseTool(it.q, tools);
+      const c = await chooseToolOrError(it.q, tools);
+      if (c.via === "error") {
+        s.errors++;
+        rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: null, llm_via: "error", llm: "error", llm_ms: 0 });
+        continue;
+      }
       const llm = c.tool ? LANE_OF_TOOL[c.tool] ?? `other:${c.tool}` : "none";
       const ruleOnly = LANE_OF_ROUTE[route(it.q).route];
       const router = LANE_OF_ROUTE[(await routeQuery(it.q, embedder)).route];
@@ -177,15 +204,15 @@ async function main() {
       if (ruleOnly === it.expected) s.rule_only++;
       if (router === it.expected) s.router++;
       if (llm === "none") s.no_tool++;
-      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm, rule_only: ruleOnly, router, llm_ms: c.ms });
+      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, llm_ms: c.ms });
       console.log(`${llm === it.expected ? "O" : "X"} llm=${llm.padEnd(15)} router=${router.padEnd(15)} 기대=${it.expected} :: ${it.q}`);
     }
   }
 
-  const ms = rows.map((r) => r.llm_ms as number).sort((a, b) => a - b);
+  const ms = rows.filter((r) => r.llm_via !== "error").map((r) => r.llm_ms as number).sort((a, b) => a - b);
   const total = Object.values(bySet).reduce(
-    (a, b) => ({ n: a.n + b.n, llm: a.llm + b.llm, rule_only: a.rule_only + b.rule_only, router: a.router + b.router, no_tool: a.no_tool + b.no_tool }),
-    { n: 0, llm: 0, rule_only: 0, router: 0, no_tool: 0 },
+    (a, b) => ({ n: a.n + b.n, llm: a.llm + b.llm, rule_only: a.rule_only + b.rule_only, router: a.router + b.router, no_tool: a.no_tool + b.no_tool, errors: a.errors + b.errors }),
+    { n: 0, llm: 0, rule_only: 0, router: 0, no_tool: 0, errors: 0 },
   );
   const out = {
     note:
@@ -199,6 +226,7 @@ async function main() {
     by_set: bySet,
     total,
     llm_ms_median: ms[Math.floor(ms.length / 2)] ?? null,
+    llm_via: rows.reduce<Record<string, number>>((a, r) => ((a[r.llm_via as string] = (a[r.llm_via as string] ?? 0) + 1), a), {}),
     rows,
     generated_at: new Date().toISOString(),
   };
