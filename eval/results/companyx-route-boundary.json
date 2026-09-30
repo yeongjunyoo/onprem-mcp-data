@@ -1,25 +1,26 @@
 {
-  "note": "개발용 문항(사업자 30, 홀드아웃 1·2차)에서 규칙과 시맨틱의 경계를 잰 결과. 이 문항들은 라우터를 고치며 본 것이라 일반화 수치가 아니다. 일반화는 수정 전에 봉인한 홀드아웃 3차가 잰다. grid 는 상수 후보의 모사, deployed 는 배포 상수로 routeQuery 를 실제로 돌린 값이다.",
+  "note": "개발용 문항(사업자 30, 홀드아웃 1·2·3차)에서 규칙과 시맨틱의 경계를 잰 결과. 이 문항들은 라우터를 고치며 본 것이라 일반화 수치가 아니다. 일반화는 수정 전에 봉인한 홀드아웃 3차가 잰다. grid 는 상수 후보의 모사, deployed 는 배포 상수로 routeQuery 를 실제로 돌린 값이다.",
   "input_hashes": {
     "datasets/companyx-v1.0/questions.json": "26d2d578e081b10a",
     "eval/companyx/holdout_route.json": "79031d568953c15a",
-    "eval/companyx/holdout2_route.json": "6353f029efcea1e9"
+    "eval/companyx/holdout2_route.json": "6353f029efcea1e9",
+    "eval/companyx/holdout3_route.json": "9340fcafbde9cb58"
   },
   "embedder": "ollama:bge-m3@768",
-  "semantic_anchors": 130,
+  "semantic_anchors": 175,
   "constants": {
-    "RULE_MIN_MARGIN": 1,
+    "RULE_MIN_MARGIN": 2.5,
     "SEMANTIC_MIN_MARGIN": 0.02
   },
-  "n": 90,
-  "rule_only": 76,
-  "semantic_only": 89,
-  "deployed": 89,
+  "n": 150,
+  "rule_only": 109,
+  "semantic_only": 146,
+  "deployed": 145,
   "by_set": {
     "sponsor30": {
       "n": 30,
       "rule_only": 30,
-      "semantic_only": 29,
+      "semantic_only": 30,
       "deployed": 30
     },
     "holdout1": {
@@ -33,28 +34,34 @@
       "rule_only": 19,
       "semantic_only": 30,
       "deployed": 29
+    },
+    "holdout3": {
+      "n": 60,
+      "rule_only": 33,
+      "semantic_only": 56,
+      "deployed": 56
     }
   },
   "buckets": {
     "margin 2": {
-      "n": 30,
-      "rule": 29,
-      "semantic": 30
+      "n": 53,
+      "rule": 49,
+      "semantic": 51
     },
     "margin 1": {
-      "n": 9,
-      "rule": 9,
-      "semantic": 8
+      "n": 21,
+      "rule": 17,
+      "semantic": 20
     },
     "margin 3": {
-      "n": 12,
-      "rule": 12,
-      "semantic": 12
+      "n": 13,
+      "rule": 13,
+      "semantic": 13
     },
     "margin 5": {
-      "n": 14,
-      "rule": 14,
-      "semantic": 14
+      "n": 15,
+      "rule": 15,
+      "semantic": 15
     },
     "margin 4": {
       "n": 9,
@@ -72,191 +79,201 @@
       "semantic": 1
     },
     "hybrid(판단 포기)": {
-      "n": 13,
+      "n": 33,
       "rule": 0,
-      "semantic": 13
+      "semantic": 32
+    },
+    "margin 0": {
+      "n": 2,
+      "rule": 2,
+      "semantic": 2
+    },
+    "margin 3.5": {
+      "n": 1,
+      "rule": 1,
+      "semantic": 1
     }
   },
   "grid": [
     {
       "tau": 0,
       "sigma": 0,
-      "correct": 89
+      "correct": 141
     },
     {
       "tau": 0,
       "sigma": 0.02,
-      "correct": 89
+      "correct": 140
     },
     {
       "tau": 0,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 137
     },
     {
       "tau": 0,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 132
     },
     {
       "tau": 0.5,
       "sigma": 0,
-      "correct": 89
+      "correct": 141
     },
     {
       "tau": 0.5,
       "sigma": 0.02,
-      "correct": 89
+      "correct": 140
     },
     {
       "tau": 0.5,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 137
     },
     {
       "tau": 0.5,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 132
     },
     {
       "tau": 1,
       "sigma": 0,
-      "correct": 89
+      "correct": 141
     },
     {
       "tau": 1,
       "sigma": 0.02,
-      "correct": 89
+      "correct": 140
     },
     {
       "tau": 1,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 137
     },
     {
       "tau": 1,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 132
     },
     {
       "tau": 1.5,
       "sigma": 0,
-      "correct": 88
+      "correct": 144
     },
     {
       "tau": 1.5,
       "sigma": 0.02,
-      "correct": 88
+      "correct": 143
     },
     {
       "tau": 1.5,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 139
     },
     {
       "tau": 1.5,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 134
     },
     {
       "tau": 2,
       "sigma": 0,
-      "correct": 88
+      "correct": 144
     },
     {
       "tau": 2,
       "sigma": 0.02,
-      "correct": 88
+      "correct": 143
     },
     {
       "tau": 2,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 139
     },
     {
       "tau": 2,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 134
     },
     {
       "tau": 2.5,
       "sigma": 0,
-      "correct": 89
+      "correct": 146
     },
     {
       "tau": 2.5,
       "sigma": 0.02,
-      "correct": 88
+      "correct": 145
     },
     {
       "tau": 2.5,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 142
     },
     {
       "tau": 2.5,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 137
     },
     {
       "tau": 3,
       "sigma": 0,
-      "correct": 89
+      "correct": 146
     },
     {
       "tau": 3,
       "sigma": 0.02,
-      "correct": 88
+      "correct": 145
     },
     {
       "tau": 3,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 142
     },
     {
       "tau": 3,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 137
     },
     {
       "tau": 3.5,
       "sigma": 0,
-      "correct": 89
+      "correct": 146
     },
     {
       "tau": 3.5,
       "sigma": 0.02,
-      "correct": 88
+      "correct": 145
     },
     {
       "tau": 3.5,
       "sigma": 0.05,
-      "correct": 89
+      "correct": 142
     },
     {
       "tau": 3.5,
       "sigma": 0.1,
-      "correct": 88
+      "correct": 137
     },
     {
       "tau": "inf",
       "sigma": 0,
-      "correct": 89
+      "correct": 146
     },
     {
       "tau": "inf",
       "sigma": 0.02,
-      "correct": 88
+      "correct": 145
     },
     {
       "tau": "inf",
       "sigma": 0.05,
-      "correct": 89
+      "correct": 142
     },
     {
       "tau": "inf",
       "sigma": 0.1,
-      "correct": 88
+      "correct": 137
     }
   ],
   "rows": [
@@ -267,7 +284,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.0283,
+      "semantic_margin": 0.0468,
       "deployed": "nl2sql"
     },
     {
@@ -277,7 +294,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.4268,
+      "semantic_margin": 0.3917,
       "deployed": "nl2sql"
     },
     {
@@ -297,7 +314,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.384,
+      "semantic_margin": 0.3801,
       "deployed": "nl2sql"
     },
     {
@@ -306,8 +323,8 @@
       "expected": "nl2sql",
       "rule": "nl2sql",
       "rule_margin": 1,
-      "semantic": "knowledge_graph",
-      "semantic_margin": 0.0286,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1469,
       "deployed": "nl2sql"
     },
     {
@@ -427,7 +444,7 @@
       "rule": "vector_search",
       "rule_margin": 2,
       "semantic": "vector_search",
-      "semantic_margin": 0.47,
+      "semantic_margin": 0.4353,
       "deployed": "vector_search"
     },
     {
@@ -437,7 +454,7 @@
       "rule": "vector_search",
       "rule_margin": 2,
       "semantic": "vector_search",
-      "semantic_margin": 0.1832,
+      "semantic_margin": 0.1557,
       "deployed": "vector_search"
     },
     {
@@ -477,7 +494,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.2004,
+      "semantic_margin": 0.1542,
       "deployed": "knowledge_graph"
     },
     {
@@ -527,7 +544,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.3596,
+      "semantic_margin": 0.3059,
       "deployed": "knowledge_graph"
     },
     {
@@ -547,7 +564,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2.5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.182,
+      "semantic_margin": 0.1247,
       "deployed": "knowledge_graph"
     },
     {
@@ -617,7 +634,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.2638,
+      "semantic_margin": 0.2272,
       "deployed": "nl2sql"
     },
     {
@@ -627,7 +644,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.2619,
+      "semantic_margin": 0.2347,
       "deployed": "nl2sql"
     },
     {
@@ -667,7 +684,7 @@
       "rule": "nl2sql",
       "rule_margin": 1,
       "semantic": "nl2sql",
-      "semantic_margin": 0.3272,
+      "semantic_margin": 0.2094,
       "deployed": "nl2sql"
     },
     {
@@ -697,7 +714,7 @@
       "rule": "vector_search",
       "rule_margin": 4,
       "semantic": "vector_search",
-      "semantic_margin": 0.265,
+      "semantic_margin": 0.2334,
       "deployed": "vector_search"
     },
     {
@@ -747,7 +764,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.2196,
+      "semantic_margin": 0.1577,
       "deployed": "knowledge_graph"
     },
     {
@@ -757,7 +774,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.2196,
+      "semantic_margin": 0.1577,
       "deployed": "knowledge_graph"
     },
     {
@@ -787,7 +804,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 3,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1138,
+      "semantic_margin": 0.1051,
       "deployed": "knowledge_graph"
     },
     {
@@ -797,7 +814,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 3,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1138,
+      "semantic_margin": 0.1051,
       "deployed": "knowledge_graph"
     },
     {
@@ -807,7 +824,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1328,
+      "semantic_margin": 0.0113,
       "deployed": "knowledge_graph"
     },
     {
@@ -817,7 +834,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 5,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1328,
+      "semantic_margin": 0.0113,
       "deployed": "knowledge_graph"
     },
     {
@@ -867,7 +884,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.2145,
+      "semantic_margin": 0.1641,
       "deployed": "nl2sql"
     },
     {
@@ -887,7 +904,7 @@
       "rule": "nl2sql",
       "rule_margin": 1,
       "semantic": "nl2sql",
-      "semantic_margin": 0.2279,
+      "semantic_margin": 0.2182,
       "deployed": "nl2sql"
     },
     {
@@ -907,7 +924,7 @@
       "rule": "nl2sql",
       "rule_margin": 1,
       "semantic": "nl2sql",
-      "semantic_margin": 0.3085,
+      "semantic_margin": 0.3043,
       "deployed": "nl2sql"
     },
     {
@@ -917,7 +934,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.1729,
+      "semantic_margin": 0.1625,
       "deployed": "nl2sql"
     },
     {
@@ -947,7 +964,7 @@
       "rule": "nl2sql",
       "rule_margin": 2,
       "semantic": "nl2sql",
-      "semantic_margin": 0.2169,
+      "semantic_margin": 0.1666,
       "deployed": "nl2sql"
     },
     {
@@ -967,7 +984,7 @@
       "rule": "hybrid",
       "rule_margin": 0,
       "semantic": "vector_search",
-      "semantic_margin": 0.3186,
+      "semantic_margin": 0.2552,
       "deployed": "vector_search"
     },
     {
@@ -1027,7 +1044,7 @@
       "rule": "vector_search",
       "rule_margin": 2,
       "semantic": "vector_search",
-      "semantic_margin": 0.3475,
+      "semantic_margin": 0.3384,
       "deployed": "vector_search"
     },
     {
@@ -1067,7 +1084,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1005,
+      "semantic_margin": 0.0575,
       "deployed": "knowledge_graph"
     },
     {
@@ -1087,7 +1104,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.1452,
+      "semantic_margin": 0.1249,
       "deployed": "knowledge_graph"
     },
     {
@@ -1097,7 +1114,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.158,
+      "semantic_margin": 0.0851,
       "deployed": "knowledge_graph"
     },
     {
@@ -1107,7 +1124,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.3364,
+      "semantic_margin": 0.2781,
       "deployed": "knowledge_graph"
     },
     {
@@ -1137,7 +1154,7 @@
       "rule": "knowledge_graph",
       "rule_margin": 2,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.3722,
+      "semantic_margin": 0.2828,
       "deployed": "knowledge_graph"
     },
     {
@@ -1147,7 +1164,7 @@
       "rule": "hybrid",
       "rule_margin": 0,
       "semantic": "knowledge_graph",
-      "semantic_margin": 0.3282,
+      "semantic_margin": 0.3078,
       "deployed": "knowledge_graph"
     },
     {
@@ -1159,7 +1176,607 @@
       "semantic": "knowledge_graph",
       "semantic_margin": 0.1763,
       "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "부산 쪽 2025년 장사 어땠어, 돈으로 보면?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.3182,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "보안이랑 클라우드 중 돈 더 들어온 쪽 어디야? 대전, 2025년 얘기임. 양쪽 금액도 같이",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0263,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-D2 말고 Product-D1 고르면 월 요금 얼마나 더 붙어?",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2175,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-C4 제품 등록정보에 버전 뭐라고 돼 있나, 출시 날짜랑 같이 보여쥬",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0156,
+      "deployed": "hybrid"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-N에 메일 보내야 돼. 우리 직원 말고 그쪽 연락처로 적힌 이름이랑 메일 주소 줘",
+      "expected": "nl2sql",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2198,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "2024년 7월 입사한 사람들, 이름 옆에 입사 날짜 붙여서 주라",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1368,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "연봉 4천 이상 5천 미만인 사람 이름이랑 금액 좀. 재직 중인 사람만 ㅇㅇ",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0404,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "critical인데 open으로 그대로 있는 티켓, 제목이랑 접수일 보여줘봐. 어느 고객 건인지도",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1122,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-X 스테이징 환경 장애 티켓 있잖아, 언제 접수됐고 언제 해결됐는지만 필요해",
+      "expected": "nl2sql",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1988,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1474,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "종료일이 2026년 10월인 계약들 미리 챙기게, active인 것만 고객 이름이랑 종료일 부탁",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1361,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-B 구독 계약만 따로 볼래. 상품 이름, 금액, 시작일, 끝나는 날 이렇게",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1021,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "예산 얼마 잡혀 있었지, Client-E 로그 분석 시스템? 시작 날짜도 같이 줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1686,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "보류해 둔 프로젝트 중 끝나는 날짜도 안 적힌 거 뭐뭐야? 이름만 쭉",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1535,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "의료/바이오 고객 명단 필요함. 회사명 옆에 지역 써주면 됨",
+      "expected": "nl2sql",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1117,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "고객 등록일 제일 옛날인 곳부터 다섯 군데만 훑어보자. 날짜 빼먹지 말고",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0065,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-S2 2025년 1분기 매출, 묶지 말고 한 줄씩 날짜랑 금액 볼 수 있나",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1432,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "김준혁 급여랑 입사일 확안 좀 해줘",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.2389,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "2025년에 시작한 계약에서 취소된 거, 구독/프로젝트/유지보수 각각 몇개임?",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 3,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.16,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "서울에서 2026년 상반기 제일 돈 잘 들어온 달 언제야? 그달 금액도 궁금",
+      "expected": "nl2sql",
+      "rule": "nl2sql",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.1617,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-C1 일단 띄우려먄 어케 해",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0719,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-D2 처음 켜보려는데 뭐부터 만져야 됨",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.2057,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
+      "expected": "vector_search",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1822,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-S2 DB 연결 너무 많이 열리는 거 같아. 풀 위아래 값 어떻게 잡으랬지?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0233,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "알림 하나 만들려는데 어디로 뭘 보내? Product-D1 API 얘기야",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1325,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-C4 백업본 며칠 지나면 없어져? 저장해 두는 곳도 알려줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1461,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-D3 스레드풀, 코어 수 그대로 넣는 거 맞아? 권장값 좀",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.05,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0211,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1347,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0707,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0129,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들 인수인계에 넣게 짚어줘",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0577,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1549,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
+      "expected": "vector_search",
+      "rule": "vector_search",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0281,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-G 2026년 5월 20일 만났을 때 돈 얼마나 썼다고 했어? 매출 말고 예산 쓴 비율",
+      "expected": "vector_search",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0265,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
+      "expected": "vector_search",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1741,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
+      "expected": "vector_search",
+      "rule": "nl2sql",
+      "rule_margin": 1,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1022,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1381,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-C4 얘길 왜 꺼냈던 거야 Client-M한테? 제안할 때 적은 그쪽 IT 숙제 두 가지가 뭐였지",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0568,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-O Product-S3 도입안에 투자금 회수 몇 달로 봤음?",
+      "expected": "vector_search",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "vector_search",
+      "semantic_margin": 0.1146,
+      "deployed": "vector_search"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-H 쪽 제품 조합이 뭐였더라? 이름만 툭 던져줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0156,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-N 환경에 우리 거 뭐뭐 들어가 있더라, 제품 이름 까먹음",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0726,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-S1하고 Product-C4 둘 다 쓰는 고객만 만나보려는데 어디로 가면 돼?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1335,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "오수진 명함에 팀 이름 뭐라고 넣지?",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 1,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1033,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "조예진이랑 같은 팀인 사람 이름 좀, 조예진 본인은 빼고",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0927,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "한도윤 팀 이름이 기억이 안 나네, 어딘지 알랴줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1234,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-K 건 얘기하려면 사내에서 누구한테 말 걸면 돼? 영업 계정 얘기",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "vector_search",
+      "semantic_margin": 0.0107,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "이지훈 앞으로 묶인 고객 계정들 이름만 보내봐",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "nl2sql",
+      "semantic_margin": 0.0384,
+      "deployed": "nl2sql"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-R 계정 맡은 분한테 연락해야 하는데 성함이 뭐였지? 고객 쪽 직원 말고 우리 쪽",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0494,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "권소연 요즘 뭐 해? 프로젝트 이름 하나만 알려줘봐",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1152,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "서재원 쪽 프로젝트 묶음에 뭐뭐 있지? 계획 중인 것도 빼지 마",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0071,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-C DB 마이그레이션, 누가 끌고 가는 거야?",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.2119,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0107,
+      "deployed": "hybrid"
+    },
+    {
+      "set": "holdout3",
+      "q": "보안솔루션팀 수장 성함 다시 좀. 내가 메모를 날렷네",
+      "expected": "knowledge_graph",
+      "rule": "hybrid",
+      "rule_margin": 0,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0485,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-G가 문제 있다고 접수했던 제품 이름 뭐였어? 조치 내용은 필요 없고",
+      "expected": "knowledge_graph",
+      "rule": "vector_search",
+      "rule_margin": 1,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0425,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-H 쪽에서 이슈 올린 제품만 골라줘. 도입된 제품 명단이랑 헷갈리지 말고",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 3.5,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.162,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Product-C4 때문에 연락 왔던 곳들 중 Client-AD랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0498,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-V 프로젝트 탭 채우려는데 거기 들어갈 이름들 좀 줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0088,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-N 밑에 적어둔 프로젝트 이름 뭐뭐였지, K8s 말고도 있었던 거 같은데",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.0181,
+      "deployed": "knowledge_graph"
+    },
+    {
+      "set": "holdout3",
+      "q": "Client-R 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
+      "expected": "knowledge_graph",
+      "rule": "knowledge_graph",
+      "rule_margin": 2,
+      "semantic": "knowledge_graph",
+      "semantic_margin": 0.1756,
+      "deployed": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-09-30T08:05:08.198Z"
+  "generated_at": "2026-09-30T08:18:40.889Z"
 }

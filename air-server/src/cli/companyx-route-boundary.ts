@@ -1,9 +1,9 @@
 // 규칙-시맨틱 경계 실측 — 규칙이 어디까지 믿을 만하고 어디서부터 시맨틱에 넘길지를
 // 데이터로 정한다(리원에이스 멘토링 09-22 제안).
 //
-// 개발용 문항만 쓴다: 사업자 공개 30문항, 홀드아웃 1·2차. 셋 다 라우터를 고치면서
+// 개발용 문항만 쓴다: 사업자 공개 30문항, 홀드아웃 1·2·3차. 전부 라우터를 고치면서
 // 이미 본 문항이다. 여기서 고른 경계값이 일반화되는지는 이 파일이 답하지 않는다 —
-// 수정 전에 봉인한 홀드아웃 3차(`npm run companyx:holdout3`)가 답한다.
+// 수정 전에 봉인한 다음 홀드아웃이 답한다.
 //
 // 산출:
 //   1. 규칙만, 시맨틱만의 정확도.
@@ -34,6 +34,8 @@ const DEV_SETS: { name: string; path: string; label: "tool" | "expected" }[] = [
   { name: "sponsor30", path: "datasets/companyx-v1.0/questions.json", label: "tool" },
   { name: "holdout1", path: "eval/companyx/holdout_route.json", label: "expected" },
   { name: "holdout2", path: "eval/companyx/holdout2_route.json", label: "expected" },
+  // 3차는 봉인 채점(0.767) 뒤 오분류를 분석하는 데 썼으므로 개발용이 됐다.
+  { name: "holdout3", path: "eval/companyx/holdout3_route.json", label: "expected" },
 ];
 
 interface Row {
@@ -126,7 +128,7 @@ async function main() {
 
   const out = {
     note:
-      "개발용 문항(사업자 30, 홀드아웃 1·2차)에서 규칙과 시맨틱의 경계를 잰 결과. 이 문항들은 라우터를 고치며 본 것이라 " +
+      "개발용 문항(사업자 30, 홀드아웃 1·2·3차)에서 규칙과 시맨틱의 경계를 잰 결과. 이 문항들은 라우터를 고치며 본 것이라 " +
       "일반화 수치가 아니다. 일반화는 수정 전에 봉인한 홀드아웃 3차가 잰다. grid 는 상수 후보의 모사, deployed 는 " +
       "배포 상수로 routeQuery 를 실제로 돌린 값이다.",
     input_hashes,

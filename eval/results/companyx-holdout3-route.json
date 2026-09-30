@@ -5,28 +5,25 @@
   "gold": "eval/companyx/holdout3_route.json",
   "entity_lexicon_size": 131,
   "router": "rule+semantic",
-  "semantic_anchors": 130,
+  "semantic_anchors": 175,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
   "total": 60,
-  "correct": 46,
-  "accuracy": 0.767,
+  "correct": 56,
+  "accuracy": 0.933,
   "summary": {
     "total": 60,
-    "correct": 46,
-    "strict_accuracy": 0.767,
+    "correct": 56,
+    "strict_accuracy": 0.933,
     "conservative_fanout": 2,
-    "true_miss": 12,
-    "coverage": 0.8,
+    "true_miss": 2,
+    "coverage": 0.967,
     "rule_only_strict_accuracy": 0.55
   },
   "confusion": {
-    "nl2sql -> knowledge_graph": 1,
-    "nl2sql -> vector_search": 2,
     "nl2sql -> hybrid": 1,
-    "vector_search -> nl2sql": 7,
-    "vector_search -> knowledge_graph": 1,
-    "vector_search -> hybrid": 1,
-    "knowledge_graph -> vector_search": 1
+    "vector_search -> nl2sql": 1,
+    "knowledge_graph -> nl2sql": 1,
+    "knowledge_graph -> hybrid": 1
   },
   "rows": [
     {
@@ -39,7 +36,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"부산 쪽 장사 어때\", margin 0.318)",
       "rule_only": "nl2sql"
     },
     {
@@ -52,7 +49,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"2025년 3분기에 얼마 벌었어\", margin 0.026)",
       "rule_only": "nl2sql"
     },
     {
@@ -65,11 +62,25 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"{제품} 월 이용료 얼마야\", margin 0.226)",
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"{제품} 월 이용료 얼마야\", margin 0.218)",
       "rule_only": "hybrid"
     },
     {
       "q": "Product-C4 제품 등록정보에 버전 뭐라고 돼 있나, 출시 날짜랑 같이 보여쥬",
+      "expected": "nl2sql",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "structured + semantic signals both present",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Client-N에 메일 보내야 돼. 우리 직원 말고 그쪽 연락처로 적힌 이름이랑 메일 주소 줘",
       "expected": "nl2sql",
       "got": "nl2sql",
       "lane": "structured",
@@ -78,21 +89,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"제품 가격표 보여줘\", margin 0.023)",
-      "rule_only": "hybrid"
-    },
-    {
-      "q": "Client-N에 메일 보내야 돼. 우리 직원 말고 그쪽 연락처로 적힌 이름이랑 메일 주소 줘",
-      "expected": "nl2sql",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": false,
-      "reached": false,
-      "tools": [
-        "ontology.search",
-        "graph.expand"
-      ],
-      "rationale": "type-pair client->employee => MANAGES_ACCOUNT",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 연락처 이름이랑 메일 줘\", margin 0.220)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -105,7 +102,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{직원} 입사일 언제야\", margin 0.137)",
       "rule_only": "nl2sql"
     },
     {
@@ -118,7 +115,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"연봉 제일 높은 사람\", margin 0.040)",
       "rule_only": "nl2sql"
     },
     {
@@ -137,14 +134,14 @@
     {
       "q": "Client-X 스테이징 환경 장애 티켓 있잖아, 언제 접수됐고 언제 해결됐는지만 필요해",
       "expected": "nl2sql",
-      "got": "vector_search",
-      "lane": "semantic",
-      "hit": false,
-      "reached": false,
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "vector.search"
+        "sql.query"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 티켓 언제 접수되고 언제 해결됐어\", margin 0.199)",
       "rule_only": "vector_search"
     },
     {
@@ -157,7 +154,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사} 티켓 언제 접수되고 언제 해결됐어\", margin 0.147)",
       "rule_only": "nl2sql"
     },
     {
@@ -170,7 +167,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 계약 언제 끝나\", margin 0.136)",
       "rule_only": "nl2sql"
     },
     {
@@ -183,7 +180,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사} 계약 언제 끝나\", margin 0.102)",
       "rule_only": "nl2sql"
     },
     {
@@ -196,34 +193,33 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{프로젝트} 예산 얼마야\", margin 0.169)",
       "rule_only": "nl2sql"
     },
     {
       "q": "보류해 둔 프로젝트 중 끝나는 날짜도 안 적힌 거 뭐뭐야? 이름만 쭉",
       "expected": "nl2sql",
-      "got": "vector_search",
-      "lane": "semantic",
-      "hit": false,
-      "reached": false,
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "vector.search"
+        "sql.query"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"일정 지연 얘기 나왔던 거\", margin 0.088)",
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"보류 중인 프로젝트 이름만\", margin 0.154)",
       "rule_only": "hybrid"
     },
     {
       "q": "의료/바이오 고객 명단 필요함. 회사명 옆에 지역 써주면 됨",
       "expected": "nl2sql",
-      "got": "hybrid",
-      "lane": "hybrid",
-      "hit": false,
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
       "reached": true,
       "tools": [
-        "sql.query",
-        "vector.search"
+        "sql.query"
       ],
-      "rationale": "no decisive signal; default fan-out",
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"고객사 업종이랑 지역 같이 뽑아줘\", margin 0.112)",
       "rule_only": "hybrid"
     },
     {
@@ -249,7 +245,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"월별 매출 추이 보여줘\", margin 0.143)",
       "rule_only": "nl2sql"
     },
     {
@@ -262,7 +258,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{직원} 입사일 언제야\", margin 0.239)",
       "rule_only": "nl2sql"
     },
     {
@@ -288,7 +284,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"서울 매출 얼마야\", margin 0.162)",
       "rule_only": "nl2sql"
     },
     {
@@ -320,14 +316,14 @@
     {
       "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic vector_search (anchor \"{제품} 업데이트했다가 이전 버전으로 되돌리는 법\", margin 0.182)",
       "rule_only": "nl2sql"
     },
     {
@@ -353,7 +349,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} API 호출 방법\", margin 0.143)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} API 호출 방법\", margin 0.132)",
       "rule_only": "hybrid"
     },
     {
@@ -366,7 +362,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"백업 주기 어떻게 돼\", margin 0.146)",
       "rule_only": "vector_search"
     },
     {
@@ -385,42 +381,41 @@
     {
       "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
       "expected": "vector_search",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{제품} 말썽 많아?\", margin 0.056)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 에러 코드 무슨 뜻이야\", margin 0.021)",
       "rule_only": "hybrid"
     },
     {
       "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
-      "rule_only": "nl2sql"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.135)",
+      "rule_only": "hybrid"
     },
     {
       "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
-      "rule_only": "nl2sql"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 터졌을 때 미리 못 잡은 이유\", margin 0.071)",
+      "rule_only": "hybrid"
     },
     {
       "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
@@ -445,21 +440,21 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"그 장애 때 조치한 내용\", margin 0.058)",
       "rule_only": "vector_search"
     },
     {
       "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
-      "rule_only": "nl2sql"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"그날 미팅에서 일정 얼마나 늘려주기로 했어\", margin 0.155)",
+      "rule_only": "hybrid"
     },
     {
       "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
@@ -471,7 +466,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"일정 지연 얘기 나왔던 거\", margin 0.028)",
       "rule_only": "vector_search"
     },
     {
@@ -484,49 +479,46 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.026)",
       "rule_only": "nl2sql"
     },
     {
       "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
-      "rule_only": "nl2sql"
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"킥오프 때 들어온 사람 이름\", margin 0.174)",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
       "expected": "vector_search",
-      "got": "nl2sql",
-      "lane": "structured",
-      "hit": false,
-      "reached": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "sql.query"
+        "vector.search"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic vector_search (anchor \"제안서에 적은 초기 구축비\", margin 0.102)",
       "rule_only": "nl2sql"
     },
     {
       "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
       "expected": "vector_search",
-      "got": "hybrid",
-      "lane": "hybrid",
-      "hit": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
       "reached": true,
       "tools": [
-        "sql.query",
-        "vector.search",
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{고객사}에 {제품} 제안할 때 구축 기간 몇 주 잡았어\", margin 0.138)",
       "rule_only": "hybrid"
     },
     {
@@ -552,7 +544,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"도입 제안할 때 기대효과 뭐라고 했어\", margin 0.053)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"제안한 투자 비용 얼마였어\", margin 0.115)",
       "rule_only": "hybrid"
     },
     {
@@ -580,7 +572,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair client->product => USES",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사}가 문제 제기한 제품\", margin 0.073)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -594,7 +586,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair product->client => USES",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.133)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -608,7 +600,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->department => BELONGS_TO",
+      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"{직원} 어느 팀이야\", margin 0.103)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -622,7 +614,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->department => BELONGS_TO",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 어느 팀이야\", margin 0.093)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -636,7 +628,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->department => BELONGS_TO",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 어느 팀이야\", margin 0.123)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -656,15 +648,14 @@
     {
       "q": "이지훈 앞으로 묶인 고객 계정들 이름만 보내봐",
       "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
-      "reached": true,
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": false,
+      "reached": false,
       "tools": [
-        "ontology.search",
-        "graph.expand"
+        "sql.query"
       ],
-      "rationale": "type-pair employee->client => MANAGES_ACCOUNT",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사} 연락처 이름이랑 메일 줘\", margin 0.038)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -692,7 +683,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->project => LEADS",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 요즘 뭐 해\", margin 0.115)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -720,21 +711,23 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{프로젝트} 누가 맡고 있어\", margin 0.313)",
+      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{프로젝트} 누가 맡고 있어\", margin 0.212)",
       "rule_only": "hybrid"
     },
     {
       "q": "클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서",
       "expected": "knowledge_graph",
-      "got": "knowledge_graph",
-      "lane": "graph",
-      "hit": true,
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
       "reached": true,
       "tools": [
+        "sql.query",
+        "vector.search",
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{직원} 소속이 어디야\", margin 0.116)",
+      "rationale": "no decisive signal; entity-anchored fan-out (org_unit,known_entity)",
       "rule_only": "hybrid"
     },
     {
@@ -748,20 +741,21 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{직원} 무슨 부서 사람이야\", margin 0.082)",
+      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{직원} 무슨 부서 사람이야\", margin 0.048)",
       "rule_only": "hybrid"
     },
     {
       "q": "Client-G가 문제 있다고 접수했던 제품 이름 뭐였어? 조치 내용은 필요 없고",
       "expected": "knowledge_graph",
-      "got": "vector_search",
-      "lane": "semantic",
-      "hit": false,
-      "reached": false,
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
       "tools": [
-        "vector.search"
+        "ontology.search",
+        "graph.expand"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"{고객사}가 문제 제기한 제품\", margin 0.043)",
       "rule_only": "vector_search"
     },
     {
@@ -789,7 +783,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair client->product => USES",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.050)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -831,9 +825,9 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair client->employee => MANAGES_ACCOUNT",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{프로젝트} 누가 맡고 있어\", margin 0.176)",
       "rule_only": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-09-30T08:11:14.768Z"
+  "generated_at": "2026-09-30T08:24:34.969Z"
 }

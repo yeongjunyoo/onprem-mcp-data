@@ -5,7 +5,7 @@
   "gold": "eval/companyx/holdout_route.json",
   "entity_lexicon_size": 131,
   "router": "rule+semantic",
-  "semantic_anchors": 130,
+  "semantic_anchors": 175,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
   "total": 30,
   "correct": 30,
@@ -31,7 +31,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 판매액 총 얼마\", margin 0.310)",
       "rule_only": "nl2sql"
     },
     {
@@ -44,7 +44,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 판매액 총 얼마\", margin 0.310)",
       "rule_only": "nl2sql"
     },
     {
@@ -57,7 +57,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.119)",
       "rule_only": "nl2sql"
     },
     {
@@ -70,7 +70,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.119)",
       "rule_only": "nl2sql"
     },
     {
@@ -96,7 +96,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"지역별로 매출 얼마씩 나왔어\", margin 0.227)",
       "rule_only": "nl2sql"
     },
     {
@@ -109,7 +109,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"지역별로 매출 얼마씩 나왔어\", margin 0.235)",
       "rule_only": "nl2sql"
     },
     {
@@ -122,7 +122,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"카테고리별 판매 금액\", margin 0.159)",
       "rule_only": "nl2sql"
     },
     {
@@ -135,7 +135,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"신규 고객 몇 곳 들어왔어\", margin 0.145)",
       "rule_only": "nl2sql"
     },
     {
@@ -148,7 +148,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"직원 몇 명이야\", margin 0.145)",
       "rule_only": "nl2sql"
     },
     {
@@ -161,7 +161,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"활성 계약 몇 건이야\", margin 0.209)",
       "rule_only": "nl2sql"
     },
     {
@@ -213,7 +213,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"정기 점검 항목 뭐야\", margin 0.124)",
       "rule_only": "vector_search"
     },
     {
@@ -424,5 +424,5 @@
       "rule_only": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-09-30T08:10:08.908Z"
+  "generated_at": "2026-09-30T08:20:24.899Z"
 }

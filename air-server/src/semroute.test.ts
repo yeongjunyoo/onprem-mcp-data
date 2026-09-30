@@ -55,7 +55,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
 // ── 앵커 표 불변식 ────────────────────────────────────────────────────
 {
   eq(Object.keys(ROUTE_ANCHORS).sort(), [...LANES].sort(), "앵커는 세 도구 전부에 있다");
-  const PH = ["{고객사}", "{제품}", "{직원}", "{부서}", "{프로젝트}"];
+  const PH = ["{고객사}", "{제품}", "{직원}", "{부서}", "{프로젝트}", "{날짜}"];
   const sizeOff: string[] = [], dup: string[] = [], badPh: string[] = [];
   for (const lane of LANES) {
     for (const [type, texts] of Object.entries(ROUTE_ANCHORS[lane])) {

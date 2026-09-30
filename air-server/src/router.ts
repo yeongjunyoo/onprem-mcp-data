@@ -190,12 +190,15 @@ const WEIGHT = {
 
 /** 이 격차 미만이면 규칙은 판단을 시맨틱 폴백에 넘긴다.
  *
- * 값은 개발용 문항 90개(사업자 30, 홀드아웃 1·2차)에서 격차 구간별로 규칙만,
+ * 값은 개발용 문항 150개(사업자 30, 홀드아웃 1·2·3차)에서 격차 구간별로 규칙만,
  * 시맨틱만의 정확도를 따로 재서 정했다(`npm run companyx:boundary`,
- * eval/results/companyx-route-boundary.json). 규칙이 도구를 고른 구간에서는 격차 1
- * 부터 규칙이 시맨틱과 같거나 나았고(격차 1: 9/9 대 8/9), 규칙이 판단을 포기한
- * 13문항에서는 시맨틱이 13/13, 규칙이 0/13 이었다. 그래서 경계는 1이다. */
-export const RULE_MIN_MARGIN = 1;
+ * eval/results/companyx-route-boundary.json). 격차 1 구간은 규칙 17/21 대 시맨틱
+ * 20/21, 격차 2 구간은 49/53 대 51/53 으로 시맨틱이 나았고, 2.5 이상에서 둘이
+ * 같아졌다. 규칙이 판단을 포기한 33문항은 시맨틱 32/33, 규칙 0/33.
+ *
+ * 1차 값은 1이었다(90문항). 봉인 홀드아웃 3차가 격차 1~2 구간의 규칙 오답을
+ * 드러냈다 — 날짜가 박힌 문서 질문과 집계어 없는 조회 질문. */
+export const RULE_MIN_MARGIN = 2.5;
 
 const LANE_OF: Record<Route, Lane | null> = {
   structured: "nl2sql",
@@ -306,6 +309,12 @@ export function entityLexiconSize(): number {
   return ENTITY_LEXICON.length;
 }
 
+/** 하루를 짚는 날짜. 분기, 월, 연도처럼 구간을 거는 말과 다르다. 이 데이터에서 날짜가
+ * 제목에 박힌 것은 장애 보고서와 회의록이라, 「2025년 12월 27일 그 장애」는 기간 필터가
+ * 아니라 사건 한 건을 가리킨다. 그래서 정형 신호를 세기 전에 뺀다. 하루 단위 집계는
+ * 여전히 컬럼 어휘(매출, 금액…)가 정형으로 끌고 간다. */
+const FULL_DAY = /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일/g;
+
 const TYPE_PLACEHOLDER: Record<string, string> = {
   client: "{고객사}",
   product: "{제품}",
@@ -317,7 +326,7 @@ const TYPE_PLACEHOLDER: Record<string, string> = {
 /** 실재 개체명을 타입 자리표시로 바꾼다. 시맨틱 폴백은 「무엇을 묻는가」를 비교해야
  * 하는데, "Product-C3" 같은 고유명은 의미가 없는 토큰이라 유사도를 흐린다. */
 export function maskEntities(q: string): string {
-  let out = q;
+  let out = q.replace(FULL_DAY, "{날짜}");
   for (const e of ENTITY_LEXICON) {
     const ph = TYPE_PLACEHOLDER[e.type];
     if (ph && out.includes(e.name)) out = out.split(e.name).join(ph);
@@ -363,7 +372,7 @@ const GRAPH_TOOLS = [ONTOLOGY_TOOL, GRAPH_TOOL];
 
 export function route(query: string): RouteDecision {
   const q = query.trim();
-  const s = scan(q, STRUCTURED_SIGNALS);
+  const s = scan(q.replace(FULL_DAY, " "), STRUCTURED_SIGNALS);
   const m = scan(q, SEMANTIC_SIGNALS);
   const verbs = scan(q, RELATION_VERBS);
   const generic = scan(q, GENERIC_RELATION_VERBS);

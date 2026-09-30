@@ -5,7 +5,7 @@
   "gold": "eval/companyx/holdout2_route.json",
   "entity_lexicon_size": 131,
   "router": "rule+semantic",
-  "semantic_anchors": 130,
+  "semantic_anchors": 175,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
   "total": 30,
   "correct": 29,
@@ -33,7 +33,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"올해 매출 작년이랑 비교하면\", margin 0.164)",
       "rule_only": "nl2sql"
     },
     {
@@ -59,7 +59,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"분기마다 매출 얼마씩이었는지\", margin 0.218)",
       "rule_only": "nl2sql"
     },
     {
@@ -85,7 +85,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"미해결 티켓 몇 건\", margin 0.304)",
       "rule_only": "nl2sql"
     },
     {
@@ -98,7 +98,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"계약 금액 큰 순으로 보여줘\", margin 0.163)",
       "rule_only": "nl2sql"
     },
     {
@@ -137,7 +137,7 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals",
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"프로젝트 예산 총액\", margin 0.167)",
       "rule_only": "nl2sql"
     },
     {
@@ -163,7 +163,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"개발 환경 세팅하는 법\", margin 0.319)",
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"개발 환경 세팅하는 법\", margin 0.255)",
       "rule_only": "hybrid"
     },
     {
@@ -176,7 +176,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"디스크 꽉 찼던 장애 보고서\", margin 0.176)",
       "rule_only": "vector_search"
     },
     {
@@ -202,7 +202,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "only semantic signals",
+      "rationale": "rule margin 1 < gate; semantic vector_search (anchor \"로그 어디서 봐\", margin 0.104)",
       "rule_only": "vector_search"
     },
     {
@@ -241,7 +241,7 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals doc_artifact",
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"권한 요청 절차\", margin 0.338)",
       "rule_only": "vector_search"
     },
     {
@@ -294,7 +294,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair client->product => USES",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.058)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -322,7 +322,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->department => BELONGS_TO",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 소속이 어디야\", margin 0.125)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -336,7 +336,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair department->employee => BELONGS_TO",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{부서} 사람들 보여줘\", margin 0.085)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -350,7 +350,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair client->employee => MANAGES_ACCOUNT",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 창구가 누구\", margin 0.278)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -392,7 +392,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair department->employee => BELONGS_TO",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{부서} 윗선이 누구야\", margin 0.283)",
       "rule_only": "knowledge_graph"
     },
     {
@@ -406,7 +406,7 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{제품} 말썽 많아?\", margin 0.328)",
+      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"{제품} 말썽 많아?\", margin 0.308)",
       "rule_only": "hybrid"
     },
     {
@@ -420,9 +420,9 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "type-pair employee->project => LEADS",
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 무슨 건 하고 있어\", margin 0.176)",
       "rule_only": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-09-30T08:10:41.233Z"
+  "generated_at": "2026-09-30T08:22:23.074Z"
 }
