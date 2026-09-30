@@ -1,0 +1,834 @@
+{
+  "input_hashes": {
+    "eval/companyx/holdout4_route.json": "6bc177c5be85949d"
+  },
+  "gold": "eval/companyx/holdout4_route.json",
+  "entity_lexicon_size": 131,
+  "router": "rule+semantic",
+  "semantic_anchors": 175,
+  "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
+  "total": 60,
+  "correct": 54,
+  "accuracy": 0.9,
+  "summary": {
+    "total": 60,
+    "correct": 54,
+    "strict_accuracy": 0.9,
+    "conservative_fanout": 1,
+    "true_miss": 5,
+    "coverage": 0.917,
+    "rule_only_strict_accuracy": 0.75
+  },
+  "confusion": {
+    "nl2sql -> knowledge_graph": 2,
+    "nl2sql -> hybrid": 1,
+    "nl2sql -> vector_search": 1,
+    "vector_search -> nl2sql": 2
+  },
+  "rows": [
+    {
+      "q": "부서마다 사람 몇 명씩 있는지 쫙 보여줘",
+      "expected": "nl2sql",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"각 부서장 알려줘\", margin 0.064)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "22년도에 들어온 사람 명단 좀 주라, 입사일 빠른 순으로",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"올해 입사한 사람 몇 명\", margin 0.163)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "직급별로 인원이 어떻게 돼? 차장이 제일 많나?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"직원 몇 명이야\", margin 0.026)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "규모가 enterprise로 분류된 고객사 전체 명단이 필요합니다. 업종이랑 지역도 같이 부탁드려요",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"스타트업 규모 고객 목록\", margin 0.081)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Client-AC가 우리 고객으로 등록된 게 언제였지?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?",
+      "expected": "nl2sql",
+      "got": "hybrid",
+      "lane": "hybrid",
+      "hit": false,
+      "reached": true,
+      "tools": [
+        "sql.query",
+        "vector.search"
+      ],
+      "rationale": "no decisive signal; default fan-out",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "아직 베타 딱지 붙어 있는 제퓸이 남아 있나?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"Critical 티켓 아직 안 닫힌 거\", margin 0.080)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "월 요금 제일 비싼 거?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"월정액 제일 비싼 제품\", margin 0.287)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "계약 유형별로 건수가 어떻게 되는지 알려주세요. 구독이랑 프로젝트, 유지보수 이렇게요",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"계약 유형별 건수\", margin 0.197)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "중간에 취소돼 버린 계약 중에 제일 금액이 컸던 건 어디 고객사 거였어? 얼마였는지도 같이",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "진행 중 프로젝트 몇 건?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"진행 중인 프로젝트 몇 개야\", margin 0.219)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "정산 자료 만들다 보니 예산을 크게 잡은 건들이 눈에 띄어서 그러는데, 예산이 1억 이상으로 책정된 프로젝트 이름이랑 예산을 전부 뽑아줄 수 있어?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{프로젝트} 예산 얼마야\", margin 0.085)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "올해 2분기에 제일 돈이 된 카테고리가 뭐야? 클라우드냐 보안이냐 그런 거 말이야",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"보안 카테고리 제품 몇 개\", margin 0.070)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "컨설팅으로 들어온 매츌이 지금까지 몇 건이고 총 얼마야?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"신규 고객 몇 곳 들어왔어\", margin 0.118)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "지난주 영업 쪽 회의에서 Client-B 얘기가 나왔는데, 걔네한테서 잡힌 매출 전표가 실제로 몇 건인지 날짜랑 금액 쭉 뽑아줄래?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "only structured signals",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "임우진 씨에게 배정된 티켓이 지금까지 총 몇 장인지 알려주시겠어요?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"미해결 티켓 몇 건\", margin 0.147)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "SSL 인증서 만료 알림으로 들어온 티켓, 어느 고객사들에서 온 거지?",
+      "expected": "nl2sql",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"인증서 만료 장애 어떻게 해결했어\", margin 0.028)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "해결된 티켓 기준으로 접수부터 해결까지 평균 얼마나 걸렸어?",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{고객사} 티켓 언제 접수되고 언제 해결됐어\", margin 0.237)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "이사 직급 달고 계신 분들 명단이랑 소속 부서 좀 부탁해요",
+      "expected": "nl2sql",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Product-D3 제안서에 적어 준 기대 효과 말고, 실제 매출 데이터에서 제일 크게 팔린 건 얼마였어? 팔린 날짜도 같이 알려줘",
+      "expected": "nl2sql",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 얼마나 팔렸어\", margin 0.058)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "작년 4월 22일에 Client-B에서 Product-C2 장애 났을 때 첫 번째로 한 조치가 뭐였지?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 1 < gate; semantic vector_search (anchor \"{고객사} 장애 났을 때 무슨 일이었어\", margin 0.075)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "장애 보고서들 중에 전체 서비스 중단까지 갔던 사고가 하나 있잖아요. 어느 고객사 거였고 며칠이었는지 알려주세요",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-F에서 Product-D2 HTTPS 통신 실패 났던 건, 첫 대응 들어가기까지 시간 얼마나 걸렸대?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"{날짜} 사고 복구까지 얼마나 걸렸어\", margin 0.059)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "2025년 3월 17일 Client-I Product-D3 건 말인데, 장애 감지까지 걸린 시간이랑 심각도가 어떻게 돼?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{고객사} {날짜} {제품} 장애 원인이 뭐였대\", margin 0.029)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "올해 2월에 Client-J Product-S3 응답 지연 사고 보고서에서, 재발 방지로 도입해야 한다고 적힌 패턴이 뭐야?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 1 < gate; semantic vector_search (anchor \"재발 방지 대책 뭐였어\", margin 0.062)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "장애 보고서 쭉 훑어보면 완전 복구까지 8시간 걸린 사고가 몇 건이야? 어디어디 건인지도",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Product-C2 오토스케일링은 CPU 사용률 몇 퍼센트를 기준으로 인스턴스가 늘어나?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 성능 튜닝 방법\", margin 0.052)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Product-S1 로그는 며칠이나 보관해? ELK 쪽 얘기야",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"로그 어디서 봐\", margin 0.131)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Product-S2에서 쿼리 캐시 TTL 몇 초로 잡으라고 가이드에 있었지?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"쿼리 최적화 가이드\", margin 0.075)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Product-D1 API 호출 한도가 기본이랑 프리미엄 각각 분당 몇 회야?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"API 요청 제한 있어\", margin 0.084)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Product-D2를 새 서버에 깔려고 하는데 디스크를 몇 GB 비워 둬야 하는지 문서에 나와 있나요?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"{제품} 설정 파일 어디 둬\", margin 0.126)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "올해 2월 20일에 Client-B랑 미팅했을 때 예산을 얼마나 쓴 상태라고 했지? 집행률로",
+      "expected": "vector_search",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 0 < gate; semantic nl2sql (anchor \"{프로젝트} 예산 얼마야\", margin 0.050)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "작년 8월 말 Client-C 회의에서 마일스톤 2가 며칠 밀렸다고 했는지 기억이 안 나네",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"일정 지연 얘기 나왔던 거\", margin 0.091)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "Client-E 장애 대응 회의가 6월에 있었잖아. 그때 프로젝트 진행률이 몇 퍼라고 공유됐어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{고객사}에 {제품} 제안할 때 구축 기간 몇 주 잡았어\", margin 0.041)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-J 중간 점검 회의록 보면 그때 투입 인력이 몇 명이었고 몇 명 더 필요하다고 돼 있었지?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-F 1월 중간 점검에서 POC 환경부터 만들기로 했던 것 같은데 결정 사항 원문이 정확히 뭐였어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"설계할 때 고려한 점\", margin 0.056)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-G에 Product-C2 도입하자고 쓴 제안서에서 첫 투자금을 얼마로 잡앗지? 월 운영비 말고",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"제안한 투자 비용 얼마였어\", margin 0.126)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-I에 준 Product-S2 제안서에 장애 대응 시간이 몇 퍼센트 단축된다고 적혀 있어?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-K한테 보낸 Product-D2 제안서에서 TCO 절감률이 몇 퍼였지?",
+      "expected": "vector_search",
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "vector.search"
+      ],
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"제안한 투자 비용 얼마였어\", margin 0.105)",
+      "rule_only": "vector_search"
+    },
+    {
+      "q": "Client-N D3 도입안에 월 운영비가 500만원으로 적혀 있었나? 실제 계약 금액이랑 헷갈려서 확인 좀",
+      "expected": "vector_search",
+      "got": "nl2sql",
+      "lane": "structured",
+      "hit": false,
+      "reached": false,
+      "tools": [
+        "sql.query"
+      ],
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 월 이용료 얼마야\", margin 0.031)",
+      "rule_only": "nl2sql"
+    },
+    {
+      "q": "임우진 어느 팀 소속이야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "황민수 씨 명함 만들어줘야 하는데 팀 이름이 뭐죠?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원} 어느 팀이야\", margin 0.158)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "영업팀 멤버 전원 이름 좀 올려줘",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 0 < gate; semantic knowledge_graph (anchor \"각 부서장 알려줘\", margin 0.027)",
+      "rule_only": "hybrid"
+    },
+    {
+      "q": "데이터플랫폼팀 팀장님 성함이 어떻게 되시죠?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb HEAD_IS -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "기술지원팀장이 누구지?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb HEAD_IS -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-U 건으로 연락할 사람이 우리 쪽에 누구 있더라? 성함이 기역이 안 나네",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 담당자 누구야\", margin 0.038)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "장미라 씨가 계정 맡고 있는 고객사 어디어디예요?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb LEADS -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-Y 계정 관리하는 사람이 여럿이었던 거 같은데 전부 누구야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 담당자 누구야\", margin 0.084)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "조현우가 총괄하는 프로젝트 이름이 뭐야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{직원}이 맡은 프로젝트\", margin 0.158)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-AA 재해 복구 시스템 건, 누가 이끌고 있는 거야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 1 < gate; semantic knowledge_graph (anchor \"{프로젝트} 누가 맡고 있어\", margin 0.211)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "장미라 씨가 리드하는 프로젝트를 전부 알려주시겠어요? 상태 상관없이요",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb LEADS -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-E 밑에 딸린 프로젝트 뭐뭐 잇지?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 프로젝트 뭐 있어\", margin 0.135)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-J에서 우리랑 굴린 프로젝트 목록 좀 줘봐",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 관련 프로젝트 목록\", margin 0.105)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-S랑 진행한 건들 이름이 기억 안 나는데 프로젝트 쪽에 뭐가 올라가 있어?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사} 프로젝트 뭐 있어\", margin 0.104)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-Y가 지금 쓰고 있는 우리 제품 조합이 어떻게 돼?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "relation verb USES -> graph traversal",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Product-T1 도구 깔고 있는 고객사가 어디어디야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{제품} 쓰는 고객사 어디어디야\", margin 0.124)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-D 환경에 들어가 있는 제품이 뭐뭐죠?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 2 < gate; semantic knowledge_graph (anchor \"{고객사}가 도입한 제품\", margin 0.036)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-Z에서 불만 접수 들어온 제품들만 골라줄래? 도입 목록 말고 이슈 낸 거",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "type-pair client->product => USES",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Product-T2 때문에 이슈 등록한 고객사가 몇 군데야, 어디어디?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "rule margin 0.5 < gate; semantic knowledge_graph (anchor \"{제품} 이슈 올린 고객사\", margin 0.102)",
+      "rule_only": "knowledge_graph"
+    },
+    {
+      "q": "Client-Q가 쓰는 제품 중에서 이슈까지 접수한 적 있는 게 있어? 있다면 뭐야?",
+      "expected": "knowledge_graph",
+      "got": "knowledge_graph",
+      "lane": "graph",
+      "hit": true,
+      "reached": true,
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "rationale": "type-pair client->product => USES",
+      "rule_only": "knowledge_graph"
+    }
+  ],
+  "generated_at": "2026-09-30T08:48:12.819Z"
+}
