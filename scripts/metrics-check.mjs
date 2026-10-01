@@ -542,6 +542,13 @@ const REQUIRED_CLAIMS = [
   { doc: "README.en.md", metric: "ask_evidence_pct" },
   { doc: "README.en.md", metric: "ask_grounded_pct" },
   { doc: "README.md", metric: "ask_grounded_pct" },
+  // NL2SQL 행에는 marker 가 없어서, 정본이 2026-10-01 에 8/10 으로 옮겨 간 뒤에도 README 와 제출 보고서가
+  // 08-19 의 7/10 을 그대로 적고 있었고 아무 검사도 울리지 않았다(범위 표기 검사 E2 만 report.md 를 봤다).
+  { doc: "README.md", metric: "nl2sql_norepair" },
+  { doc: "README.md", metric: "nl2sql_repair" },
+  { doc: "README.en.md", metric: "nl2sql_norepair" },
+  { doc: "README.en.md", metric: "nl2sql_repair" },
+  { doc: "docs/submission-report.md", metric: "nl2sql_norepair" },
 ];
 
 for (const { doc, metric } of REQUIRED_CLAIMS) {
