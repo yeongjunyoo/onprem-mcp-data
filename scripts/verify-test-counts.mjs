@@ -12,7 +12,7 @@
 //   그 값(integration)은 여전히 선언이고, 로컬 실행 기록으로만 뒷받침된다.
 //   즉 이 검사는 오프라인 부분의 위조를 막고, 통합 부분은 막지 못한다.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,34 +36,38 @@ if (OFFLINE.length === 0) {
   process.exit(1);
 }
 
-let counted = 0;
-const perSuite = [];
-
-for (const suite of OFFLINE) {
-  let out;
-  try {
-    out = execFileSync(process.execPath, [`dist/${suite}.test.js`], {
-      cwd: SERVER,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (e) {
-    console.error(`\n${suite}.test 가 실패했다 — 단언 수를 세기 전에 통과해야 한다.`);
-    console.error(String(e.stdout ?? e).slice(-800));
-    process.exit(1);
+/** 정본 목록의 오프라인 스위트를 돌려 스위트별 단언 수를 센다. extraEnv 로 「데이터셋 없음」을 흉내 낸다. */
+function countSuites(extraEnv = {}) {
+  let counted = 0;
+  const perSuite = [];
+  for (const suite of OFFLINE) {
+    let out;
+    try {
+      out = execFileSync(process.execPath, [`dist/${suite}.test.js`], {
+        cwd: SERVER,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, ...extraEnv },
+      });
+    } catch (e) {
+      console.error(`\n${suite}.test 가 실패했다 — 단언 수를 세기 전에 통과해야 한다.`);
+      console.error(String(e.stdout ?? e).slice(-800));
+      process.exit(1);
+    }
+    const m = /(\d+) passed, (\d+) failed/.exec(out);
+    if (!m) {
+      console.error(`\n${suite}.test 출력에서 "N passed, M failed" 를 찾지 못했다.`);
+      process.exit(1);
+    }
+    const [, passed, failed] = m;
+    if (Number(failed) !== 0) {
+      console.error(`\n${suite}.test 에 실패가 있다: ${failed}건`);
+      process.exit(1);
+    }
+    counted += Number(passed);
+    perSuite.push(`${suite}=${passed}`);
   }
-  const m = /(\d+) passed, (\d+) failed/.exec(out);
-  if (!m) {
-    console.error(`\n${suite}.test 출력에서 "N passed, M failed" 를 찾지 못했다.`);
-    process.exit(1);
-  }
-  const [, passed, failed] = m;
-  if (Number(failed) !== 0) {
-    console.error(`\n${suite}.test 에 실패가 있다: ${failed}건`);
-    process.exit(1);
-  }
-  counted += Number(passed);
-  perSuite.push(`${suite}=${passed}`);
+  return { counted, perSuite };
 }
 
 // ★ 데이터셋 유무로 합계가 갈린다. 사업자 데이터셋은 배포 조건상 저장소에 없고,
@@ -71,6 +75,7 @@ for (const suite of OFFLINE) {
 // 그래서 "오프라인 267" 은 데이터셋이 있을 때의 값이고 CI 에서는 256 이다.
 // 하나의 숫자로 뭉개면 그 문서는 어느 환경에서도 정확하지 않다.
 const hasDataset = existsSync(resolve(ROOT, "datasets/companyx-v1.0/graph/edges.json"));
+const { counted, perSuite } = countSuites();
 const expected = hasDataset ? canonical.offline_with_dataset : canonical.offline_ci;
 const label = hasDataset ? "offline_with_dataset" : "offline_ci (데이터셋 없음)";
 
@@ -79,7 +84,41 @@ console.log("  " + perSuite.join(" "));
 console.log(`  합계 ${counted}`);
 console.log(`정본 test-counts.json: ${label}=${expected} integration=${canonical.integration} total=${canonical.total}`);
 
+// ★ 데이터셋이 있는 곳에서는 「데이터셋 없음」 수도 센다(TEST_AS_CI=1, 테스트가 데이터셋을 못 본 척한다).
+//   종전에는 그 환경의 지도만 대조해서, 로컬은 per_suite_offline 만, CI 는 per_suite_offline_ci 만 봤다.
+//   2026-10-01 에 로컬 검사가 초록인 채로 per_suite_offline_ci 가 router 21(실제 35), graphcaps 19(29),
+//   degraded 32(49)로 낡아 있었다. 정본을 손으로 고친 날마다 반쪽만 고쳤고, 반쪽은 CI 에서만 드러났다.
+const ci = hasDataset ? countSuites({ TEST_AS_CI: "1" }) : { counted, perSuite };
+if (hasDataset) {
+  console.log("러너 실측 (오프라인, 데이터셋 없는 CI 와 같게 TEST_AS_CI=1):");
+  console.log("  " + ci.perSuite.join(" "));
+  console.log(`  합계 ${ci.counted}`);
+}
+
+// --write: 러너가 센 값으로 정본의 오프라인 수를 쓴다. 손으로 고치지 않는다.
+if (process.argv.includes("--write")) {
+  const toMap = (list) => Object.fromEntries(list.map((s) => s.split("=")).map(([k, v]) => [k, Number(v)]));
+  if (hasDataset) {
+    canonical.per_suite_offline = toMap(perSuite);
+    canonical.offline_with_dataset = counted;
+    canonical.total = counted + canonical.integration;
+  }
+  canonical.per_suite_offline_ci = toMap(ci.perSuite);
+  canonical.offline_ci = ci.counted;
+  if ("total_ci_verifiable" in canonical) canonical.total_ci_verifiable = ci.counted;
+  writeFileSync(resolve(ROOT, "eval/results/test-counts.json"), JSON.stringify(canonical, null, 2) + "\n");
+  console.log(`\n썼다: eval/results/test-counts.json (offline_with_dataset=${canonical.offline_with_dataset}, offline_ci=${canonical.offline_ci}, total=${canonical.total}). 문서의 수는 따로 고친다.`);
+}
+
 const fails = [];
+if (hasDataset) {
+  const ciMap = canonical.per_suite_offline_ci ?? {};
+  for (const s of ci.perSuite) {
+    const [k, v] = s.split("=");
+    if (ciMap[k] !== Number(v)) fails.push(`per_suite_offline_ci.${k}: 정본 ${ciMap[k] ?? "(없음)"} 인데 TEST_AS_CI=1 실측은 ${v} 이다`);
+  }
+  if (canonical.offline_ci !== ci.counted) fails.push(`정본 offline_ci=${canonical.offline_ci} 인데 TEST_AS_CI=1 실측은 ${ci.counted} 이다`);
+}
 
 // ★ 문이 정본과 갈리는 것을 잡는다.
 //   CI 는 `npm test` 를 안 부른다 — 이 검사가 정본 목록을 직접 돌린다. 그래서 그

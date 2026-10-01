@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
+// 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
+// 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
+const TEST_AS_CI = process.env.TEST_AS_CI === "1";
+
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
   if (cond) { pass++; } else { fail++; console.error("  FAIL:", msg); }
@@ -52,7 +56,7 @@ ok(stable, "determinism: 20 runs identical");
 {
   const here = dirname(fileURLToPath(import.meta.url));
   const edgesPath = resolve(here, "../../datasets/companyx-v1.0/graph/edges.json");
-  if (existsSync(edgesPath)) {
+  if (!TEST_AS_CI && existsSync(edgesPath)) {
     const edges = JSON.parse(readFileSync(edgesPath, "utf8")) as { relation: string }[];
     const inData = [...new Set(edges.map((e) => e.relation))].sort();
     const uncovered = inData.filter((t) => !RELATION_SIGNAL_TYPES.has(t));
@@ -97,7 +101,7 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   const gdir = resolve(here, "../../datasets/companyx-v1.0/graph");
   // 둘 다 있어야 한다. nodes.json 만 보고 edges.json 을 무조건 읽으면, 한쪽만 있는
   // 상태에서 스킵이 아니라 크래시가 난다(부분 데이터셋 프로브에서 실측).
-  if (existsSync(resolve(gdir, "nodes.json")) && existsSync(resolve(gdir, "edges.json"))) {
+  if (!TEST_AS_CI && existsSync(resolve(gdir, "nodes.json")) && existsSync(resolve(gdir, "edges.json"))) {
     const nodes = JSON.parse(readFileSync(resolve(gdir, "nodes.json"), "utf8"));
     const edges = JSON.parse(readFileSync(resolve(gdir, "edges.json"), "utf8"));
     const inst = installOntology(nodes, edges);

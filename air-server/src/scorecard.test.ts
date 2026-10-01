@@ -32,6 +32,10 @@ import {
   type ScoreItem,
 } from "./scorecard.js";
 
+// 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
+// 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
+const TEST_AS_CI = process.env.TEST_AS_CI === "1";
+
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
   if (cond) { pass++; } else { fail++; console.error("  FAIL:", msg); }
@@ -194,7 +198,7 @@ for (const { set, items } of sets) {
 // DATASET_DIR 을 따르면 셸에 그 값이 남은 날 단언 수가 두 정본 어느 쪽과도 안 맞는다.
 {
   const dir = resolve(root, "datasets/companyx-v1.0");
-  if (existsSync(resolve(dir, "graph/nodes.json")) && existsSync(resolve(dir, "graph/edges.json")) && existsSync(resolve(dir, "documents/index.json"))) {
+  if (!TEST_AS_CI && existsSync(resolve(dir, "graph/nodes.json")) && existsSync(resolve(dir, "graph/edges.json")) && existsSync(resolve(dir, "documents/index.json"))) {
     const nodes = JSON.parse(readFileSync(resolve(dir, "graph/nodes.json"), "utf8")) as { id: string; name: string; type: string }[];
     const edges = JSON.parse(readFileSync(resolve(dir, "graph/edges.json"), "utf8")) as { source: string; relation: string; target: string }[];
     const index = JSON.parse(readFileSync(resolve(dir, "documents/index.json"), "utf8")) as { id: string; filename: string }[];

@@ -71,7 +71,7 @@ cd air-server && npm ci && npx tsc     # 의존성 설치와 빌드
 
 **갓 클론한 저장소에서 아무 설정 없이 돌아갑니다.** `git clone` → `cd air-server && npm ci` → `npm test` 로 480단언이 통과합니다(2026-09-30 실측). Docker 도 모델도 필요 없습니다 — 데이터베이스가 필요한 계층은 `npm run test:integration` 으로 분리돼 있고, 각 스위트는 자기 데이터셋 프로파일에 고정돼 있어 셸에 남은 `DATASET` 값이 결과를 바꾸지 않습니다.
 
-전 스위트 기준 688단언이 통과 상태입니다(오프라인 551 + DB·모델 통합 137). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
+전 스위트 기준 688단언이 통과 상태입니다(오프라인 551 + DB·모델 통합 137). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 데이터셋이 있는 곳에서는 데이터셋 없는 CI 의 수도 함께 셉니다(`TEST_AS_CI=1`). 테스트를 더하거나 뺐으면 `node scripts/verify-test-counts.mjs --write` 로 정본을 러너 값으로 다시 쓰고, 문서의 수만 손으로 맞춥니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
 
 ## 변경 절차
 

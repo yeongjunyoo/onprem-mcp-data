@@ -21,6 +21,10 @@ import type { Embedder } from "./embedder.js";
 import { z } from "zod";
 import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 
+// 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
+// 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
+const TEST_AS_CI = process.env.TEST_AS_CI === "1";
+
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
   if (cond) { pass++; } else { fail++; console.error("  FAIL:", msg); }
@@ -73,7 +77,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   // 데이터셋의 모든 엣지 타입에 앵커가 있어야 한다.
   const here = dirname(fileURLToPath(import.meta.url));
   const edgesPath = resolve(here, "../../datasets/companyx-v1.0/graph/edges.json");
-  if (existsSync(edgesPath)) {
+  if (!TEST_AS_CI && existsSync(edgesPath)) {
     const edges = JSON.parse(readFileSync(edgesPath, "utf8")) as { relation: string }[];
     const missing = [...new Set(edges.map((e) => e.relation))].filter((r) => !(r in ROUTE_ANCHORS.knowledge_graph));
     eq(missing, [], "모든 엣지 타입에 그래프 앵커");
