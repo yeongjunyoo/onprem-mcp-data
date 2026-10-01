@@ -4,18 +4,18 @@
   "sampled": 500,
   "of": 500,
   "samplingStride": 1,
-  "correct": 218,
-  "executionAccuracy": 43.6,
+  "correct": 215,
+  "executionAccuracy": 43,
   "goldUnscorable": 2,
   "goldUnscorableIds": [
     518,
     701
   ],
   "scorable": 498,
-  "executionAccuracyScorable": 43.8,
+  "executionAccuracyScorable": 43.2,
   "byDifficulty": {
     "simple": {
-      "c": 89,
+      "c": 87,
       "n": 148
     },
     "moderate": {
@@ -23,10 +23,10 @@
       "n": 250
     },
     "challenging": {
-      "c": 24,
+      "c": 23,
       "n": 102
     }
   },
-  "generatedAt": "2026-08-19T13:01:44.487Z",
+  "generatedAt": "2026-09-30T13:24:11.740Z",
   "note": "External calibration on a DIFFERENT, harder cross-domain dataset; BIRD-style execution accuracy (result-set multiset match) vs gold; no LLM judge; oracle evidence included in prompt as per BIRD protocol. Reported in a SEPARATE column; NOT a go/no-go on the internal suite. gold SQL that exceeds the 30s execution budget is reported separately (goldUnscorable): the headline executionAccuracy counts it as wrong per BIRD convention, executionAccuracyScorable excludes it from the denominator."
 }

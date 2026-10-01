@@ -115,7 +115,7 @@
     "id": "q15",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT categories.name, COUNT(products.id) AS product_count\nFROM bench.categories\nLEFT JOIN bench.products ON categories.id = products.category_id\nGROUP BY categories.name",
+    "pred": "SELECT c.name AS category_name, COUNT(p.id) AS product_count\nFROM bench.categories c\nJOIN bench.products p ON c.id = p.category_id\nGROUP BY c.name",
     "predOk": true,
     "goldOk": true
   },
@@ -675,7 +675,7 @@
     "id": "q85",
     "tax": "aggregate+filter",
     "ok": true,
-    "pred": "SELECT SUM(total) AS total_amount FROM bench.orders WHERE customer_id = 1",
+    "pred": "SELECT SUM(total) AS total_order_amount FROM bench.orders WHERE customer_id = 1",
     "predOk": true,
     "goldOk": true
   },
