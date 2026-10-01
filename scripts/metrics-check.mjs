@@ -130,8 +130,14 @@ for (const { result, inputs } of FRESHNESS) {
 const canonical = {};
 
 const vec = readJson("eval/results/companyx-vector.json");
-const vecKey = Object.keys(vec.detail).find((k) => k.includes("bge-m3@768")) ?? Object.keys(vec.detail)[0];
-canonical.vector_hit5 = vec.detail[vecKey]["hit@5"].toFixed(3);
+// 정본은 bge-m3@768 이다. 없을 때 첫 키로 대신 읽으면 해시 임베더의 값이 정본 자리에
+// 앉는다(2026-10-01 재측정이 EMBEDDER 없이 돌아 0.986 이 0.775 로 「움직였다」).
+const vecKey = Object.keys(vec.detail).find((k) => k.includes("bge-m3@768"));
+if (vecKey) canonical.vector_hit5 = vec.detail[vecKey]["hit@5"].toFixed(3);
+else {
+  canonical.vector_hit5 = "없음";
+  fails.push(`벡터: companyx-vector.json 에 bge-m3@768 결과가 없다(있는 것: ${Object.keys(vec.detail).join(", ")}) — npm run companyx:vector 로 다시 잰다`);
+}
 
 const h1 = readJson("eval/results/companyx-holdout-route.json");
 canonical.holdout1_strict = h1.summary.strict_accuracy.toFixed(3);

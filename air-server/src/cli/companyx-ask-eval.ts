@@ -29,7 +29,14 @@ import { initRouting } from "../routerinit.js";
 import { ask } from "../pipeline.js";
 import { profile } from "../profile.js";
 import { isAvailable, DEFAULT_MODEL } from "../llm.js";
-import { loadQuestions, loadGraph, datasetDir, type CxQuestion, requireDataset } from "../companyx.js";
+import {
+  loadQuestions,
+  loadGraph,
+  datasetDir,
+  type CxQuestion,
+  requireDataset,
+  assertCorpusEmbedder,
+} from "../companyx.js";
 
 interface SqlGold {
   id: string;
@@ -112,6 +119,7 @@ async function main() {
 
   const pool = getPool();
   const embedder = getEmbedder();
+  await assertCorpusEmbedder(pool, embedder);
   // 서버 기동과 같은 라우터 상태에서 잰다(온톨로지, 시맨틱 앵커).
   const routing = await initRouting();
 

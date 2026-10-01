@@ -38,6 +38,7 @@ import {
   requireCompanyxProfile,
   kgGoldIds,
   qualifyCompanyx,
+  assertCorpusEmbedder,
   type CxQuestion,
   type KgSpec,
 } from "../companyx.js";
@@ -403,6 +404,7 @@ async function main() {
   }
 
   const embedder = getEmbedder();
+  if (!stored) await assertCorpusEmbedder(pool, embedder);
   // 서버 기동과 같은 라우터 상태(온톨로지, 시맨틱 앵커). 재채점은 모델을 부르지 않으므로 필요 없다.
   const routing = stored ? null : await initRouting();
   const rows: Row[] = [];

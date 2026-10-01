@@ -484,6 +484,42 @@ export async function computeCompanyXVectors(
   return out;
 }
 
+/** 코퍼스 벡터가 지금 질의할 임베더로 채워졌는지 첫 조각 하나로 확인한다.
+ *
+ * 2026-10-01 CPU 정본: 정본 재측정이 벡터 평가를 해시 임베더로만 돌려 코퍼스를 해시
+ * 벡터로 되돌려 놓았고, 이어서 bge-m3 로 질의한 채점표의 벡터 레인이 0/10 이 됐다.
+ * 검색은 오류 없이 엉뚱한 조각을 돌려주므로 결과만 봐서는 모른다. 백필과 같은 문자열을
+ * 지금 임베더로 다시 재서 저장된 벡터와의 코사인을 본다(같은 임베더면 1 에 가깝다). */
+export async function assertCorpusEmbedder(
+  pool: Pool,
+  embedder: Embedder,
+  schema = CX_SCHEMA,
+  min = 0.95,
+): Promise<number> {
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error(`unsafe schema: ${schema}`);
+  const r = await pool.query<{ title: string; body: string; v: string }>(
+    `SELECT title, body, embedding::text AS v FROM ${schema}.documents WHERE embedding IS NOT NULL ORDER BY id LIMIT 1`,
+  );
+  const fix = `DATASET=companyx EMBEDDER=${process.env.EMBEDDER ?? ""} node dist/cli/companyx-vector-eval.js 로 코퍼스를 다시 채운 뒤 잰다`;
+  if (!r.rows.length) throw new Error(`${schema} 코퍼스에 임베딩이 없다. ${fix}`);
+  const stored = JSON.parse(r.rows[0].v) as number[];
+  const fresh = await embedder.embed(`${r.rows[0].title}\n${r.rows[0].body}`);
+  if (stored.length !== fresh.length) {
+    throw new Error(`코퍼스 벡터 폭 ${stored.length} 이 ${embedder.name} 의 폭 ${fresh.length} 과 다르다. ${fix}`);
+  }
+  let dot = 0, a = 0, b = 0;
+  for (let i = 0; i < fresh.length; i++) {
+    dot += stored[i] * fresh[i];
+    a += stored[i] * stored[i];
+    b += fresh[i] * fresh[i];
+  }
+  const cos = a && b ? dot / Math.sqrt(a * b) : 0;
+  if (cos < min) {
+    throw new Error(`코퍼스 벡터가 ${embedder.name} 로 채워져 있지 않다(첫 조각 코사인 ${cos.toFixed(3)}). ${fix}`);
+  }
+  return cos;
+}
+
 export async function embedCompanyXChunks(
   pool: Pool,
   embedder: Embedder,

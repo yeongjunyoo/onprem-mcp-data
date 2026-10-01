@@ -21,6 +21,7 @@ import type { Embedder } from "./embedder.js";
 import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
+import { assertCorpusEmbedder } from "./companyx.js";
 
 let passed = 0;
 let failed = 0;
@@ -312,6 +313,23 @@ const deadEmbedder: Embedder = {
   ok(emb.length === 2 && emb[0] === 0.5, `embed 는 벡터를 돌려준다 (got ${JSON.stringify(emb)})`);
   server.close();
   server.closeAllConnections();
+}
+
+// 코퍼스 임베더 확인(companyx.ts assertCorpusEmbedder). 2026-10-01 CPU 정본에서 코퍼스가 해시 벡터로
+// 남은 채 bge-m3 로 질의해 벡터 레인이 오류 없이 0/10 이 됐다. 저장된 벡터와 지금 임베더가 다르면 던진다.
+{
+  const rowPool = (rows: { title: string; body: string; v: string }[]) =>
+    ({ query: async () => ({ rows }) }) as unknown as Parameters<typeof assertCorpusEmbedder>[0];
+  const fixed = (v: number[]): Embedder => ({ name: "stub", dim: v.length, embed: async () => v });
+  const reason = (p: Promise<unknown>) => p.then(() => "", (e: Error) => e.message);
+  const row = [{ title: "t", body: "b", v: "[1,0,0]" }];
+  ok((await assertCorpusEmbedder(rowPool(row), fixed([2, 0, 0]))) > 0.999, "같은 방향이면 통과한다(크기는 상관없다)");
+  const other = await reason(assertCorpusEmbedder(rowPool(row), fixed([0, 1, 0])));
+  ok(other.includes("stub 로 채워져 있지 않다(첫 조각 코사인 0.000)"), `다른 임베더면 코사인과 함께 던진다 (got ${other})`);
+  const width = await reason(assertCorpusEmbedder(rowPool(row), fixed([1, 0])));
+  ok(width.includes("폭 3 이 stub 의 폭 2 과 다르다"), `폭이 다르면 던진다 (got ${width})`);
+  const none = await reason(assertCorpusEmbedder(rowPool([]), fixed([1, 0, 0])));
+  ok(none.includes("임베딩이 없다"), `임베딩이 하나도 없으면 던진다 (got ${none})`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
