@@ -1,0 +1,389 @@
+{
+  "summary": {
+    "dataset": "questions.json (nl2sql subset) + eval/companyx/holdout3_route.json (nl2sql)",
+    "strategy": "llm",
+    "schema_card": "annotated",
+    "model": "gemma4:e4b",
+    "total": 30,
+    "correct": 19,
+    "accuracy": 63.3,
+    "gold_execution_failures": 0,
+    "repaired_queries": 0,
+    "repair_enabled": true,
+    "empty_repair": false,
+    "rescored_from": null,
+    "gold_id_dropped": 20,
+    "byTax": {
+      "join+group+top-k": {
+        "c": 0,
+        "n": 1
+      },
+      "filter+aggregate": {
+        "c": 2,
+        "n": 2
+      },
+      "filter+count": {
+        "c": 1,
+        "n": 1
+      },
+      "join+projection": {
+        "c": 1,
+        "n": 1
+      },
+      "join+group+argmax": {
+        "c": 1,
+        "n": 2
+      },
+      "filter+set-membership": {
+        "c": 0,
+        "n": 1
+      },
+      "join+group+sort": {
+        "c": 1,
+        "n": 1
+      },
+      "time-filter+count": {
+        "c": 1,
+        "n": 1
+      },
+      "holdout": {
+        "c": 12,
+        "n": 20
+      }
+    },
+    "note": "Gold SQL written from the sponsor's own hint field; both queries executed, result sets compared (execution match). No LLM judge. n=10 is the sponsor's example set — small, so treat as a smoke number, not a benchmark.",
+    "generated_at": "2026-09-30T13:11:25.392Z"
+  },
+  "rows": [
+    {
+      "id": "CX-SQL-01",
+      "tax": "join+group+top-k",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.name FROM companyx.clients AS T1 INNER JOIN companyx.sales AS T2 ON T1.id = T2.client_id WHERE T2.region = '서울' ORDER BY T2.amount DESC LIMIT 5",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 4,
+      "ms": 15272
+    },
+    {
+      "id": "CX-SQL-02",
+      "tax": "filter+aggregate",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT SUM(s.amount) FROM companyx.sales AS s WHERE s.quarter = '2025-Q3'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 212
+    },
+    {
+      "id": "CX-SQL-03",
+      "tax": "filter+aggregate",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT AVG(s.amount) FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE p.category = 'security'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 331
+    },
+    {
+      "id": "CX-SQL-04",
+      "tax": "filter+count",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT count(*) FROM companyx.contracts WHERE status = 'active'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 256
+    },
+    {
+      "id": "CX-SQL-05",
+      "tax": "join+projection",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '기술지원팀'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 4,
+      "ms": 258
+    },
+    {
+      "id": "CX-SQL-06",
+      "tax": "join+group+argmax",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.name FROM companyx.clients AS T1 JOIN companyx.projects AS T2 ON T1.id = T2.client_id WHERE T2.status = 'in_progress' GROUP BY T1.id ORDER BY COUNT(T2.id) DESC LIMIT 1",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 378
+    },
+    {
+      "id": "CX-SQL-07",
+      "tax": "filter+set-membership",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.title, T1.description, T1.created_at FROM companyx.support_tickets AS T1 WHERE T1.priority = 'critical' AND T1.status IN ('open', 'in_progress')",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 5,
+      "ms": 311
+    },
+    {
+      "id": "CX-SQL-08",
+      "tax": "join+group+sort",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT p.name, SUM(c.amount) AS total_contract_amount FROM companyx.products p JOIN companyx.contracts c ON p.id = c.product_id GROUP BY p.name ORDER BY total_contract_amount DESC",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 12,
+      "ms": 334
+    },
+    {
+      "id": "CX-SQL-09",
+      "tax": "time-filter+count",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT count(*) FROM companyx.clients WHERE registered_at >= '2024-01-01' AND registered_at < '2025-01-01'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 262
+    },
+    {
+      "id": "CX-SQL-10",
+      "tax": "join+group+argmax",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T1.name FROM companyx.departments AS T1 JOIN companyx.employees AS T2 ON T1.id = T2.dept_id GROUP BY T1.id ORDER BY AVG(T2.salary) DESC LIMIT 1",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 310
+    },
+    {
+      "id": "h3-01",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT SUM(s.amount) FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.region = '부산' AND s.quarter LIKE '2025-%'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 311
+    },
+    {
+      "id": "h3-02",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT category, SUM(amount) FROM companyx.sales WHERE region = '대전' AND quarter LIKE '2025-%' AND category IN ('security', 'cloud') GROUP BY category",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 2,
+      "ms": 335
+    },
+    {
+      "id": "h3-03",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT price_monthly FROM companyx.products WHERE name = 'Product-D1'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 192
+    },
+    {
+      "id": "h3-04",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT name, version, release_date FROM companyx.products WHERE name = 'Product-C4'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 201
+    },
+    {
+      "id": "h3-05",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT contact_name, contact_email FROM companyx.clients WHERE name = 'Client-N'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 203
+    },
+    {
+      "id": "h3-06",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT name, hire_date FROM companyx.employees WHERE EXTRACT(YEAR FROM hire_date) = 2024 AND EXTRACT(MONTH FROM hire_date) = 7",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 251
+    },
+    {
+      "id": "h3-07",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT e.name, e.salary FROM companyx.employees AS e WHERE e.salary >= 4000 AND e.salary < 5000 AND e.is_active = TRUE",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 12,
+      "ms": 269
+    },
+    {
+      "id": "h3-08",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.title, T1.created_at, T2.name FROM companyx.support_tickets AS T1 JOIN companyx.clients AS T2 ON T1.client_id = T2.id WHERE T1.priority = 'critical' AND T1.status IN ('open', 'in_progress')",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 378
+    },
+    {
+      "id": "h3-09",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T1.created_at, T1.resolved_at FROM companyx.support_tickets AS T1 INNER JOIN companyx.clients AS T2 ON T1.client_id = T2.id WHERE T2.name = 'Client-X' AND T1.title LIKE '%스테이징 환경 장애%'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 2,
+      "ms": 397
+    },
+    {
+      "id": "h3-10",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.title, (T1.resolved_at - T1.created_at) AS resolution_time FROM companyx.support_tickets AS T1 WHERE EXTRACT(YEAR FROM T1.created_at) = 2025 AND T1.status = 'resolved' ORDER BY (T1.resolved_at - T1.created_at) DESC LIMIT 3",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 3,
+      "ms": 465
+    },
+    {
+      "id": "h3-11",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.name, T2.end_date FROM companyx.clients AS T1 INNER JOIN companyx.contracts AS T2 ON T1.id = T2.client_id WHERE T2.status = 'active' AND T2.end_date = '2026-10-01'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 2,
+      "ms": 368
+    },
+    {
+      "id": "h3-12",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T3.name, T1.amount, T1.start_date, T1.end_date FROM companyx.contracts AS T1 INNER JOIN companyx.clients AS T2 ON T1.client_id = T2.id INNER JOIN companyx.products AS T3 ON T1.product_id = T3.id WHERE T2.name = 'Client-B' AND T1.contract_type = 'subscription'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 2,
+      "ms": 493
+    },
+    {
+      "id": "h3-13",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT p.budget, p.start_date FROM companyx.projects AS p JOIN companyx.clients AS c ON p.client_id = c.id WHERE c.name = 'Client-E' AND p.name LIKE '%로그 분석 시스템%'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 337
+    },
+    {
+      "id": "h3-14",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T1.name FROM companyx.projects AS T1 WHERE T1.status = 'on_hold' AND T1.end_date IS NULL",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 3,
+      "ms": 221
+    },
+    {
+      "id": "h3-15",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T1.name, T1.region FROM companyx.clients AS T1 WHERE T1.industry = '의료/바이오'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 3,
+      "ms": 222
+    },
+    {
+      "id": "h3-16",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT * FROM companyx.clients ORDER BY registered_at ASC LIMIT 5",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 5,
+      "ms": 157
+    },
+    {
+      "id": "h3-17",
+      "tax": "holdout",
+      "ok": true,
+      "repaired": false,
+      "pred": "SELECT T1.sale_date, T1.amount FROM companyx.sales AS T1 INNER JOIN companyx.products AS T2 ON T1.product_id = T2.id WHERE T2.name = 'Product-S2' AND T1.quarter = '2025-Q1'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 8,
+      "ms": 363
+    },
+    {
+      "id": "h3-18",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT T1.salary, T1.hire_date FROM companyx.employees AS T1 WHERE T1.name = '김준혁'",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 226
+    },
+    {
+      "id": "h3-19",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT contract_type, COUNT(id) FROM companyx.contracts WHERE status = 'cancelled' AND start_date >= '2025-01-01' AND start_date < '2026-01-01' GROUP BY contract_type",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 3,
+      "ms": 338
+    },
+    {
+      "id": "h3-20",
+      "tax": "holdout",
+      "ok": false,
+      "repaired": false,
+      "pred": "SELECT quarter, SUM(amount) FROM companyx.sales WHERE region = '서울' AND quarter LIKE '2026-Q%' GROUP BY quarter ORDER BY SUM(amount) DESC LIMIT 1",
+      "predOk": true,
+      "goldOk": true,
+      "goldRows": 1,
+      "ms": 330
+    }
+  ]
+}

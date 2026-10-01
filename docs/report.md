@@ -487,6 +487,8 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 - **LLM 자율 도구 선택 대 규칙 라우터**(멘토 제안, `npm run companyx:toolselect`). 같은 7B 에게 MCP tools/list 설명만 주고 고르게 하면 봉인 홀드아웃4 38/60, 규칙만 45/60, 규칙+시맨틱 54/60. 개발용 150문항 113 대 109 대 145. 7B 는 선택 150건 중 148건을 tool_calls 가 아니라 본문 JSON 으로 냈다.
 - **컨텍스트 예산.** 서버와 같은 라우터 상태로 개발용(사업자 30 + 홀드아웃3 채점 가능 38) 정답 합이 256: 39, 512: 41, 1024: 44 라 기본값을 1024 로 올렸다(`pipeline.ts` `DEFAULT_BUDGET`).
 
+원자료(`eval/results/`): 스키마 카드 `companyx-sql-llm-holdout4.json`(주석), `companyx-sql-llm-compact-holdout4.json`, `companyx-sql-llm-compact-holdout3.json`, 0행 수리 `companyx-sql-llm-emptyrepair-holdout3.json`, 생성 모델 `companyx-sql-llm-qwen3.5_9b-holdout3.json`, `companyx-sql-llm-gemma4_e4b-holdout3.json`, 도구 선택 `companyx-toolselect.json`, `companyx-toolselect-holdout4.json`, 컨텍스트 예산 `companyx-scorecard-b{256,512,1024}.json`, `companyx-scorecard-holdout3-b{256,512,1024}.json`.
+
 ## 0.16 남은 오답을 하나씩: 답변 수준 수정 (2026-10-01)
 
 기본 설정에서 사업자 30문항 중 틀린 답을 하나씩 컨텍스트와 SQL 까지 찍어 원인을 확인했다. 고친 것은 전부 일반 기법이고, 특정 문항을 겨냥한 규칙은 없다.
