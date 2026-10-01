@@ -252,9 +252,12 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   // 괄호 속 「미해결 = open, in_progress」만 있을 때 7B 는 「아직 해결되지 않은」을
   // status = 'open' 하나로 썼다(사업자 예시 7번, 5건 중 1건). 조건을 SQL 그대로 적으면
   // IN ('open','in_progress') 로 쓴다(2026-10-01, 문구 넷을 같은 시드로 비교).
-  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress')",
+  // 해결된 티켓도 같은 방식으로 적는다. 'closed' 40건도 전부 resolved_at 이 있는데 7B 는
+  // status = 'resolved' 하나로 걸러 「해결까지 오래 걸린 티켓」 상위 셋을 놓쳤고, 걸린 시간을 초로 바꿨다
+  // (홀드아웃3 「2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개」).
+  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress'), 해결된 티켓 = status IN ('resolved','closed')",
   "  created_at timestamp,  -- 접수 시각",
-  "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL",
+  "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL. 해결까지 걸린 시간 = resolved_at - created_at",
   ");",
 ].join("\n");
 
