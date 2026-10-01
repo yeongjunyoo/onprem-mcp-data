@@ -42,21 +42,14 @@ npm run fault:demo
   스코어카드는 모델을 부르기 전에 30문항의 모범 답은 정답, 기권은 오답으로 가르는지 스스로 점검한다.
 
 <!-- scorecard:begin (node scripts/scorecard-docs.mjs --write 로 생성한다. 손으로 고치지 않는다) -->
-**실측** (2026-09-30, `eval/results/companyx-scorecard.json`, 커밋 1a5af37). 호스트 AMD Ryzen 5 7500F 6-Core Processor 12스레드, 메모리 32GB, Ollama http://localhost:11435(추론 장치 미기록), 모델 qwen2.5-coder:7b, 임베더 ollama:bge-m3@768. ms 는 질문 하나의 `ask()` 벽시계 시간(조회와 생성의 합)이고 컨텍스트 예산은 MCP `ask` 도구 기본값이다.
+**실측** (2026-10-01, `eval/results/companyx-scorecard.json`, 커밋 13fd329). 호스트 AMD Ryzen 5 7500F 6-Core Processor 12스레드, 메모리 32GB, Ollama http://localhost:11435(CPU 추론(적재 모델 VRAM 0)), 모델 qwen2.5-coder:7b, 임베더 ollama:bge-m3@768. ms 는 질문 하나의 `ask()` 벽시계 시간(조회와 생성의 합)이고 컨텍스트 예산은 MCP `ask` 도구 기본값이다.
 
 | 레인 | 최종 답 정답 | 라우트 일치 | 중앙값 ms | p90 ms | 7B 호출 |
 |---|---|---|---:|---:|---|
-| nl2sql | 7/10 | 10/10 | 29500 | 57458 | 두 번(SQL 생성, 답변). 엔진이 SQL 을 거부하면 수리 한 번 더 |
-| vector_search | 7/10 | 10/10 | 49964 | 60711 | 한 번(답변). 조회에 질의 임베딩 한 번 |
-| knowledge_graph | 5/10 | 10/10 | 30015 | 62208 | 한 번(답변). 조회는 모델 없는 결정론 순회 |
-| 전체 | 19/30 | 30/30 | 30660 | 62208 | |
-
-**잠정치.** 이 실행에서 4문항이 답 대신 상태로 끝났다. 채점은 규칙대로 오답으로 셌고, 지연도 그 실패를 포함한다. 같은 명령으로 다시 재면 이 문단은 사라진다.
-
-- 18번 vector_search 조회 실패, 40.5초 만에: vector: read ECONNRESET (ECONNRESET)
-- 28번 knowledge_graph 생성 실패, 110.1초 만에: 생성 모델이 110초 안에 응답하지 않았다(시간 초과). 느린 환경이면 OLLAMA_TIMEOUT_MS 를 올린다.
-- 29번 knowledge_graph 조회 실패, 30.0초 만에: graph: read ECONNRESET (ECONNRESET)
-- 30번 knowledge_graph 조회 실패, 30.0초 만에: graph: read ECONNRESET (ECONNRESET)
+| nl2sql | 10/10 | 10/10 | 14405 | 35237 | 두 번(SQL 생성, 답변). 엔진이 SQL 을 거부하면 수리 한 번 더 |
+| vector_search | 8/10 | 10/10 | 8404 | 30711 | 한 번(답변). 조회에 질의 임베딩 한 번 |
+| knowledge_graph | 10/10 | 10/10 | 6812 | 11618 | 한 번(답변). 조회는 모델 없는 결정론 순회 |
+| 전체 | 28/30 | 30/30 | 10740 | 30711 | |
 <!-- scorecard:end -->
 
 ## 촬영 전 준비 (그대로 붙여넣는다)
@@ -137,5 +130,5 @@ npm run demo:ollama
       실행하면 primary 를 잠깐 정지시키므로 녹화 직전보다 **여유 있을 때** 먼저 돌린다.
 - [ ] raw 로그(`eval/results/*`, demo stdout) 별도 저장 → 모든 수치 추적 가능.
 - [ ] 하드웨어/OS 표시, 네트워크 off 표시 상시 노출.
-- [ ] **지연은 환경에 종속된다.** GPU 호스트 Ollama는 중앙값 685ms, GPU 패스스루 없는 컨테이너는 중앙값 15746ms(약 14초, 반복 실측 9.8~18.5초)다. 화면에 뜨는 대기 시간이 문서 수치와 다르면 어느 환경인지 자막으로 밝힌다.
+- [ ] **지연은 환경에 종속된다.** GPU 호스트 Ollama는 중앙값 685ms, GPU 패스스루 없는 컨테이너는 중앙값 10934ms(약 11초, 2026-10-02 정본. 이전 반복 실측은 9.8~18.5초)다. 화면에 뜨는 대기 시간이 문서 수치와 다르면 어느 환경인지 자막으로 밝힌다.
 - [ ] 3:00 초과 금지 — 초과 시 0:45–1:03(권한) 또는 1:03–1:25(의미검색)를 압축.

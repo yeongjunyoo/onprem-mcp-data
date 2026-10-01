@@ -79,9 +79,9 @@ MCP 도구는 **8개**를 노출한다 — `route`, `sql.query`, `vector.search`
 | NL2SQL 실행 일치 | **8/10**, 스키마 카드 제거 시 **1/10**(재시도 없음) / 재시도 1회면 8/10 대 5/10 | 정답 SQL의 실행 결과, 데이터베이스가 채점 |  <!--metric:nl2sql_norepair-->
 | 지식그래프 검색 재현율 | 1.000(개선 전 0.278) | 관계 파일에서 계산한 정답 집합 |  <!--metric:kg_recall-->
 | 벡터 검색 hit@5 | **0.986 = 73/74**(bge-m3), 해시 폴백 0.775 | 원문 키워드 규칙 |  <!--metric:vector_hit5-->
-| 종단 답변 근거 포함 | **18/19 = 94.7%** | 레인별 정답 근거. 사업자 vector 문항 3건 gold 복원 반영 |  <!--metric:ask_evidence-->
-| 답변 접지 위반 | 0건(18/18 접지) | 답변 개체가 컨텍스트에 포함되는지 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | 호스트 GPU 685ms / 컨테이너 CPU 15746ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 13배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
+| 종단 답변 근거 포함 | **19/19 = 100%** | 레인별 정답 근거. 사업자 vector 문항 3건 gold 복원 반영 |  <!--metric:ask_evidence-->
+| 답변 접지 위반 | 0건(20/20 접지) | 답변 개체가 컨텍스트에 포함되는지 |  <!--metric:ask_grounded_ratio-->
+| 응답 지연 중앙값 | 호스트 GPU 685ms / 컨테이너 CPU 10934ms | Company-X 종단 30문항 평가. GPU 패스스루 유무가 16배를 가른다. 결과 JSON이 `ollama_host`를 기록하며 두 환경의 원자료를 각각 보존한다 |  <!--metric:ask_median_ms_host-->
 
 정확도 채점에 자체 제작한 LLM 심판을 쓰지 않았다. 데이터베이스 실행 결과와 정답 집합이 채점자다.
 

@@ -1,6 +1,11 @@
 {
   "summary": {
     "dataset": "companyx-dataset-v1.0 / questions.json (end-to-end ask)",
+    "routing": {
+      "ontology_entities": 296,
+      "semantic_anchors": 175,
+      "semantic_error": null
+    },
     "profile": "companyx",
     "input_hashes": {
       "eval/companyx/vector_gold.json": "3a241c221e55d4c7",
@@ -11,25 +16,25 @@
     "embedder": "ollama:bge-m3@768",
     "ollama_host": "http://localhost:11435",
     "n": 30,
-    "evidence_in_context_full": "18/19",
-    "evidence_pct": 94.7,
-    "answers_grounded": "18/18",
+    "evidence_in_context_full": "19/19",
+    "evidence_pct": 100,
+    "answers_grounded": "20/20",
     "grounded_pct": 100,
     "abstained_on_absent_entity": true,
     "lane_agreement": 30,
     "branch_error_questions": 0,
-    "median_ms": 15746,
+    "median_ms": 10934,
     "note": "No LLM judge. evidence_in_context = gold values (SQL gold rows / KG gold entities / vector gold keywords) present in the curated context. answers_grounded = every dataset entity named in the answer also appears in the context (invented entity = hallucination).",
     "redaction_note": "answer 는 시스템이 생성한 출력이며 접지 근거로서 보존한다. 원문 인용이 포함될 수 있으나 문서 전문이 아니라 답변에 필요한 범위다. 원본 코퍼스는 저장소에 재배포하지 않으며, 감사 산출물의 원문 스니펫은 redactForPublication 으로 가린다.",
-    "generated_at": "2026-08-19T06:34:05.128Z"
+    "generated_at": "2026-10-01T17:25:47.435Z"
   },
   "rows": [
     {
       "q": "서울 지역 매출 상위 5개 고객사를 알려줘",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "Client-Q, Client-Y, Client-I, Client-A",
-      "context_chars": 1019,
+      "answer": "서울 지역 매출 상위 5개 고객사는 다음과 같습니다: 1. Client-Q | 매출: 23,244 2. Client-Y | 매출: 22,865 3. Client-I | 매출: 10,898 4. Client-A | 매출: 10,707 [조회 결과 4건] - client_name: Client-Q, total_sales: 23244 - client_name: Client-Y, total_sales: 22865 - client_name: Client-I, total_sales: 10898 - client_name: Client-A, total_sales: 10707",
+      "context_chars": 1003,
       "candidates": {
         "sql": 4,
         "vector": 0,
@@ -52,14 +57,14 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 38612
+      "ms": 23042
     },
     {
       "q": "2025년 3분기 총 매출액은 얼마야?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "2025년 3분기 총 매출액은 23859입니다.",
-      "context_chars": 108,
+      "answer": "2025년 3분기 총 매출액은 23859입니다. [조회 결과 1건] - total_revenue: 23859",
+      "context_chars": 112,
       "candidates": {
         "sql": 1,
         "vector": 0,
@@ -74,13 +79,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 16308
+      "ms": 8575
     },
     {
       "q": "보안 솔루션 카테고리 제품들의 월 평균 매출은?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "보안 솔루션 카테고리 제품들의 월 평균 매출은 589.97입니다.",
+      "answer": "보안 솔루션 카테고리 제품들의 월 평균 매출은 589.97입니다. [조회 결과 1건] - avg_monthly_sales: 589.9653179190751445",
       "context_chars": 191,
       "candidates": {
         "sql": 1,
@@ -96,13 +101,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13787
+      "ms": 11516
     },
     {
       "q": "현재 활성 상태인 계약 수는 몇 개야?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "현재 활성 상태인 계약 수는 46개입니다.",
+      "answer": "현재 활성 상태인 계약 수는 46개입니다. [조회 결과 1건] - count: 46",
       "context_chars": 83,
       "candidates": {
         "sql": 1,
@@ -118,14 +123,14 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9848
+      "ms": 7712
     },
     {
       "q": "기술지원팀 직원 목록과 연봉을 알려줘",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "기술지원팀 직원 목록과 연봉은 다음과 같습니다: 1. 박소연 - 9520 2. 권승호 - 5378 3. 조예진 - 5019 4. 임우진 - 7092",
-      "context_chars": 631,
+      "answer": "기술지원팀 직원 목록과 연봉은 다음과 같습니다: 1. 박소연 - 9520 2. 권승호 - 5378 3. 조예진 - 5019 4. 임우진 - 7092 [조회 결과 4건] - name: 박소연, salary: 9520 - name: 권승호, salary: 5378 - name: 조예진, salary: 5019 - name: 임우진, salary: 7092",
+      "context_chars": 619,
       "candidates": {
         "sql": 4,
         "vector": 0,
@@ -149,14 +154,14 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 30653
+      "ms": 17537
     },
     {
       "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "Client-AC",
-      "context_chars": 263,
+      "answer": "Client-AC [조회 결과 1건] - name: Client-AC",
+      "context_chars": 191,
       "candidates": {
         "sql": 1,
         "vector": 0,
@@ -173,19 +178,19 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 19016
+      "ms": 8009
     },
     {
       "q": "Critical 우선순위 티켓 중 아직 해결되지 않은 건은?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "디스크 용량 부족 경고",
-      "context_chars": 553,
+      "answer": "아직 해결되지 않은 Critical 우선순위 티켓은 다음과 같습니다: 1. SSL 인증서 만료 알림 (Client-E, Product-S3, 박소연) 2. 디스크 용량 부족 경고 (Client-C, Product-T2, 권승호) 3. ETL 작업 실패 (Client-H, Product-T2, 조예진) 4. 로그 수집 중단 (Client-A, Product-S3, 조예진) 5. 프로덕션 핫픽스 요청 (Client-Z, Product-D3, 임우진) [조회 결과 5건] - id: 62, title: SSL 인증서 만료 알림, description: 모니터링 대시보드에서 이상 징후가 감지되었습니다., priority: critical, client_name: Client-E, product_name: Product-S3, assignee_name: 박소연 - id: 64, title: 디스크 용량 부족 경고, description: 고객사에서 문의가 들어왔습니다. 빠른 확인 바랍니다., priority: critical, client_name: Client-C, product_name: Product-T2, assignee_name: 권승호 - id: 66, title: ETL 작업 실패, description: 고객사에서 문의가 들어왔습니다. 빠른 확인 바랍니다., priority: critical, client_name: Client-H, product_name: Product-T2, assignee_name: 조예진 - id: 80, title: 로그 수집 중단, description: 정기 점검 중 발견된 이슈입니다. 조치 방안 검토 부탁드립니다., priority: critical, client_name: Client-A, product_name: Product-S3, assignee_name: 조예진 - id: 37, title: 프로덕션 핫픽스 요청, description: 정기 점검 중 발견된 이슈입니다. 조치 방안 검토 부탁드립니다., priority: critical, client_name: Client-Z, product_name: Product-D3, assignee_name: 임우진",
+      "context_chars": 2737,
       "candidates": {
-        "sql": 1,
+        "sql": 5,
         "vector": 0,
         "graph": 0,
-        "fused": 1
+        "fused": 5
       },
       "branch_errors": [],
       "gold_evidence": [
@@ -195,18 +200,31 @@
         "ETL 작업 실패",
         "로그 수집 중단"
       ],
-      "evidence_in_context": 0.2,
-      "answer_entities": [],
+      "evidence_in_context": 1,
+      "answer_entities": [
+        "Client-E",
+        "Product-S3",
+        "Client-C",
+        "Product-T2",
+        "Client-H",
+        "Client-A",
+        "Client-Z",
+        "Product-D3",
+        "박소연",
+        "권승호",
+        "조예진",
+        "임우진"
+      ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 29529
+      "ms": 25380
     },
     {
       "q": "제품별 총 계약 금액을 큰 순서로 보여줘",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "제품별 총 계약 금액을 큰 순서로 보여주면 다음과 같습니다: 1. Product-D3: 36,500 2. Product-C1: 34,300 3. Product-S1: 30,800 4. Product-D1: 25,200 5. Product-S2: 24,000 6. Product-S3: 15,360 7. Product-C4: 15,000 8. Product-C2: 11,700",
-      "context_chars": 1871,
+      "answer": "제품별 총 계약 금액을 큰 순서로 보여주면 다음과 같습니다: 1. Product-D3: 36500 2. Product-C1: 34300 3. Product-S1: 30800 4. Product-D1: 25200 5. Product-S2: 24000 6. Product-S3: 15360 7. Product-C4: 15000 8. Product-C2: 11700 9. Product-D2: 10800 10. Product-C3: 8400 11. Product-T2: 3800 12. Product-T1: 2720 [조회 결과 12건] - product_name: Product-D3, total_contract_amount: 36500 - product_name: Product-C1, total_contract_amount: 34300 - product_name: Product-S1, total_contract_amount: 30800 - product_name: Product-D1, total_contract_amount: 25200 - product_name: Product-S2, total_contract_amount: 24000 - product_name: Product-S3, total_contract_amount: 15360 - product_name: Product-C4, total_contract_amount: 15000 - product_name: Product-C2, total_contract_amount: 11700 - product_name: Product-D2, total_contract_amount: 10800 - product_name: Product-C3, total_contract_amount: 8400 - product_name: Product-T2, total_contract_amount: 3800 - product_name: Product-T1, total_contract_amount: 2720",
+      "context_chars": 3128,
       "candidates": {
         "sql": 12,
         "vector": 0,
@@ -230,17 +248,21 @@
         "Product-S2",
         "Product-S3",
         "Product-C4",
-        "Product-C2"
+        "Product-C2",
+        "Product-D2",
+        "Product-C3",
+        "Product-T2",
+        "Product-T1"
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 46808
+      "ms": 26271
     },
     {
       "q": "2024년에 등록된 고객사는 몇 개야?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "2024년에 등록된 고객사는 8개입니다.",
+      "answer": "2024년에 등록된 고객사는 8개입니다. [조회 결과 1건] - count: 8",
       "context_chars": 114,
       "candidates": {
         "sql": 1,
@@ -256,13 +278,13 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 11383
+      "ms": 9000
     },
     {
       "q": "평균 연봉이 가장 높은 부서는 어디야?",
       "lane_expected": "nl2sql",
       "lane_routed": "structured",
-      "answer": "기술지원팀",
+      "answer": "기술지원팀 [조회 결과 1건] - name: 기술지원팀, avg_salary: 6752.2500000000000000",
       "context_chars": 222,
       "candidates": {
         "sql": 1,
@@ -280,7 +302,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13058
+      "ms": 8515
     },
     {
       "q": "최근 서버 장애 사례와 원인을 알려줘",
@@ -311,7 +333,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 73775
+      "ms": 43095
     },
     {
       "q": "Product-C1 설치 방법이 궁금해",
@@ -336,7 +358,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 33474
+      "ms": 20807
     },
     {
       "q": "Kubernetes 관련 장애 대응 방법은?",
@@ -356,7 +378,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14089
+      "ms": 11650
     },
     {
       "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
@@ -378,7 +400,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 31228
+      "ms": 10305
     },
     {
       "q": "보안 취약점 점검 관련 내용이 있어?",
@@ -398,7 +420,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 19536
+      "ms": 4399
     },
     {
       "q": "백업 정책은 어떻게 되어 있어?",
@@ -423,7 +445,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 30563
+      "ms": 22429
     },
     {
       "q": "API 인증 방식은 뭐야?",
@@ -443,7 +465,7 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14241
+      "ms": 11060
     },
     {
       "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
@@ -463,14 +485,14 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15067
+      "ms": 2371
     },
     {
       "q": "클라우드 마이그레이션 제안서 내용 보여줘",
       "lane_expected": "vector_search",
       "lane_routed": "semantic",
-      "answer": "Client-F의 클라우드 마이그레이션 제안서: - Product-C1을 도입하여 대규모 클라우드 마이그레이션 플랫폼을 제공합니다. - 멀티클라우드 지원으로 다양한 클라우드 환경에서의 전환을 가능하게 합니다. - 예상 효과: 운영 비용 31% 절감, 장애 대응 시간 37% 단축 Client-J의 클라우드 마이그레이션 제안서: - Product-D1을 도입하여 레거시 시스템의 클라우드 전환과 멀티클라우드 환경에서의 통합 관리를 지원합니다. - 예상 효과: 레거시 시스템의 클라우드 전환과 통합 관리의 효율성을 높입니다.",
-      "context_chars": 660,
+      "answer": "Client-F의 클라우드 마이그레이션 제안서: - Product-C1을 도입하여 대규모 클라우드 마이그레이션 플랫폼을 제공합니다. - 멀티클라우드 지원으로 다양한 클라우드 환경에서의 전환을 가능하게 합니다. - 예상 효과: 운영 비용 31% 절감, 장애 대응 시간 37% 단축 Client-J의 클라우드 마이그레이션 제안서: - Product-D1을 도입하여 레거시 시스템의 클라우드 전환과 멀티클라우드 환경에서의 통합 관리를 지원합니다. - 예상 효과: 멀티클라우드 환경에서의 통합 관리가 가능합니다. Client-H의 클라우드 마이그레이션 제안서: - Product-S1을 도입하여 보안 위협 증가에 따른 대응 체계 강화와 멀티클라우드 환경에서의 통합 관리를 지원합니다. - 예상 효과: 보안 위협 대응 체계가 강화되고, 멀티클라우드 환경에서의 통합 관리가 가능합니다.",
+      "context_chars": 827,
       "candidates": {
         "sql": 0,
         "vector": 5,
@@ -484,11 +506,13 @@
         "Client-F",
         "Product-C1",
         "Client-J",
-        "Product-D1"
+        "Product-D1",
+        "Client-H",
+        "Product-S1"
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 55966
+      "ms": 30836
     },
     {
       "q": "SSL 인증서 관련 장애가 있었어?",
@@ -515,19 +539,19 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 19813
+      "ms": 14111
     },
     {
       "q": "Client-A가 사용 중인 제품 목록은?",
       "lane_expected": "knowledge_graph",
       "lane_routed": "graph",
       "answer": "Client-A가 사용 중인 제품 목록은 Product-C3와 Product-S1입니다.",
-      "context_chars": 353,
+      "context_chars": 165,
       "candidates": {
         "sql": 0,
         "vector": 0,
-        "graph": 7,
-        "fused": 7
+        "graph": 3,
+        "fused": 3
       },
       "branch_errors": [],
       "gold_evidence": [
@@ -542,7 +566,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 8688
+      "ms": 4035
     },
     {
       "q": "Product-C1을 사용하는 고객사는 어디야?",
@@ -576,7 +600,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 9123
+      "ms": 6544
     },
     {
       "q": "클라우드사업부 소속 직원들은 누구야?",
@@ -587,7 +611,7 @@
       "candidates": {
         "sql": 0,
         "vector": 0,
-        "graph": 15,
+        "graph": 11,
         "fused": 11
       },
       "branch_errors": [],
@@ -613,14 +637,14 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 15746
+      "ms": 11839
     },
     {
       "q": "서울물산 담당 엔지니어는 누구야?",
       "lane_expected": "knowledge_graph",
       "lane_routed": "graph",
-      "answer": "주어진 정보로는 알 수 없습니다.",
-      "context_chars": 70,
+      "answer": "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+      "context_chars": 83,
       "candidates": {
         "sql": 0,
         "vector": 0,
@@ -633,27 +657,33 @@
       "answer_entities": [],
       "invented_entities": [],
       "abstained_on_absent": true,
-      "ms": 3680
+      "ms": 4
     },
     {
       "q": "Product-D1 제품과 관련된 프로젝트는?",
       "lane_expected": "knowledge_graph",
       "lane_routed": "graph",
-      "answer": "주어진 정보로는 알 수 없습니다.",
-      "context_chars": 1174,
+      "answer": "Product-D1 제품과 관련된 프로젝트는 다음과 같습니다: 1. Client-B CI/CD 파이프라인 구축 2. Client-Q AI 예측 모델 구축 3. Client-AB DevOps 전환 4. Client-Y 데이터 거버넌스 5. Client-B 하이브리드 클라우드",
+      "context_chars": 659,
       "candidates": {
         "sql": 0,
         "vector": 0,
-        "graph": 140,
-        "fused": 42
+        "graph": 7,
+        "fused": 7
       },
       "branch_errors": [],
       "gold_evidence": [],
       "evidence_in_context": null,
-      "answer_entities": [],
+      "answer_entities": [
+        "Product-D1",
+        "Client-B",
+        "Client-Q",
+        "Client-AB",
+        "Client-Y"
+      ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 13478
+      "ms": 7943
     },
     {
       "q": "기술 지원 이슈가 가장 많은 제품은?",
@@ -675,19 +705,19 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 8874
+      "ms": 6845
     },
     {
       "q": "경영지원팀 팀장은 누구야?",
       "lane_expected": "knowledge_graph",
       "lane_routed": "graph",
       "answer": "윤소연",
-      "context_chars": 216,
+      "context_chars": 96,
       "candidates": {
         "sql": 0,
         "vector": 0,
-        "graph": 6,
-        "fused": 5
+        "graph": 2,
+        "fused": 2
       },
       "branch_errors": [],
       "gold_evidence": [
@@ -699,14 +729,14 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 4700
+      "ms": 2057
     },
     {
       "q": "진행 중인 프로젝트를 이끄는 직원 목록",
       "lane_expected": "knowledge_graph",
       "lane_routed": "graph",
-      "answer": "강현우, 조동현, 한태호, 장미라, 김준혁, 서재원, 안진우, 류서연, 권소연",
-      "context_chars": 943,
+      "answer": "강현우, 조동현, 한태호, 장미라, 김준혁, 서재원, 안진우, 류서연, 권소연, 박성민, 조재원",
+      "context_chars": 1215,
       "candidates": {
         "sql": 0,
         "vector": 0,
@@ -718,6 +748,8 @@
       "evidence_in_context": null,
       "answer_entities": [
         "안진우",
+        "조재원",
+        "박성민",
         "강현우",
         "서재원",
         "권소연",
@@ -729,7 +761,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 19022
+      "ms": 18484
     },
     {
       "q": "Product-S1 관련 고객 이슈 현황은?",
@@ -765,7 +797,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 14543
+      "ms": 10934
     },
     {
       "q": "가장 많은 고객을 담당하는 직원은?",
@@ -789,7 +821,7 @@
       ],
       "invented_entities": [],
       "abstained_on_absent": null,
-      "ms": 5938
+      "ms": 4835
     }
   ]
 }

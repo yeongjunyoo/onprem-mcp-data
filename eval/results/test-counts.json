@@ -73,7 +73,7 @@
   },
   "generated_at": "2026-09-30T00:00:00.000Z",
   "integration_verified": {
-    "at": "2026-09-30",
+    "at": "2026-10-02",
     "passed": 137,
     "failed": 0,
     "per_suite": {
@@ -87,7 +87,7 @@
       "ontologyload": 10,
       "auditcache": 6
     },
-    "note": "2026-09-30 에 npm run test:integration(스위트마다 프로파일을 고정한다)으로 9스위트 137/137 을 실측했다. 같은 날 DATASET=companyx·bench 오염 셸 재시험은 공유 DB 를 띄운 Docker 엔진이 응답을 멈춰 도중에 끊겼다 (끊긴 스위트 graph·pipeline 은 단독 재실행에서 통과). 오염 셸 3종 밀폐 시험을 끝까지 마친 마지막 기록은 2026-08-18 의 127/127 이다.",
+    "note": "2026-10-02 에 컨테이너 Ollama 0.32.14 CPU 정본 측정(cpu6)에서 npm run test:integration(스위트마다 프로파일을 고정한다)으로 9스위트 137/137 을 실측했다. 10-01 첫 시도에서는 호스트 메모리 경합 중 첫 감사 호출이 생성 마감(OLLAMA_TIMEOUT_MS 기본 110초)에 걸려 auditcache 하나가 실패했고, 이번에는 마감을 600초로 올려 돌렸다. 이전 기록은 2026-09-30 의 137/137 이다.",
     "environments": [
       "DATASET 미설정"
     ]

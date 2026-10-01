@@ -137,10 +137,10 @@ MCP 도구는 8종입니다. `route`, `sql.query`, `vector.search`, `retrieve`, 
 | **외부 calibration (BIRD Mini-Dev, 전량 500문항)** | 공식 set 동등 **240/500 = 0.480**, 운영 multiset 동등 216/500 = 0.432 (2026-09-30 재측정) | 11/11 DB, 난이도 148/250/102(공식 구성). 표집 오차 0 | **다른 데이터셋·다른 도메인이라 위 내부 수치와 비교할 수 없다.** gold 2건이 30초 실행 한도를 넘겨 채점 불가 |
 | 지식그래프 검색 재현율 | 1.000 (개선 전 0.278) | 10문항, 결함 4건 수리 후 | 관계 파일에서 계산한 정답 집합 |
 | 벡터 검색 hit@5 | **0.986 (73/74)** | 74문항(사업자 문항 3건 복원 포함). 해시 폴백 0.775, 영어 전용 768 모델 0.380 | 원문 키워드 규칙 |  <!--metric:vector_hit5-->
-| 종단 답변 근거 포함 | **18/19 = 94.7%** (5회 중 4회, 1회 18/19) | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
+| 종단 답변 근거 포함 | **19/19 = 100%** | 30문항 중 채점 가능한 19문항. 사업자 vector 문항 3건 gold 복원 반영. 2026-10-02 컨테이너 CPU 정본 | 레인별 정답 근거 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | 접지 위반 | **0건** (answers_grounded 100%) | 답변이 명명한 데이터셋 개체가 전부 컨텍스트 안에 있다 | 실측 |  <!--metric:ask_grounded_pct-->
-| 답변 접지 위반 | **0건 (18/18 접지)** | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사. 채점 가능한 답변 전부가 접지됐다 | 컨텍스트 집합 |  <!--metric:ask_grounded_ratio-->
-| 응답 지연 중앙값 | **15746ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항. 반복 실측 9.8~18.5초로 변동이 크다. GPU가 붙은 호스트 Ollama에서는 **685ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
+| 답변 접지 위반 | **0건 (20/20 접지)** | 답변에 등장한 데이터셋 개체가 컨텍스트에 있는지 검사. 채점 가능한 답변 전부가 접지됐다 | 컨텍스트 집합 |  <!--metric:ask_grounded_ratio-->
+| 응답 지연 중앙값 | **10934ms** | `docker compose` Ollama(CPU, GPU 패스스루 없음) 기준 종단 30문항(2026-10-02 정본). 이전 반복 실측은 9.8~18.5초로 변동이 컸다. GPU가 붙은 호스트 Ollama에서는 **685ms**(원자료 `eval/results/companyx-ask-host-gpu.json`) | 실측 |  <!--metric:ask_median_ms-->
 | 응답 지연 (호스트 GPU) | **685ms** | GPU가 붙은 호스트 Ollama(11434) 기준 같은 30문항, `qwen2.5-coder:7b`. 옛 `qwen2.5:7b` 는 같은 호스트에서 864ms 였다 — 모델도 세션도 다르므로 개선·악화로 읽지 않는다. 원자료 `eval/results/companyx-ask-host-gpu.json` | 실측 |  <!--metric:ask_median_ms_host--> <!--metric-ok-->
 | 장애 주입 — 무중단 | **4/4** | DB 정지, 지연, 부분 실패 주입. 원자료 `eval/results/faults.json` | 실측 |  <!--metric:faults_nocrash-->
 | 장애 주입 — 부분 응답 | **4/4** | 벡터 브랜치를 죽여도 그래프로 부분 컨텍스트 반환 | 실측 |  <!--metric:faults_partial-->

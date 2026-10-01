@@ -9,7 +9,14 @@
     "mean_recall": 1,
     "full_recall_questions": 9,
     "routed_to_graph": 10,
-    "generated_at": "2026-08-19T06:48:56.559Z"
+    "routing": {
+      "ontology_entities": 296,
+      "ontology_error": null,
+      "semantic_anchors": 175,
+      "semantic_error": null,
+      "embedder": "ollama:bge-m3@768"
+    },
+    "generated_at": "2026-10-01T17:03:16.353Z"
   },
   "rows": [
     {
@@ -21,6 +28,7 @@
           "USES"
         ]
       },
+      "fitted": null,
       "spec": "neighbors",
       "gold_n": 2,
       "gold": [
@@ -35,7 +43,7 @@
         "Client-AD(client)"
       ],
       "edges": 2,
-      "candidates": 7,
+      "candidates": 3,
       "hit_n": 2,
       "recall": 1,
       "missing": []
@@ -49,6 +57,7 @@
           "USES"
         ]
       },
+      "fitted": null,
       "spec": "neighbors",
       "gold_n": 6,
       "gold": [
@@ -77,6 +86,7 @@
           "BELONGS_TO"
         ]
       },
+      "fitted": null,
       "spec": "neighbors",
       "gold_n": 10,
       "gold": [
@@ -99,7 +109,7 @@
         "김도윤(employee)"
       ],
       "edges": 10,
-      "candidates": 15,
+      "candidates": 11,
       "hit_n": 10,
       "recall": 1,
       "missing": []
@@ -113,6 +123,7 @@
           "MANAGES_ACCOUNT"
         ]
       },
+      "fitted": null,
       "spec": "absent",
       "gold_n": 0,
       "gold": [],
@@ -128,8 +139,13 @@
       "routed": "graph",
       "strategy": "seeded",
       "plan": {
-        "relTypes": []
+        "relTypes": [
+          "HAS_PROJECT"
+        ]
       },
+      "fitted": [
+        "Product-D1: HAS_PROJECT 는 product 에 닿지 않아 client 를 거침: USES 다음 HAS_PROJECT"
+      ],
       "spec": "two_hop",
       "gold_n": 6,
       "gold": [
@@ -143,8 +159,8 @@
       "seeds": [
         "Product-D1(product)"
       ],
-      "edges": 139,
-      "candidates": 140,
+      "edges": 11,
+      "candidates": 7,
       "hit_n": 6,
       "recall": 1,
       "missing": []
@@ -159,6 +175,12 @@
         ],
         "aggregate": "target"
       },
+      "fitted": [
+        "박소연: REPORTED_ISSUE 는 employee 에 닿지 않아 client 를 거침: MANAGES_ACCOUNT 다음 REPORTED_ISSUE",
+        "권승호: REPORTED_ISSUE 는 employee 에 닿지 않아 client 를 거침: MANAGES_ACCOUNT 다음 REPORTED_ISSUE",
+        "조예진: REPORTED_ISSUE 는 employee 에 닿지 않아 client 를 거침: MANAGES_ACCOUNT 다음 REPORTED_ISSUE",
+        "임우진: REPORTED_ISSUE 는 employee 에 닿지 않아 client 를 거침: MANAGES_ACCOUNT 다음 REPORTED_ISSUE"
+      ],
       "spec": "argmax",
       "gold_n": 1,
       "gold": [
@@ -186,6 +208,7 @@
           "HEAD_IS"
         ]
       },
+      "fitted": null,
       "spec": "neighbors",
       "gold_n": 1,
       "gold": [
@@ -199,7 +222,7 @@
         "정혜원(employee)"
       ],
       "edges": 1,
-      "candidates": 6,
+      "candidates": 2,
       "hit_n": 1,
       "recall": 1,
       "missing": []
@@ -218,6 +241,7 @@
           "value": "in_progress"
         }
       },
+      "fitted": null,
       "spec": "leads_status",
       "gold_n": 11,
       "gold": [
@@ -249,6 +273,7 @@
           "REPORTED_ISSUE"
         ]
       },
+      "fitted": null,
       "spec": "neighbors",
       "gold_n": 8,
       "gold": [
@@ -280,6 +305,7 @@
         ],
         "aggregate": "source"
       },
+      "fitted": null,
       "spec": "argmax",
       "gold_n": 3,
       "gold": [
