@@ -44,7 +44,7 @@
     "bench:internal": "node node_modules/typescript/bin/tsc && node dist/cli/bench-eval.js",
     "build": "node node_modules/typescript/bin/tsc",
     "companyx:ask": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-ask-eval.js",
-    "companyx:audit": "node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-audit-export.js",
+    "companyx:audit": "node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-audit-export.js",
     "companyx:boundary": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-route-boundary.js",
     "companyx:holdout": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-holdout-route-eval.js",
     "companyx:holdout2": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama HOLDOUT=eval/companyx/holdout2_route.json -- dist/cli/companyx-holdout-route-eval.js",
