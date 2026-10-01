@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**35/47 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**49/61 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -35,10 +35,22 @@
 | `companyx-scorecard-answerfix-gpu-base-sponsor30.json` | 25,647 | `c70c74f5216a2706` | 2026-09-30T15:05:34 |
 | `companyx-scorecard-answerfix-gpu-fixed-holdout3.json` | 51,869 | `56acadaa02b676a4` | 2026-10-01T02:22:52 |
 | `companyx-scorecard-answerfix-gpu-fixed-sponsor30.json` | 28,722 | `22652516d0caf013` | 2026-09-30T15:37:48 |
+| `companyx-scorecard-b1024.json` | 25,785 | `512184a682efefad` | 2026-09-30T13:40:32 |
+| `companyx-scorecard-b256.json` | 24,565 | `0b51a9d400e33e9c` | 2026-09-30T13:34:36 |
+| `companyx-scorecard-b512.json` | 25,828 | `00aac95b7e2e4884` | 2026-09-30T13:37:25 |
+| `companyx-scorecard-holdout3-b1024.json` | 49,460 | `efa2c93f907a23e6` | 2026-09-30T13:42:20 |
+| `companyx-scorecard-holdout3-b256.json` | 49,964 | `84b861bf92b7db17` | 2026-09-30T13:36:21 |
+| `companyx-scorecard-holdout3-b512.json` | 49,519 | `d891b338c5aa5533` | 2026-09-30T13:39:19 |
 | `companyx-scorecard.json` | 22,051 | `344c86be246c2e37` | 2026-09-30T08:38:08 |
 | `companyx-sql-answerfix-gpu-card-base.json` | 12,953 | `294014ff00e41cba` | 2026-10-01T02:15:29 |
 | `companyx-sql-answerfix-gpu-card-new.json` | 13,010 | `4d998a01b01bacdb` | 2026-10-01T02:16:28 |
+| `companyx-sql-llm-compact-holdout3.json` | 13,394 | `b7e0ffb532d287e2` | 2026-09-30T12:57:56 |
+| `companyx-sql-llm-compact-holdout4.json` | 12,469 | `66e32cca681d27db` | 2026-09-30T13:00:04 |
+| `companyx-sql-llm-emptyrepair-holdout3.json` | 12,908 | `c2c9d212885b1f0c` | 2026-09-30T13:06:03 |
+| `companyx-sql-llm-gemma4_e4b-holdout3.json` | 11,658 | `1bc67ef305206a3f` | 2026-09-30T13:11:25 |
+| `companyx-sql-llm-holdout4.json` | 11,583 | `f9855aada58647b9` | 2026-09-30T12:59:25 |
 | `companyx-sql-llm-norepair.json` | 4,978 | `43c526bd73a4f407` | 2026-08-19T13:29:31 |
+| `companyx-sql-llm-qwen3.5_9b-holdout3.json` | 12,940 | `4387070500ffed75` | 2026-09-30T13:08:58 |
 | `companyx-sql-llm.json` | 4,977 | `6ab121ab31fa7853` | 2026-08-19T13:24:26 |
 | `companyx-sql-naive-norepair.json` | 5,555 | `0ff089f56aaba54e` | 2026-08-19T13:44:25 |
 | `companyx-sql-naive.json` | 4,845 | `eaeeee10a26fb4c3` | 2026-08-19T13:39:41 |
@@ -46,6 +58,8 @@
 | `companyx-sql-repeat-llm.json` | 1,417 | `a5755c0b1ea45c54` | 2026-08-19T13:24:26 |
 | `companyx-sql-repeat-naive-norepair.json` | 2,152 | `9211a222683464d0` | 2026-08-19T13:44:25 |
 | `companyx-sql-repeat-naive.json` | 1,663 | `8cf5455560bcd0f8` | 2026-08-19T13:39:41 |
+| `companyx-toolselect-holdout4.json` | 26,316 | `bca6a7e1d83aef45` | 2026-09-30T13:14:08 |
+| `companyx-toolselect.json` | 54,850 | `919867ee84bdfb85` | 2026-09-30T13:13:31 |
 | `companyx-vector.json` | 170,890 | `057090199c0e3935` | 2026-08-19T06:48:54 |
 | `external-bird-raw.json` | 173,506 | `adfb5244c4d6462e` | — |
 | `external-bird-rescore.json` | 114,560 | `c2c41a9500285fdf` | 2026-09-30T13:36:23 |
