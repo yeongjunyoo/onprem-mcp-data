@@ -501,6 +501,18 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 
 검증용 제거 스위치: `GRAPH_PATH_FIT=0`(경로 보정 끔), `ANSWER_SQL_ROWS=0`(조회 행 첨부 끔).
 
+**개발 측정.** 호스트 GPU, Ollama 0.35.0, qwen2.5-coder:7b 에서 고치기 전 빌드(229a9be 의 빌드 사본)와 고친 빌드를 연달아 쟀다. 최종 답 일치 기준이다.
+
+| 세트 | 고치기 전 | 고친 뒤 | 바뀐 문항 |
+|---|---|---|---|
+| 사업자 예시 30 | 26/30 | **28/30** | 맞게 바뀜: 7, 25 |
+| 홀드아웃3 (채점 가능 38) | 21/38 | **25/38** | 맞게 바뀜 5(정형 2, 그래프 3), 틀리게 바뀜 1(#57, 아래) |
+| 카드 줄 A/B (사업자 10 + 홀드아웃3 정형 20, SQL 실행 일치) | 19/30 | 19/30 | 맞게 바뀜: 사업자 7(IN 사용). 틀리게 바뀜: h3-04 |
+
+h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서 틀렸다. 답에 필요한 값은 같다. 카드 줄은 측정 전에 정한 규칙(새 문구가 더 적게 맞히면 되돌림)에 걸리지 않아 유지한다. 고친 뒤의 사업자 30 은 커밋 직전 작업본(f55bde9 와 같은 코드)에서, 홀드아웃3 은 025db0d 에서 쟀다. 지연은 다른 작업과 GPU 를 나눠 써서 비교하지 않는다. 지연 정본은 CPU 컨테이너 측정에서 낸다. 원자료 `eval/results/companyx-scorecard-answerfix-gpu-*.json`, `companyx-sql-answerfix-gpu-card-*.json`.
+
+**측정이 찾은 회귀 하나.** 홀드아웃3 #57 「Product-C4 때문에 연락 왔던 곳들 중 Client-AD랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야」가 맞던 답에서 기권으로 바뀌었다. 「같은 제품」이 같은 무리 왕복을 발동시켜, Client-AD 가 쓰는 다른 제품(S2, T2)을 거친 경로 11줄이 근거를 채웠다. 질문이 무리를 이름으로 지목한 시드(Product-S1)가 따로 있으면 왕복하지 않게 고쳤다(`fitPlanToSeed` 의 `otherSeedTypes`, router.test 1단언, 옛 동작에서 실패 확인). 고친 뒤 #57 의 컨텍스트는 고치기 전 빌드와 해시까지 같고 답은 Client-AD(정답)다. 개발 문항 중 「같은 X」 질문은 #45, #57 둘이고 #45 는 시드가 하나라 그대로 왕복한다. 홀드아웃3 전체 재채점은 GPU 가 비면 돌린다.
+
 **되돌린 것.** 「보안 취약점 점검 관련 내용이 있어?」에 근거 다섯 건을 받고도 「네, 각 회의록에서 언급되었습니다」라고만 답해서, 문서 근거로 답할 때 제목, 날짜, 구체 사실을 적으라는 줄을 답변 프롬프트에 넣어 봤다. 그 문항의 답은 한 글자도 바뀌지 않았고 다른 문항(진행 중 프로젝트를 이끄는 11명)이 한 명을 빠뜨려 뺐다.
 
 **못 고친 둘.**
@@ -601,7 +613,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 544(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 137(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **681단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 524. tsc strict clean.
+- **테스트:** 오프라인 545(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 137(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **682단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 525. tsc strict clean.
 
 ---
 
@@ -832,7 +844,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 544단언(데이터셋 없는 CI 는 524), 전체 681단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 545단언(데이터셋 없는 CI 는 525), 전체 682단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp**, 사업자 NL2SQL 무재시도 Δ **+60pp**, 둘 다 2026-08-19 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |

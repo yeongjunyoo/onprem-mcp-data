@@ -160,7 +160,8 @@ export async function graphLane(
   for (const hit of expandFrom) {
     // 계획의 엣지가 이 시드의 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다.
     // GRAPH_PATH_FIT=0 은 검증용 제거 스위치다(고치기 전 동작).
-    const walk = p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, query) : undefined;
+    const others = expandFrom.filter((h) => h !== hit).map((h) => h.type);
+    const walk = p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, query, others) : undefined;
     if (walk?.fitted) fitted.push(`${hit.canonicalName}: ${walk.fitted}`);
     const exp =
       walk && walk.hops.length > 1

@@ -413,7 +413,7 @@ function askedType(q: string, except: string): string | undefined {
  *
  * 규칙은 온톨로지의 타입 그래프와 질문이 묻는 타입(askedType)만 본다. 어휘를 늘리지 않는다.
  *   0. 「같은 팀」, 「같은 제품」처럼 시드와 같은 무리를 물으면 무리 타입으로 갔다가 같은 엣지로
- *      돌아온다.
+ *      돌아온다. 그 무리를 이름으로 지목한 다른 시드가 있으면(otherSeedTypes) 왕복하지 않는다.
  *   1. 계획의 엣지가 시드 타입에 닿으면 그 엣지로 한 홉. 닿는 엣지와 안 닿는 엣지가 이어지면
  *      시드에서부터 한 홉씩 탄다(담당 직원 → 그 직원이 이끄는 프로젝트). 한 홉으로 묻는
  *      타입에 못 닿으면 그 타입으로 가는 엣지를 한 홉 더 잇는다(직원 → 담당 고객사 → 그
@@ -423,15 +423,18 @@ function askedType(q: string, except: string): string | undefined {
  *   3. 그것도 없으면 시드 타입과 그 엣지의 한쪽 끝을 잇는 다리 엣지를 찾아 두 홉으로 잇는다.
  *   다리나 대체 엣지가 여럿이면 질문이 지목한 엣지, 없으면 데이터 순서의 첫 엣지다(타입쌍
  *   추론과 같은 규칙). 어느 것도 안 되거나 온톨로지가 없으면 계획을 그대로 둔다. */
-export function fitPlanToSeed(relTypes: string[], seedType: string, query: string): SeedWalk {
+export function fitPlanToSeed(relTypes: string[], seedType: string, query: string, otherSeedTypes: string[] = []): SeedWalk {
   const rels = relTypes.filter((r) => r !== "RELATED_TO");
   const named = [...scan(query, RELATION_VERBS), ...scan(query, RELATION_NOUNS)];
   const pick = (cands: string[]) => cands.find((r) => named.includes(r)) ?? cands[0];
 
   // 0. 시드 자신의 엣지는 둘째 홉에서 다시 줍지 않는다(이미 본 엣지 id 는 빠진다).
+  //    무리를 이름으로 지목한 시드가 따로 있으면(「같은 제품 … 그 제품은 Product-S1」) 왕복하지 않는다.
+  //    그 시드에서 바로 탐색하면 되고, 왕복은 이 시드가 속한 다른 무리까지 끌어와 근거 예산을 채운다
+  //    (홀드아웃3 #57).
   const same = /같은\s*([가-힣]+)/.exec(query);
   const group = same ? scan(same[1], NODE_TYPE_TERMS)[0] : undefined;
-  if (group && group !== seedType) {
+  if (group && group !== seedType && !otherSeedTypes.includes(group)) {
     const via = TYPE_PAIR_EDGE.get(`${seedType}|${group}`);
     if (via?.length) {
       const e = via.find((r) => rels.includes(r)) ?? pick(via);

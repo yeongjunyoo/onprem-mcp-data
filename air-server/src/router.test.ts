@@ -193,6 +193,13 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   eq(hops([], "product", "Product-S1 관련된 거 다"), [], "엣지가 없으면 무타입 확장");
   eq(hops(["BELONGS_TO"], "employee", "김지훈이랑 같은 팀인 사람 이름 좀"), [["BELONGS_TO"], ["BELONGS_TO"]], "같은 무리: 무리로 갔다가 같은 엣지로 돌아온다");
   eq(hops([], "client", "Client-A랑 같은 제품 쓰는 고객사는?"), [["USES"], ["USES"]], "계획에 엣지가 없어도 같은 무리는 타입쌍으로 푼다");
+  // 홀드아웃3 #57: 무리(제품)를 이름으로 지목했으면 시드의 모든 무리를 왕복하지 않는다.
+  // 왕복하면 Client-A 가 쓰는 다른 제품을 거친 경로가 근거 예산을 채운다.
+  eq(
+    fitPlanToSeed(["USES"], "client", "Client-A랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야", ["product"]).hops,
+    [["USES"]],
+    "같은 무리라도 그 무리를 이름으로 지목한 시드가 있으면 왕복하지 않는다",
+  );
   installOntology([], []);
   eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
 }
