@@ -252,12 +252,13 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   // 괄호 속 「미해결 = open, in_progress」만 있을 때 7B 는 「아직 해결되지 않은」을
   // status = 'open' 하나로 썼다(사업자 예시 7번, 5건 중 1건). 조건을 SQL 그대로 적으면
   // IN ('open','in_progress') 로 쓴다(2026-10-01, 문구 넷을 같은 시드로 비교).
-  // 해결된 티켓도 같은 방식으로 적는다. 'closed' 40건도 전부 resolved_at 이 있는데 7B 는
-  // status = 'resolved' 하나로 걸러 「해결까지 오래 걸린 티켓」 상위 셋을 놓쳤고, 걸린 시간을 초로 바꿨다
-  // (홀드아웃3 「2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개」).
-  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress'), 해결된 티켓 = status IN ('resolved','closed')",
+  // 시도했다가 되돌린 것(2026-10-01): 「해결된 티켓 = status IN ('resolved','closed')」, 「해결까지 걸린
+  // 시간 = resolved_at - created_at」을 덧붙였다. 겨냥한 홀드아웃3 문항은 그대로 status = 'resolved' 와
+  // 초 단위였고, 사업자 예시 7번이 created_at, resolved_at 열을 더 고르게 돼 행이 넓어지고 컨텍스트 예산에
+  // 다섯째 티켓이 잘려 정답에서 빠졌다(답변 채점 28 → 27). report §0.16.
+  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress')",
   "  created_at timestamp,  -- 접수 시각",
-  "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL. 해결까지 걸린 시간 = resolved_at - created_at",
+  "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL",
   ");",
 ].join("\n");
 

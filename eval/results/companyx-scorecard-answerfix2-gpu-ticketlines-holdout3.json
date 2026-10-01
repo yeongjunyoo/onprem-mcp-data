@@ -1,0 +1,1582 @@
+{
+  "summary": {
+    "routing": {
+      "ontology_entities": 296,
+      "ontology_error": null,
+      "semantic_anchors": 175,
+      "semantic_error": null
+    },
+    "dataset": "eval/companyx/holdout3_route.json (봉인 홀드아웃, 기능테스트 스코어카드: 최종 답 일치)",
+    "set": "holdout3",
+    "rule": "판정은 최종 답과 정답 파일만 본다. 라우팅은 판정에 쓰지 않는다. 레인별 규칙은 air-server/src/scorecard.ts 머리말. 채점 불가 문항은 정답 칸의 분모에서 뺀다(이유는 행의 unscorable).",
+    "input_hashes": {
+      "eval/companyx/holdout3_route.json": "9340fcafbde9cb58"
+    },
+    "git_commit": "d013cbf",
+    "git_dirty": false,
+    "model": "qwen2.5-coder:7b",
+    "embedder": "ollama:bge-m3@768",
+    "budget": null,
+    "budget_note": "null 이면 MCP ask 도구와 같은 파이프라인 기본 예산이다",
+    "ollama_host": "http://localhost:11434",
+    "ollama_version": "0.35.0",
+    "ollama_loaded": [
+      {
+        "name": "qwen2.5-coder:7b",
+        "size_vram": 4748056984
+      },
+      {
+        "name": "bge-m3:latest",
+        "size_vram": 664000265
+      }
+    ],
+    "inference": "gpu",
+    "host": {
+      "platform": "win32",
+      "release": "10.0.26200",
+      "arch": "x64",
+      "node": "v24.18.0",
+      "cpu_model": "AMD Ryzen 5 7500F 6-Core Processor",
+      "cpu_cores": 12,
+      "mem_gb": 32
+    },
+    "n": 60,
+    "scorable": 38,
+    "unscorable": 22,
+    "correct": "30/38",
+    "correct_pct": 78.9,
+    "median_ms": 554,
+    "p90_ms": 1881,
+    "by_lane": {
+      "nl2sql": {
+        "correct": "13/19",
+        "correct_n": 13,
+        "n": 20,
+        "scorable": 19,
+        "unscorable": 1,
+        "median_ms": 1433,
+        "p90_ms": 2304,
+        "route_match": "19/20"
+      },
+      "vector_search": {
+        "correct": "0/0",
+        "correct_n": 0,
+        "n": 20,
+        "scorable": 0,
+        "unscorable": 20,
+        "median_ms": 519,
+        "p90_ms": 950,
+        "route_match": "19/20"
+      },
+      "knowledge_graph": {
+        "correct": "17/19",
+        "correct_n": 17,
+        "n": 20,
+        "scorable": 19,
+        "unscorable": 1,
+        "median_ms": 195,
+        "p90_ms": 665,
+        "route_match": "18/20"
+      }
+    },
+    "route_match": "56/60",
+    "route_off_answer_right": 3,
+    "route_on_answer_wrong": 8,
+    "states": {
+      "ok": 59,
+      "degraded": 0,
+      "empty": 1,
+      "retrieval_failed": 0,
+      "generation_failed": 0
+    },
+    "latency_rule": "ms 는 ask() 한 번의 벽시계 시간(조회+생성). 중앙값은 정렬 후 floor(n/2) 번째(companyx:ask 와 같음), p90 은 최근접 순위.",
+    "redaction_note": "answer 는 시스템이 생성한 출력이며 채점 근거로서 보존한다. 원문 인용이 포함될 수 있으나 문서 전문이 아니라 답변에 필요한 범위다. anchors 는 정답 문서에서 확인한 짧은 사실 토큰이고 문서 본문은 싣지 않는다.",
+    "generated_at": "2026-10-01T04:55:23.832Z"
+  },
+  "rows": [
+    {
+      "i": 1,
+      "id": "h3-01",
+      "q": "부산 쪽 2025년 장사 어땠어, 돈으로 보면?",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 1/1",
+      "state": "ok",
+      "ms": 1010,
+      "required": [
+        "3848"
+      ],
+      "missing": [
+        "3848"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "부산 쪽 2025년 장사의 총 매출은 745입니다. [조회 결과 1건] - total_sales: 745"
+    },
+    {
+      "i": 2,
+      "id": "h3-02",
+      "q": "보안이랑 클라우드 중 돈 더 들어온 쪽 어디야? 대전, 2025년 얘기임. 양쪽 금액도 같이",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 2143,
+      "required": [
+        "cloud",
+        "7882",
+        "security",
+        "2121"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "보안 제품의 총 매출은 2121이고, 클라우드 제품의 총 매출은 7882입니다. 따라서 클라우드 제품이 더 많은 돈을 들어왔습니다. [조회 결과 2건] - category: cloud, total_amount: 7882, region: 대전 - category: security, total_amount: 2121, region: 대전"
+    },
+    {
+      "i": 3,
+      "id": "h3-03",
+      "q": "Product-D2 말고 Product-D1 고르면 월 요금 얼마나 더 붙어?",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 2/3",
+      "state": "ok",
+      "ms": 624,
+      "required": [
+        "400",
+        "180",
+        "220"
+      ],
+      "missing": [
+        "400",
+        "180"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "220 [조회 결과 1건] - price_difference: 220"
+    },
+    {
+      "i": 4,
+      "id": "h3-04",
+      "q": "Product-C4 제품 등록정보에 버전 뭐라고 돼 있나, 출시 날짜랑 같이 보여쥬",
+      "lane": "nl2sql",
+      "routed": "hybrid",
+      "route_match": false,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 830,
+      "required": [
+        "Product-C4",
+        "2.1.0",
+        "2024-08-01"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 6,
+        "dropped": 0
+      },
+      "answer": "Product-C4의 버전은 2.1.0이고, 출시 날짜는 2024-08-01입니다."
+    },
+    {
+      "i": 5,
+      "id": "h3-05",
+      "q": "Client-N에 메일 보내야 돼. 우리 직원 말고 그쪽 연락처로 적힌 이름이랑 메일 주소 줘",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 415,
+      "required": [
+        "권은지",
+        "contact@client-n.co.kr"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "권은지 | contact@client-n.co.kr [조회 결과 1건] - contact_name: 권은지, contact_email: contact@client-n.co.kr"
+    },
+    {
+      "i": 6,
+      "id": "h3-06",
+      "q": "2024년 7월 입사한 사람들, 이름 옆에 입사 날짜 붙여서 주라",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 849,
+      "required": [
+        "강동현",
+        "2024-07-09"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "강동현 (2024-07-09) [조회 결과 1건] - employee_info: 강동현 (2024-07-09)"
+    },
+    {
+      "i": 7,
+      "id": "h3-07",
+      "q": "연봉 4천 이상 5천 미만인 사람 이름이랑 금액 좀. 재직 중인 사람만 ㅇㅇ",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 1960,
+      "required": [
+        "류혜원",
+        "4031",
+        "박은지",
+        "4131",
+        "강유진",
+        "4152",
+        "조현우",
+        "4184",
+        "권은지",
+        "4203",
+        "장미라",
+        "4364",
+        "강동현",
+        "4433",
+        "이지훈",
+        "4576",
+        "박성민",
+        "4685",
+        "조동현",
+        "4780",
+        "최상우",
+        "4860",
+        "신다은",
+        "4962"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 12,
+        "dropped": 0
+      },
+      "answer": "강동현 | 4433 류혜원 | 4031 조동현 | 4780 이지훈 | 4576 신다은 | 4962 강유진 | 4152 박성민 | 4685 박은지 | 4131 권은지 | 4203 최상우 | 4860 조현우 | 4184 장미라 | 4364 [조회 결과 12건] - name: 강동현, salary: 4433 - name: 류혜원, salary: 4031 - name: 조동현, salary: 4780 - name: 이지훈, salary: 4576 - name: 신다은, salary: 4962 - name: 강유진, salary: 4152 - name: 박성민, salary: 4685 - name: 박은지, salary: 4131 - name: 권은지, salary: 4203 - name: 최상우, salary: 4860 - name: 조현우, salary: 4184 - name: 장미라, salary: 4364"
+    },
+    {
+      "i": 8,
+      "id": "h3-08",
+      "q": "critical인데 open으로 그대로 있는 티켓, 제목이랑 접수일 보여줘봐. 어느 고객 건인지도",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 1331,
+      "required": [
+        "디스크 용량 부족 경고",
+        "2025-04-15 11:32:44",
+        "Client-C"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "제목: 디스크 용량 부족 경고 접수일: 2025-04-15 11:32:44 고객: Client-C [조회 결과 1건] - title: 디스크 용량 부족 경고, created_at: 2025-04-15 11:32:44, client_name: Client-C"
+    },
+    {
+      "i": 9,
+      "id": "h3-09",
+      "q": "Client-X 스테이징 환경 장애 티켓 있잖아, 언제 접수됐고 언제 해결됐는지만 필요해",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 묻는 칸에 resolved_at(NULL) — 답의 표현을 규칙으로 가를 수 없다",
+      "unscorable": "묻는 칸에 resolved_at(NULL) — 답의 표현을 규칙으로 가를 수 없다",
+      "state": "ok",
+      "ms": 1863,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 4,
+        "dropped": 0
+      },
+      "answer": "스테이징 환경 장애 티켓은 2026-05-04 02:08:49에 접수되었으며, 2026-05-10 13:24:52에 해결되었습니다. [조회 결과 4건] - title: 스테이징 환경 장애, created_at: 2026-05-04 02:08:49, resolved_at: 2026-05-10 13:24:52 - title: 컨테이너 OOM 발생, created_at: 2025-01-08 13:29:30, resolved_at: 2025-01-08 16:26:02 - title: CPU 사용률 90% 초과, created_at: 2026-06-10 07:46:29, resolved_at: 2026-06-12 13:12:24 - title: 라이선스 갱신 필요, created_at: 2024-11-11 19:23:57, resolved_at: 2024-11-16 07:38:55"
+    },
+    {
+      "i": 10,
+      "id": "h3-10",
+      "q": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 4/6",
+      "state": "ok",
+      "ms": 2369,
+      "required": [
+        "메모리 누수 의심",
+        "6일 21시간 50분 21초",
+        "대시보드 로딩 오류",
+        "6일 21시간 15분 40초",
+        "컨테이너 OOM 발생",
+        "6일 20시간 44분 4초"
+      ],
+      "missing": [
+        "메모리 누수 의심",
+        "6일 21시간 50분 21초",
+        "대시보드 로딩 오류",
+        "6일 21시간 15분 40초"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간 1. 제목: 컨테이너 OOM 발생 걸린 시간: 593044초 2. 제목: Pod 재시작 반복 걸린 시간: 585249초 3. 제목: 스테이징 환경 장애 걸린 시간: 578423초 [조회 결과 3건] - title: 컨테이너 OOM 발생, time_taken: 593044.000000 - title: Pod 재시작 반복, time_taken: 585249.000000 - title: 스테이징 환경 장애, time_taken: 578423.000000"
+    },
+    {
+      "i": 11,
+      "id": "h3-11",
+      "q": "종료일이 2026년 10월인 계약들 미리 챙기게, active인 것만 고객 이름이랑 종료일 부탁",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 1881,
+      "required": [
+        "Client-A",
+        "2026-10-05",
+        "Client-T",
+        "2026-10-15"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "Client-A | 2026-10-05 Client-T | 2026-10-15 [조회 결과 2건] - client_name: Client-A, end_date: 2026-10-05 - client_name: Client-T, end_date: 2026-10-15"
+    },
+    {
+      "i": 12,
+      "id": "h3-12",
+      "q": "Client-B 구독 계약만 따로 볼래. 상품 이름, 금액, 시작일, 끝나는 날 이렇게",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 2304,
+      "required": [
+        "Product-S3",
+        "3840",
+        "2025-02-21",
+        "2026-08-21",
+        "Product-D1",
+        "6400",
+        "2025-12-31",
+        "2027-12-01"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "Client-B의 구독 계약 정보는 다음과 같습니다: 1. 상품 이름: Product-S3 금액: 3840 시작일: 2025-02-21 끝나는 날: 2026-08-21 2. 상품 이름: Product-D1 금액: 6400 시작일: 2025-12-31 끝나는 날: 2027-12-01 [조회 결과 2건] - product_name: Product-S3, amount: 3840, start_date: 2025-02-21, end_date: 2026-08-21 - product_name: Product-D1, amount: 6400, start_date: 2025-12-31, end_date: 2027-12-01"
+    },
+    {
+      "i": 13,
+      "id": "h3-13",
+      "q": "예산 얼마 잡혀 있었지, Client-E 로그 분석 시스템? 시작 날짜도 같이 줘",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "기권",
+      "state": "empty",
+      "ms": 2344,
+      "required": [
+        "Client-E 로그 분석 시스템",
+        "10413",
+        "2024-05-29"
+      ],
+      "missing": [
+        "Client-E 로그 분석 시스템",
+        "10413",
+        "2024-05-29"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 0,
+        "dropped": 0
+      },
+      "answer": "주어진 정보로는 알 수 없습니다."
+    },
+    {
+      "i": 14,
+      "id": "h3-14",
+      "q": "보류해 둔 프로젝트 중 끝나는 날짜도 안 적힌 거 뭐뭐야? 이름만 쭉",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 687,
+      "required": [
+        "Client-AC 성능 최적화",
+        "Client-R MLOps 파이프라인",
+        "Client-S 클라우드 마이그레이션"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-AC 성능 최적화, Client-S 클라우드 마이그레이션, Client-R MLOps 파이프라인 [조회 결과 3건] - name: Client-AC 성능 최적화 - name: Client-S 클라우드 마이그레이션 - name: Client-R MLOps 파이프라인"
+    },
+    {
+      "i": 15,
+      "id": "h3-15",
+      "q": "의료/바이오 고객 명단 필요함. 회사명 옆에 지역 써주면 됨",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 761,
+      "required": [
+        "Client-E",
+        "대구",
+        "Client-O",
+        "광주",
+        "Client-Y",
+        "서울"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-E (대구), Client-O (광주), Client-Y (서울) [조회 결과 3건] - client_name: Client-E, region: 대구 - client_name: Client-O, region: 광주 - client_name: Client-Y, region: 서울"
+    },
+    {
+      "i": 16,
+      "id": "h3-16",
+      "q": "고객 등록일 제일 옛날인 곳부터 다섯 군데만 훑어보자. 날짜 빼먹지 말고",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 695,
+      "required": [
+        "Client-L",
+        "2023-01-17",
+        "Client-A",
+        "2023-02-19",
+        "Client-B",
+        "2023-04-30",
+        "Client-D",
+        "2023-05-17",
+        "Client-I",
+        "2023-07-16"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Client-L, Client-A, Client-B, Client-D, Client-I [조회 결과 5건] - client_name: Client-L, registered_at: 2023-01-17 - client_name: Client-A, registered_at: 2023-02-19 - client_name: Client-B, registered_at: 2023-04-30 - client_name: Client-D, registered_at: 2023-05-17 - client_name: Client-I, registered_at: 2023-07-16"
+    },
+    {
+      "i": 17,
+      "id": "h3-17",
+      "q": "Product-S2 2025년 1분기 매출, 묶지 말고 한 줄씩 날짜랑 금액 볼 수 있나",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 2272,
+      "required": [
+        "2025-01-03",
+        "363",
+        "2025-01-03",
+        "370",
+        "2025-01-08",
+        "391",
+        "2025-01-24",
+        "570",
+        "2025-01-31",
+        "397",
+        "2025-02-13",
+        "824",
+        "2025-02-28",
+        "632",
+        "2025-03-02",
+        "225"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 8,
+        "dropped": 0
+      },
+      "answer": "2025-02-13 | 824 2025-01-24 | 570 2025-02-28 | 632 2025-01-03 | 363 2025-01-03 | 370 2025-01-08 | 391 2025-03-02 | 225 2025-01-31 | 397 [조회 결과 8건] - sale_date: 2025-02-13, amount: 824 - sale_date: 2025-01-24, amount: 570 - sale_date: 2025-02-28, amount: 632 - sale_date: 2025-01-03, amount: 363 - sale_date: 2025-01-03, amount: 370 - sale_date: 2025-01-08, amount: 391 - sale_date: 2025-03-02, amount: 225 - sale_date: 2025-01-31, amount: 397"
+    },
+    {
+      "i": 18,
+      "id": "h3-18",
+      "q": "김준혁 급여랑 입사일 확안 좀 해줘",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 786,
+      "required": [
+        "김준혁",
+        "6266",
+        "2023-10-19"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "김준혁의 급여는 6266이고, 입사일은 2023-10-19입니다. [조회 결과 1건] - employee_name: 김준혁, salary: 6266, hire_date: 2023-10-19"
+    },
+    {
+      "i": 19,
+      "id": "h3-19",
+      "q": "2025년에 시작한 계약에서 취소된 거, 구독/프로젝트/유지보수 각각 몇개임?",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 2/6",
+      "state": "ok",
+      "ms": 1433,
+      "required": [
+        "maintenance",
+        "0",
+        "project",
+        "4",
+        "subscription",
+        "2"
+      ],
+      "missing": [
+        "maintenance",
+        "0"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "2025년에 시작한 계약 중 취소된 건수는 다음과 같습니다: - 구독: 3건 - 프로젝트: 4건 - 유지보수: 주어진 정보로는 알 수 없습니다 [조회 결과 2건] - contract_type: subscription, cancelled_contracts: 3 - contract_type: project, cancelled_contracts: 4"
+    },
+    {
+      "i": 20,
+      "id": "h3-20",
+      "q": "서울에서 2026년 상반기 제일 돈 잘 들어온 달 언제야? 그달 금액도 궁금",
+      "lane": "nl2sql",
+      "routed": "structured",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 2/2",
+      "state": "ok",
+      "ms": 1471,
+      "required": [
+        "2026-02",
+        "2969"
+      ],
+      "missing": [
+        "2026-02",
+        "2969"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "2026년 상반기 서울에서 가장 많은 돈이 들어온 달은 2026년 6월 17일입니다. 그 달의 금액은 1,212입니다. [조회 결과 1건] - sale_date: 2026-06-17, total_amount: 1212"
+    },
+    {
+      "i": 21,
+      "id": "h3-21",
+      "q": "Product-C1 일단 띄우려먄 어케 해",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 647,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Product-C1을 띄우려면 다음 단계를 따르세요: 1. Docker와 Docker Compose를 설치합니다. 2. Kubernetes 환경에서는 Helm 차트를 통해 배포할 수 있습니다."
+    },
+    {
+      "i": 22,
+      "id": "h3-22",
+      "q": "Product-D2 처음 켜보려는데 뭐부터 만져야 됨",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 950,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Product-D2를 처음 켜보려면 다음과 같은 단계를 따르세요: 1. 의존성 설치: Docker와 Docker Compose를 설치합니다. 2. 서비스 시작: `docker-compose up -d` 명령을 실행하여 전체 서비스를 시작합니다. 초기 구동에는 약 46초가 소요됩니다."
+    },
+    {
+      "i": 23,
+      "id": "h3-23",
+      "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 554,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다."
+    },
+    {
+      "i": 24,
+      "id": "h3-24",
+      "q": "Product-S2 DB 연결 너무 많이 열리는 거 같아. 풀 위아래 값 어떻게 잡으랬지?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 542,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Product-S2의 DB 연결 풀 위아래 값은 최소 12, 최대 90으로 설정되었습니다."
+    },
+    {
+      "i": 25,
+      "id": "h3-25",
+      "q": "알림 하나 만들려는데 어디로 뭘 보내? Product-D1 API 얘기야",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 482,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "알림 하나를 만들려면 `POST /api/v1/alerts` 엔드포인트에 데이터를 보냅니다."
+    },
+    {
+      "i": 26,
+      "id": "h3-26",
+      "q": "Product-C4 백업본 며칠 지나면 없어져? 저장해 두는 곳도 알려줘",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 576,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Product-C4의 백업본은 90일 후에 없어집니다. 백업본은 S3 호환 스토리지에 저장됩니다."
+    },
+    {
+      "i": 27,
+      "id": "h3-27",
+      "q": "Product-D3 스레드풀, 코어 수 그대로 넣는 거 맞아? 권장값 좀",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 431,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "네, Product-D3의 스레드풀 설정은 코어 수 × 4로 권장됩니다."
+    },
+    {
+      "i": 28,
+      "id": "h3-28",
+      "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 395,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "403 뱉음은 권한 없음을 의미합니다."
+    },
+    {
+      "i": 29,
+      "id": "h3-29",
+      "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 519,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "보안 패치 적용 전에 스테이징 환경에서의 충분한 테스트를 하지 않았습니다."
+    },
+    {
+      "i": 30,
+      "id": "h3-30",
+      "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 278,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "주어진 정보로는 알 수 없습니다."
+    },
+    {
+      "i": 31,
+      "id": "h3-31",
+      "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 271,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "강현우 (클라우드사업부)"
+    },
+    {
+      "i": 32,
+      "id": "h3-32",
+      "q": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들 인수인계에 넣게 짚어줘",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 955,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들은 다음과 같습니다: 1. 로드밸런서 설정 복구 2. 모니터링 알림 임계값 재설정 3. 재발 방지를 위한 자동화 스크립트 작성"
+    },
+    {
+      "i": 33,
+      "id": "h3-33",
+      "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 174,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "2주"
+    },
+    {
+      "i": 34,
+      "id": "h3-34",
+      "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 702,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "네, Client-D 2026년 6월 26일 중간 점검에서 추가 인력 투입 승인이 결론났으며, 주간 리포트 형식도 변경하기로 결정했습니다."
+    },
+    {
+      "i": 35,
+      "id": "h3-35",
+      "q": "Client-G 2026년 5월 20일 만났을 때 돈 얼마나 썼다고 했어? 매출 말고 예산 쓴 비율",
+      "lane": "vector_search",
+      "routed": "structured",
+      "route_match": false,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 1813,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 1,
+        "dropped": 0
+      },
+      "answer": "Client-G 2026년 5월 20일 만났을 때 돈을 쓴 비율은 0%입니다. [조회 결과 1건] - budget_ratio: 0"
+    },
+    {
+      "i": 36,
+      "id": "h3-36",
+      "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 353,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "박민수, 오수진, 장미라, 강동현, 권소연"
+    },
+    {
+      "i": 37,
+      "id": "h3-37",
+      "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 492,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Client-F에 Product-C1 권할 때 첫 구축비는 7917만원 써냈어요."
+    },
+    {
+      "i": 38,
+      "id": "h3-38",
+      "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 438,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Client-H에 Product-S1을 도입하는 데 테스트 및 안정화 단계는 3주를 소요했습니다."
+    },
+    {
+      "i": 39,
+      "id": "h3-39",
+      "q": "Product-C4 얘길 왜 꺼냈던 거야 Client-M한테? 제안할 때 적은 그쪽 IT 숙제 두 가지가 뭐였지",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 572,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "Client-M은 데이터 기반 의사결정 체계 구축과 개인정보보호법 강화에 따른 컴플라이언스 대응이 주요 IT 인프라의 과제였습니다."
+    },
+    {
+      "i": 40,
+      "id": "h3-40",
+      "q": "Client-O Product-S3 도입안에 투자금 회수 몇 달로 봤음?",
+      "lane": "vector_search",
+      "routed": "semantic",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "unscorable": "답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+      "state": "ok",
+      "ms": 161,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 5,
+        "dropped": 0
+      },
+      "answer": "13개월 내"
+    },
+    {
+      "i": 41,
+      "id": "h3-41",
+      "q": "Client-H 쪽 제품 조합이 뭐였더라? 이름만 툭 던져줘",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 283,
+      "required": [
+        "Product-C1",
+        "Product-C3",
+        "Product-C2"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 4,
+        "dropped": 0
+      },
+      "answer": "Client-H는 Product-C1, Product-C3, Product-C2를 사용하고 있습니다."
+    },
+    {
+      "i": 42,
+      "id": "h3-42",
+      "q": "Client-N 환경에 우리 거 뭐뭐 들어가 있더라, 제품 이름 까먹음",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 268,
+      "required": [
+        "Product-C4",
+        "Product-S1"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-N 환경에 들어가 있는 제품은 Product-C4와 Product-S1입니다."
+    },
+    {
+      "i": 43,
+      "id": "h3-43",
+      "q": "Product-S1하고 Product-C4 둘 다 쓰는 고객만 만나보려는데 어디로 가면 돼?",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 273,
+      "required": [
+        "Client-N"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 12,
+        "dropped": 0
+      },
+      "answer": "Product-S1과 Product-C4를 모두 사용하는 고객은 Client-N입니다."
+    },
+    {
+      "i": 44,
+      "id": "h3-44",
+      "q": "오수진 명함에 팀 이름 뭐라고 넣지?",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 99,
+      "required": [
+        "경영지원팀"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "경영지원팀"
+    },
+    {
+      "i": 45,
+      "id": "h3-45",
+      "q": "조예진이랑 같은 팀인 사람 이름 좀, 조예진 본인은 빼고",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 195,
+      "required": [
+        "박소연",
+        "권승호",
+        "임우진"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 4,
+        "dropped": 0
+      },
+      "answer": "박소연, 권승호, 임우진"
+    },
+    {
+      "i": 46,
+      "id": "h3-46",
+      "q": "한도윤 팀 이름이 기억이 안 나네, 어딘지 알랴줘",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 87,
+      "required": [
+        "영업팀"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "영업팀"
+    },
+    {
+      "i": 47,
+      "id": "h3-47",
+      "q": "Client-K 건 얘기하려면 사내에서 누구한테 말 걸면 돼? 영업 계정 얘기",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 175,
+      "required": [
+        "김준혁"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "김준혁에게 말 걸면 돼요."
+    },
+    {
+      "i": 48,
+      "id": "h3-48",
+      "q": "이지훈 앞으로 묶인 고객 계정들 이름만 보내봐",
+      "lane": "knowledge_graph",
+      "routed": "structured",
+      "route_match": false,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 665,
+      "required": [
+        "Client-T",
+        "Client-G"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "Client-T, Client-G [조회 결과 2건] - name: Client-T - name: Client-G"
+    },
+    {
+      "i": 49,
+      "id": "h3-49",
+      "q": "Client-R 계정 맡은 분한테 연락해야 하는데 성함이 뭐였지? 고객 쪽 직원 말고 우리 쪽",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 70,
+      "required": [
+        "김지훈"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "김지훈"
+    },
+    {
+      "i": 50,
+      "id": "h3-50",
+      "q": "권소연 요즘 뭐 해? 프로젝트 이름 하나만 알려줘봐",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 115,
+      "required": [
+        "Client-V DevOps 전환"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "Client-V DevOps 전환"
+    },
+    {
+      "i": 51,
+      "id": "h3-51",
+      "q": "서재원 쪽 프로젝트 묶음에 뭐뭐 있지? 계획 중인 것도 빼지 마",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 840,
+      "required": [
+        "Client-M 하이브리드 클라우드",
+        "Client-B 하이브리드 클라우드",
+        "Client-Z CI/CD 파이프라인 구축",
+        "Client-J API 게이트웨이 구축"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 10,
+        "dropped": 0
+      },
+      "answer": "서재원이 이끄는 프로젝트는 다음과 같습니다: 1. Client-M 하이브리드 클라우드 2. Client-B 하이브리드 클라우드 3. Client-Z CI/CD 파이프라인 구축 4. Client-J API 게이트웨이 구축"
+    },
+    {
+      "i": 52,
+      "id": "h3-52",
+      "q": "Client-C DB 마이그레이션, 누가 끌고 가는 거야?",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 185,
+      "required": [
+        "안진우"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "안진우가 끌고 가고 있습니다."
+    },
+    {
+      "i": 53,
+      "id": "h3-53",
+      "q": "클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서",
+      "lane": "knowledge_graph",
+      "routed": "hybrid",
+      "route_match": false,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 688,
+      "required": [
+        "안진우"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 6,
+        "dropped": 0
+      },
+      "answer": "안진우"
+    },
+    {
+      "i": 54,
+      "id": "h3-54",
+      "q": "보안솔루션팀 수장 성함 다시 좀. 내가 메모를 날렷네",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 86,
+      "required": [
+        "조재원"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "조재원"
+    },
+    {
+      "i": 55,
+      "id": "h3-55",
+      "q": "Client-G가 문제 있다고 접수했던 제품 이름 뭐였어? 조치 내용은 필요 없고",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 1/1",
+      "state": "ok",
+      "ms": 192,
+      "required": [
+        "Product-S2"
+      ],
+      "missing": [
+        "Product-S2"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "Client-G가 사용 중인 제품은 Product-C2입니다."
+    },
+    {
+      "i": 56,
+      "id": "h3-56",
+      "q": "Client-H 쪽에서 이슈 올린 제품만 골라줘. 도입된 제품 명단이랑 헷갈리지 말고",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 287,
+      "required": [
+        "Product-T2",
+        "Product-D1"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-H가 기술지원 이슈를 제기한 제품은 Product-T2와 Product-D1입니다."
+    },
+    {
+      "i": 57,
+      "id": "h3-57",
+      "q": "Product-C4 때문에 연락 왔던 곳들 중 Client-AD랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 131,
+      "required": [
+        "Client-AD"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 14,
+        "dropped": 0
+      },
+      "answer": "Client-AD"
+    },
+    {
+      "i": 58,
+      "id": "h3-58",
+      "q": "Client-V 프로젝트 탭 채우려는데 거기 들어갈 이름들 좀 줘",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": true,
+      "reason": "",
+      "state": "ok",
+      "ms": 252,
+      "required": [
+        "Client-V 하이브리드 클라우드",
+        "Client-V DevOps 전환"
+      ],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-V 하이브리드 클라우드, Client-V DevOps 전환"
+    },
+    {
+      "i": 59,
+      "id": "h3-59",
+      "q": "Client-N 밑에 적어둔 프로젝트 이름 뭐뭐였지, K8s 말고도 있었던 거 같은데",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "누락 1/2",
+      "state": "ok",
+      "ms": 351,
+      "required": [
+        "Client-N K8s 클러스터 구축",
+        "Client-N 보안 감사 자동화"
+      ],
+      "missing": [
+        "Client-N K8s 클러스터 구축"
+      ],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 3,
+        "dropped": 0
+      },
+      "answer": "Client-N 밑에 적어둔 프로젝트 이름은 \"Client-N 보안 감사 자동화\"였습니다."
+    },
+    {
+      "i": 60,
+      "id": "h3-60",
+      "q": "Client-R 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
+      "lane": "knowledge_graph",
+      "routed": "graph",
+      "route_match": true,
+      "answer_correct": false,
+      "reason": "채점 불가: 정답이 project, employee 짝이다 — 이름이 다 있어도 짝이 바뀐 답을 가르지 못한다",
+      "unscorable": "정답이 project, employee 짝이다 — 이름이 다 있어도 짝이 바뀐 답을 가르지 못한다",
+      "state": "ok",
+      "ms": 157,
+      "required": [],
+      "missing": [],
+      "extra": [],
+      "branch_errors": [],
+      "context_items": {
+        "kept": 2,
+        "dropped": 0
+      },
+      "answer": "주어진 정보로는 알 수 없습니다."
+    }
+  ]
+}
