@@ -178,6 +178,54 @@ export async function loadGraph(dir = datasetDir()): Promise<{ nodes: GraphNode[
   return { nodes, edges };
 }
 
+/** kg_gold.json 의 문항 명세. 정답 집합은 이 명세를 graph/edges.json 위에서 풀어 얻는다. */
+export type KgSpec =
+  | { kind: "neighbors"; seed: string; rel: string; dir: "in" | "out" }
+  | { kind: "two_hop"; seed: string; rel1: string; dir1: "in" | "out"; rel2: string; dir2: "in" | "out" }
+  | { kind: "argmax"; rel: string; over: "source" | "target" }
+  | { kind: "leads_status"; rel: string; status: string }
+  | { kind: "absent"; note: string };
+
+/** 명세의 정답 노드 id 집합. 검색 재현율(companyx:kg)과 최종 답 채점(companyx:score)이
+ * **같은 정답**을 보도록 한 곳에 둔다 — 정답 계산이 두 벌이면 한쪽만 고치게 된다. */
+export function kgGoldIds(spec: KgSpec, nodes: GraphNode[], edges: GraphEdgeRaw[]): string[] {
+  const neighbors = (seed: string, rel: string, dir: "in" | "out"): string[] =>
+    edges
+      .filter((e) => e.relation === rel && (dir === "out" ? e.source === seed : e.target === seed))
+      .map((e) => (dir === "out" ? e.target : e.source));
+  switch (spec.kind) {
+    case "neighbors":
+      return neighbors(spec.seed, spec.rel, spec.dir);
+    case "two_hop": {
+      const mid = neighbors(spec.seed, spec.rel1, spec.dir1);
+      return [...new Set(mid.flatMap((m) => neighbors(m, spec.rel2, spec.dir2)))];
+    }
+    case "argmax": {
+      // 동점은 전부 정답이다. 하나만 고르면 데이터가 말하지 않은 순위를 지어낸다.
+      const counts = new Map<string, number>();
+      for (const e of edges) {
+        if (e.relation !== spec.rel) continue;
+        const key = spec.over === "target" ? e.target : e.source;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      const max = Math.max(...counts.values());
+      return [...counts.entries()].filter(([, c]) => c === max).map(([k]) => k);
+    }
+    case "leads_status": {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const out: string[] = [];
+      for (const e of edges) {
+        if (e.relation !== spec.rel) continue;
+        const proj = byId.get(e.target);
+        if (proj && (proj.properties as { status?: string })?.status === spec.status) out.push(e.source);
+      }
+      return [...new Set(out)];
+    }
+    case "absent":
+      return [];
+  }
+}
+
 /** Sponsor node id (`client_7`) -> the relational row it denotes (clients.id = 7).
  * Verified 1:1 against sql/02-data.sql for every node type in the dataset. */
 export const NODE_TABLE: Record<string, string> = {
@@ -191,6 +239,18 @@ export const NODE_TABLE: Record<string, string> = {
 export function nodePk(id: string): number | null {
   const m = id.match(/_(\d+)$/);
   return m ? Number(m[1]) : null;
+}
+
+/** 사업자 DDL 의 테이블 8개. */
+export const CX_TABLES = ["departments", "employees", "clients", "products", "contracts", "projects", "sales", "support_tickets"];
+
+/** 스키마 없이 쓴 테이블 이름을 `companyx.` 로 한정한다.
+ *
+ * 홀드아웃 작성자는 테이블 이름을 스키마 없이 썼다. 실행 역할의 search_path 에 기대지
+ * 않고 이름을 한정한다. companyx:sql(CX_GOLD)과 스코어카드가 같은 정답을 실행해야
+ * 하므로 한 곳에 둔다 — 한정 규칙이 두 벌이면 한쪽만 고친다. */
+export function qualifyCompanyx(sql: string): string {
+  return sql.replace(new RegExp(`\\b(from|join)\\s+(${CX_TABLES.join("|")})\\b`, "gi"), `$1 ${CX_SCHEMA}.$2`);
 }
 
 // ---------- questions ----------
@@ -422,6 +482,42 @@ export async function computeCompanyXVectors(
     out.push([r.id, toVectorLiteral(await embedder.embed(`${r.title}\n${r.body}`))]);
   }
   return out;
+}
+
+/** 코퍼스 벡터가 지금 질의할 임베더로 채워졌는지 첫 조각 하나로 확인한다.
+ *
+ * 2026-10-01 CPU 정본: 정본 재측정이 벡터 평가를 해시 임베더로만 돌려 코퍼스를 해시
+ * 벡터로 되돌려 놓았고, 이어서 bge-m3 로 질의한 채점표의 벡터 레인이 0/10 이 됐다.
+ * 검색은 오류 없이 엉뚱한 조각을 돌려주므로 결과만 봐서는 모른다. 백필과 같은 문자열을
+ * 지금 임베더로 다시 재서 저장된 벡터와의 코사인을 본다(같은 임베더면 1 에 가깝다). */
+export async function assertCorpusEmbedder(
+  pool: Pool,
+  embedder: Embedder,
+  schema = CX_SCHEMA,
+  min = 0.95,
+): Promise<number> {
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error(`unsafe schema: ${schema}`);
+  const r = await pool.query<{ title: string; body: string; v: string }>(
+    `SELECT title, body, embedding::text AS v FROM ${schema}.documents WHERE embedding IS NOT NULL ORDER BY id LIMIT 1`,
+  );
+  const fix = `DATASET=companyx EMBEDDER=${process.env.EMBEDDER ?? ""} node dist/cli/companyx-vector-eval.js 로 코퍼스를 다시 채운 뒤 잰다`;
+  if (!r.rows.length) throw new Error(`${schema} 코퍼스에 임베딩이 없다. ${fix}`);
+  const stored = JSON.parse(r.rows[0].v) as number[];
+  const fresh = await embedder.embed(`${r.rows[0].title}\n${r.rows[0].body}`);
+  if (stored.length !== fresh.length) {
+    throw new Error(`코퍼스 벡터 폭 ${stored.length} 이 ${embedder.name} 의 폭 ${fresh.length} 과 다르다. ${fix}`);
+  }
+  let dot = 0, a = 0, b = 0;
+  for (let i = 0; i < fresh.length; i++) {
+    dot += stored[i] * fresh[i];
+    a += stored[i] * stored[i];
+    b += fresh[i] * fresh[i];
+  }
+  const cos = a && b ? dot / Math.sqrt(a * b) : 0;
+  if (cos < min) {
+    throw new Error(`코퍼스 벡터가 ${embedder.name} 로 채워져 있지 않다(첫 조각 코사인 ${cos.toFixed(3)}). ${fix}`);
+  }
+  return cos;
 }
 
 export async function embedCompanyXChunks(

@@ -80,9 +80,10 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/소속|속한|속해\s*있/, "BELONGS_TO"],
   [/담당(하는|자|해|인)?/, "MANAGES_ACCOUNT"],
   [/이끄는|이끌고|리드하는|맡고\s*있는|맡은/, "LEADS"],
-  [/팀장|부서장|본부장|책임자/, "HEAD_IS"],
-  // HAS_PROJECT — employee→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
-  // 오직 엣지만이 답할 수 있는 질문이다.
+  [/팀장|부서장|본부장|책임자|수장/, "HEAD_IS"],
+  // HAS_PROJECT — client→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
+  // 오직 엣지만이 답할 수 있는 질문이다. 주어가 직원이면 이 엣지가 닿지 않으므로
+  // 그래프 레인이 시드 타입에 맞춰 employee→project 엣지(LEADS)로 바꾼다(fitPlanToSeed).
   [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
 ];
 
@@ -131,6 +132,20 @@ export interface GraphPlan {
   filter?: { side: "source" | "target"; key: string; value: string };
 }
 
+/** 사업자 라벨 공간의 세 도구. 규칙 점수와 시맨틱 폴백이 같은 공간에서 비교된다. */
+export type Lane = "nl2sql" | "vector_search" | "knowledge_graph";
+export const LANES: readonly Lane[] = ["nl2sql", "vector_search", "knowledge_graph"];
+
+/** 규칙이 확신하는 정도. 사다리가 고른 도구의 점수에서 나머지 중 최고점을 뺀 값이다. */
+export interface RuleGate {
+  scores: Record<Lane, number>;
+  /** 사다리가 고른 도구. hybrid 로 떨어졌으면 null — 확신이 없다는 뜻이다. */
+  pick: Lane | null;
+  margin: number;
+  /** pick 이 있고 margin 이 RULE_MIN_MARGIN 이상일 때만 true. false 면 시맨틱 폴백 차례다. */
+  confident: boolean;
+}
+
 export interface RouteDecision {
   route: Route;
   tools: string[];
@@ -143,7 +158,55 @@ export interface RouteDecision {
   typePair?: { relation: string; from: string; to: string };
   graphPlan?: GraphPlan;
   rationale: string;
+  gate: RuleGate;
+  /** 규칙이 확신하지 못해 시맨틱 폴백이 판단했을 때만 붙는다(semroute.ts). */
+  semantic?: {
+    lane: Lane;
+    margin: number;
+    scores: Record<Lane, number>;
+    nearest: { lane: Lane; type: string; text: string; score: number };
+    applied: boolean;
+  };
 }
+
+// ── 신호 가중치 합산 ────────────────────────────────────────────────
+//
+// 사다리(아래 route())는 첫 일치에서 멈추므로 "얼마나 확실한가"를 말하지 못한다.
+// 「매출」은 정형 신호지만 「매출 관련 보고서」는 문서 질문이다. 두 신호가 함께
+// 있을 때 사다리는 여전히 한쪽을 고르고, 그 선택이 박빙이었다는 사실은 버려진다.
+// 그래서 같은 신호를 도구별 점수로 합산해 1위와 2위의 격차를 남긴다.
+//
+// 가중치는 사다리의 우선순위를 수치로 옮긴 것이다. 엣지를 직접 부르는 관계 동사가
+// 가장 무겁고(3), 문서 어휘와 타입쌍이 그다음(2), 개체에 걸린 관계 명사(1.5),
+// 나머지 정형·의미 신호는 개당 1이다.
+const WEIGHT = {
+  relationVerb: 3,
+  genericRelation: 2,
+  typePair: 2,
+  relationNoun: 1.5,
+  doc: 2,
+  semantic: 1,
+  structured: 1,
+} as const;
+
+/** 이 격차 미만이면 규칙은 판단을 시맨틱 폴백에 넘긴다.
+ *
+ * 값은 개발용 문항 150개(사업자 30, 홀드아웃 1·2·3차)에서 격차 구간별로 규칙만,
+ * 시맨틱만의 정확도를 따로 재서 정했다(`npm run companyx:boundary`,
+ * eval/results/companyx-route-boundary.json). 격차 1 구간은 규칙 17/21 대 시맨틱
+ * 20/21, 격차 2 구간은 49/53 대 51/53 으로 시맨틱이 나았고, 2.5 이상에서 둘이
+ * 같아졌다. 규칙이 판단을 포기한 33문항은 시맨틱 32/33, 규칙 0/33.
+ *
+ * 1차 값은 1이었다(90문항). 봉인 홀드아웃 3차가 격차 1~2 구간의 규칙 오답을
+ * 드러냈다 — 날짜가 박힌 문서 질문과 집계어 없는 조회 질문. */
+export const RULE_MIN_MARGIN = 2.5;
+
+const LANE_OF: Record<Route, Lane | null> = {
+  structured: "nl2sql",
+  semantic: "vector_search",
+  graph: "knowledge_graph",
+  hybrid: null,
+};
 
 /** Which endpoint a superlative counts over, per relation type.
  * "이슈가 가장 많은 제품" counts REPORTED_ISSUE by its TARGET (the product);
@@ -165,7 +228,7 @@ const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value
   [/계획\s*(중|단계)/, { side: "target", key: "status", value: "planning" }],
 ];
 
-function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
+export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   if (superlative && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
@@ -193,8 +256,16 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
 // 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
 let ENTITY_LEXICON: { name: string; type: string }[] = [];
 
-/** 타입쌍 -> 엣지 타입. edges.json에서 유도하며 사람이 적지 않는다. */
-let TYPE_PAIR_EDGE = new Map<string, string>();
+/** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
+ *
+ * 한 타입쌍에 엣지가 여럿일 수 있다. 고객과 제품 사이에는 USES 와 REPORTED_ISSUE 가,
+ * 부서와 직원 사이에는 BELONGS_TO 와 HEAD_IS 가 있다. 종전에는 먼저 나온 하나만 남겨서,
+ * 「Product-S1 관련 고객 이슈 현황은?」(사업자 예시 29번)이 이슈를 묻는데 USES 로 탐색했다.
+ * 온톨로지를 적재한 서버에서만 생기는 결함이라 온톨로지 없이 돌던 평가들이 몰랐다(2026-09-30). */
+let TYPE_PAIR_EDGE = new Map<string, string[]>();
+
+/** 엣지 타입 -> 그 엣지가 잇는 (출발 타입, 도착 타입). 역시 데이터에서 유도한다. */
+let REL_ENDS = new Map<string, [string, string][]>();
 
 /** 노드 타입을 가리키는 말. 관계 동사와 달리 **닫힌 집합**이다 — 온톨로지의
  * 노드 타입이 5종이므로 이 표도 5행에서 끝난다. 관계 표현은 무한하지만
@@ -232,12 +303,21 @@ export function installOntology(
     if (n.id) typeOf.set(n.id, n.type);
   }
   TYPE_PAIR_EDGE = new Map();
+  REL_ENDS = new Map();
+  const add = (key: string, rel: string) => {
+    const list = TYPE_PAIR_EDGE.get(key) ?? [];
+    if (!list.includes(rel)) list.push(rel);
+    TYPE_PAIR_EDGE.set(key, list);
+  };
   for (const e of edges) {
     const st = typeOf.get(e.source) ?? e.source.replace(/_\d+$/, "");
     const tt = typeOf.get(e.target) ?? e.target.replace(/_\d+$/, "");
-    // 같은 타입쌍에 여러 엣지가 있으면 먼저 나온 것을 쓴다(데이터 순서 = 결정론).
-    if (!TYPE_PAIR_EDGE.has(`${st}|${tt}`)) TYPE_PAIR_EDGE.set(`${st}|${tt}`, e.relation);
-    if (!TYPE_PAIR_EDGE.has(`${tt}|${st}`)) TYPE_PAIR_EDGE.set(`${tt}|${st}`, e.relation);
+    // 데이터 순서를 지킨다(결정론). 질문이 엣지를 지목하지 않으면 첫 엣지를 쓴다.
+    add(`${st}|${tt}`, e.relation);
+    add(`${tt}|${st}`, e.relation);
+    const ends = REL_ENDS.get(e.relation) ?? [];
+    if (!ends.some(([a, b]) => a === st && b === tt)) ends.push([st, tt]);
+    REL_ENDS.set(e.relation, ends);
   }
   return { entities: ENTITY_LEXICON.length, typePairs: TYPE_PAIR_EDGE.size };
 }
@@ -247,6 +327,31 @@ export function entityLexiconSize(): number {
   return ENTITY_LEXICON.length;
 }
 
+/** 하루를 짚는 날짜. 분기, 월, 연도처럼 구간을 거는 말과 다르다. 이 데이터에서 날짜가
+ * 제목에 박힌 것은 장애 보고서와 회의록이라, 「2025년 12월 27일 그 장애」는 기간 필터가
+ * 아니라 사건 한 건을 가리킨다. 그래서 정형 신호를 세기 전에 뺀다. 하루 단위 집계는
+ * 여전히 컬럼 어휘(매출, 금액…)가 정형으로 끌고 간다. */
+const FULL_DAY = /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일/g;
+
+const TYPE_PLACEHOLDER: Record<string, string> = {
+  client: "{고객사}",
+  product: "{제품}",
+  employee: "{직원}",
+  department: "{부서}",
+  project: "{프로젝트}",
+};
+
+/** 실재 개체명을 타입 자리표시로 바꾼다. 시맨틱 폴백은 「무엇을 묻는가」를 비교해야
+ * 하는데, "Product-C3" 같은 고유명은 의미가 없는 토큰이라 유사도를 흐린다. */
+export function maskEntities(q: string): string {
+  let out = q.replace(FULL_DAY, "{날짜}");
+  for (const e of ENTITY_LEXICON) {
+    const ph = TYPE_PLACEHOLDER[e.type];
+    if (ph && out.includes(e.name)) out = out.split(e.name).join(ph);
+  }
+  return out;
+}
+
 /** 질문에 등장하는 실재 개체의 타입들. */
 function entityTypesIn(q: string): string[] {
   const out = new Set<string>();
@@ -254,19 +359,136 @@ function entityTypesIn(q: string): string[] {
   return [...out];
 }
 
-/** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지. */
-function inferByTypePair(q: string): { relation: string; from: string; to: string } | null {
+/** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지.
+ *
+ * 그 타입쌍의 엣지가 여럿이면 질문의 관계 명사(「이슈」 → REPORTED_ISSUE)가 지목한 엣지를 쓰고,
+ * 지목이 없으면 데이터 순서의 첫 엣지를 쓴다. */
+function inferByTypePair(q: string, named: string[] = []): { relation: string; from: string; to: string } | null {
   const froms = entityTypesIn(q);
   if (!froms.length) return null;
   const tos = scan(q, NODE_TYPE_TERMS);
   for (const from of froms) {
     for (const to of tos) {
       if (to === from) continue;
-      const rel = TYPE_PAIR_EDGE.get(`${from}|${to}`);
-      if (rel) return { relation: rel, from, to };
+      const rels = TYPE_PAIR_EDGE.get(`${from}|${to}`);
+      if (rels?.length) return { relation: rels.find((r) => named.includes(r)) ?? rels[0], from, to };
     }
   }
   return null;
+}
+
+/** 시드 개체에서 출발하는 탐색. hops[i] 는 i+1 번째 홉에서 탈 엣지 타입들이다.
+ * 빈 배열이면 엣지 타입을 정하지 않은 무타입 확장이다. */
+export interface SeedWalk {
+  hops: string[][];
+  /** 계획을 시드 타입에 맞게 고쳤으면 그 내용. 감사 로그에 남는다. */
+  fitted?: string;
+}
+
+/** 질문이 묻는 노드 타입. 한국어는 머리말이 끝에 오므로 마지막에 나온 타입 어휘다.
+ * 「Product-S1 이슈를 올린 고객사의 프로젝트는?」은 고객사가 아니라 프로젝트를 묻는다.
+ * 개체 이름 속의 타입 어휘(「기술지원팀」의 팀)는 세지 않는다. 시드 타입은 뺀다. */
+function askedType(q: string, except: string): string | undefined {
+  let text = q;
+  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  let best: { at: number; type: string } | undefined;
+  for (const [re, type] of NODE_TYPE_TERMS) {
+    if (type === except) continue;
+    for (const m of text.matchAll(new RegExp(re.source, "g"))) {
+      if (m.index !== undefined && (!best || m.index >= best.at)) best = { at: m.index, type };
+    }
+  }
+  return best?.type;
+}
+
+/** 탐색 계획을 시드 개체의 타입에 맞춘다.
+ *
+ * 계획의 엣지는 질문의 말(관계어, 시맨틱 앵커)에서 나오고 시드는 개체 해소에서 나온다.
+ * 둘이 어긋나면 시드에서 그 엣지를 탈 수 없어 탐색이 빈손으로 끝나고, 7B 는 「알 수
+ * 없다」고 답한다. 사업자 예시 25번 「Product-D1 제품과 관련된 프로젝트는?」이 그랬다.
+ * 계획은 HAS_PROJECT(고객사 → 프로젝트)인데 시드가 제품이라 닿는 엣지가 0개였다. 제품과
+ * 프로젝트 사이에는 엣지가 없고 고객사를 거쳐야 한다. 사업자 그래프 스키마 문서의 예시
+ * 질의도 같은 모양이다(「Product-C1 담당 엔지니어」 = product ←[USES]- client
+ * ←[MANAGES_ACCOUNT]- employee).
+ *
+ * 규칙은 온톨로지의 타입 그래프와 질문이 묻는 타입(askedType)만 본다. 어휘를 늘리지 않는다.
+ *   0. 「같은 팀」, 「같은 제품」처럼 시드와 같은 무리를 물으면 무리 타입으로 갔다가 같은 엣지로
+ *      돌아온다. 그 무리를 이름으로 지목한 다른 시드가 있으면(otherSeedTypes) 왕복하지 않는다.
+ *   1. 계획의 엣지가 시드 타입에 닿으면 그 엣지로 한 홉. 닿는 엣지와 안 닿는 엣지가 이어지면
+ *      시드에서부터 한 홉씩 탄다(담당 직원 → 그 직원이 이끄는 프로젝트). 한 홉으로 묻는
+ *      타입에 못 닿으면 그 타입으로 가는 엣지를 한 홉 더 잇는다(직원 → 담당 고객사 → 그
+ *      고객사의 프로젝트).
+ *   2. 닿지 않으면, 묻는 타입이 그 엣지의 끝이고 시드 타입과 그 타입을 바로 잇는 엣지가
+ *      있을 때 그 엣지 한 홉으로 바꾼다(직원이 「관여하는 프로젝트」 = LEADS).
+ *   3. 그것도 없으면 시드 타입과 그 엣지의 한쪽 끝을 잇는 다리 엣지를 찾아 두 홉으로 잇는다.
+ *   다리나 대체 엣지가 여럿이면 질문이 지목한 엣지, 없으면 데이터 순서의 첫 엣지다(타입쌍
+ *   추론과 같은 규칙). 어느 것도 안 되거나 온톨로지가 없으면 계획을 그대로 둔다. */
+export function fitPlanToSeed(relTypes: string[], seedType: string, query: string, otherSeedTypes: string[] = []): SeedWalk {
+  const rels = relTypes.filter((r) => r !== "RELATED_TO");
+  const named = [...scan(query, RELATION_VERBS), ...scan(query, RELATION_NOUNS)];
+  const pick = (cands: string[]) => cands.find((r) => named.includes(r)) ?? cands[0];
+
+  // 0. 시드 자신의 엣지는 둘째 홉에서 다시 줍지 않는다(이미 본 엣지 id 는 빠진다).
+  //    무리를 이름으로 지목한 시드가 따로 있으면(「같은 제품 … 그 제품은 Product-S1」) 왕복하지 않는다.
+  //    그 시드에서 바로 탐색하면 되고, 왕복은 이 시드가 속한 다른 무리까지 끌어와 근거 예산을 채운다
+  //    (홀드아웃3 #57).
+  const same = /같은\s*([가-힣]+)/.exec(query);
+  const group = same ? scan(same[1], NODE_TYPE_TERMS)[0] : undefined;
+  if (group && group !== seedType && !otherSeedTypes.includes(group)) {
+    const via = TYPE_PAIR_EDGE.get(`${seedType}|${group}`);
+    if (via?.length) {
+      const e = via.find((r) => rels.includes(r)) ?? pick(via);
+      return { hops: [[e], [e]], fitted: `같은 ${group}: ${e} 로 갔다가 같은 엣지로 돌아옴` };
+    }
+  }
+
+  if (!rels.length) return { hops: [] };
+  const ends = (r: string) => REL_ENDS.get(r) ?? [];
+  if (!rels.every((r) => ends(r).length)) return { hops: [rels] };
+  /** 엣지 r 에서 타입 t 의 반대편 타입들. t 에 닿지 않으면 빈 배열. */
+  const across = (r: string, t: string) => ends(r).flatMap(([a, b]) => (a === t ? [b] : b === t ? [a] : []));
+  const asked = askedType(query, seedType);
+
+  const touching = rels.filter((r) => across(r, seedType).length);
+  if (touching.length) {
+    for (const first of touching) {
+      const mids = across(first, seedType);
+      const second = rels.find((r) => !touching.includes(r) && mids.some((m) => across(r, m).length));
+      if (second) return { hops: [[first], [second]], fitted: `${first} 다음 ${second}` };
+    }
+    if (rels.length === 1 && asked) {
+      const reached = across(rels[0], seedType);
+      for (const m of reached.includes(asked) ? [] : reached) {
+        const next = TYPE_PAIR_EDGE.get(`${m}|${asked}`);
+        if (next?.length) {
+          const n = pick(next);
+          return { hops: [[rels[0]], [n]], fitted: `${rels[0]} 로는 ${asked} 에 못 닿아 ${n} 를 이어 탐` };
+        }
+      }
+    }
+    return { hops: [rels] };
+  }
+
+  const rel = rels[0];
+  const relEnds = [...new Set(ends(rel).flat())];
+  if (asked && relEnds.includes(asked)) {
+    const direct = TYPE_PAIR_EDGE.get(`${seedType}|${asked}`);
+    if (direct?.length) {
+      const d = pick(direct);
+      return { hops: [[d]], fitted: `${rel} 는 ${seedType} 에 닿지 않아 ${seedType}-${asked} 엣지 ${d}` };
+    }
+  }
+  // 다리 반대편(= 답)이 묻는 타입인 쪽을 먼저 본다.
+  const answersAsked = (m: string) => Number(asked !== undefined && across(rel, m).includes(asked));
+  const mids = relEnds.filter((m) => m !== seedType).sort((a, b) => answersAsked(b) - answersAsked(a));
+  for (const m of mids) {
+    const bridge = TYPE_PAIR_EDGE.get(`${seedType}|${m}`);
+    if (bridge?.length) {
+      const b = pick(bridge);
+      return { hops: [[b], [rel]], fitted: `${rel} 는 ${seedType} 에 닿지 않아 ${m} 를 거침: ${b} 다음 ${rel}` };
+    }
+  }
+  return { hops: [rels] };
 }
 
 /** 라우터가 신호를 가진 관계 타입 전체.
@@ -285,7 +507,7 @@ const GRAPH_TOOLS = [ONTOLOGY_TOOL, GRAPH_TOOL];
 
 export function route(query: string): RouteDecision {
   const q = query.trim();
-  const s = scan(q, STRUCTURED_SIGNALS);
+  const s = scan(q.replace(FULL_DAY, " "), STRUCTURED_SIGNALS);
   const m = scan(q, SEMANTIC_SIGNALS);
   const verbs = scan(q, RELATION_VERBS);
   const generic = scan(q, GENERIC_RELATION_VERBS);
@@ -303,7 +525,7 @@ export function route(query: string): RouteDecision {
   }
   const graphHits = [...verbs, ...generic, ...nouns];
 
-  const typePair = inferByTypePair(q);
+  const typePair = inferByTypePair(q, nouns);
   // 최상급은 그래프 집계일 수 있으므로 구조화 신호에서 분리한다.
   const columnish = s.filter((x) => x !== "superlative");
 
@@ -371,6 +593,20 @@ export function route(query: string): RouteDecision {
     // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
+
+  const scores: Record<Lane, number> = {
+    nl2sql: WEIGHT.structured * s.length,
+    vector_search: WEIGHT.doc * docs.length + WEIGHT.semantic * m.length,
+    knowledge_graph:
+      WEIGHT.relationVerb * verbs.length +
+      (generic.length && ents.length ? WEIGHT.genericRelation : 0) +
+      (typePair && !columnish.length ? WEIGHT.typePair : 0) +
+      (nouns.length && (ents.length || s.includes("superlative")) ? WEIGHT.relationNoun : 0),
+  };
+  const pick = LANE_OF[route];
+  const margin = pick ? scores[pick] - Math.max(...LANES.filter((l) => l !== pick).map((l) => scores[l])) : 0;
+  const gate: RuleGate = { scores, pick, margin, confident: pick !== null && margin >= RULE_MIN_MARGIN };
+
   return {
     route,
     tools,
@@ -382,6 +618,7 @@ export function route(query: string): RouteDecision {
     typePair: typePair ?? undefined,
     graphPlan,
     rationale,
+    gate,
   };
 }
 
@@ -399,6 +636,17 @@ export function audit(d: RouteDecision) {
     entity_signals: d.entityHits,
     type_pair: d.typePair ?? null,
     rationale: d.rationale,
+    rule_scores: d.gate.scores,
+    rule_margin: d.gate.margin,
+    rule_confident: d.gate.confident,
+    semantic_fallback: d.semantic
+      ? {
+          lane: d.semantic.lane,
+          margin: Number(d.semantic.margin.toFixed(4)),
+          applied: d.semantic.applied,
+          nearest_anchor: d.semantic.nearest.text,
+        }
+      : null,
     deterministic: true,
   };
 }

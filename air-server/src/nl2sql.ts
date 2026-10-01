@@ -158,6 +158,122 @@ export const COMPANYX_SCHEMA_DDL = [
   "companyx.support_tickets(id, client_id->clients.id, product_id->products.id, assignee_id->employees.id, title, description, priority['critical'|'high'|'medium'|'low'], status['open'|'in_progress'|'resolved'|'closed'], created_at timestamp, resolved_at timestamp)",
 ].join("\n");
 
+/** 컬럼마다 뜻과 단위를 DDL 주석으로 붙인 스키마 카드(리원에이스 멘토링 09-22 제안).
+ *
+ * 한 줄 카드(COMPANYX_SCHEMA_DDL)는 컬럼 이름과 값 어휘만 준다. 7B 는 `amount` 가
+ * 매출인지 계약액인지, 단위가 원인지 만원인지 모른 채 「5천만 원 이상」을
+ * `amount >= 50000000` 으로 쓴다. 주석은 그 해석을 스키마 옆에 둔다.
+ *
+ * 금액 단위(만원)는 공식 DDL 에 없다. 제안서 문서가 금액을 만원으로 적고(DOC-031
+ * 초기 구축비 7917만원), 테이블 값의 규모가 그와 같다(계약 480~11000, 연봉
+ * 3736~9520). 그래서 「만원」은 데이터에서 읽은 것이지 사업자가 명시한 것이 아니다. */
+export const COMPANYX_SCHEMA_ANNOTATED = [
+  "CREATE TABLE companyx.departments (",
+  "  id int PRIMARY KEY,",
+  "  name text,      -- 부서명: 경영지원팀, 클라우드사업부, 보안솔루션팀, 데이터플랫폼팀, 기술지원팀, 영업팀",
+  "  head_id int     -- 부서장 = employees.id",
+  ");",
+  "CREATE TABLE companyx.employees (",
+  "  id int PRIMARY KEY,",
+  "  name text,      -- 직원 이름(한글)",
+  "  email text,     -- 직원 업무 메일",
+  "  position text,  -- 직급: 사원, 대리, 과장, 차장, 부장, 이사",
+  "  dept_id int REFERENCES companyx.departments(id),  -- 소속 부서",
+  "  hire_date date, -- 입사일",
+  "  salary int,     -- 연봉, 단위 만원 (연봉 5천만 원 = 5000)",
+  "  is_active bool  -- 재직 중이면 true, 퇴사자는 false",
+  ");",
+  "CREATE TABLE companyx.clients (",
+  "  id int PRIMARY KEY,",
+  "  name text,          -- 고객사명: Client-A … Client-AD",
+  "  industry text,      -- 업종: 제조업, 금융, 의료/바이오, 공공기관, 유통/물류, IT/SW, 교육, 에너지, 건설, 미디어",
+  "  region text,        -- 고객사 소재 지역: 서울, 경기, 인천, 부산, 대구, 대전, 광주, 제주",
+  "  company_size text,  -- 규모: 'startup' | 'mid' | 'enterprise'",
+  "  contact_name text,  -- 고객사 쪽 연락 담당자 이름(우리 직원 아님)",
+  "  contact_email text, -- 고객사 쪽 연락 메일",
+  "  registered_at date, -- 고객사로 등록된 날(신규 고객 = 이 날짜 기준)",
+  "  is_active bool      -- 거래 중이면 true",
+  ");",
+  "CREATE TABLE companyx.products (",
+  "  id int PRIMARY KEY,",
+  "  name text,          -- 제품명: Product-C1 … Product-T2",
+  "  category text,      -- 'cloud' | 'security' | 'data' | 'consulting' (보안 솔루션 = 'security')",
+  "  description text,",
+  "  price_monthly int,  -- 월 이용료, 단위 만원 (월 150만 원 = 150)",
+  "  version text,",
+  "  release_date date,  -- 출시일",
+  "  status text         -- 'active' | 'beta'",
+  ");",
+  "CREATE TABLE companyx.contracts (",
+  "  id int PRIMARY KEY,",
+  "  client_id int REFERENCES companyx.clients(id),",
+  "  product_id int REFERENCES companyx.products(id),",
+  "  manager_id int REFERENCES companyx.employees(id),  -- 계약 담당 직원",
+  "  contract_type text, -- 'subscription' | 'project' | 'maintenance'",
+  "  amount int,         -- 계약 금액, 단위 만원(매출 아님, 1억 원 = 10000)",
+  "  start_date date,",
+  "  end_date date,      -- 종료일, 없으면 NULL",
+  "  status text         -- 'active' | 'completed' | 'cancelled' (활성 계약 = 'active')",
+  ");",
+  "CREATE TABLE companyx.projects (",
+  "  id int PRIMARY KEY,",
+  "  name text,          -- 프로젝트명: 'Client-J 모니터링 시스템 도입' 형식",
+  "  client_id int REFERENCES companyx.clients(id),",
+  "  manager_id int REFERENCES companyx.employees(id),  -- 프로젝트 담당(리드) 직원",
+  "  contract_id int REFERENCES companyx.contracts(id),",
+  "  status text,        -- 'planning' | 'in_progress' | 'completed' | 'on_hold' (보류 = 'on_hold')",
+  "  start_date date,",
+  "  end_date date,      -- 종료(예정)일, 없으면 NULL",
+  "  budget int,         -- 예산, 단위 만원 (1억 원 = 10000)",
+  "  description text",
+  ");",
+  "CREATE TABLE companyx.sales (",
+  "  id int PRIMARY KEY,",
+  "  contract_id int REFERENCES companyx.contracts(id),",
+  "  client_id int REFERENCES companyx.clients(id),",
+  "  product_id int REFERENCES companyx.products(id),",
+  "  amount int,         -- 매출액, 단위 만원(한 건의 매출)",
+  "  sale_date date,     -- 매출 발생일",
+  // 「분기: '2025-Q3' 형식」만 있을 때 7B 는 연도, 상반기 질문에도 예시 값을 그대로 넣었다
+  // (홀드아웃3 「부산 쪽 2025년 장사」 quarter = '2025-Q3', 「2026년 상반기 제일 돈 잘 들어온 달」
+  // quarter LIKE '2026-Q1'). 기간 조건을 어느 칸에 거는지 SQL 로 적는다(티켓 상태 줄과 같은 방식).
+  "  quarter text,       -- 분기: '2025-Q3' 형식. 분기를 물을 때만 쓴다. 연도, 월, 상반기는 sale_date 로 건다(2025년 = sale_date >= '2025-01-01' AND sale_date < '2026-01-01')",
+  "  category text,      -- 매출 제품의 분류: 'cloud' | 'security' | 'data' | 'consulting'",
+  "  region text         -- 매출 지역: '서울' 등(clients.region 과 같은 값)",
+  ");",
+  "CREATE TABLE companyx.support_tickets (",
+  "  id int PRIMARY KEY,",
+  "  client_id int REFERENCES companyx.clients(id),   -- 티켓을 올린 고객사",
+  "  product_id int REFERENCES companyx.products(id), -- 문제가 난 제품",
+  "  assignee_id int REFERENCES companyx.employees(id), -- 처리 담당 직원",
+  "  title text,",
+  "  description text,",
+  "  priority text,      -- 'critical' | 'high' | 'medium' | 'low' (소문자)",
+  // 괄호 속 「미해결 = open, in_progress」만 있을 때 7B 는 「아직 해결되지 않은」을
+  // status = 'open' 하나로 썼다(사업자 예시 7번, 5건 중 1건). 조건을 SQL 그대로 적으면
+  // IN ('open','in_progress') 로 쓴다(2026-10-01, 문구 넷을 같은 시드로 비교).
+  // 시도했다가 되돌린 것(2026-10-01): 「해결된 티켓 = status IN ('resolved','closed')」, 「해결까지 걸린
+  // 시간 = resolved_at - created_at」을 덧붙였다. 겨냥한 홀드아웃3 문항은 그대로 status = 'resolved' 와
+  // 초 단위였고, 사업자 예시 7번이 created_at, resolved_at 열을 더 고르게 돼 행이 넓어지고 컨텍스트 예산에
+  // 다섯째 티켓이 잘려 정답에서 빠졌다(답변 채점 28 → 27). report §0.16.
+  "  status text,        -- 'open'(접수) | 'in_progress'(처리 중) | 'resolved'(해결) | 'closed'(종결). 미해결(해결되지 않은) 티켓 = status IN ('open','in_progress')",
+  "  created_at timestamp,  -- 접수 시각",
+  "  resolved_at timestamp  -- 해결 시각, 미해결이면 NULL",
+  ");",
+].join("\n");
+
+/** 생성과 수리가 같은 카드를 쓴다. 기본은 주석 카드이고 SQL_CARD=compact 로 종전 한 줄
+ * 카드를 켠다(ablation).
+ *
+ * 기본값을 바꾼 근거(2026-09-30): 사업자 10문항과 홀드아웃3 정형 20문항에서 주석 카드는
+ * 한 줄 카드와 사업자 7/10 동률, 홀드아웃3 11/20 대 9/20(질문이 묻지 않은 id 열을 뺀
+ * 채점). 주석 카드만 맞힌 3문항, 한 줄 카드만 맞힌 1문항이고 그 1문항은 「연봉 4천」을
+ * 4 로 읽은 단위 문제라 금액 주석에 환산 예시를 붙였다. 개발용 세트에서 고른 것이므로
+ * 효과는 봉인 홀드아웃4 로 따로 잰다. */
+export function companyxSchemaCard(): string {
+  return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
+}
+
 /** Company-X NL2SQL 프롬프트 원문.
  *
  * MCP 프롬프트 표면(prompts.ts)이 이 함수를 그대로 부른다. 종전에는 저쪽에
@@ -167,7 +283,7 @@ export const COMPANYX_SCHEMA_DDL = [
 export function buildCompanyxSqlPrompt(query: string): string {
   return [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
-    COMPANYX_SCHEMA_DDL,
+    companyxSchemaCard(),
     "",
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "테이블은 반드시 companyx. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
@@ -202,20 +318,32 @@ export async function repairSql(
   failedSql: string,
   dbError: string,
   realColumns?: string,
+  kind: "error" | "empty" = "error",
 ): Promise<string | null> {
+  // 0행 수리는 거부가 아니라 필터 점검이다. 오류 전용 문장(「지목한 컬럼은 없다」)을 주면
+  // 멀쩡한 컬럼을 바꾸라는 뜻으로 읽힌다.
+  const intro =
+    kind === "empty"
+      ? [
+          "아래 SQL은 실행됐지만 결과가 0행입니다. 아래 안내를 보고 조건을 고친 SQL 한 문장만 출력하세요.",
+          "아래 실제 컬럼 목록에 있는 컬럼만 씁니다.",
+        ]
+      : [
+          "아래 SQL이 데이터베이스에서 오류로 거부되었습니다. 오류 메시지를 보고 고친 SQL 한 문장만 출력하세요.",
+          "오류가 지목한 컬럼은 이 데이터베이스에 존재하지 않습니다. 테이블 이름을 앞에 붙여도 생기지 않습니다.",
+          "아래 실제 컬럼 목록에 있는 컬럼만 쓰고, 의미가 비슷한 다른 컬럼으로 대체하세요.",
+        ];
   const prompt = [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 companyx 스키마에 있음).",
-    COMPANYX_SCHEMA_DDL,
+    companyxSchemaCard(),
     "",
-    "아래 SQL이 데이터베이스에서 오류로 거부되었습니다. 오류 메시지를 보고 고친 SQL 한 문장만 출력하세요.",
-    "오류가 지목한 컬럼은 이 데이터베이스에 존재하지 않습니다. 테이블 이름을 앞에 붙여도 생기지 않습니다.",
-    "아래 실제 컬럼 목록에 있는 컬럼만 쓰고, 의미가 비슷한 다른 컬럼으로 대체하세요.",
+    ...intro,
     "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
     "",
     `질문: ${query}`,
     `실패한 SQL: ${failedSql}`,
-    `오류: ${dbError}`,
+    `${kind === "empty" ? "안내" : "오류"}: ${dbError}`,
     "수정된 SQL:",
   ].join("\n");
   const raw = await generate(prompt);

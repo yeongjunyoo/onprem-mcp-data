@@ -13,10 +13,15 @@
 // 실패를 **던지지 않고 `{ok:false, error}` 로 돌려주기** 때문이다.
 //
 // ★ 실패하는 pool 을 주입해 DB 없이 잰다. 가짜 단언이 아니라 진짜 분기를 탄다.
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ask, retrieve } from "./pipeline.js";
+import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
+import { postJson } from "./ollamahttp.js";
+import { describeError } from "./errors.js";
+import { assertCorpusEmbedder } from "./companyx.js";
 
 let passed = 0;
 let failed = 0;
@@ -182,6 +187,149 @@ const deadEmbedder: Embedder = {
     else process.env.DATASET = saved;
     if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
   }
+}
+
+// SQL 값 표기. Date 와 interval 이 「Thu Aug 01 ...」「[object Object]」로 컨텍스트에 들어가면
+// 기간을 묻는 질문은 정답 행을 찾고도 답할 수 없다.
+{
+  // node-postgres 의 interval 객체와 같은 모양(postgres-interval). 하위 의존성을 직접 부르지 않는다.
+  const PI = (s: string) => {
+    const [d, t = "00:00:00"] = s.includes("days") ? s.split(" days ") : ["0", s];
+    const [h, m, sec] = t.split(":").map(Number);
+    return { days: Number(d) || undefined, hours: h || undefined, minutes: m || undefined, seconds: sec || undefined, toPostgres: () => s };
+  };
+  ok(renderValue(new Date(2024, 7, 1)) === "2024-08-01", "date 는 로컬 날짜로 (UTC 로 하루 당겨지지 않는다)");
+  ok(renderValue(new Date(2024, 7, 1, 13, 24, 5)) === "2024-08-01 13:24:05", "timestamp 는 로컬 시각까지");
+  ok(renderValue(PI("6 days 21:50:21")) === "6일 21시간 50분 21초", "interval 은 채점기와 같은 한국어 기간 표기");
+  ok(renderValue(PI("00:00:00")) === "0초", "0 기간도 비우지 않는다");
+  ok(renderValue(1234) === "1234" && renderValue("x") === "x" && renderValue(null) === "null", "나머지 값은 종전 그대로");
+}
+
+// 정형 레인의 답에는 조회 행이 그대로 붙는다. 7B 가 목록 일부나 열 하나를 빠뜨려도 값은 답에 있다.
+{
+  const rows = [
+    { name: "박소연", salary: 9520 },
+    { name: "권승호", salary: 5378 },
+  ];
+  const block = sqlRowsBlock(rows);
+  ok(block.startsWith("[조회 결과 2건]") && block.includes("- name: 박소연, salary: 9520"), `행마다 모든 열 (got ${block})`);
+  ok(sqlRowsBlock([]) === "", "행이 없으면 붙일 것도 없다");
+  const many = sqlRowsBlock(Array.from({ length: SQL_ROWS_MAX + 3 }, (_, i) => ({ n: i })));
+  ok(many.includes("- 외 3건") && many.split("\n").length === SQL_ROWS_MAX + 2, "상한을 넘으면 남은 건수만 적는다");
+  const cut = sqlRowsBlock(rows.slice(0, 1), 2);
+  ok(cut.startsWith("[조회 결과 2건]") && cut.includes("박소연") && !cut.includes("권승호") && cut.includes("- 외 1건"), "모델에게 안 간 행은 건수만");
+
+  const rowsPool = {
+    connect: async () => ({
+      query: async (sql: string) =>
+        /FROM companyx\.employees/.test(sql) ? { rows, rowCount: rows.length, fields: [{ name: "name" }, { name: "salary" }] } : { rows: [], rowCount: 0 },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  const deps = {
+    pool: rowsPool,
+    embedder: deadEmbedder,
+    nl2sql: async () => "SELECT name, salary FROM companyx.employees",
+    llm: async () => "기술지원팀 직원은 박소연, 권승호입니다.",
+  };
+  const r = await ask("기술지원팀 직원 목록과 연봉을 알려줘", deps);
+  ok(r.route === "structured", `정형 질문 (got ${r.route})`);
+  ok(r.answer.startsWith("기술지원팀 직원은") && r.answer.includes("salary: 9520") && r.answer.includes("salary: 5378"), `모델 문장 뒤에 연봉이 붙는다 (got ${r.answer})`);
+  ok(r.answer.split("\n").filter((l) => l.startsWith("- ")).every((l) => r.context.includes(l.slice(2).split(", ")[0].replace(": ", "="))), "붙인 행은 전부 컨텍스트에 있다");
+  // 한 행이 약 22 토큰(estTokens)이라 예산 30 이면 한 행만 모델에게 간다.
+  const tight = await ask("기술지원팀 직원 목록과 연봉을 알려줘", { ...deps, budget: 30 });
+  const tail = tight.answer.slice(tight.answer.indexOf("[조회 결과"));
+  ok(tight.curated.kept.length === 1 && tail.startsWith("[조회 결과 2건]") && tail.includes("salary: 9520") && !tail.includes("salary: 5378") && tail.includes("- 외 1건"), `예산 밖으로 밀린 행은 싣지 않고 건수만 (got ${tail})`);
+  process.env.ANSWER_SQL_ROWS = "0";
+  const off = await ask("기술지원팀 직원 목록과 연봉을 알려줘", deps);
+  delete process.env.ANSWER_SQL_ROWS;
+  ok(off.answer === "기술지원팀 직원은 박소연, 권승호입니다.", "ANSWER_SQL_ROWS=0 이면 종전 그대로");
+  const gen = await ask("기술지원팀 직원 목록과 연봉을 알려줘", {
+    ...deps,
+    llm: async () => {
+      throw new Error("fetch failed");
+    },
+  });
+  ok(gen.answer.includes("답변 생성에 실패") && gen.answer.includes("salary: 9520"), "생성이 죽어도 조회 결과는 보여준다");
+}
+
+// Ollama POST(ollamahttp.ts). 마감은 signal 하나가 정하고, 시간 초과는 호출부가 가릴 수 있는 이름으로 온다.
+// fetch 의 300초 헤더 한도 자체는 단위 테스트로 재현할 수 없어(300초) 계약만 잰다.
+{
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const wait = req.url === "/slow" ? 1500 : 30;
+      setTimeout(() => {
+        if (res.destroyed) return;
+        if (req.url === "/missing") {
+          res.writeHead(404).end("model not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ response: ` 받음:${JSON.parse(body).prompt} `, embedding: [0.5, 0.25] }));
+      }, wait);
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const port = (server.address() as AddressInfo).port;
+  const base = `http://127.0.0.1:${port}`;
+
+  const okRes = await postJson(`${base}/api/generate`, { prompt: "안녕" }, AbortSignal.timeout(5000));
+  ok(okRes.status === 200 && JSON.parse(okRes.text).response === " 받음:안녕 ", `응답 본문을 그대로 돌려준다 (got ${okRes.status} ${okRes.text})`);
+  const miss = await postJson(`${base}/missing`, { prompt: "x" }, AbortSignal.timeout(5000));
+  ok(miss.status === 404 && miss.text === "model not found", "2xx 가 아니어도 상태와 본문을 돌려준다(판단은 호출부)");
+
+  let slowErr: unknown;
+  const t0 = Date.now();
+  try {
+    await postJson(`${base}/slow`, { prompt: "x" }, AbortSignal.timeout(200));
+  } catch (e) {
+    slowErr = e;
+  }
+  ok(slowErr instanceof Error && slowErr.name === "TimeoutError", `마감에 걸리면 TimeoutError (got ${String(slowErr)})`);
+  ok(Date.now() - t0 < 1200, "마감에서 끊는다(서버를 끝까지 기다리지 않는다)");
+
+  let refused: unknown;
+  const closed = createServer();
+  await new Promise<void>((r) => closed.listen(0, "127.0.0.1", () => r()));
+  const deadPort = (closed.address() as AddressInfo).port;
+  await new Promise<void>((r) => closed.close(() => r()));
+  try {
+    await postJson(`http://127.0.0.1:${deadPort}/api/generate`, {}, AbortSignal.timeout(5000));
+  } catch (e) {
+    refused = e;
+  }
+  ok(describeError(refused).includes("ECONNREFUSED"), `꺼진 포트는 이유를 말한다 (got ${describeError(refused)})`);
+
+  // 생성과 임베딩이 이 호출을 쓰고, 시간 초과를 사용자가 고칠 값으로 말한다.
+  process.env.OLLAMA_HOST = base;
+  const llm = (await import(new URL("./llm.js?ollamahttp", import.meta.url).href)) as typeof import("./llm.js");
+  delete process.env.OLLAMA_HOST;
+  ok((await llm.generate("질문")) === "받음:질문", "generate 는 응답을 다듬어 돌려준다");
+  const { OllamaEmbedder } = await import("./embedder.js");
+  const emb = await new OllamaEmbedder("bge-m3", base).embed("x");
+  ok(emb.length === 2 && emb[0] === 0.5, `embed 는 벡터를 돌려준다 (got ${JSON.stringify(emb)})`);
+  server.close();
+  server.closeAllConnections();
+}
+
+// 코퍼스 임베더 확인(companyx.ts assertCorpusEmbedder). 2026-10-01 CPU 정본에서 코퍼스가 해시 벡터로
+// 남은 채 bge-m3 로 질의해 벡터 레인이 오류 없이 0/10 이 됐다. 저장된 벡터와 지금 임베더가 다르면 던진다.
+{
+  const rowPool = (rows: { title: string; body: string; v: string }[]) =>
+    ({ query: async () => ({ rows }) }) as unknown as Parameters<typeof assertCorpusEmbedder>[0];
+  const fixed = (v: number[]): Embedder => ({ name: "stub", dim: v.length, embed: async () => v });
+  const reason = (p: Promise<unknown>) => p.then(() => "", (e: Error) => e.message);
+  const row = [{ title: "t", body: "b", v: "[1,0,0]" }];
+  ok((await assertCorpusEmbedder(rowPool(row), fixed([2, 0, 0]))) > 0.999, "같은 방향이면 통과한다(크기는 상관없다)");
+  const other = await reason(assertCorpusEmbedder(rowPool(row), fixed([0, 1, 0])));
+  ok(other.includes("stub 로 채워져 있지 않다(첫 조각 코사인 0.000)"), `다른 임베더면 코사인과 함께 던진다 (got ${other})`);
+  const width = await reason(assertCorpusEmbedder(rowPool(row), fixed([1, 0])));
+  ok(width.includes("폭 3 이 stub 의 폭 2 과 다르다"), `폭이 다르면 던진다 (got ${width})`);
+  const none = await reason(assertCorpusEmbedder(rowPool([]), fixed([1, 0, 0])));
+  ok(none.includes("임베딩이 없다"), `임베딩이 하나도 없으면 던진다 (got ${none})`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

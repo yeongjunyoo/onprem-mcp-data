@@ -15,7 +15,7 @@
 //   DATASET=bench    npm run ...      # internal benchmark
 //   DATASET=smoke                     # tiny seed (unit/integration tests)
 
-import { type NL2SQL, llmNL2SQL, benchNL2SQL, companyxNL2SQL, SCHEMA_DDL, BENCH_SCHEMA_DDL, COMPANYX_SCHEMA_DDL } from "./nl2sql.js";
+import { type NL2SQL, llmNL2SQL, benchNL2SQL, companyxNL2SQL, SCHEMA_DDL, BENCH_SCHEMA_DDL, companyxSchemaCard } from "./nl2sql.js";
 
 export type DatasetName = "smoke" | "bench" | "companyx";
 
@@ -57,7 +57,8 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
     kgSchema: "companyx",
     vectorTable: "companyx.documents",
     nl2sql: companyxNL2SQL,
-    schemaCard: COMPANYX_SCHEMA_DDL,
+    // MCP 스키마 리소스가 보여 주는 카드 = 생성 프롬프트가 쓰는 카드.
+    schemaCard: companyxSchemaCard(),
     description: "리원에이스 공식 데이터셋 Company-X(8테이블 818행 / 문서 40건 / 그래프 133노드·354엣지)",
     // The official DDL says vector(768). Measured on this corpus, BGE-M3 truncated
     // to 768 keeps hit@5 = 1.00, so the schema is used verbatim instead of widened.

@@ -25,10 +25,18 @@ import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
+import { initRouting } from "../routerinit.js";
 import { ask } from "../pipeline.js";
 import { profile } from "../profile.js";
 import { isAvailable, DEFAULT_MODEL } from "../llm.js";
-import { loadQuestions, loadGraph, datasetDir, type CxQuestion, requireDataset } from "../companyx.js";
+import {
+  loadQuestions,
+  loadGraph,
+  datasetDir,
+  type CxQuestion,
+  requireDataset,
+  assertCorpusEmbedder,
+} from "../companyx.js";
 
 interface SqlGold {
   id: string;
@@ -111,6 +119,9 @@ async function main() {
 
   const pool = getPool();
   const embedder = getEmbedder();
+  await assertCorpusEmbedder(pool, embedder);
+  // 서버 기동과 같은 라우터 상태에서 잰다(온톨로지, 시맨틱 앵커).
+  const routing = await initRouting();
 
   // Gold evidence per question, expressed as strings that MUST show up in context.
   async function goldEvidence(item: CxQuestion): Promise<string[]> {
@@ -149,7 +160,8 @@ async function main() {
 
   for (const item of questions) {
     const t0 = Date.now();
-    const r = await ask(item.q, { pool, embedder, budget: Number(process.env.CX_BUDGET ?? 512) });
+    // 예산을 따로 정하지 않으면 서버 기본값(DEFAULT_BUDGET)으로 잰다. 종전에는 512 를 박아 서버(256)와 다른 조건을 쟀다.
+    const r = await ask(item.q, { pool, embedder, budget: process.env.CX_BUDGET ? Number(process.env.CX_BUDGET) : undefined });
     const ms = Date.now() - t0;
 
     const gold = await goldEvidence(item);
@@ -195,6 +207,11 @@ async function main() {
   const absentRow = rows.find((x) => x.q === ABSENT_Q);
   const summary = {
     dataset: "companyx-dataset-v1.0 / questions.json (end-to-end ask)",
+    routing: {
+      ontology_entities: routing.ontology.entities,
+      semantic_anchors: routing.semantic.anchors,
+      semantic_error: routing.semantic.error ?? null,
+    },
     profile: ds.name,
     input_hashes: await inputHashes(root, [
       "eval/companyx/vector_gold.json",

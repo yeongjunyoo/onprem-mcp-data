@@ -10,7 +10,7 @@
       "errorVisible": 1
     },
     "pass": true,
-    "generatedAt": "2026-08-19T06:42:55.672Z"
+    "generatedAt": "2026-10-01T17:09:21.428Z"
   },
   "scenarios": [
     {
@@ -39,7 +39,7 @@
       "crashed": false,
       "partial": true,
       "errorVisible": true,
-      "detail": "vec.ok=false sql=1 ctxlen=212"
+      "detail": "vec.ok=false sql=1 ctxlen=180"
     }
   ]
 }

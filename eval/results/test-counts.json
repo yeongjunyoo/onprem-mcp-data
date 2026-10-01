@@ -1,11 +1,11 @@
 {
   "note": "테스트 단언 수는 러너 출력에서 집계한다. 문서끼리 합의하는지가 아니라 실제로 몇 개가 통과했는지가 정본이다.",
-  "dataset_dependence": "사업자 데이터셋은 배포 조건상 저장소에 없다. router.test 의 온톨로지 커버리지 단언 11건은 datasets/companyx-v1.0/graph/edges.json 이 있을 때만 돈다 — 그래서 오프라인 합계가 데이터셋 유무로 갈린다. 감추지 않고 두 값을 다 적는다.",
-  "offline_with_dataset": 335,
-  "offline_ci": 324,
-  "integration": 127,
-  "total": 462,
-  "total_ci_verifiable": 324,
+  "dataset_dependence": "사업자 데이터셋은 배포 조건상 저장소에 없다. router.test 의 온톨로지 커버리지 단언 11건과 semroute.test 의 엣지 타입 앵커 커버리지 단언 1건은 datasets/companyx-v1.0/graph/edges.json 이 있을 때만 돌고, scorecard.test 의 봉인 홀드아웃 그래프, 벡터 전 문항 점검 8건은 같은 자리의 graph/ 와 documents/ 가 있을 때만 돈다 — 그래서 오프라인 합계가 데이터셋 유무로 갈린다. 감추지 않고 두 값을 다 적는다.",
+  "offline_with_dataset": 555,
+  "offline_ci": 535,
+  "integration": 137,
+  "total": 692,
+  "total_ci_verifiable": 535,
   "suites": {
     "offline": [
       "claims",
@@ -13,11 +13,15 @@
       "auditrecord",
       "surfaces",
       "router",
+      "semroute",
       "curator",
       "rrf",
+      "graphcaps",
       "evalmatch",
       "errors",
-      "degraded"
+      "degraded",
+      "notfound",
+      "scorecard"
     ],
     "integration": [
       "db",
@@ -34,35 +38,43 @@
   "per_suite_offline": {
     "claims": 22,
     "normalize": 28,
-    "auditrecord": 23,
+    "auditrecord": 26,
     "surfaces": 76,
-    "router": 30,
+    "router": 46,
+    "semroute": 41,
     "curator": 67,
-    "rrf": 16,
+    "rrf": 38,
+    "graphcaps": 29,
     "evalmatch": 28,
     "errors": 18,
-    "degraded": 27
+    "degraded": 53,
+    "notfound": 30,
+    "scorecard": 53
   },
   "per_suite_offline_ci": {
     "claims": 22,
     "normalize": 28,
-    "auditrecord": 23,
+    "auditrecord": 26,
     "surfaces": 76,
-    "router": 19,
+    "router": 35,
+    "semroute": 40,
     "curator": 67,
-    "rrf": 16,
+    "rrf": 38,
+    "graphcaps": 29,
     "evalmatch": 28,
     "errors": 18,
-    "degraded": 27
+    "degraded": 53,
+    "notfound": 30,
+    "scorecard": 45
   },
   "environment": {
     "postgres": "16 + pgvector (docker compose, host 5433)",
     "ollama": "http://localhost:11435 (docker compose)"
   },
-  "generated_at": "2026-08-18T00:00:00.000Z",
+  "generated_at": "2026-09-30T00:00:00.000Z",
   "integration_verified": {
-    "at": "2026-08-18",
-    "passed": 127,
+    "at": "2026-10-02",
+    "passed": 137,
     "failed": 0,
     "per_suite": {
       "db": 22,
@@ -71,15 +83,13 @@
       "llm": 5,
       "graph": 12,
       "kgretrieve": 7,
-      "companyx": 46,
+      "companyx": 56,
       "ontologyload": 10,
       "auditcache": 6
     },
-    "note": "셋 다에서 9스위트 127/127 을 실측했다. 오염된 셸에서도 같은 결과가 나오는 것이 밀폐의 증거다 — 그 전에는 DATASET=companyx 가 남아 있으면 db.test 가 2건 실패했다.",
+    "note": "2026-10-02 에 컨테이너 Ollama 0.32.14 CPU 정본 측정(cpu6)에서 npm run test:integration(스위트마다 프로파일을 고정한다)으로 9스위트 137/137 을 실측했다. 10-01 첫 시도에서는 호스트 메모리 경합 중 첫 감사 호출이 생성 마감(OLLAMA_TIMEOUT_MS 기본 110초)에 걸려 auditcache 하나가 실패했고, 이번에는 마감을 600초로 올려 돌렸다. 이전 기록은 2026-09-30 의 137/137 이다.",
     "environments": [
-      "DATASET 미설정",
-      "DATASET=companyx 오염",
-      "DATASET=bench"
+      "DATASET 미설정"
     ]
   },
   "integration_profile": {

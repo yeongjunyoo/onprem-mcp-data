@@ -93,6 +93,10 @@ const FRESHNESS = [
   { result: "eval/results/companyx-vector.json", inputs: ["eval/companyx/vector_gold.json"] },
   { result: "eval/results/companyx-holdout-route.json", inputs: ["eval/companyx/holdout_route.json"] },
   { result: "eval/results/companyx-holdout2-route.json", inputs: ["eval/companyx/holdout2_route.json"] },
+  { result: "eval/results/companyx-holdout3-route.json", inputs: ["eval/companyx/holdout3_route.json"] },
+  { result: "eval/results/companyx-holdout3-route-sealed.json", inputs: ["eval/companyx/holdout3_route.json"] },
+  { result: "eval/results/companyx-holdout4-route.json", inputs: ["eval/companyx/holdout4_route.json"] },
+  { result: "eval/results/companyx-scorecard.json", inputs: ["eval/companyx/vector_gold.json", "eval/companyx/kg_gold.json", "eval/companyx/sql_gold.jsonl"] },
 ];
 
 const staleNotes = [];
@@ -126,8 +130,14 @@ for (const { result, inputs } of FRESHNESS) {
 const canonical = {};
 
 const vec = readJson("eval/results/companyx-vector.json");
-const vecKey = Object.keys(vec.detail).find((k) => k.includes("bge-m3@768")) ?? Object.keys(vec.detail)[0];
-canonical.vector_hit5 = vec.detail[vecKey]["hit@5"].toFixed(3);
+// 정본은 bge-m3@768 이다. 없을 때 첫 키로 대신 읽으면 해시 임베더의 값이 정본 자리에
+// 앉는다(2026-10-01 재측정이 EMBEDDER 없이 돌아 0.986 이 0.775 로 「움직였다」).
+const vecKey = Object.keys(vec.detail).find((k) => k.includes("bge-m3@768"));
+if (vecKey) canonical.vector_hit5 = vec.detail[vecKey]["hit@5"].toFixed(3);
+else {
+  canonical.vector_hit5 = "없음";
+  fails.push(`벡터: companyx-vector.json 에 bge-m3@768 결과가 없다(있는 것: ${Object.keys(vec.detail).join(", ")}) — npm run companyx:vector 로 다시 잰다`);
+}
 
 const h1 = readJson("eval/results/companyx-holdout-route.json");
 canonical.holdout1_strict = h1.summary.strict_accuracy.toFixed(3);
@@ -143,6 +153,14 @@ if (existsSync(resolve(ROOT, "eval/results/companyx-holdout2-route.json"))) {
   canonical.holdout2_coverage = h2.summary.coverage.toFixed(3);
   canonical.holdout2_true_miss = String(h2.summary.true_miss);
 }
+
+// 봉인 홀드아웃. 3차는 봉인 채점 당시 파일(-sealed)이 정본이고, 같은 이름의 파일은
+// 오답 분석 뒤의 개발용 재측정이다. 4차가 현행 일반화 수치다(docs/report.md §0.15).
+const h3s = readJson("eval/results/companyx-holdout3-route-sealed.json");
+canonical.holdout3_sealed_strict = h3s.summary.strict_accuracy.toFixed(3);
+const h4 = readJson("eval/results/companyx-holdout4-route.json");
+canonical.holdout4_strict = h4.summary.strict_accuracy.toFixed(3);
+canonical.holdout4_coverage = h4.summary.coverage.toFixed(3);
 
 // 종단 근거 포함은 공개 헤드라인인데 정본에서 읽지 않아 drift가 재발할 수 있었다(H3).
 const ask = readJson("eval/results/companyx-ask.json");
@@ -287,6 +305,18 @@ const benchInternal = readJson("eval/results/internal-llm-summary.json");
   canonical.bench_template_pct = String((tp.summary ?? tp).correct);
 }
 
+// 기능테스트 스코어카드(최종 답 일치). 시연 대본이 레인별 정답 수와 CPU 지연을 표로 띄운다.
+//
+// canonical 에는 넣지 않는다. 아래 대역 검사가 canonical 의 모든 값을 두 README 에서
+// 찾는데, 「8/10」 같은 짧은 값은 다른 지표와 우연히 겹쳐 거짓 유죄를 낸다.
+// 대본의 표는 이 JSON 에서 생성하고(scripts/scorecard-docs.mjs), 어긋남은
+// verify-demo-script 가 잡는다. 여기서는 신선도와 현행 지연값만 맡는다.
+const score = readJson("eval/results/companyx-scorecard.json");
+const scoreRows = {
+  ...score.summary.by_lane,
+  overall: { correct: score.summary.correct, median_ms: score.summary.median_ms, p90_ms: score.summary.p90_ms },
+};
+
 // ── B. 정합성 ───────────────────────────────────────────────────────────
 // 문서에서 지표가 쓰인 자리를 찾아, 거기 적힌 값이 정본과 같은지 본다.
 // "언급되어야 한다"가 아니라 "어긋나면 안 된다"를 검사한다.
@@ -320,15 +350,27 @@ const CLAIMS = [
   },
   {
     metric: "holdout1_strict",
-    // "라우팅 일반화 (홀드아웃)" 행. 구어체(holdout2)와 구분하기 위해 구어체 표기가
-    // 없는 홀드아웃 행만 본다.
-    anchor: /홀드아웃(?![^\n]*구어체)/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /홀드아웃(?![^\n]*구어체)[^\n]*?(0\.\d{3,})/g,
+    // "홀드아웃1" 행. 번호를 붙여 문다 — 번호 없이 「홀드아웃」만 물면 3, 4차 행을
+    // 1차 값과 대조한다. 구어체(holdout2) 행은 뺀다. strict 가 1.000 일 수 있으므로
+    // 값 모양은 0.xxx 만이 아니다.
+    anchor: /홀드아웃\s*1(?!\d)(?![^\n]*구어체)/, shape: /(?<!\d)[01]\.\d{3,}(?!\d)/, re: /홀드아웃\s*1(?!\d)(?![^\n]*구어체)[^\n]*?(?<!\d)([01]\.\d{3,})/g,
     label: "홀드아웃1 strict",
   },
   {
     metric: "holdout2_strict",
-    anchor: /(?:구어체|colloquial)/, shape: /(?<!\d)0\.\d{3,}(?!\d)/, re: /(?:구어체|colloquial)[^\n]{0,60}?(0\.\d{3,})/g,
+    anchor: /(?:구어체|colloquial)/, shape: /(?<!\d)[01]\.\d{3,}(?!\d)/, re: /(?:구어체|colloquial)[^\n]{0,60}?(?<!\d)([01]\.\d{3,})/g,
     label: "홀드아웃 2차(구어체) strict",
+  },
+  {
+    // 봉인 채점 당시 값. 같은 이름의 개발용 재측정값(0.933)과 섞지 않는다.
+    metric: "holdout3_sealed_strict",
+    anchor: /홀드아웃\s*3(?!\d)/, shape: /(?<!\d)[01]\.\d{3,}(?!\d)/, re: /홀드아웃\s*3(?!\d)[^\n]*?(?<!\d)([01]\.\d{3,})/g,
+    label: "홀드아웃3 봉인 채점 strict",
+  },
+  {
+    metric: "holdout4_strict",
+    anchor: /홀드아웃\s*4(?!\d)/, shape: /(?<!\d)[01]\.\d{3,}(?!\d)/, re: /홀드아웃\s*4(?!\d)[^\n]*?(?<!\d)([01]\.\d{3,})/g,
+    label: "홀드아웃4(봉인) strict",
   },
   {
     // 2026-08-20: 시연 대본이 「큐레이션을 빼면 30%로 떨어집니다」라고 말하고
@@ -458,6 +500,8 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "vector_hit5" },
   { doc: "README.md", metric: "holdout1_strict" },
   { doc: "README.md", metric: "holdout2_strict" },
+  { doc: "README.md", metric: "holdout3_sealed_strict" },
+  { doc: "README.md", metric: "holdout4_strict" },
   { doc: "README.md", metric: "ask_evidence" },
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
@@ -465,6 +509,7 @@ const REQUIRED_CLAIMS = [
   // ★ 심사자가 실제로 채점하는 문서다. README 만 묶고 여기를 두면, 정작 점수가
   // 매겨지는 표가 낡아도 아무도 모른다.
   { doc: "docs/submission-report.md", metric: "route_insample" },
+  { doc: "docs/submission-report.md", metric: "holdout4_strict" },
   { doc: "docs/submission-report.md", metric: "kg_recall" },
   { doc: "docs/submission-report.md", metric: "vector_hit5" },
   { doc: "docs/submission-report.md", metric: "ask_evidence" },
@@ -491,10 +536,19 @@ const REQUIRED_CLAIMS = [
   { doc: "README.en.md", metric: "vector_hit5" },
   { doc: "README.en.md", metric: "holdout1_strict" },
   { doc: "README.en.md", metric: "holdout2_strict" },
+  { doc: "README.en.md", metric: "holdout3_sealed_strict" },
+  { doc: "README.en.md", metric: "holdout4_strict" },
   { doc: "README.en.md", metric: "ask_evidence" },
   { doc: "README.en.md", metric: "ask_evidence_pct" },
   { doc: "README.en.md", metric: "ask_grounded_pct" },
   { doc: "README.md", metric: "ask_grounded_pct" },
+  // NL2SQL 행에는 marker 가 없어서, 정본이 2026-10-01 에 8/10 으로 옮겨 간 뒤에도 README 와 제출 보고서가
+  // 08-19 의 7/10 을 그대로 적고 있었고 아무 검사도 울리지 않았다(범위 표기 검사 E2 만 report.md 를 봤다).
+  { doc: "README.md", metric: "nl2sql_norepair" },
+  { doc: "README.md", metric: "nl2sql_repair" },
+  { doc: "README.en.md", metric: "nl2sql_norepair" },
+  { doc: "README.en.md", metric: "nl2sql_repair" },
+  { doc: "docs/submission-report.md", metric: "nl2sql_norepair" },
 ];
 
 for (const { doc, metric } of REQUIRED_CLAIMS) {
@@ -623,7 +677,12 @@ for (const { doc, metric } of REQUIRED_CLAIMS) {
 // 정본이 아닌 지연값이 문서에 있으면 실패시킨다. 과거 서술이 필요하면
 // "이전 측정" 처럼 맥락을 붙이지 말고 아예 값을 빼거나 표에 metric-ok 로 남긴다.
 const LATENCY_DOCS = DOCS;
-const liveLatency = new Set([canonical.ask_median_ms, canonical.ask_median_ms_host]);
+const liveLatency = new Set([
+  canonical.ask_median_ms,
+  canonical.ask_median_ms_host,
+  // 스코어카드의 레인별 지연도 현행 측정이다. 옛 값이 산문에 남으면 여기서 걸린다.
+  ...Object.values(scoreRows).flatMap((r) => [String(r.median_ms), String(r.p90_ms)]),
+]);
 
 for (const doc of LATENCY_DOCS) {
   if (!existsSync(resolve(ROOT, doc))) continue;
@@ -642,6 +701,10 @@ for (const doc of LATENCY_DOCS) {
 // ── 결과 ────────────────────────────────────────────────────────────────
 console.log("정본 지표 (eval/results 에서 읽음):");
 for (const [k, v] of Object.entries(canonical)) console.log(`  ${k} = ${v}`);
+console.log("스코어카드 (companyx-scorecard.json, 대본 표는 scorecard-docs.mjs 가 생성):");
+for (const [k, v] of Object.entries(scoreRows)) {
+  console.log(`  스코어카드 ${k}: 정답 ${v.correct}, 중앙값 ${v.median_ms}, p90 ${v.p90_ms}`);
+}
 
 if (fails.length) {
   console.error(`\n실패 ${fails.length}건:`);

@@ -112,8 +112,13 @@ const SUBJECTS = [
   // 창 30 → 60. 커버율 주제어가 붙으며 이 줄이 **다중 주제**가 되어 창 경로를 타자
   // 빈 창 탐지가 물었다 - README.en.md:94 는 주제(holdout 1)와 값(0.900) 사이가
   // 40자 가까이 떨어져 있다. **탐지기가 자기 몫을 했다.**
-  { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b0\.\d{3}\b/g, window: 60 },
-  { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b0\.\d{3}\b/g, window: 60 },
+  // 값 모양 0.xxx → [01].xxx (2026-09-30). 시맨틱 폴백 뒤 홀드아웃1 strict 가 1.000 이
+  // 됐는데 0.xxx 만 보면 1.000 을 못 읽고 옆의 「규칙만 0.900」을 잡는다.
+  { re: /홀드아웃1|holdout 1|템플릿 문형/i, key: "holdout1_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
+  { re: /홀드아웃2|holdout 2|구어체|colloquial/i, key: "holdout2_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
+  // 봉인 홀드아웃(docs/report.md §0.15). 3차는 봉인 채점 당시 값이 정본이다.
+  { re: /홀드아웃3|holdout 3/i, key: "holdout3_sealed_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
+  { re: /홀드아웃4|holdout 4/i, key: "holdout4_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
   { re: /단언 통과|assertions pass/i, key: "test_total", val: /(?<!\d)\d{3}(?!\d)/g },
   // 분모를 /19 로 못 박으면 **분모까지 바꾼 위조가 건너뛰어진다** — 값이 하나도
@@ -293,7 +298,11 @@ for (const doc of DOCS) {
 // 13 (2026-08-19): 호스트 GPU 지연을 Coder 로 재측정해 864 → 947ms 가 됐다.
 // README 한/영 각 한 줄이 **일부러** 옛 값을 역사로 적는다 - 그 문장이 없으면
 // 심사자가 947 만 보고 「같은 모델이 느려졌다」로 읽는다. 두 줄을 면제한다.
-const EXEMPTION_BUDGET = 13;
+// 16 (2026-09-30): 라우팅 개선으로 홀드아웃 값이 바뀌었다. docs/report.md 의 세 자리가
+// **날짜가 박힌 과거 기록**이다 - §0.14 「읽는 법」 1번(규칙만 쓰던 08-19 의 세 숫자),
+// 재현 실측 표(2026-08-17)의 홀드아웃2 행, 의존성 갱신 뒤 재측정 표의 홀드아웃1 행.
+// 현행 값은 §0.15 에 있다.
+const EXEMPTION_BUDGET = 16;
 {
   const at = [];
   for (const doc of DOCS) {

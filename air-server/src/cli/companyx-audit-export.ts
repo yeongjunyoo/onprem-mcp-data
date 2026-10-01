@@ -13,9 +13,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildAuditRecord, redactForPublication, type AuditRecord } from "../auditrecord.js";
-import { datasetDir, requireDataset } from "../companyx.js";
+import { assertCorpusEmbedder, datasetDir, requireDataset } from "../companyx.js";
 import { closePool, getPool } from "../db.js";
 import { getEmbedder } from "../embedder.js";
+import { initRouting } from "../routerinit.js";
 import { ask } from "../pipeline.js";
 
 async function main() {
@@ -29,6 +30,8 @@ async function main() {
 
   const pool = getPool();
   const embedder = getEmbedder();
+  const routing = await initRouting(); // 서버와 같은 라우터 상태
+  await assertCorpusEmbedder(pool, embedder);
   const records: AuditRecord[] = [];
   const determinism: {
     q: string;
@@ -80,6 +83,15 @@ async function main() {
       determinism_checked: determinism.length,
       routing_stable: determinism.filter((d) => d.routing_same).length,
       pipeline_stable: determinism.filter((d) => d.pipeline_same).length,
+      // 어떤 상태로 쟀는지 남긴다. 08-19 정본은 셸에 EMBEDDER=ollama 가 있어서 시맨틱 라우팅과
+      // bge-m3 검색으로 쟀고, 10-01 재측정은 그게 없어 해시와 규칙만으로 쟀다. 파일만 봐서는 몰랐다.
+      embedder: embedder.name,
+      routing: {
+        ontology_entities: routing.ontology.entities,
+        ontology_error: routing.ontology.error ?? null,
+        semantic_anchors: routing.semantic.anchors,
+        semantic_error: routing.semantic.error ?? null,
+      },
     },
     determinism,
     // 저장소에 남는 산출물에서는 사업자 문서 본문을 가린다(재배포 금지 조건).

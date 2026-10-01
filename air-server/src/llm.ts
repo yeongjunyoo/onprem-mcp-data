@@ -9,6 +9,8 @@
 // Qwen benefits from fuller context (p<0.001) — which is why the curated context
 // from L4 is fed whole rather than aggressively trimmed.
 
+import { postJson } from "./ollamahttp.js";
+
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 /** 기본 생성 모델. **여기서만 정한다** — 2026-08-19 모델 교체에서 이 값을
  *  한 곳만 바꿨더니 프리플라이트와 결과 JSON 이 옛 태그를 들고 있었다.
@@ -21,26 +23,59 @@ export interface GenOptions {
   temperature?: number;
   seed?: number;
   numCtx?: number;
+  /** 이 호출 하나의 마감(ms). 없으면 OLLAMA_TIMEOUT_MS, 그것도 없으면 110초. */
+  timeoutMs?: number;
+}
+
+/** 생성 한 번의 마감.
+ *
+ * 마감이 없으면 멈춘 Ollama 앞에서 `ask` 가 **영원히** 기다린다 — 상태가 아니라
+ * 멈춤이다. 마감이 있으면 파이프라인의 생성 실패 분기가 받아서 「근거는 찾았지만
+ * 생성에 실패했다」는 답으로 끝난다.
+ *
+ * 110초인 이유: CPU 컨테이너에서 답변 한 번이 70초 넘게 걸린 적이 있다
+ * (eval/results/companyx-ask.json 최댓값). 그보다 넉넉하되, MCP 도구 마감(120초,
+ * server.ts timeoutPlugin)보다는 짧게 둬서 생성 하나가 도구 전체 마감을 혼자
+ * 먹지 않게 한다. 느린 환경은 OLLAMA_TIMEOUT_MS 로 올린다. */
+function genTimeoutMs(): number {
+  const n = Number(process.env.OLLAMA_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : 110_000;
 }
 
 export async function generate(prompt: string, opts: GenOptions = {}): Promise<string> {
-  const res = await fetch(`${HOST}/api/generate`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model ?? MODEL,
-      prompt,
-      stream: false,
-      options: {
-        temperature: opts.temperature ?? 0,
-        seed: opts.seed ?? 42,
-        num_ctx: opts.numCtx ?? 4096,
+  const deadline = opts.timeoutMs ?? genTimeoutMs();
+  try {
+    const res = await postJson(
+      `${HOST}/api/generate`,
+      {
+        model: opts.model ?? MODEL,
+        prompt,
+        stream: false,
+        // 생각 모드가 있는 모델(qwen3.5, gemma4 등)을 비교할 때 OLLAMA_THINK=false 로 끈다.
+        // 기본 모델에는 생각 모드가 없어 이 필드를 보내지 않는다(없는 기능을 켜라고 하면
+        // Ollama 가 거부한다).
+        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === "true" } : {}),
+        options: {
+          temperature: opts.temperature ?? 0,
+          seed: opts.seed ?? 42,
+          num_ctx: opts.numCtx ?? 4096,
+        },
       },
-    }),
-  });
-  if (!res.ok) throw new Error(`ollama generate ${res.status}: ${await res.text()}`);
-  const json = (await res.json()) as { response?: string };
-  return (json.response ?? "").trim();
+      AbortSignal.timeout(deadline),
+    );
+    if (res.status < 200 || res.status >= 300) throw new Error(`ollama generate ${res.status}: ${res.text}`);
+    const json = JSON.parse(res.text) as { response?: string };
+    return (json.response ?? "").trim();
+  } catch (e) {
+    // AbortSignal.timeout 은 영어 DOMException 을 던진다. 사용자가 고칠 값을 말한다.
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new Error(
+        `생성 모델이 ${(deadline / 1000).toFixed(deadline < 1000 ? 2 : 0)}초 안에 응답하지 않았다(시간 초과). ` +
+          "느린 환경이면 OLLAMA_TIMEOUT_MS 를 올린다.",
+      );
+    }
+    throw e;
+  }
 }
 
 /** True if Ollama is reachable and the model is pulled. Used to skip live tests. */
@@ -78,7 +113,13 @@ export async function isAvailable(model = MODEL): Promise<boolean> {
  *     an explicit instruction the model read the triple as unrelated tokens and
  *     answered "알 수 없습니다" while the answer sat in its context.
  *   * ids vs names   — asked for a department, it answered "dept_id 5번". The user
- *     asked for a thing, not a foreign key. */
+ *     asked for a thing, not a foreign key.
+ *
+ * 시도했다가 되돌린 것(2026-10-01): 「보안 취약점 점검 관련 내용이 있어?」에 회의록 다섯 건이
+ * 컨텍스트에 있었는데 답이 「네, 각 회의록에서 언급되었습니다」 한 줄이라, 「문서를 근거로
+ * 답할 때는 제목이나 날짜와 구체적인 사실을 적으라」는 줄을 넣어 봤다. 그 문항의 답은 한 글자도
+ * 바뀌지 않았고, 다른 문항(진행 중 프로젝트 리드 11명)이 한 명을 빠뜨렸다. 효과 없는 문장은
+ * 남기지 않는다. */
 export function buildAnswerPrompt(query: string, context: string): string {
   return [
     "당신은 온프렘 데이터 플랫폼의 한국어 어시스턴트입니다.",

@@ -10,25 +10,26 @@
 // candidate context? (Answer generation is measured separately; a lane that
 // never retrieves the gold entity can only answer by luck.)
 //
+// ★ 서버와 같은 라우터 상태에서 잰다(initRouting + routeQuery, 2026-10-01).
+// 종전에는 온톨로지도 시맨틱 앵커도 없는 규칙만의 route() 로 탐색 계획을 만들었다. 그 상태에서
+// 「Product-D1 제품과 관련된 프로젝트는?」은 무타입 두 홉 확장이라 재현율 1.0 이었지만, 서버는
+// 시맨틱 폴백이 준 HAS_PROJECT 로 제품에서 출발해 빈손이었다. 평가가 서버가 아닌 경로를 재면
+// 정본 1.0 이 서버의 오답을 가린다.
+//
 // Run: KG_SCHEMA=companyx npm run companyx:kg
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { graphLane } from "../pipeline.js";
-import { route } from "../router.js";
-import { loadGraph, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
-
-type Spec =
-  | { kind: "neighbors"; seed: string; rel: string; dir: "in" | "out" }
-  | { kind: "two_hop"; seed: string; rel1: string; dir1: "in" | "out"; rel2: string; dir2: "in" | "out" }
-  | { kind: "argmax"; rel: string; over: "source" | "target" }
-  | { kind: "leads_status"; rel: string; status: string }
-  | { kind: "absent"; note: string };
+import { routeQuery } from "../semroute.js";
+import { initRouting } from "../routerinit.js";
+import { getEmbedder } from "../embedder.js";
+import { loadGraph, datasetDir, CX_SCHEMA, requireDataset, kgGoldIds, type KgSpec } from "../companyx.js";
 
 interface GoldItem {
   q: string;
-  spec: Spec;
+  spec: KgSpec;
 }
 
 async function main() {
@@ -39,53 +40,20 @@ async function main() {
   const goldPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "eval", "companyx", "kg_gold.json");
   const gold: GoldItem[] = JSON.parse(await readFile(goldPath, "utf-8"));
 
-  const neighbors = (seed: string, rel: string, dir: "in" | "out"): string[] =>
-    edges
-      .filter((e) => e.relation === rel && (dir === "out" ? e.source === seed : e.target === seed))
-      .map((e) => (dir === "out" ? e.target : e.source));
-
-  function goldSet(spec: Spec): string[] {
-    switch (spec.kind) {
-      case "neighbors":
-        return neighbors(spec.seed, spec.rel, spec.dir);
-      case "two_hop": {
-        const mid = neighbors(spec.seed, spec.rel1, spec.dir1);
-        return [...new Set(mid.flatMap((m) => neighbors(m, spec.rel2, spec.dir2)))];
-      }
-      case "argmax": {
-        const counts = new Map<string, number>();
-        for (const e of edges) {
-          if (e.relation !== spec.rel) continue;
-          const key = spec.over === "target" ? e.target : e.source;
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-        const max = Math.max(...counts.values());
-        return [...counts.entries()].filter(([, c]) => c === max).map(([k]) => k);
-      }
-      case "leads_status": {
-        const out: string[] = [];
-        for (const e of edges) {
-          if (e.relation !== spec.rel) continue;
-          const proj = byId.get(e.target);
-          if (proj && (proj.properties as { status?: string })?.status === spec.status) out.push(e.source);
-        }
-        return [...new Set(out)];
-      }
-      case "absent":
-        return [];
-    }
-  }
+  const goldSet = (spec: KgSpec): string[] => kgGoldIds(spec, nodes, edges);
 
   const pool = getPool();
   const schema = process.env.KG_SCHEMA ?? CX_SCHEMA;
+  const routing = await initRouting();
+  const embedder = getEmbedder();
   const rows = [] as Record<string, unknown>[];
   let recallSum = 0;
   let full = 0;
   let scored = 0;
 
   for (const item of gold) {
-    const d = route(item.q);
-    const lane = await graphLane(pool, item.q, Number(process.env.KG_SEEDS ?? 5), 2, schema);
+    const d = await routeQuery(item.q, embedder);
+    const lane = await graphLane(pool, item.q, Number(process.env.KG_SEEDS ?? 5), 2, schema, d.graphPlan);
     const retrievedText = lane.items.map((i) => i.text).join("\n");
     const g = goldSet(item.spec);
     const goldNames = g.map((id) => byId.get(id)?.name ?? id);
@@ -101,6 +69,7 @@ async function main() {
       routed: d.route,
       strategy: lane.strategy,
       plan: d.graphPlan ?? null,
+      fitted: lane.fitted ?? null,
       spec: item.spec.kind,
       gold_n: goldNames.length,
       gold: goldNames,
@@ -124,6 +93,13 @@ async function main() {
     mean_recall: scored ? Number((recallSum / scored).toFixed(3)) : null,
     full_recall_questions: full,
     routed_to_graph: rows.filter((r) => r.routed === "graph").length,
+    routing: {
+      ontology_entities: routing.ontology.entities,
+      ontology_error: routing.ontology.error ?? null,
+      semantic_anchors: routing.semantic.anchors,
+      semantic_error: routing.semantic.error ?? null,
+      embedder: embedder.name,
+    },
     generated_at: new Date().toISOString(),
   };
 

@@ -26,7 +26,7 @@
     "deterministic_20_runs": true,
     "caveat": "IN-SAMPLE: these 30 questions are the sponsor's published examples and the router lexicon was written while reading them. Generalization is measured separately (companyx-route-heldout).",
     "misses": [],
-    "generated_at": "2026-08-19T06:42:57.730Z"
+    "generated_at": "2026-10-01T17:02:41.509Z"
   },
   "rows": [
     {
@@ -52,6 +52,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -78,6 +86,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -104,6 +120,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -130,6 +154,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -163,6 +195,14 @@
           "to": "employee"
         },
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 1,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 1,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -188,6 +228,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 1,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 1,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -214,6 +262,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -240,6 +296,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 2,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -267,6 +331,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 3,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -294,6 +366,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "only structured signals",
+        "rule_scores": {
+          "nl2sql": 3,
+          "vector_search": 0,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -321,6 +401,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals ops_topic",
+        "rule_scores": {
+          "nl2sql": 1,
+          "vector_search": 2,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 1,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -349,6 +437,14 @@
         ],
         "type_pair": null,
         "rationale": "document signals doc_artifact",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 2,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -377,6 +473,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals doc_artifact,ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 5,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -403,6 +507,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals doc_artifact,ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 4,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 4,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -431,6 +543,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 4,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 4,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -458,6 +578,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 3,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -483,6 +611,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 2,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -510,6 +646,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals doc_artifact",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 2,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -537,6 +681,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals doc_artifact",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 3,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -564,6 +716,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "document signals ops_topic",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 3,
+          "knowledge_graph": 0
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -601,6 +761,14 @@
           "to": "product"
         },
         "rationale": "relation verb USES -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 5
+        },
+        "rule_margin": 5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -638,6 +806,14 @@
           "to": "client"
         },
         "rationale": "relation verb USES -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 5
+        },
+        "rule_margin": 5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -676,6 +852,14 @@
           "to": "employee"
         },
         "rationale": "relation verb BELONGS_TO -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 5
+        },
+        "rule_margin": 5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -706,6 +890,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 3
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -739,6 +931,14 @@
         ],
         "type_pair": null,
         "rationale": "relation noun RELATED_TO + entity entity_id,known_entity",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 1,
+          "knowledge_graph": 1.5
+        },
+        "rule_margin": 0.5,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -772,6 +972,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "relation noun REPORTED_ISSUE + superlative",
+        "rule_scores": {
+          "nl2sql": 1,
+          "vector_search": 0,
+          "knowledge_graph": 1.5
+        },
+        "rule_margin": 0.5,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -809,6 +1017,14 @@
           "to": "employee"
         },
         "rationale": "relation verb HEAD_IS -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 5
+        },
+        "rule_margin": 5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -844,6 +1060,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "relation verb LEADS -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 0,
+          "knowledge_graph": 3
+        },
+        "rule_margin": 3,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -870,7 +1094,7 @@
         ],
         "graph_plan": {
           "relTypes": [
-            "USES"
+            "REPORTED_ISSUE"
           ]
         },
         "document_signals": [],
@@ -879,11 +1103,19 @@
           "known_entity"
         ],
         "type_pair": {
-          "relation": "USES",
+          "relation": "REPORTED_ISSUE",
           "from": "product",
           "to": "client"
         },
-        "rationale": "type-pair product->client => USES",
+        "rationale": "type-pair product->client => REPORTED_ISSUE",
+        "rule_scores": {
+          "nl2sql": 0,
+          "vector_search": 1,
+          "knowledge_graph": 3.5
+        },
+        "rule_margin": 2.5,
+        "rule_confident": true,
+        "semantic_fallback": null,
         "deterministic": true
       }
     },
@@ -917,6 +1149,14 @@
         "entity_signals": [],
         "type_pair": null,
         "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "rule_scores": {
+          "nl2sql": 1,
+          "vector_search": 0,
+          "knowledge_graph": 3
+        },
+        "rule_margin": 2,
+        "rule_confident": false,
+        "semantic_fallback": null,
         "deterministic": true
       }
     }

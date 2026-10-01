@@ -4,21 +4,22 @@
   },
   "gold": "eval/companyx/holdout_route.json",
   "entity_lexicon_size": 131,
+  "router": "rule+semantic",
+  "semantic_anchors": 175,
   "note": "홀드아웃 라우팅 평가. 사업자 공개 30문항과 어휘가 겹치지 않는 30문항. 라벨은 스키마/온톨로지 신호로 정하고 라우터는 질문 문장만 본다. strict_accuracy = 라벨 문자열 일치. coverage = 기대 레인의 도구가 실제 호출 목록에 포함된 비율. conservative_fanout = 라벨은 틀렸지만 기대 레인을 함께 연 것(답은 나올 수 있다). true_miss = 기대 레인에 닿지도 못한 것. 이 셋은 전부 tools 배열에서 기계적으로 판정하며 손으로 적지 않는다.",
   "total": 30,
-  "correct": 27,
-  "accuracy": 0.9,
+  "correct": 30,
+  "accuracy": 1,
   "summary": {
     "total": 30,
-    "correct": 27,
-    "strict_accuracy": 0.9,
-    "conservative_fanout": 3,
+    "correct": 30,
+    "strict_accuracy": 1,
+    "conservative_fanout": 0,
     "true_miss": 0,
-    "coverage": 1
+    "coverage": 1,
+    "rule_only_strict_accuracy": 0.9
   },
-  "confusion": {
-    "vector_search -> hybrid": 3
-  },
+  "confusion": {},
   "rows": [
     {
       "q": "Product-T1 제품의 올해 총 판매액은 얼마야?",
@@ -30,7 +31,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 판매액 총 얼마\", margin 0.310)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "Product-C2 제품의 올해 총 판매액은 얼마야?",
@@ -42,7 +44,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"{제품} 판매액 총 얼마\", margin 0.310)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "Client-A 고객사와 체결된 계약은 몇 건이야?",
@@ -54,7 +57,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.119)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "Client-X 고객사와 체결된 계약은 몇 건이야?",
@@ -66,7 +70,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"{고객사}랑 맺은 계약 총액\", margin 0.119)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "부서별 평균 연봉을 큰 순서로 보여줘",
@@ -78,7 +83,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "only structured signals",
+      "rule_only": "nl2sql"
     },
     {
       "q": "제주 지역에서 발생한 매출 합계는?",
@@ -90,7 +96,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"지역별로 매출 얼마씩 나왔어\", margin 0.227)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "경기 지역에서 발생한 매출 합계는?",
@@ -102,7 +109,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"지역별로 매출 얼마씩 나왔어\", margin 0.235)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "계약 금액이 가장 큰 카테고리는 뭐야?",
@@ -114,7 +122,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"카테고리별 판매 금액\", margin 0.159)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "2025년 4분기에 등록된 신규 고객사 수는?",
@@ -126,7 +135,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"신규 고객 몇 곳 들어왔어\", margin 0.145)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "재직 중인 직원의 평균 연봉은 얼마야?",
@@ -138,7 +148,8 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"직원 몇 명이야\", margin 0.145)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "상태가 활성인 계약의 총액은 얼마야?",
@@ -150,37 +161,34 @@
       "tools": [
         "sql.query"
       ],
-      "rationale": "only structured signals"
+      "rationale": "rule margin 1 < gate; semantic nl2sql (anchor \"활성 계약 몇 건이야\", margin 0.209)",
+      "rule_only": "nl2sql"
     },
     {
       "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘",
       "expected": "vector_search",
-      "got": "hybrid",
-      "lane": "hybrid",
-      "hit": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
       "reached": true,
       "tools": [
-        "sql.query",
-        "vector.search",
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 초기 세팅 뭐부터 해야 돼\", margin 0.185)",
+      "rule_only": "hybrid"
     },
     {
       "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘",
       "expected": "vector_search",
-      "got": "hybrid",
-      "lane": "hybrid",
-      "hit": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
       "reached": true,
       "tools": [
-        "sql.query",
-        "vector.search",
-        "ontology.search",
-        "graph.expand"
+        "vector.search"
       ],
-      "rationale": "no decisive signal; entity-anchored fan-out (entity_id,known_entity)"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"{제품} 초기 세팅 뭐부터 해야 돼\", margin 0.185)",
+      "rule_only": "hybrid"
     },
     {
       "q": "데이터베이스 백업과 복원 절차가 궁금해",
@@ -192,7 +200,8 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals doc_artifact,ops_topic"
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
     },
     {
       "q": "보안 감사 대비 점검 항목이 뭐야?",
@@ -204,20 +213,21 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals ops_topic"
+      "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"정기 점검 항목 뭐야\", margin 0.124)",
+      "rule_only": "vector_search"
     },
     {
       "q": "클라우드 인프라 이전 계획을 세우고 싶어",
       "expected": "vector_search",
-      "got": "hybrid",
-      "lane": "hybrid",
-      "hit": false,
+      "got": "vector_search",
+      "lane": "semantic",
+      "hit": true,
       "reached": true,
       "tools": [
-        "sql.query",
         "vector.search"
       ],
-      "rationale": "no decisive signal; default fan-out"
+      "rationale": "rule margin 0 < gate; semantic vector_search (anchor \"서버 다운됐던 사례 있어\", margin 0.060)",
+      "rule_only": "hybrid"
     },
     {
       "q": "서버 성능 튜닝 방법을 알려줘",
@@ -229,7 +239,8 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals doc_artifact,ops_topic"
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
     },
     {
       "q": "API 인증 방식과 토큰 갱신 방법을 알려줘",
@@ -241,7 +252,8 @@
       "tools": [
         "vector.search"
       ],
-      "rationale": "document signals doc_artifact,ops_topic"
+      "rationale": "document signals doc_artifact,ops_topic",
+      "rule_only": "vector_search"
     },
     {
       "q": "강현우 직원이 소속된 부서는 어디야?",
@@ -254,7 +266,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "장미라 직원이 소속된 부서는 어디야?",
@@ -267,7 +280,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Client-X 고객사와 연결된 직원은 누구야?",
@@ -280,7 +294,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal"
+      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Client-AC 고객사와 연결된 직원은 누구야?",
@@ -293,7 +308,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal"
+      "rationale": "generic relation RELATED_TO + entity entity_id,known_entity -> untyped traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Product-D3 제품을 담당하는 팀은 어디야?",
@@ -306,7 +322,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal"
+      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Product-C2 제품을 담당하는 팀은 어디야?",
@@ -319,7 +336,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal"
+      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "기술지원팀 부서에 소속된 직원 전원을 보여줘",
@@ -332,7 +350,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "데이터플랫폼팀 부서에 소속된 직원 전원을 보여줘",
@@ -345,7 +364,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb BELONGS_TO -> graph traversal"
+      "rationale": "relation verb BELONGS_TO -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Client-B 고객사가 사용하는 제품을 전부 보여줘",
@@ -358,7 +378,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb USES -> graph traversal"
+      "rationale": "relation verb USES -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "Client-A 고객사가 사용하는 제품을 전부 보여줘",
@@ -371,7 +392,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb USES -> graph traversal"
+      "rationale": "relation verb USES -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "김지훈 직원이 관여하는 프로젝트는 뭐야?",
@@ -384,7 +406,8 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb HAS_PROJECT -> graph traversal"
+      "rationale": "relation verb HAS_PROJECT -> graph traversal",
+      "rule_only": "knowledge_graph"
     },
     {
       "q": "권승호 직원이 관여하는 프로젝트는 뭐야?",
@@ -397,8 +420,9 @@
         "ontology.search",
         "graph.expand"
       ],
-      "rationale": "relation verb HAS_PROJECT -> graph traversal"
+      "rationale": "relation verb HAS_PROJECT -> graph traversal",
+      "rule_only": "knowledge_graph"
     }
   ],
-  "generated_at": "2026-08-19T06:42:59.890Z"
+  "generated_at": "2026-10-01T17:08:44.971Z"
 }

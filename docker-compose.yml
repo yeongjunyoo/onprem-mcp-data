@@ -8,7 +8,9 @@
 #       라이선스 근거 = NOTICE · docs/sbom.md · docs/model-cards/qwen2.5-coder-7b.md
 services:
   db:
-    image: pgvector/pgvector:pg16   # 문서와 측정 환경이 16이다. 이미지도 16으로 고정한다.
+    # pg16 은 pgvector 새 버전이 나오면 움직이는 태그다. 측정한 이미지로 고정한다(2026-09-30 확인:
+    # 컨테이너 실물 pgvector 0.8.6 / PostgreSQL 16.15, Docker Hub 0.8.6-pg16 과 다이제스트 일치).
+    image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mcpdata
@@ -24,7 +26,10 @@ services:
       retries: 10
 
   ollama:
-    image: ollama/ollama:latest
+    # 버전과 다이제스트를 고정한다. latest 면 심사 기관이 받는 날의 Ollama 가 돈다 — 9월에만
+    # 0.34.x 가 나왔다. 이 저장소의 CPU 수치와 docs/sbom.md 는 0.32.14 에서 쟀다(2026-09-30 확인:
+    # 컨테이너 실물 0.32.14, Docker Hub 0.32.14 태그와 다이제스트 일치).
+    image: ollama/ollama:0.32.14@sha256:9d30908e41144b1f1da89b9d8e33c07e4aeb43ff41a8660241b1686e2cc330ad
     ports:
       # host 11435. 11434로 게시하면 호스트에 이미 설치된 Ollama와 충돌하는데,
       # Docker는 이때 **조용히 게시를 포기한다**(PublishedPort: 0). 컨테이너는
@@ -48,6 +53,29 @@ services:
     # GPU optional; on Apple Silicon Ollama runs on host metal better than in-container.
     # For dev, can point the app at a host-run `ollama serve` via OLLAMA_HOST instead.
 
+  # 모델 캐시 확인 — 한 번 돌고 끝나는 서비스.
+  #
+  # `ollama` 볼륨에 두 모델이 있으면 **네트워크 없이** 확인만 하고 끝난다(ollama show 는
+  # 로컬 조회다). 없을 때만 받는다. 시연 당일 pull 은 온라인에서 멈출 수 있으므로
+  # 모델은 시연 전에 이 서비스로 받아 두고, 당일에는 확인만 지나가게 한다.
+  # 받지 못하면 exit 1 로 끝나 `docker compose ps -a` 에 남는다 — 조용히 넘어가지 않는다.
+  # 컨테이너 안에서 ollama CLI 는 OLLAMA_HOST 의 서버에 붙는 클라이언트다.
+  models:
+    image: ollama/ollama:0.32.14@sha256:9d30908e41144b1f1da89b9d8e33c07e4aeb43ff41a8660241b1686e2cc330ad
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        for m in qwen2.5-coder:7b bge-m3; do
+        if ollama show "$$m" >/dev/null 2>&1; then echo "cached: $$m";
+        else echo "pulling: $$m"; ollama pull "$$m" || exit 1; fi;
+        done
+    restart: "no"
+
   # The air MCP server. Behind the "full" profile so the default `docker compose
   # up` brings up only the verified substrate (db + ollama); the server runs on
   # the host during dev/eval (cd air-server && npm i && npm run build && npm start).
@@ -60,6 +88,9 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+      # 프리플라이트가 모델 부재로 거절하기 전에, 모델이 볼륨에 있다는 것부터 확정한다.
+      models:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mcpdata
       OLLAMA_HOST: http://ollama:11434   # 컨테이너 네트워크 안에서는 그대로 11434

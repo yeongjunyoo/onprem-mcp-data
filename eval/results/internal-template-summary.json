@@ -70,6 +70,6 @@
       "n": 3
     }
   },
-  "generatedAt": "2026-08-19T13:18:54.378Z",
+  "generatedAt": "2026-09-30T10:05:36.684Z",
   "note": "internal brief-aligned suite; strict execution-match vs gold under mcp_ro; no LLM judge. KOSSA 64.0% is a contextual reference on a DIFFERENT dataset, not a same-benchmark comparison."
 }

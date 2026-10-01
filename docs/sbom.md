@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-08-19T06:08:44.684Z
+> 생성 시각 2026-09-30T09:15:32.733Z
 > npm 패키지 110개(직접 5 / 전이 105) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(`node scripts/sbom.mjs`).
@@ -11,7 +11,7 @@
 | 번호 | 라이브러리명 | 버전 | 라이선스 | 공식 저장소 URL | 사용 목적 및 주요 기능 |
 | --- | --- | --- | --- | --- | --- |
 | 1 | @airmcp-dev/core | 0.3.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
-| 2 | @types/node | 26.2.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
+| 2 | @types/node | 26.4.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 3 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 4 | pg | 8.23.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
 | 5 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript | 빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일 |
@@ -56,7 +56,7 @@
 | 28 | express | 5.2.1 | MIT | https://github.com/expressjs/express |
 | 29 | express-rate-limit | 8.5.2 | MIT | https://github.com/express-rate-limit/express-rate-limit |
 | 30 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
-| 31 | fast-uri | 4.1.2 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| 31 | fast-uri | 4.2.1 | BSD-3-Clause | https://github.com/fastify/fast-uri |
 | 32 | finalhandler | 2.1.1 | MIT | https://github.com/pillarjs/finalhandler |
 | 33 | forwarded | 0.2.0 | MIT | https://github.com/jshttp/forwarded |
 | 34 | fresh | 2.0.0 | MIT | https://github.com/jshttp/fresh |
@@ -66,11 +66,11 @@
 | 38 | gopd | 1.2.0 | MIT | https://github.com/ljharb/gopd |
 | 39 | has-symbols | 1.1.0 | MIT | https://github.com/inspect-js/has-symbols |
 | 40 | hasown | 2.0.4 | MIT | https://github.com/inspect-js/hasOwn |
-| 41 | hono | 4.13.2 | MIT | https://github.com/honojs/hono |
+| 41 | hono | 4.13.11 | MIT | https://github.com/honojs/hono |
 | 42 | http-errors | 2.0.1 | MIT | https://github.com/jshttp/http-errors |
 | 43 | iconv-lite | 0.7.2 | MIT | https://github.com/pillarjs/iconv-lite |
 | 44 | inherits | 2.0.4 | ISC | https://github.com/isaacs/inherits |
-| 45 | ip-address | 10.5.0 | MIT | https://github.com/beaugunderson/ip-address |
+| 45 | ip-address | 10.7.2 | MIT | https://github.com/beaugunderson/ip-address |
 | 46 | ipaddr.js | 1.9.1 | MIT | https://github.com/whitequark/ipaddr.js |
 | 47 | is-promise | 4.0.0 | MIT | https://github.com/then/is-promise |
 | 48 | isexe | 2.0.0 | ISC | https://github.com/isaacs/isexe |
@@ -104,7 +104,7 @@
 | 76 | postgres-date | 1.0.7 | MIT | https://github.com/bendrucker/postgres-date |
 | 77 | postgres-interval | 1.2.0 | MIT | https://github.com/bendrucker/postgres-interval |
 | 78 | proxy-addr | 2.0.7 | MIT | https://github.com/jshttp/proxy-addr |
-| 79 | qs | 6.15.3 | BSD-3-Clause | https://github.com/ljharb/qs |
+| 79 | qs | 6.16.0 | BSD-3-Clause | https://github.com/ljharb/qs |
 | 80 | range-parser | 1.3.0 | MIT | https://github.com/jshttp/range-parser |
 | 81 | raw-body | 3.0.2 | MIT | https://github.com/stream-utils/raw-body |
 | 82 | require-from-string | 2.0.2 | MIT | https://github.com/floatdrop/require-from-string |

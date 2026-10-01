@@ -27,7 +27,7 @@
     "id": "q04",
     "tax": "count+filter",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.products WHERE is_active = TRUE",
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE status = 'active'",
     "predOk": false,
     "goldOk": true
   },
@@ -259,7 +259,7 @@
     "id": "q33",
     "tax": "aggregate+filter",
     "ok": false,
-    "pred": "SELECT MIN(price) AS min_price FROM bench.products WHERE is_on_sale = TRUE",
+    "pred": "SELECT MIN(price) AS lowest_price FROM bench.products WHERE is_on_sale = TRUE",
     "predOk": false,
     "goldOk": true
   },
@@ -403,7 +403,7 @@
     "id": "q51",
     "tax": "aggregate",
     "ok": false,
-    "pred": "SELECT SUM(bench.order_items.quantity * bench.order_items.price) AS total_revenue\nFROM bench.order_items\nJOIN bench.orders ON bench.order_items.order_id = bench.orders.id",
+    "pred": "SELECT SUM(bench.order_items.quantity * bench.order_items.price) AS total_sales\nFROM bench.order_items\nJOIN bench.orders ON bench.order_items.order_id = bench.orders.id",
     "predOk": false,
     "goldOk": true
   },
@@ -491,7 +491,7 @@
     "id": "q62",
     "tax": "join",
     "ok": false,
-    "pred": "SELECT COUNT(*) FROM bench.products WHERE category_id = (SELECT id FROM bench.categories WHERE name = '전자기기') AND status = '판매 중'",
+    "pred": "SELECT COUNT(*) FROM bench.products WHERE category_id = (SELECT id FROM bench.categories WHERE name = '전자기기') AND is_active = TRUE",
     "predOk": false,
     "goldOk": true
   },
@@ -523,7 +523,7 @@
     "id": "q66",
     "tax": "groupby",
     "ok": false,
-    "pred": "SELECT status, SUM(amount) AS total_amount\nFROM bench.orders\nGROUP BY status",
+    "pred": "SELECT order_status, SUM(order_total) AS total_amount\nFROM bench.orders\nGROUP BY order_status",
     "predOk": false,
     "goldOk": true
   },
@@ -555,7 +555,7 @@
     "id": "q70",
     "tax": "groupby",
     "ok": true,
-    "pred": "SELECT status, COUNT(*) AS ticket_count FROM bench.support_tickets GROUP BY status",
+    "pred": "SELECT status, COUNT(*) FROM bench.support_tickets GROUP BY status",
     "predOk": true,
     "goldOk": true
   },
@@ -595,7 +595,7 @@
     "id": "q75",
     "tax": "time",
     "ok": true,
-    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at >= '2025-07-01' AND created_at < '2026-01-01'",
+    "pred": "SELECT COUNT(*) FROM bench.orders WHERE created_at BETWEEN '2025-07-01' AND '2025-12-31'",
     "predOk": true,
     "goldOk": true
   },
@@ -635,7 +635,7 @@
     "id": "q80",
     "tax": "distinct",
     "ok": false,
-    "pred": "SELECT COUNT(DISTINCT o.region) FROM bench.orders o",
+    "pred": "SELECT COUNT(DISTINCT o.region) AS distinct_regions_with_orders\nFROM bench.orders o",
     "predOk": false,
     "goldOk": true
   },
@@ -707,7 +707,7 @@
     "id": "q89",
     "tax": "aggregate",
     "ok": true,
-    "pred": "SELECT SUM(bench.products.price) AS total_price FROM bench.products",
+    "pred": "SELECT SUM(price) AS total_price FROM bench.products",
     "predOk": true,
     "goldOk": true
   },
@@ -787,7 +787,7 @@
     "id": "q99",
     "tax": "groupby+order",
     "ok": false,
-    "pred": "SELECT SUM(order_items.quantity) AS total_quantity\nFROM bench.order_items\nORDER BY SUM(order_items.quantity) DESC\nLIMIT 1",
+    "pred": "SELECT SUM(order_items.quantity) AS total_quantity\nFROM bench.order_items\nORDER BY total_quantity DESC\nLIMIT 1",
     "predOk": false,
     "goldOk": true
   },

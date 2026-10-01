@@ -14,6 +14,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
+import { classifyNotFound, type NotFound } from "./notfound.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -78,7 +79,8 @@ export interface OntologyHit {
   canonicalName: string;
   via: "canonical" | "alias";
   matched: string;
-  /** 4 = exact canonical name, 3 = exact alias, 2 = prefix, 1 = substring. Ranks
+  /** 5 = 여러 낱말로 된 정본 이름이 질문에 통째로 있음, 4 = exact canonical name,
+   * 3 = exact alias, 2 = prefix, 1 = substring. Ranks
    * seeds so a query naming "Product-C1" seeds THAT product instead of the first 5
    * rows containing "product", and "경영지원팀" seeds the department rather than its
    * members (who carry the same string as a property alias). */
@@ -110,6 +112,8 @@ export function seedTerms(query: string): string[] {
 export interface OntologyResult {
   ok: boolean;
   hits: OntologyHit[];
+  /** 질의어가 있는데 하나도 해소되지 않았을 때만. 왜 못 찾았는지(notfound.ts). */
+  not_found?: NotFound;
   error?: string;
 }
 
@@ -154,9 +158,19 @@ export async function ontologySearch(
             WHEN lower(${col}) = lower(t.term) THEN ${exact}
             WHEN lower(${col}) LIKE lower(t.term) || '%' THEN 2
             ELSE 1 END`;
+    // 여러 낱말로 된 이름(프로젝트 「Client-C DB 마이그레이션」)은 낱말로 쪼갠 대조로는
+    // 통째로 잡히지 않는다. 「Client-C」가 고객사와 정확히 맞아 고객사가 시드가 되고,
+    // 질문이 가리킨 프로젝트는 접두 일치 후보로 밀려 탐색되지 않았다(홀드아웃3 「Client-C DB
+    // 마이그레이션, 누가 끌고 가는 거야?」). 이름이 질문에 그대로 있으면 가장 강한 시드다.
     const res = await pool.query(
       `WITH t AS (SELECT unnest($1::text[]) AS term),
             m AS (
+              SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
+                     'canonical'::text AS via, e.canonical_name AS matched, 5 AS score
+                FROM ${s}.entities e
+               WHERE e.canonical_name LIKE '% %'
+                 AND strpos(lower($3::text), lower(e.canonical_name)) > 0
+              UNION ALL
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
                      'canonical'::text AS via, t.term AS matched,
                      ${scoreExpr("e.canonical_name", 4)} AS score
@@ -177,7 +191,7 @@ export async function ontologySearch(
         GROUP BY id, type, canonical_name, properties
         ORDER BY max(score) DESC, length(canonical_name) ASC, id
         LIMIT $2`,
-      [terms, k],
+      [terms, k, query],
     );
     const hits: OntologyHit[] = res.rows.map((r) => ({
       entityId: Number(r.id),
@@ -188,6 +202,14 @@ export async function ontologySearch(
       score: Number(r.score),
       properties: (r.properties ?? undefined) as Record<string, unknown> | undefined,
     }));
+    if (hits.length === 0) {
+      // 정본 이름만 대조한다. 별칭에는 속성값(지역·직급·상태)이 섞여 있어 "서울물산"이
+      // 지역 별칭 "서울"과 비슷하다는 식의 후보를 만든다. 사전 전체를 읽지만 못 찾은
+      // 질의에서만 돈다.
+      const lex = await pool.query(`SELECT canonical_name AS name, type FROM ${s}.entities`);
+      const lexicon = lex.rows.map((r) => ({ name: String(r.name), type: String(r.type) }));
+      return { ok: true, hits, not_found: classifyNotFound(terms, lexicon) };
+    }
     return { ok: true, hits };
   } catch (err) {
     return { ok: false, hits: [], error: describeError(err) };
@@ -207,11 +229,45 @@ export interface GraphEdge {
   depth: number;
 }
 
+/** 탐색이 상한에 걸려 멈췄다는 표시. 예외가 아니라 결과의 상태다. */
+export interface GraphTruncation {
+  by: "hops" | "nodes" | "edges";
+  limit: number;
+}
+
 export interface GraphResult {
   ok: boolean;
   edges: GraphEdge[];
+  /** 상한 때문에 덜 탐색했으면 채운다. 비어 있으면 요청한 범위를 끝까지 봤다. */
+  truncated?: GraphTruncation;
   error?: string;
 }
+
+export interface GraphLimits {
+  maxHops: number;
+  maxNodes: number;
+  maxEdges: number;
+}
+
+function capFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  // 오타를 기본값으로 메우면 상한이 걸린 줄 알고 무한정 도는 서버가 된다.
+  if (!Number.isInteger(n) || n < 1) throw new Error(`${name}="${raw}" 는 1 이상의 정수여야 한다.`);
+  return n;
+}
+
+/** 그래프 탐색 상한. 양방향 BFS 는 홉마다 이웃이 곱으로 늘어 큰 그래프에서는 비용이
+ * 폭증한다. 홉·노드만으로는 허브 하나가 엣지 수십만 개를 가진 경우를 못 막으므로,
+ * 한 번에 읽는 행 수도 엣지 상한으로 묶는다(SQL LIMIT).
+ *
+ * 기본값은 사업자 그래프 전체(133노드·354엣지)보다 크다. 정상 질의는 닿지 않는다. */
+export const GRAPH_LIMITS: Readonly<GraphLimits> = Object.freeze({
+  maxHops: capFromEnv("GRAPH_MAX_HOPS", 3),
+  maxNodes: capFromEnv("GRAPH_MAX_NODES", 500),
+  maxEdges: capFromEnv("GRAPH_MAX_EDGES", 2000),
+});
 
 export type Direction = "out" | "in" | "both";
 
@@ -221,7 +277,10 @@ export type Direction = "out" | "in" | "both";
  * reverse traversals ("Product-C1을 사용하는 고객사" = client -[USES]-> product read
  * backwards). An out-only expansion silently returns nothing for those, which is the
  * worst failure mode — a confident empty answer. Edges are emitted in a canonical
- * direction (src -rel-> dst) regardless of which way they were traversed. */
+ * direction (src -rel-> dst) regardless of which way they were traversed.
+ *
+ * Bounded by `limits` (GRAPH_LIMITS). Hitting a cap stops the walk and reports
+ * `truncated` — a silently cut result reads as "no such relation". */
 export async function graphExpand(
   pool: Pool,
   entityId: number,
@@ -229,38 +288,85 @@ export async function graphExpand(
   relTypes?: string[],
   schema = kgSchema(),
   direction: Direction = "both",
+  limits: GraphLimits = GRAPH_LIMITS,
+): Promise<GraphResult> {
+  const requested = Math.max(1, Math.floor(depth) || 1);
+  const d = Math.min(limits.maxHops, requested);
+  const rel = relTypes && relTypes.length ? relTypes : null;
+  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d);
+}
+
+/** 홉마다 탈 엣지 타입을 따로 정한 탐색. hops[i] 가 i+1 번째 홉의 엣지 타입이다.
+ * 「제품 → 그 제품을 쓰는 고객사 → 그 고객사의 프로젝트」처럼 경로가 정해진 질문은
+ * 두 홉 모두 두 엣지를 허용하면 첫 홉에서 프로젝트 엣지를, 둘째 홉에서 다른 제품을
+ * 끌어와 답이 아닌 것이 섞인다(router.ts fitPlanToSeed). */
+export async function graphWalk(
+  pool: Pool,
+  entityId: number,
+  hops: string[][],
+  schema = kgSchema(),
+  limits: GraphLimits = GRAPH_LIMITS,
+): Promise<GraphResult> {
+  const levels = hops.slice(0, limits.maxHops).map((h) => (h.length ? h : null));
+  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops);
+}
+
+async function walk(
+  pool: Pool,
+  entityId: number,
+  levels: (string[] | null)[],
+  schema: string,
+  direction: Direction,
+  limits: GraphLimits,
+  cutByHops: boolean,
 ): Promise<GraphResult> {
   try {
     const s = safeSchema(schema);
-    const d = Math.min(3, Math.max(1, Math.floor(depth) || 1));
+    const d = levels.length;
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
+    const seenIds: number[] = [];
     const visited = new Set<number>([entityId]);
     let frontier = [entityId];
+    let truncated: GraphTruncation | undefined;
     const match =
       direction === "out"
         ? "r.src_entity_id = ANY($1::int[])"
         : direction === "in"
           ? "r.dst_entity_id = ANY($1::int[])"
           : "(r.src_entity_id = ANY($1::int[]) OR r.dst_entity_id = ANY($1::int[]))";
-    for (let level = 1; level <= d && frontier.length > 0; level++) {
+    for (let level = 1; level <= d && frontier.length > 0 && !truncated; level++) {
+      // 이미 담은 엣지는 SQL 에서 뺀다. 안 빼면 앞 단계 엣지가 LIMIT 을 차지해
+      // 새 엣지가 없는데도 잘렸다고 보고한다. 한 줄 더 읽어 넘침을 확인한다.
+      const room = limits.maxEdges - edges.length;
       const res = await pool.query(
-        `SELECT r.src_entity_id, se.canonical_name AS src_name, se.type AS src_type, r.rel_type,
+        `SELECT r.id, r.src_entity_id, se.canonical_name AS src_name, se.type AS src_type, r.rel_type,
                 r.dst_entity_id, de.canonical_name AS dst_name, de.type AS dst_type, r.confidence, r.provenance
            FROM ${s}.relations r
            JOIN ${s}.entities se ON se.id = r.src_entity_id
            JOIN ${s}.entities de ON de.id = r.dst_entity_id
           WHERE ${match}
             AND ($2::text[] IS NULL OR r.rel_type = ANY($2::text[]))
-          ORDER BY r.id`,
-        [frontier, relTypes && relTypes.length ? relTypes : null],
+            AND NOT (r.id = ANY($3::int[]))
+          ORDER BY r.id
+          LIMIT $4`,
+        [frontier, levels[level - 1], seenIds, room + 1],
       );
+      const overflow = res.rows.length > room;
+      const rows = overflow ? res.rows.slice(0, room) : res.rows;
       const next: number[] = [];
-      for (const row of res.rows) {
+      for (const row of rows) {
         const srcId = Number(row.src_entity_id);
         const dstId = Number(row.dst_entity_id);
+        seenIds.push(Number(row.id));
         const key = `${srcId}-${row.rel_type}-${dstId}`;
         if (seen.has(key)) continue;
+        // 새 노드를 들일 자리가 없으면 그 엣지는 버린다. 이미 방문한 노드끼리의 엣지는 담는다.
+        const fresh = [...new Set([srcId, dstId])].filter((n) => !visited.has(n));
+        if (visited.size + fresh.length > limits.maxNodes) {
+          truncated ??= { by: "nodes", limit: limits.maxNodes };
+          continue;
+        }
         seen.add(key);
         edges.push({
           srcId,
@@ -274,16 +380,21 @@ export async function graphExpand(
           provenance: String(row.provenance),
           depth: level,
         });
-        for (const nid of [srcId, dstId]) {
-          if (!visited.has(nid)) {
-            visited.add(nid);
-            next.push(nid);
-          }
+        for (const nid of fresh) {
+          visited.add(nid);
+          next.push(nid);
         }
       }
+      // 읽은 행 안에서 노드 상한이 먼저 걸렸으면 그쪽이 결과를 자른 것이다(id 순).
+      if (overflow) truncated ??= { by: "edges", limit: limits.maxEdges };
       frontier = next;
     }
-    return { ok: true, edges };
+    // 홉 상한은 요청이 상한을 넘었고 아직 안 펼친 노드가 남았을 때만 잘림이다.
+    // 요청한 깊이에서 멈춘 것은 요청대로 한 것이다.
+    if (!truncated && cutByHops && frontier.length > 0) {
+      truncated = { by: "hops", limit: limits.maxHops };
+    }
+    return truncated ? { ok: true, edges, truncated } : { ok: true, edges };
   } catch (err) {
     return { ok: false, edges: [], error: describeError(err) };
   }
@@ -427,6 +538,93 @@ export function edgeCandidates(edges: GraphEdge[], seedId?: number): Candidate[]
       provenance: `relation:${e.relType}:${e.provenance}`,
     };
   });
+}
+
+/** 여러 시드에서 펼친 엣지를 후보로 바꾸되, 같은 답 개체에 닿은 엣지는 한 줄로 모은다.
+ *
+ * 후보의 정체는 답 개체다(edgeCandidates). 시드가 둘 이상이면 같은 답 개체에 서로 다른 엣지로 닿을 수
+ * 있는데, RRF 는 한 목록 안에서 같은 정체를 한 번만 받으므로 둘째 엣지가 통째로 빠졌다. 홀드아웃3 #43
+ * 「Product-S1하고 Product-C4 둘 다 쓰는 고객」에서 Client-N 은 두 제품을 다 쓰는데 컨텍스트에는 S1 줄만
+ * 남았고, 7B 는 「없다」고 답했다. 사실을 버리지 않고 모은다: 「Client-N의 사용 중인 제품: Product-S1,
+ * Product-C4」. 관계가 다르면 줄을 나눠 한 후보에 싣는다. 엣지가 하나뿐이면 edgeCandidates 와 같은 글이다. */
+export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number }[]): Candidate[] {
+  interface Clause {
+    relType: string;
+    answerIsSrc: boolean;
+    answerName: string;
+    srcType: string;
+    dstType: string;
+    others: string[];
+    provenance: string[];
+  }
+  const byKey = new Map<string, { sourceKey: string; clauses: Map<string, Clause> }>();
+  let n = 0;
+  for (const { edges, seedId } of groups) {
+    for (const e of edges) {
+      const answerIsSrc = e.dstId === seedId;
+      const [type, id, name, other] = answerIsSrc
+        ? [e.srcType, e.srcId, e.srcName, e.dstName]
+        : [e.dstType, e.dstId, e.dstName, e.srcName];
+      const key = entityKey(type, id);
+      let entry = byKey.get(key);
+      if (!entry) byKey.set(key, (entry = { sourceKey: `graph#e${n}`, clauses: new Map() }));
+      n++;
+      const ck = `${e.relType}|${answerIsSrc ? "in" : "out"}`;
+      let c = entry.clauses.get(ck);
+      if (!c) {
+        c = { relType: e.relType, answerIsSrc, answerName: name, srcType: e.srcType, dstType: e.dstType, others: [], provenance: [] };
+        entry.clauses.set(ck, c);
+      }
+      if (!c.others.includes(other)) c.others.push(other);
+      c.provenance.push(e.provenance);
+    }
+  }
+  return [...byKey].map(([canonicalKey, { sourceKey, clauses }]) => {
+    const cs = [...clauses.values()];
+    const line = (c: Clause) =>
+      c.answerIsSrc
+        ? `[그래프] ${c.answerName}의 ${relLabel(c.relType)}: ${c.others.join(", ")} (${c.srcType}→${c.dstType}, ${c.relType})`
+        : `[그래프] ${c.others.join(", ")}의 ${relLabel(c.relType)}: ${c.answerName} (${c.srcType}→${c.dstType}, ${c.relType})`;
+    return {
+      canonicalKey,
+      sourceKey,
+      source: "graph" as const,
+      text: cs.map(line).join("\n"),
+      provenance: cs.map((c) => `relation:${c.relType}:${c.provenance.join("|")}`).join(";"),
+    };
+  });
+}
+
+/** 두 홉 경로(graphWalk)를 경로마다 한 줄로. 답은 경로 끝의 개체다.
+ *
+ * 홉마다 따로 적으면 7B 가 「Client-Y 가 Product-D1 을 쓴다」와 「Client-Y 의 프로젝트」를
+ * 스스로 이어 읽어야 한다. 한 줄에 경로 전체를 적어 잇는 일을 모델에 맡기지 않는다.
+ * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다. */
+export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
+  const viaMid = new Map<number, GraphEdge>();
+  for (const e of edges) {
+    if (e.depth !== 1) continue;
+    const mid = e.srcId === seedId ? e.dstId : e.srcId;
+    if (!viaMid.has(mid)) viaMid.set(mid, e);
+  }
+  const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
+  const out: Candidate[] = [];
+  edges.forEach((e2, i) => {
+    if (e2.depth !== 2) return;
+    const [mid, ansType, ansId] = viaMid.has(e2.srcId)
+      ? [e2.srcId, e2.dstType, e2.dstId]
+      : [e2.dstId, e2.srcType, e2.srcId];
+    const e1 = viaMid.get(mid);
+    if (!e1) return;
+    out.push({
+      canonicalKey: entityKey(ansType, ansId),
+      sourceKey: `graph#p${i}`,
+      source: "graph" as const,
+      text: `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`,
+      provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
+    });
+  });
+  return out;
 }
 
 /** Convert a relation-degree ranking to candidates (superlative questions).

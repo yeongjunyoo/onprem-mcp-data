@@ -4,7 +4,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+
+// 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
+// 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
+const TEST_AS_CI = process.env.TEST_AS_CI === "1";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -52,7 +56,7 @@ ok(stable, "determinism: 20 runs identical");
 {
   const here = dirname(fileURLToPath(import.meta.url));
   const edgesPath = resolve(here, "../../datasets/companyx-v1.0/graph/edges.json");
-  if (existsSync(edgesPath)) {
+  if (!TEST_AS_CI && existsSync(edgesPath)) {
     const edges = JSON.parse(readFileSync(edgesPath, "utf8")) as { relation: string }[];
     const inData = [...new Set(edges.map((e) => e.relation))].sort();
     const uncovered = inData.filter((t) => !RELATION_SIGNAL_TYPES.has(t));
@@ -97,7 +101,7 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   const gdir = resolve(here, "../../datasets/companyx-v1.0/graph");
   // 둘 다 있어야 한다. nodes.json 만 보고 edges.json 을 무조건 읽으면, 한쪽만 있는
   // 상태에서 스킵이 아니라 크래시가 난다(부분 데이터셋 프로브에서 실측).
-  if (existsSync(resolve(gdir, "nodes.json")) && existsSync(resolve(gdir, "edges.json"))) {
+  if (!TEST_AS_CI && existsSync(resolve(gdir, "nodes.json")) && existsSync(resolve(gdir, "edges.json"))) {
     const nodes = JSON.parse(readFileSync(resolve(gdir, "nodes.json"), "utf8"));
     const edges = JSON.parse(readFileSync(resolve(gdir, "edges.json"), "utf8"));
     const inst = installOntology(nodes, edges);
@@ -141,6 +145,69 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   } else {
     console.log("  SKIP: 타입쌍 추론 (데이터셋 없음)");
   }
+}
+
+// 한 타입쌍에 엣지가 여럿이면 질문의 관계 명사가 고른다(데이터셋 없이 도는 합성 온톨로지).
+// 고객-제품 사이에 USES 가 먼저, REPORTED_ISSUE 가 나중에 나온다. 「이슈」를 물으면 뒤의 것이다.
+{
+  installOntology(
+    [
+      { id: "client_1", name: "Client-A", type: "client" },
+      { id: "product_7", name: "Product-S1", type: "product" },
+    ] as { id: string; name: string; type: string }[],
+    [
+      { source: "client_1", target: "product_7", relation: "USES" },
+      { source: "client_1", target: "product_7", relation: "REPORTED_ISSUE" },
+    ],
+  );
+  eq(route("Product-S1 관련 고객 이슈 현황은?").graphPlan?.relTypes, ["REPORTED_ISSUE"], "관계 명사가 타입쌍의 엣지를 고른다");
+  eq(route("Product-S1 쓰는 고객 어디야?").graphPlan?.relTypes, ["USES"], "지목이 없으면 데이터 순서의 첫 엣지");
+  installOntology([], []);
+}
+
+// 계획의 엣지가 시드 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다(fitPlanToSeed).
+// 사업자 예시 25번은 HAS_PROJECT(고객사 → 프로젝트)를 제품에서 출발시켜 빈손이었다.
+{
+  installOntology(
+    [
+      { id: "client_1", name: "Client-A", type: "client" },
+      { id: "product_7", name: "Product-S1", type: "product" },
+      { id: "project_3", name: "Client-A 데이터 이전", type: "project" },
+      { id: "employee_2", name: "김지훈", type: "employee" },
+      { id: "dept_1", name: "기술지원팀", type: "department" },
+    ] as { id: string; name: string; type: string }[],
+    [
+      { source: "client_1", target: "product_7", relation: "USES" },
+      { source: "employee_2", target: "client_1", relation: "MANAGES_ACCOUNT" },
+      { source: "client_1", target: "project_3", relation: "HAS_PROJECT" },
+      { source: "employee_2", target: "project_3", relation: "LEADS" },
+      { source: "employee_2", target: "dept_1", relation: "BELONGS_TO" },
+      { source: "client_1", target: "product_7", relation: "REPORTED_ISSUE" },
+    ],
+  );
+  const hops = (rels: string[], type: string, q: string) => fitPlanToSeed(rels, type, q).hops;
+  eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["USES"], ["HAS_PROJECT"]], "제품에서 고객사를 거쳐 프로젝트로");
+  eq(hops(["HAS_PROJECT"], "product", "Product-S1 이슈를 올린 고객사의 프로젝트는?"), [["REPORTED_ISSUE"], ["HAS_PROJECT"]], "다리가 여럿이면 질문이 지목한 엣지, 묻는 타입은 마지막 타입 어휘");
+  eq(hops(["HAS_PROJECT"], "employee", "김지훈 직원이 관여하는 프로젝트는?"), [["LEADS"]], "시드 타입과 묻는 타입을 바로 잇는 엣지로 바꾼다");
+  eq(hops(["MANAGES_ACCOUNT", "LEADS"], "client", "Client-A 담당 직원이 이끄는 프로젝트는?"), [["MANAGES_ACCOUNT"], ["LEADS"]], "두 엣지가 시드에서 이어지면 한 홉씩");
+  eq(hops(["MANAGES_ACCOUNT"], "employee", "김지훈 직원이 담당하는 고객사의 프로젝트는?"), [["MANAGES_ACCOUNT"], ["HAS_PROJECT"]], "한 홉으로 묻는 타입에 못 닿으면 한 홉 더");
+  eq(hops(["USES", "REPORTED_ISSUE"], "client", "Client-A 제품과 이슈 알려줘"), [["USES", "REPORTED_ISSUE"]], "둘 다 시드에 닿으면 한 홉에 둘 다");
+  eq(fitPlanToSeed(["USES"], "client", "Client-A가 쓰는 제품은?").fitted, undefined, "시드에 닿고 묻는 타입에 닿으면 고치지 않는다");
+  eq(hops(["BELONGS_TO"], "department", "기술지원팀 소속 직원은 누구야?"), [["BELONGS_TO"]], "개체 이름 속 타입 어휘(팀)는 묻는 타입이 아니다");
+  eq(hops([], "product", "Product-S1 관련된 거 다"), [], "엣지가 없으면 무타입 확장");
+  eq(hops(["BELONGS_TO"], "employee", "김지훈이랑 같은 팀인 사람 이름 좀"), [["BELONGS_TO"], ["BELONGS_TO"]], "같은 무리: 무리로 갔다가 같은 엣지로 돌아온다");
+  eq(hops([], "client", "Client-A랑 같은 제품 쓰는 고객사는?"), [["USES"], ["USES"]], "계획에 엣지가 없어도 같은 무리는 타입쌍으로 푼다");
+  // 홀드아웃3 #54: 「수장」이 부서장 어휘에 없어 부서-직원 타입쌍의 첫 엣지(BELONGS_TO)로 팀원 여덟을 펼쳤다.
+  eq(route("기술지원팀 수장 성함 다시 좀").graphPlan?.relTypes, ["HEAD_IS"], "수장은 부서장(HEAD_IS)이다");
+  // 홀드아웃3 #57: 무리(제품)를 이름으로 지목했으면 시드의 모든 무리를 왕복하지 않는다.
+  // 왕복하면 Client-A 가 쓰는 다른 제품을 거친 경로가 근거 예산을 채운다.
+  eq(
+    fitPlanToSeed(["USES"], "client", "Client-A랑 같은 제품 쓰는 데만 추려봐. 그 제품은 Product-S1이야", ["product"]).hops,
+    [["USES"]],
+    "같은 무리라도 그 무리를 이름으로 지목한 시드가 있으면 왕복하지 않는다",
+  );
+  installOntology([], []);
+  eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
 }
 
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);

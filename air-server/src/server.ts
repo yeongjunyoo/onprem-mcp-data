@@ -14,13 +14,15 @@ import {
   jsonLoggerPlugin,
   type AirServer,
 } from "@airmcp-dev/core";
-import { route, audit, installOntology, SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { SQL_TOOL, VECTOR_TOOL } from "./router.js";
+import { routeQuery } from "./semroute.js";
+import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
-import { ontologySearch, graphExpand, kgSchema, loadOntologyForRouter } from "./graph.js";
+import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,36 +53,8 @@ import { profile } from "./profile.js";
  * NOLOGIN `mcp_ro` role, so the two highest-risk layers of the Descent Cost
  * Principle are never entered at all.
  */
-/** 라우터 온톨로지 적재 상태. 시연·감사에서 확인할 수 있게 노출한다. */
-let ontologyState: { entities: number; typePairs: number; error?: string } = {
-  entities: 0,
-  typePairs: 0,
-  error: "not loaded",
-};
-
-export function routerOntologyState(): Readonly<typeof ontologyState> {
-  return ontologyState;
-}
-
-/** 기동 시 1회. 실패해도 서버는 뜨고, 라우터는 폴백 정규식으로 계속 돈다.
- *
- * 이것이 없으면 평가에서 잰 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18).
- * 그래서 실패를 조용히 삼키지 않고 경고와 상태로 남긴다. */
-export async function loadRouterOntology(): Promise<Readonly<typeof ontologyState>> {
-  try {
-    const { nodes, edges } = await loadOntologyForRouter(getPool());
-    const r = installOntology(nodes, edges);
-    ontologyState = { entities: r.entities, typePairs: r.typePairs };
-    if (r.entities === 0) {
-      ontologyState.error = "empty";
-      console.warn("[router] 온톨로지가 비어 있다 — 타입쌍 추론 없이 폴백으로 동작한다");
-    }
-  } catch (e) {
-    ontologyState = { entities: 0, typePairs: 0, error: String(e).slice(0, 200) };
-    console.warn(`[router] 온톨로지 적재 실패 — 폴백으로 동작한다: ${ontologyState.error}`);
-  }
-  return ontologyState;
-}
+// 라우터 기동 상태는 routerinit.ts 가 소유한다(평가 CLI 도 같은 함수를 부른다).
+export { loadRouterOntology, loadSemanticRouter, routerOntologyState } from "./routerinit.js";
 
 /** 캐시에서 제외하는 도구. 감사 레코드가 이 목록을 직접 읽어 정책을 적으므로,
  * 여기서 빼면 레코드 표기도 함께 바뀐다 — 선언과 표기가 갈리지 않는다. */
@@ -182,39 +156,35 @@ export function buildServer(): AirServer {
     tools: [
       defineTool("route", {
         description:
-          "한국어 질의를 분석해 어떤 데이터 도구(sql.query / vector.search)를 호출할지 결정한다. " +
-          "LLM 호출 없는 결정론적 규칙 기반 라우팅(MCP Parallel 패턴). 같은 질의 → 항상 같은 결정.",
+          "한국어 질문 하나를 어느 데이터 레인으로 보낼지 결정만 한다. 조회도 답변도 하지 않는다. " +
+          "레인: structured → sql.query(표의 값·집계), semantic → vector.search(문서 서술), " +
+          "graph → ontology.search + graph.expand(개체 사이 관계), hybrid → sql.query 와 vector.search 병렬. " +
+          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. 생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). " +
+          "예: 「서울 지역 매출 상위 5개 고객사를 알려줘」→ structured, 「Product-C1 설치 방법이 궁금해」→ semantic, " +
+          "「Client-A가 사용 중인 제품 목록은?」→ graph. " +
+          "돌려주는 것: route, lane, tools(부를 도구), 판단 근거 신호와 rationale. " +
+          "쓰지 말 것: 데이터나 답이 필요할 때 — retrieve·ask 가 이 결정을 안에서 다시 한다.",
         params: { query: { type: "string", description: "사용자의 한국어 질의" } },
         // 구조화 출력. 라우팅 결정은 사람이 읽는 문장이 아니라 기계가 검증할 계약이다.
-        // 호스트가 이 스키마로 결과를 파싱하면 감사와 재현이 가능해진다.
-        outputSchema: {
-          route: { type: "string", description: "structured | semantic | graph | hybrid" },
-          lane: { type: "string", description: "사람이 읽는 레인 이름" },
-          // 배열은 배열로 선언한다. 종전에는 넷 다 `type: "object"` 였고, MCP 출력
-          // 검증이 "Expected object, received array" 로 **도구 호출 자체를 거부**했다.
-          // demo 는 내부 호출이라 이 검증을 안 거쳐서 초록이었다 — 전선까지 가 보기
-          // 전에는 보이지 않는 결함이다.
-          tools: z.array(z.string()).describe("호출할 도구 이름 목록"),
-          structured_signals: z.array(z.string()).describe("관계형 레인을 고르게 한 어휘"),
-          semantic_signals: z.array(z.string()).describe("의미 검색 레인을 고르게 한 어휘"),
-          graph_signals: z.array(z.string()).describe("그래프 레인을 고르게 한 어휘"),
-          rationale: { type: "string", description: "결정 근거 한 줄" },
-          deterministic: { type: "boolean", description: "항상 true. LLM 호출 없이 규칙으로만 결정한다" },
-        },
+        // 스키마와 출력은 routeschema.ts 가 함께 만든다(어긋나면 엄격한 클라이언트가 거부한다).
+        outputSchema: ROUTE_OUTPUT_SCHEMA,
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
-        handler: async ({ query }) => ({
-          ...audit(route(query as string)),
-          // 사전이 적재됐는지 시연 중에 바로 보이게 한다. 0이면 폴백 경로다.
-          entity_lexicon: ontologyState.entities,
-        }),
+        handler: async ({ query }) => routeToolOutput(await routeQuery(query as string, getEmbedder())),
       }),
 
       defineTool(SQL_TOOL, {
         description:
-          "PostgreSQL에 읽기 전용 SELECT/WITH 쿼리를 실행하고 행을 반환한다. " +
-          "읽기 전용 트랜잭션으로 강제되며 쓰기/DDL/문장 체이닝은 거부된다.",
+          "이미 작성된 읽기 전용 SQL 한 문장(SELECT 또는 WITH)을 PostgreSQL 에서 그대로 실행해 행을 돌려준다. SQL 을 만들지는 않는다. " +
+          "읽는 것: 활성 데이터셋의 관계형 테이블(컬럼은 리소스 schema://dataset/tables 의 스키마 카드). " +
+          "답하는 질문: 개수·합계·평균·순위·기간·조건 필터처럼 컬럼 값으로 정해지는 것. " +
+          "예: 「현재 활성 상태인 계약 수는?」→ SELECT count(*) FROM companyx.contracts WHERE status = 'active', " +
+          "「부서별 평균 연봉」, 「2025년 3분기 총 매출액」. " +
+          "돌려주는 것: ok, rows, rowCount, columns, truncated(행 상한을 넘었는지), 실패하면 error. " +
+          "READ ONLY 트랜잭션(mcp_ro 롤이 있으면 그 롤)에서 돌고 쓰기·DDL·여러 문장 연결은 거부된다. " +
+          "쓰지 말 것: 자연어 질문을 그대로 넣을 때(→ retrieve·ask 가 SQL 을 만든다), 문서 내용(→ vector.search), " +
+          "개체 사이 관계 탐색(→ graph.expand).",
         params: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (DB read, no model)
@@ -224,8 +194,12 @@ export function buildServer(): AirServer {
 
       defineTool(VECTOR_TOOL, {
         description:
-          `질의를 임베딩해 pgvector 코사인 유사도로 ${ds.vectorTable} 상위 k건을 검색한다(의미 검색). ` +
-          "임베더는 오프라인 결정론(hash) 기본, 데모는 bge-m3(Ollama)로 교체 가능.",
+          `질의를 임베딩해 ${ds.vectorTable} 에서 pgvector 코사인 유사도 상위 k건(기본 5)을 찾는다(의미 검색). ` +
+          "읽는 것: 문서 테이블의 제목·본문·임베딩. 임베더는 오프라인 결정론(hash) 기본, 데모는 bge-m3(Ollama)로 교체 가능. " +
+          "답하는 질문: 절차·원인·정책·회의 내용처럼 문서에 서술된 것, 낱말이 달라도 뜻이 가까운 것. " +
+          "예: 「Product-C1 설치 방법이 궁금해」, 「최근 서버 장애 사례와 원인을 알려줘」, 「백업 정책은 어떻게 되어 있어?」. " +
+          "돌려주는 것: ok, hits[{id, title, body, score}], embedder. " +
+          "쓰지 말 것: 개수·합계·순위(문서는 행을 세지 않는다 → sql.query), 누가 무엇과 연결됐는지(→ ontology.search·graph.expand).",
         params: {
           query: { type: "string", description: "검색할 한국어 질의" },
           k: { type: "number", description: "반환할 상위 건수 (기본 5)", optional: true },
@@ -239,12 +213,18 @@ export function buildServer(): AirServer {
 
       defineTool("retrieve", {
         description:
-          "한국어 질의를 route→병렬 fan-out(sql.query ∥ vector.search)→RRF 머지→구조보존 큐레이션까지 " +
-          "한 번에 실행해 7B에 넣을 컨텍스트와 전체 감사 로그를 반환한다. 라우팅·RRF·큐레이션은 결정론, " +
-          "구조화 경로 NL2SQL은 7B(최종 답변 생성 없이 컨텍스트만 반환).",
+          "질문 하나로 조회 전 과정을 돌리고 답을 만들기 직전의 근거(컨텍스트)를 돌려준다: route → 고른 레인 병렬 조회" +
+          "(sql.query ∥ vector.search, 또는 지식그래프의 개체 해소·관계 확장·관계 집계) → RRF 융합 → 구조 보존 큐레이션. " +
+          "라우팅·RRF·큐레이션은 결정론이고, 구조화 레인의 SQL 은 로컬 7B 가 스키마 카드로 만든다. 최종 답은 만들지 않는다. " +
+          "답하는 질문: 레인을 미리 모르는 자연어 질문 전부. 호출하는 LLM 이 근거를 직접 읽고 답을 쓸 때 쓴다. " +
+          "예: 「평균 연봉이 가장 높은 부서는 어디야?」, 「Kubernetes 관련 장애 대응 방법은?」, 「진행 중인 프로젝트를 이끄는 직원 목록」. " +
+          "돌려주는 것: route, context, audit(라우팅 근거, 레인별 후보 수, branch_errors, 큐레이션 통계. " +
+          "질문의 개체를 못 찾았으면 not_found{reason, query_entity, candidates}, 그래프 탐색이 상한에 걸렸으면 graph_truncated, " +
+          "탐색 경로를 시드 개체의 타입에 맞게 고쳤으면 graph_fitted). " +
+          "쓰지 말 것: 완성된 한국어 답이 필요할 때(→ ask), SQL 이 이미 있을 때(→ sql.query).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
+          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 7, // air Meter: orchestrates several tools in one call
@@ -263,11 +243,18 @@ export function buildServer(): AirServer {
         description:
           // 모델 버전을 여기 박지 않는다. 툴 설명은 계약이고 모델명의 소유자는
           // 모델 카드 하나다. 박아 두면 모델을 갈 때마다 조용히 낡는다.
-          "한국어 질의에 대해 route→병렬 fan-out→RRF 머지→구조보존 큐레이션→온프렘 7B " +
-          "최종 답변까지 end-to-end로 수행한다. 답변은 큐레이션된 컨텍스트에만 근거(추측 금지).",
+          "retrieve 와 같은 조회를 한 뒤 온프렘 LLM 이 그 근거만으로 한국어 답을 만든다(근거 밖 추측 금지). " +
+          "질문이 지목한 개체를 데이터에서 찾지 못하면 LLM 을 부르지 않고 그 이유(없음 / 비슷한 이름만 있음)로 답하고, " +
+          "조회 자체가 실패하면 데이터가 없다고 하지 않고 실패했다고 답한다. " +
+          "정형(SQL) 질문의 답 끝에는 조회 결과 행을 그대로 붙인다(모델이 값을 옮겨 적다 빠뜨리지 않게). " +
+          "예: 「클라우드사업부 소속 직원들은 누구야?」, 「2025년 3분기 총 매출액은 얼마야?」, " +
+          "「서울물산 담당 엔지니어는 누구야?」(데이터에 없는 개체 → 없다고 답한다). " +
+          "돌려주는 것: answer, route, context, audit(감사 레코드. 못 찾은 개체가 있으면 not_found). " +
+          "쓰지 말 것: 호출하는 LLM 이 답을 직접 쓰려 할 때(→ retrieve 는 생성 단계가 없어 더 빠르다), " +
+          "답의 근거와 판정만 필요할 때(→ audit.explain).",
         params: {
           query: { type: "string", description: "사용자의 한국어 질의" },
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 256)", optional: true },
+          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
         layer: 7, // air Meter: agent chain (retrieval + generation)
@@ -288,8 +275,11 @@ export function buildServer(): AirServer {
           "한 질의를 끝까지 실행하고 왜 그 답이 나왔는지를 기계가 읽을 감사 레코드로 돌려준다. " +
           "라우팅 근거, 실행되거나 거부된 SQL과 그 사유, 레인별 후보 수, 융합 상위 항목과 합의한 소스, " +
           "정책 판정(읽기 전용 가드, 자기 수정, 미해소 개체 게이트, 컨텍스트 예산, 브랜치 격리), " +
-          "그리고 답변이 컨텍스트 밖 개체를 만들었는지까지 한 레코드에 담는다. " +
-          "답변 텍스트를 제외한 구간은 결정론이라 같은 질의는 같은 지문(fingerprint)을 낸다.",
+          "그리고 답변이 컨텍스트 밖 개체를 만들었는지까지 한 레코드에 담는다. 개체를 못 찾았으면 사유(not_found)도 담는다. " +
+          "답변 텍스트를 제외한 구간은 결정론이라 같은 질의는 같은 지문(fingerprint)을 낸다. " +
+          "예: 「서울물산 담당 엔지니어는 누구야?」(미해소 개체 게이트와 그 사유), 「현재 활성 상태인 계약 수는?」(생성된 SQL 과 읽기 전용 판정). " +
+          "돌려주는 것: format=json 이면 감사 레코드(스키마는 리소스 audit://schema/v1), text 면 사람이 읽는 요약. " +
+          "쓰지 말 것: 답만 필요할 때(→ ask). 캐시에서 제외돼 매번 끝까지 실행하므로 같은 질의를 반복하면 그만큼 비용이 든다.",
         params: {
           query: { type: "string", description: "감사할 한국어 질의" },
           format: { type: "string", description: "json(기본) 또는 text", optional: true },
@@ -317,10 +307,18 @@ export function buildServer(): AirServer {
 
       defineTool("ontology.search", {
         description:
-          "한국어/영어 질의어를 지식그래프의 정규 엔티티로 해소한다(별칭·정규명 매칭). " +
-          "예: '전자제품'→전자기기, 'electronics'→전자기기. SQL/vector가 못 잇는 동의어를 연결.",
+          "질문 속 이름(한국어/영어)을 지식그래프의 정규 개체로 해소한다. " +
+          "읽는 것: 그래프의 entities(정규명)와 aliases(별칭·속성값). 정규명 일치 > 별칭 일치 > 접두 > 부분 일치 순으로 " +
+          "점수(4~1)를 매겨 상위 k개를 준다. " +
+          "답하는 질문: 「이 이름이 데이터의 어느 개체인가」 — graph.expand 에 넘길 entityId 를 얻는 첫 단계이고, SQL/vector 가 못 잇는 동의어를 잇는다. " +
+          "예: 「Product-C1을 사용하는 고객사는 어디야?」→ Product-C1(product), " +
+          "「경영지원팀 팀장은 누구야?」→ 경영지원팀(department)이 소속 직원보다 먼저, 「클라우드사업부」→ 부서 개체. " +
+          "돌려주는 것: ok, hits[{entityId, type, canonicalName, via, matched, score, properties}]. " +
+          "하나도 못 찾으면 not_found{reason, query_entity, candidates[{name, type, score}]}: reason 은 not_in_database(비슷한 이름도 없음) " +
+          "또는 similar_name_mismatch(비슷한 이름의 다른 개체 — 후보로만 알리고 해소하지 않는다). " +
+          "쓰지 말 것: 관계를 물을 때(이 도구는 개체만 찾는다 → graph.expand), 숫자 집계(→ sql.query).",
         params: {
-          query: { type: "string", description: "해소할 질의어" },
+          query: { type: "string", description: "해소할 이름 또는 그 이름이 든 질문" },
           k: { type: "number", description: "최대 엔티티 수 (기본 5)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
@@ -331,11 +329,24 @@ export function buildServer(): AirServer {
 
       defineTool("graph.expand", {
         description:
-          "지식그래프에서 시드 엔티티로부터 타입 관계 엣지를 BFS로 확장한다(provenance 포함). " +
-          "예: 환불 정책 -applies_to-> {의류,전자기기,식품}. graph edge 없이 못 푸는 질의용.",
+          "시드 개체(entityId)에서 관계 엣지를 양방향 BFS 로 따라가 관계와 출처(provenance)를 돌려준다. " +
+          "역방향(「X를 사용하는 고객사」)도 같은 호출로 나온다. " +
+          "읽는 것: 그래프의 relations 와 entities. " +
+          "답하는 질문: 누가 무엇을 사용·담당·소속·리드하는지처럼 표의 한 행이나 문서가 아니라 엣지만 아는 관계. " +
+          "예: 「Client-A가 사용 중인 제품 목록은?」(Client-A 의 entityId, depth 1), " +
+          "「Product-C1을 사용하는 고객사는 어디야?」(depth 1, 역방향), 「Product-D1 제품과 관련된 프로젝트는?」(depth 2). " +
+          "돌려주는 것: ok, edges[{srcName, relType, dstName, srcType, dstType, depth, confidence, provenance}]. " +
+          "탐색은 홉·노드·엣지 상한(기본 3·500·2000, GRAPH_MAX_HOPS/GRAPH_MAX_NODES/GRAPH_MAX_EDGES)으로 묶이고, " +
+          "걸리면 예외 대신 truncated{by, limit} 로 알린다. " +
+          "쓰지 말 것: entityId 를 모를 때(→ 먼저 ontology.search), 관계를 세거나 순위를 매길 때" +
+          "(「가장 많은 고객을 담당하는 직원은?」→ retrieve·ask 의 관계 집계).",
         params: {
-          entityId: { type: "number", description: "시드 엔티티 id" },
-          depth: { type: "number", description: "확장 깊이 1~3 (기본 1)", optional: true },
+          entityId: { type: "number", description: "시드 개체 id (ontology.search 의 hits[].entityId)" },
+          depth: {
+            type: "number",
+            description: "확장 깊이 (기본 1). GRAPH_MAX_HOPS(기본 3)를 넘기면 상한까지만 가고 truncated 로 알린다",
+            optional: true,
+          },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (indexed edge BFS)
