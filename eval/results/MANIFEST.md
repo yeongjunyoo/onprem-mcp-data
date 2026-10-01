@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**49/61 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**60/72 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -16,7 +16,7 @@
 
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
-| `companyx-ask-host-gpu.json` | 24,183 | `bccfcd80c2551e20` | 2026-08-19T13:16:26 |
+| `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 23,984 | `c6e624264ab44a9b` | 2026-08-19T06:34:05 |
 | `companyx-audit.json` | 82,149 | `673dbf863f81a2d2` | 2026-08-19T06:55:48 |
 | `companyx-holdout-route.json` | 12,996 | `610a167871885494` | 2026-09-30T08:20:24 |
@@ -35,6 +35,12 @@
 | `companyx-scorecard-answerfix-gpu-base-sponsor30.json` | 25,647 | `c70c74f5216a2706` | 2026-09-30T15:05:34 |
 | `companyx-scorecard-answerfix-gpu-fixed-holdout3.json` | 51,869 | `56acadaa02b676a4` | 2026-10-01T02:22:52 |
 | `companyx-scorecard-answerfix-gpu-fixed-sponsor30.json` | 28,722 | `22652516d0caf013` | 2026-09-30T15:37:48 |
+| `companyx-scorecard-answerfix2-gpu-base-holdout3.json` | 51,464 | `2f3c874bd308a0a4` | 2026-10-01T04:53:57 |
+| `companyx-scorecard-answerfix2-gpu-base-sponsor30.json` | 28,323 | `afd221871c38eea0` | 2026-10-01T04:53:07 |
+| `companyx-scorecard-answerfix2-gpu-fixed-holdout3.json` | 51,480 | `f2249c7e90b007b8` | 2026-10-01T04:59:02 |
+| `companyx-scorecard-answerfix2-gpu-fixed-sponsor30.json` | 28,266 | `c29c617582b3ea49` | 2026-10-01T04:58:15 |
+| `companyx-scorecard-answerfix2-gpu-ticketlines-holdout3.json` | 51,777 | `fea2e3a9bb2c8d89` | 2026-10-01T04:55:23 |
+| `companyx-scorecard-answerfix2-gpu-ticketlines-sponsor30.json` | 29,138 | `6c01ecc9f603e189` | 2026-10-01T04:54:36 |
 | `companyx-scorecard-b1024.json` | 25,785 | `512184a682efefad` | 2026-09-30T13:40:32 |
 | `companyx-scorecard-b256.json` | 24,565 | `0b51a9d400e33e9c` | 2026-09-30T13:34:36 |
 | `companyx-scorecard-b512.json` | 25,828 | `00aac95b7e2e4884` | 2026-09-30T13:37:25 |
@@ -44,6 +50,11 @@
 | `companyx-scorecard.json` | 22,051 | `344c86be246c2e37` | 2026-09-30T08:38:08 |
 | `companyx-sql-answerfix-gpu-card-base.json` | 12,953 | `294014ff00e41cba` | 2026-10-01T02:15:29 |
 | `companyx-sql-answerfix-gpu-card-new.json` | 13,010 | `4d998a01b01bacdb` | 2026-10-01T02:16:28 |
+| `companyx-sql-answerfix2-gpu-card-base.json` | 12,991 | `e14eafcb8fe9dfd4` | 2026-10-01T04:52:11 |
+| `companyx-sql-answerfix2-gpu-card-fixed.json` | 12,963 | `fc4393c861ce337f` | 2026-10-01T04:56:59 |
+| `companyx-sql-answerfix2-gpu-card-ticketlines.json` | 13,234 | `80b33954be768fa0` | 2026-10-01T04:52:32 |
+| `companyx-sql-answerfix2-gpu-card-v1-rule.json` | 12,738 | `823e064c235b62ed` | 2026-10-01T04:57:21 |
+| `companyx-sql-answerfix2-gpu-card-v2-rule-noexample.json` | 12,807 | `9c7cab633a971aeb` | 2026-10-01T04:57:44 |
 | `companyx-sql-llm-compact-holdout3.json` | 13,394 | `b7e0ffb532d287e2` | 2026-09-30T12:57:56 |
 | `companyx-sql-llm-compact-holdout4.json` | 12,469 | `66e32cca681d27db` | 2026-09-30T13:00:04 |
 | `companyx-sql-llm-emptyrepair-holdout3.json` | 12,908 | `c2c9d212885b1f0c` | 2026-09-30T13:06:03 |
