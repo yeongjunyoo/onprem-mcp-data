@@ -80,7 +80,7 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/소속|속한|속해\s*있/, "BELONGS_TO"],
   [/담당(하는|자|해|인)?/, "MANAGES_ACCOUNT"],
   [/이끄는|이끌고|리드하는|맡고\s*있는|맡은/, "LEADS"],
-  [/팀장|부서장|본부장|책임자/, "HEAD_IS"],
+  [/팀장|부서장|본부장|책임자|수장/, "HEAD_IS"],
   // HAS_PROJECT — client→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
   // 오직 엣지만이 답할 수 있는 질문이다. 주어가 직원이면 이 엣지가 닿지 않으므로
   // 그래프 레인이 시드 타입에 맞춰 employee→project 엣지(LEADS)로 바꾼다(fitPlanToSeed).

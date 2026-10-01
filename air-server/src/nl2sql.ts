@@ -234,7 +234,10 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   "  product_id int REFERENCES companyx.products(id),",
   "  amount int,         -- 매출액, 단위 만원(한 건의 매출)",
   "  sale_date date,     -- 매출 발생일",
-  "  quarter text,       -- 분기: '2025-Q3' 형식",
+  // 「분기: '2025-Q3' 형식」만 있을 때 7B 는 연도, 상반기 질문에도 예시 값을 그대로 넣었다
+  // (홀드아웃3 「부산 쪽 2025년 장사」 quarter = '2025-Q3', 「2026년 상반기 제일 돈 잘 들어온 달」
+  // quarter LIKE '2026-Q1'). 기간 조건을 어느 칸에 거는지 SQL 로 적는다(티켓 상태 줄과 같은 방식).
+  "  quarter text,       -- 분기: '2025-Q3' 형식. 분기를 물을 때만 쓴다. 연도, 월, 상반기는 sale_date 로 건다(2025년 = sale_date >= '2025-01-01' AND sale_date < '2026-01-01')",
   "  category text,      -- 매출 제품의 분류: 'cloud' | 'security' | 'data' | 'consulting'",
   "  region text         -- 매출 지역: '서울' 등(clients.region 과 같은 값)",
   ");",

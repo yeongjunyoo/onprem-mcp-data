@@ -9,7 +9,16 @@
 // 그래프 위에서 확인한다.
 import type { Pool } from "pg";
 
-import { GRAPH_LIMITS, graphExpand, graphWalk, pathCandidates, type GraphLimits } from "./graph.js";
+import {
+  GRAPH_LIMITS,
+  edgeCandidates,
+  graphExpand,
+  graphWalk,
+  pathCandidates,
+  seedEdgeCandidates,
+  type GraphEdge,
+  type GraphLimits,
+} from "./graph.js";
 
 let passed = 0;
 let failed = 0;
@@ -151,6 +160,29 @@ ok(
   ok(/n2의 .*: n1 → n2의 .*: n3/.test(lines[0].text), `경로 전체가 한 줄에 있다 (got ${lines[0].text})`);
   const dead = await graphWalk(fakePool(g).pool, 1, [["USES"], ["LEADS"]], "synthetic");
   ok(pathCandidates(dead.edges, 1).length === 0, "다음 홉이 없는 중간 개체는 답이 아니다");
+}
+
+// ── 4b) 여러 시드가 같은 답 개체에 닿으면 사실을 버리지 않고 한 줄로 모은다 ───
+// 홀드아웃3 #43: Client-N 은 Product-S1 과 Product-C4 를 다 쓰는데, 답 개체가 같아 RRF 가 둘째 엣지를 버렸다.
+{
+  const e = (src: [number, string, string], rel: string, dst: [number, string, string], prov = "p"): GraphEdge => ({
+    srcId: src[0], srcName: src[1], srcType: src[2], relType: rel, dstId: dst[0], dstName: dst[1], dstType: dst[2],
+    confidence: 1, provenance: prov, depth: 1,
+  });
+  const n: [number, string, string] = [14, "Client-N", "client"];
+  const e1: [number, string, string] = [5, "Client-E", "client"];
+  const s1: [number, string, string] = [33, "Product-S1", "product"];
+  const c4: [number, string, string] = [38, "Product-C4", "product"];
+  const out = seedEdgeCandidates([
+    { seedId: 33, edges: [e(e1, "USES", s1), e(n, "USES", s1)] },
+    { seedId: 38, edges: [e(n, "USES", c4)] },
+  ]);
+  ok(out.length === 2, `답 개체마다 한 후보 (got ${out.length})`);
+  ok(out[1].text === "[그래프] Client-N의 사용 중인 제품: Product-S1, Product-C4 (client→product, USES)", `두 시드를 한 줄에 (got ${out[1].text})`);
+  ok(out[0].text === edgeCandidates([e(e1, "USES", s1)], 33)[0].text, "엣지가 하나면 종전 글과 같다");
+  ok(new Set(out.map((c) => c.canonicalKey)).size === out.length, "정체는 답 개체 그대로(겹치지 않는다)");
+  const mixed = seedEdgeCandidates([{ seedId: 14, edges: [e(n, "USES", s1), e(n, "REPORTED_ISSUE", s1)] }]);
+  ok(mixed.length === 1 && mixed[0].text.split("\n").length === 2, `관계가 다르면 한 후보에 줄을 나눠 싣는다 (got ${JSON.stringify(mixed.map((c) => c.text))})`);
 }
 
 // ── 5) 환경변수로 바꾸고, 잘못된 값은 기동에서 거절한다 ─────────────────

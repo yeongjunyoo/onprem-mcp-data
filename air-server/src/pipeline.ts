@@ -27,9 +27,11 @@ import {
   relationScan,
   ontologyCandidates,
   edgeCandidates,
+  seedEdgeCandidates,
   pathCandidates,
   rankingCandidates,
   kgSchema,
+  type GraphEdge,
   type GraphTruncation,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
@@ -157,6 +159,10 @@ export async function graphLane(
   const expandFrom = onto.hits.filter((h) => h.score === best);
   let truncated: GraphTruncation | undefined;
   const fitted: string[] = [];
+  // 한 홉 엣지는 시드를 다 돈 뒤 한꺼번에 후보로 바꾼다. 같은 답 개체에 여러 시드가 닿으면 한 줄로
+  // 모아야 해서다(seedEdgeCandidates). 자리는 처음 펼친 한 홉 시드의 자리 그대로다.
+  const edgeGroups: { edges: GraphEdge[]; seedId: number }[] = [];
+  let edgesAt = -1;
   for (const hit of expandFrom) {
     // 계획의 엣지가 이 시드의 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다.
     // GRAPH_PATH_FIT=0 은 검증용 제거 스위치다(고치기 전 동작).
@@ -170,8 +176,13 @@ export async function graphLane(
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
-    items.push(...(walk && walk.hops.length > 1 ? pathCandidates(exp.edges, hit.entityId) : edgeCandidates(exp.edges, hit.entityId)));
+    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId));
+    else {
+      if (edgesAt < 0) edgesAt = items.length;
+      edgeGroups.push({ edges: exp.edges, seedId: hit.entityId });
+    }
   }
+  if (edgesAt >= 0) items.splice(edgesAt, 0, ...seedEdgeCandidates(edgeGroups));
 
   // Relation-level scan: needed when the question names no node (aggregate /
   // status-filtered listings), and harmless as an addition when it names both.
@@ -197,7 +208,10 @@ export async function graphLane(
 
   // Seed-resolution provenance goes last: it explains WHY these edges, and it is
   // still in the audit log even when the budget trims it from the context.
-  items.push(...ontologyCandidates(onto.hits));
+  // 펼친 시드만 싣는다. 점수가 낮아 펼치지 않은 시드(「영업」이라는 낱말로 걸린 직원 넷)는 사실 없이
+  // 이름만 늘어서 답 줄을 가렸다(홀드아웃3 #47: 「김준혁의 담당 고객사: Client-K」가 첫 줄인데 「영업
+  // 담당자들에게 말 걸면 됩니다」). 감사 레코드의 seeds 에는 그대로 남는다. GRAPH_WEAK_SEEDS=1 이 옛 동작.
+  items.push(...ontologyCandidates(process.env.GRAPH_WEAK_SEEDS === "1" || !expandFrom.length ? onto.hits : expandFrom));
 
   const strategy: GraphLaneResult["strategy"] =
     expandFrom.length && needScan

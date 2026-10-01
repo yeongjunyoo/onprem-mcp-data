@@ -540,6 +540,61 @@ export function edgeCandidates(edges: GraphEdge[], seedId?: number): Candidate[]
   });
 }
 
+/** 여러 시드에서 펼친 엣지를 후보로 바꾸되, 같은 답 개체에 닿은 엣지는 한 줄로 모은다.
+ *
+ * 후보의 정체는 답 개체다(edgeCandidates). 시드가 둘 이상이면 같은 답 개체에 서로 다른 엣지로 닿을 수
+ * 있는데, RRF 는 한 목록 안에서 같은 정체를 한 번만 받으므로 둘째 엣지가 통째로 빠졌다. 홀드아웃3 #43
+ * 「Product-S1하고 Product-C4 둘 다 쓰는 고객」에서 Client-N 은 두 제품을 다 쓰는데 컨텍스트에는 S1 줄만
+ * 남았고, 7B 는 「없다」고 답했다. 사실을 버리지 않고 모은다: 「Client-N의 사용 중인 제품: Product-S1,
+ * Product-C4」. 관계가 다르면 줄을 나눠 한 후보에 싣는다. 엣지가 하나뿐이면 edgeCandidates 와 같은 글이다. */
+export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number }[]): Candidate[] {
+  interface Clause {
+    relType: string;
+    answerIsSrc: boolean;
+    answerName: string;
+    srcType: string;
+    dstType: string;
+    others: string[];
+    provenance: string[];
+  }
+  const byKey = new Map<string, { sourceKey: string; clauses: Map<string, Clause> }>();
+  let n = 0;
+  for (const { edges, seedId } of groups) {
+    for (const e of edges) {
+      const answerIsSrc = e.dstId === seedId;
+      const [type, id, name, other] = answerIsSrc
+        ? [e.srcType, e.srcId, e.srcName, e.dstName]
+        : [e.dstType, e.dstId, e.dstName, e.srcName];
+      const key = entityKey(type, id);
+      let entry = byKey.get(key);
+      if (!entry) byKey.set(key, (entry = { sourceKey: `graph#e${n}`, clauses: new Map() }));
+      n++;
+      const ck = `${e.relType}|${answerIsSrc ? "in" : "out"}`;
+      let c = entry.clauses.get(ck);
+      if (!c) {
+        c = { relType: e.relType, answerIsSrc, answerName: name, srcType: e.srcType, dstType: e.dstType, others: [], provenance: [] };
+        entry.clauses.set(ck, c);
+      }
+      if (!c.others.includes(other)) c.others.push(other);
+      c.provenance.push(e.provenance);
+    }
+  }
+  return [...byKey].map(([canonicalKey, { sourceKey, clauses }]) => {
+    const cs = [...clauses.values()];
+    const line = (c: Clause) =>
+      c.answerIsSrc
+        ? `[그래프] ${c.answerName}의 ${relLabel(c.relType)}: ${c.others.join(", ")} (${c.srcType}→${c.dstType}, ${c.relType})`
+        : `[그래프] ${c.others.join(", ")}의 ${relLabel(c.relType)}: ${c.answerName} (${c.srcType}→${c.dstType}, ${c.relType})`;
+    return {
+      canonicalKey,
+      sourceKey,
+      source: "graph" as const,
+      text: cs.map(line).join("\n"),
+      provenance: cs.map((c) => `relation:${c.relType}:${c.provenance.join("|")}`).join(";"),
+    };
+  });
+}
+
 /** 두 홉 경로(graphWalk)를 경로마다 한 줄로. 답은 경로 끝의 개체다.
  *
  * 홉마다 따로 적으면 7B 가 「Client-Y 가 Product-D1 을 쓴다」와 「Client-Y 의 프로젝트」를
