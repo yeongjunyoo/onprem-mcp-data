@@ -15,6 +15,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, type NotFound } from "./notfound.js";
+import { identifyingAliases } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -45,17 +46,16 @@ export async function loadOntologyForRouter(
     await pool.query(`SELECT id, type, canonical_name FROM ${s}.entities`)
   ).rows.map((r) => ({ id: String(r.id), name: String(r.canonical_name), type: String(r.type) }));
 
-  // 별칭도 같은 개체를 가리키므로 사전에 넣는다. 없으면 무시한다.
+  // 별칭은 한 개체만 가리키는 것만 사전에 넣는다. 여러 개체가 나눠 가진 별칭은 지역, 업종
+  // 같은 속성 값이다(identifyingAliases). 없으면 무시한다.
   try {
     const aliases = (
       await pool.query(
         `SELECT a.entity_id, a.alias, e.type
            FROM ${s}.aliases a JOIN ${s}.entities e ON e.id = a.entity_id`,
       )
-    ).rows;
-    for (const r of aliases) {
-      nodes.push({ id: String(r.entity_id), name: String(r.alias), type: String(r.type) });
-    }
+    ).rows.map((r) => ({ id: String(r.entity_id), name: String(r.alias), type: String(r.type) }));
+    nodes.push(...identifyingAliases(aliases));
   } catch {
     /* aliases 테이블이 없는 배포도 있다 — 정본 이름만으로 동작한다 */
   }
