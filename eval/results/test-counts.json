@@ -1,11 +1,11 @@
 {
   "note": "테스트 단언 수는 러너 출력에서 집계한다. 문서끼리 합의하는지가 아니라 실제로 몇 개가 통과했는지가 정본이다.",
   "dataset_dependence": "사업자 데이터셋은 배포 조건상 저장소에 없다. router.test 의 온톨로지 커버리지 단언 11건과 semroute.test 의 엣지 타입 앵커 커버리지 단언 1건은 datasets/companyx-v1.0/graph/edges.json 이 있을 때만 돌고, scorecard.test 의 봉인 홀드아웃 그래프, 벡터 전 문항 점검 8건은 같은 자리의 graph/ 와 documents/ 가 있을 때만 돈다 — 그래서 오프라인 합계가 데이터셋 유무로 갈린다. 감추지 않고 두 값을 다 적는다.",
-  "offline_with_dataset": 555,
-  "offline_ci": 535,
-  "integration": 137,
-  "total": 692,
-  "total_ci_verifiable": 535,
+  "offline_with_dataset": 557,
+  "offline_ci": 537,
+  "integration": 138,
+  "total": 695,
+  "total_ci_verifiable": 537,
   "suites": {
     "offline": [
       "claims",
@@ -40,7 +40,7 @@
     "normalize": 28,
     "auditrecord": 26,
     "surfaces": 76,
-    "router": 46,
+    "router": 48,
     "semroute": 41,
     "curator": 67,
     "rrf": 38,
@@ -56,7 +56,7 @@
     "normalize": 28,
     "auditrecord": 26,
     "surfaces": 76,
-    "router": 35,
+    "router": 37,
     "semroute": 40,
     "curator": 67,
     "rrf": 38,
@@ -74,7 +74,7 @@
   "generated_at": "2026-09-30T00:00:00.000Z",
   "integration_verified": {
     "at": "2026-10-02",
-    "passed": 137,
+    "passed": 138,
     "failed": 0,
     "per_suite": {
       "db": 22,
@@ -84,10 +84,10 @@
       "graph": 12,
       "kgretrieve": 7,
       "companyx": 56,
-      "ontologyload": 10,
+      "ontologyload": 11,
       "auditcache": 6
     },
-    "note": "2026-10-02 에 컨테이너 Ollama 0.32.14 CPU 정본 측정(cpu6)에서 npm run test:integration(스위트마다 프로파일을 고정한다)으로 9스위트 137/137 을 실측했다. 10-01 첫 시도에서는 호스트 메모리 경합 중 첫 감사 호출이 생성 마감(OLLAMA_TIMEOUT_MS 기본 110초)에 걸려 auditcache 하나가 실패했고, 이번에는 마감을 600초로 올려 돌렸다. 이전 기록은 2026-09-30 의 137/137 이다.",
+    "note": "2026-10-02 라우터 사전 수정(별칭은 한 개체만 가리킬 때 이름이다) 뒤 호스트 Ollama(11434)에서 npm run test:integration 으로 9스위트 138/138 을 실측했다. ontologyload 가 10 에서 11 로 늘었고(서버 사전이 지역을 고객사 이름으로 가리지 않는다), 서버(DB)와 평가(파일) 사전의 대조 범위를 홀드아웃 2차 30문항에서 문서가 인용하는 문항 세트 전부(278문항)로 넓혔다. 같은 날 앞선 기록은 컨테이너 Ollama 0.32.14 CPU 정본 측정(cpu6)의 137/137 이다.",
     "environments": [
       "DATASET 미설정"
     ]

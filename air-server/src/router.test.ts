@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
 // 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
@@ -162,6 +162,21 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   );
   eq(route("Product-S1 관련 고객 이슈 현황은?").graphPlan?.relTypes, ["REPORTED_ISSUE"], "관계 명사가 타입쌍의 엣지를 고른다");
   eq(route("Product-S1 쓰는 고객 어디야?").graphPlan?.relTypes, ["USES"], "지목이 없으면 데이터 순서의 첫 엣지");
+  installOntology([], []);
+}
+
+// 별칭은 한 개체만 가리킬 때 이름이다. 고객사 둘이 나눠 가진 「서울」은 지역이라, 사전에 들어가면
+// 「서울 쪽 매출이 어때」가 「{고객사} 쪽 매출이 어때」로 가려져 그래프로 갔다(멘토 예시).
+{
+  const aliases = [
+    { id: "1", name: "client_1", type: "client" },
+    { id: "1", name: "서울", type: "client" },
+    { id: "2", name: "client_2", type: "client" },
+    { id: "2", name: "서울", type: "client" },
+  ];
+  eq(identifyingAliases(aliases).map((a) => a.name), ["client_1", "client_2"], "여러 개체가 나눠 가진 별칭(지역)은 이름이 아니다");
+  installOntology([{ id: "1", name: "Client-A", type: "client" }, { id: "2", name: "Client-B", type: "client" }, ...identifyingAliases(aliases)], []);
+  eq(maskEntities("서울 쪽 매출이 어때"), "서울 쪽 매출이 어때", "지역은 고객사 자리표시로 가리지 않는다");
   installOntology([], []);
 }
 

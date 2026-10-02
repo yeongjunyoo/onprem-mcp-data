@@ -327,6 +327,24 @@ export function entityLexiconSize(): number {
   return ENTITY_LEXICON.length;
 }
 
+/** 별칭 가운데 사전에 넣을 것: 한 개체만 가리키는 것.
+ *
+ * 별칭 테이블에는 이름 말고 속성 값도 들어 있다. companyx 적재기는 ontology.search 가
+ * 「in_progress」, 「서울」 같은 값으로도 개체를 찾도록 지역, 업종, 직급, 상태를 별칭으로 넣는다.
+ * 그것을 이름으로 받으면 「서울」이 고객사 이름이 되어 「서울 쪽 매출이 어때」가
+ * 「{고객사} 쪽 매출이 어때」로 가려지고 그래프로 갔다(멘토 예시, 2026-10-02). 이름은 한 개체를
+ * 가리키고, 여러 개체가 나눠 가진 값은 속성이다. */
+export function identifyingAliases<T extends { id: string; name: string }>(aliases: T[]): T[] {
+  const owners = new Map<string, Set<string>>();
+  for (const a of aliases) {
+    const key = a.name.trim();
+    const ids = owners.get(key) ?? new Set<string>();
+    ids.add(a.id);
+    owners.set(key, ids);
+  }
+  return aliases.filter((a) => owners.get(a.name.trim())!.size === 1);
+}
+
 /** 하루를 짚는 날짜. 분기, 월, 연도처럼 구간을 거는 말과 다르다. 이 데이터에서 날짜가
  * 제목에 박힌 것은 장애 보고서와 회의록이라, 「2025년 12월 27일 그 장애」는 기간 필터가
  * 아니라 사건 한 건을 가리킨다. 그래서 정형 신호를 세기 전에 뺀다. 하루 단위 집계는
