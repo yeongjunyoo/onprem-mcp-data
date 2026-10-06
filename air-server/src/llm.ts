@@ -139,11 +139,29 @@ export function buildAnswerPrompt(query: string, context: string): string {
     "[컨텍스트]",
     context.trim() || "(없음)",
     "",
-    `[질문] ${query}`,
+    `[질문] ${questionForModel(query)}`,
     "[답변]",
   ].join("\n");
 }
 
 export async function answer(query: string, context: string, opts?: GenOptions): Promise<string> {
   return generate(buildAnswerPrompt(query, context), opts);
+}
+
+/** 생성 모델 프롬프트에 넣는 질문의 상한(유니코드 문자 수).
+ *
+ * 생성은 num_ctx 4096 으로 돈다. 프롬프트가 그보다 길면 Ollama 는 오류 없이 앞쪽을 잘라 2,050토큰만 남기고,
+ * 잘려 나가는 것이 지시문과 스키마 카드다(2026-10-07 실측, prompt_eval_count). 같은 질문 200번(4,400자)에
+ * 7B 가 「제공한 정보는 충분하지 않습니다」라고 답한 까닭이다(3/3). 같은 실측에서 Company-X NL2SQL
+ * 프롬프트는 질문을 뺀 몫이 1,451토큰, 그 질문은 22자에 20토큰이었다. 질문 2,400자면 약 3,630토큰이라
+ * 4,096 안에 SQL 을 쓸 자리가 남고, 2,200자(TC-153)는 손대지 않고 그대로 들어간다. 감사 레코드의 query 는
+ * 호출부가 가진 원문 그대로다. */
+export const LLM_QUESTION_MAX_CHARS = 2400;
+
+/** 상한을 넘는 질문은 앞부분만 넣고, 그 사실을 stderr 에 남긴다. 서로게이트 쌍을 가르지 않는다. */
+export function questionForModel(query: string): string {
+  const chars = Array.from(query);
+  if (chars.length <= LLM_QUESTION_MAX_CHARS) return query;
+  console.error(`[생성] 질문 ${chars.length}자가 생성 모델 문맥에 다 들어가지 않아 앞 ${LLM_QUESTION_MAX_CHARS}자만 넣는다`);
+  return chars.slice(0, LLM_QUESTION_MAX_CHARS).join("");
 }

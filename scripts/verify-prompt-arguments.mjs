@@ -89,7 +89,8 @@ for (const p of listed) {
   // ★ 프레임워크(@airmcp-dev/core)가 MCP SDK 의 **deprecated 오버로드**
   //   `server.prompt(name, description, cb)` 를 써서 arguments 가 목록에 안 실린다.
   //   그 오버로드는 "zero-argument prompt" 용이다. mcp 핸들이 private 이라
-  //   밖에서 재등록할 수도 없다.
+  //   밖에서 재등록할 수도 없다. 2026-10-07 부터는 air-server/src/promptargs.ts 가
+  //   SDK 의 prompt() 를 감싸 선언한 인자를 끼워 넣으므로 arguments 로 실린다.
   //
   //   고칠 수 없는 층은 우회하되 **숨기지 않는다** — 설명 끝에 `[인자] ...` 를
   //   넣어 클라이언트가 읽을 수 있게 했다. 목록이 곧 사용 설명서다.

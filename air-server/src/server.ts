@@ -27,7 +27,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { z } from "zod";
+import { queryParam } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -172,7 +172,7 @@ export function buildServer(): AirServer {
           "「Client-A가 사용 중인 제품 목록은?」→ graph. " +
           "돌려주는 것: route, lane, tools(부를 도구), 판단 근거 신호와 rationale. " +
           "쓰지 말 것: 데이터나 답이 필요할 때 — retrieve·ask 가 이 결정을 안에서 다시 한다.",
-        params: { query: { type: "string", description: "사용자의 한국어 질의" } },
+        params: { query: queryParam("사용자의 한국어 질의") },
         // 구조화 출력. 라우팅 결정은 사람이 읽는 문장이 아니라 기계가 검증할 계약이다.
         // 스키마와 출력은 routeschema.ts 가 함께 만든다(어긋나면 엄격한 클라이언트가 거부한다).
         outputSchema: ROUTE_OUTPUT_SCHEMA,
@@ -231,7 +231,7 @@ export function buildServer(): AirServer {
           "탐색 경로를 시드 개체의 타입에 맞게 고쳤으면 graph_fitted). " +
           "쓰지 말 것: 완성된 한국어 답이 필요할 때(→ ask), SQL 이 이미 있을 때(→ sql.query).",
         params: {
-          query: { type: "string", description: "사용자의 한국어 질의" },
+          query: queryParam("사용자의 한국어 질의"),
           budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
@@ -261,7 +261,7 @@ export function buildServer(): AirServer {
           "쓰지 말 것: 호출하는 LLM 이 답을 직접 쓰려 할 때(→ retrieve 는 생성 단계가 없어 더 빠르다), " +
           "답의 근거와 판정만 필요할 때(→ audit.explain).",
         params: {
-          query: { type: "string", description: "사용자의 한국어 질의" },
+          query: queryParam("사용자의 한국어 질의"),
           budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
@@ -289,7 +289,7 @@ export function buildServer(): AirServer {
           "돌려주는 것: format=json 이면 감사 레코드(스키마는 리소스 audit://schema/v1), text 면 사람이 읽는 요약. " +
           "쓰지 말 것: 답만 필요할 때(→ ask). 캐시에서 제외돼 매번 끝까지 실행하므로 같은 질의를 반복하면 그만큼 비용이 든다.",
         params: {
-          query: { type: "string", description: "감사할 한국어 질의" },
+          query: queryParam("감사할 한국어 질의"),
           format: { type: "string", description: "json(기본) 또는 text", optional: true },
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
