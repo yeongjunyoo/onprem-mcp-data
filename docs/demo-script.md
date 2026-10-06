@@ -15,6 +15,7 @@ docker compose ps -a models          # Exited (0). 1 이면 모델을 못 받았
 # 2) 환경: 매 셸마다. companyx 적재는 처음 한 번 npm run companyx:load
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mcpdata
 export OLLAMA_HOST=http://localhost:11435
+export EMBEDDER=ollama                      # 적재와 검색이 같은 bge-m3 를 쓴다. 기본값 hash 로 적재하면 문서 검색이 엉뚱한 조각을 낸다
 export DATASET_DIR=/path/to/companyx-v1.0   # 저장소의 datasets 폴더에 풀었으면 필요 없다
 
 # 3) 워밍업: 시연 직전 마지막 준비. 7B 적재(콜드 스타트)를 심사자 대신 치른다

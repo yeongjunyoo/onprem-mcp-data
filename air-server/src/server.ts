@@ -109,6 +109,14 @@ const PACKAGE_VERSION: string = JSON.parse(
   readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
 ).version;
 
+/** sanitizer 의 HTML 태그 제거는 끈다.
+ *
+ * 그 규칙(`/<[^>]*>/`)이 SQL 비교 연산자를 태그로 읽어 지운다. `salary < 5000 AND
+ * salary > 3000` 이 `salary  3000` 으로, `status <> 'closed'` 가 `status  'closed'` 로
+ * 바뀌어 sql.query 가 문법 오류를 낸다. 이 서버는 입력을 HTML 로 그리지 않으니 지울
+ * 이유가 없다. 제어 문자 제거와 길이 상한(10,000자)은 air 기본값 그대로 둔다. */
+export const SANITIZER_OPTIONS = { stripHtml: false } as const;
+
 export function buildServer(): AirServer {
   const ds = profile();
   return defineServer({
@@ -132,7 +140,7 @@ export function buildServer(): AirServer {
     // transform/i18n은 우리 응답 계약을 흐린다. dryrun은 개발 전용이다.
     use: [
       jsonLoggerPlugin(),
-      sanitizerPlugin(),
+      sanitizerPlugin(SANITIZER_OPTIONS),
       timeoutPlugin(120_000),
       queuePlugin({ concurrency: { "*": 8, ask: 2, retrieve: 2 } }), // 7B 경로만 좁게
       dedupPlugin(),
