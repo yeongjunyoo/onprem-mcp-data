@@ -209,7 +209,7 @@ export function buildServer(): AirServer {
           "돌려주는 것: ok, hits[{id, title, body, score}], embedder. " +
           "쓰지 말 것: 개수·합계·순위(문서는 행을 세지 않는다 → sql.query), 누가 무엇과 연결됐는지(→ ontology.search·graph.expand).",
         params: {
-          query: { type: "string", description: "검색할 한국어 질의" },
+          query: queryParam("검색할 한국어 질의"),
           k: { type: "number", description: "반환할 상위 건수 (기본 5)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
@@ -326,7 +326,7 @@ export function buildServer(): AirServer {
           "또는 similar_name_mismatch(비슷한 이름의 다른 개체 — 후보로만 알리고 해소하지 않는다). " +
           "쓰지 말 것: 관계를 물을 때(이 도구는 개체만 찾는다 → graph.expand), 숫자 집계(→ sql.query).",
         params: {
-          query: { type: "string", description: "해소할 이름 또는 그 이름이 든 질문" },
+          query: queryParam("해소할 이름 또는 그 이름이 든 질문"),
           k: { type: "number", description: "최대 엔티티 수 (기본 5)", optional: true },
         },
         annotations: { readOnlyHint: true, idempotentHint: true },

@@ -335,7 +335,7 @@ async function main() {
     return client;
   };
 
-  // --- 빈 질문: 질의 도구 넷(route, retrieve, ask, audit.explain)이 입력 검증에서 거절한다 ---
+  // --- 빈 질문: 질의를 받는 도구 여섯(route, retrieve, ask, audit.explain, vector.search, ontology.search)이 입력 검증에서 거절한다 ---
   // 2026-10-06 경계 실측: ask 에 빈 질문을 주면 7B 가 SQL 을 지어내 부서장에 대한 거짓 문장을 답했다(3/3).
   const qp = queryParam("사용자의 한국어 질의");
   for (const blank of ["", "   ", "\t\n", "　　", "​", "\u0007"]) {
@@ -373,7 +373,7 @@ async function main() {
     ok(!fine.isError && handled === 1, "질문이 있으면 핸들러가 돈다");
     await client.close();
   }
-  // 서버 정의가 넷 모두에 이 계약을 거는가. buildServer() 는 air dedup 의 타이머가 프로세스를 붙잡으므로
+  // 서버 정의가 여섯 모두에 이 계약을 거는가. buildServer() 는 air dedup 의 타이머가 프로세스를 붙잡으므로
   // 자식 프로세스에서 부르고 끝낸다. 검증이 핸들러보다 먼저 막으니 DB 도 모델도 필요 없다.
   const wiring = spawnSync(
     process.execPath,
@@ -382,13 +382,13 @@ async function main() {
       "-e",
       `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
        const s = buildServer(); const out = {};
-       for (const t of ["route", "retrieve", "ask", "audit.explain"]) out[t] = await s.callTool(t, { query: " " });
+       for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) out[t] = await s.callTool(t, { query: " " });
        process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
     ],
     { encoding: "utf8", timeout: 30_000 },
   );
   const wired = JSON.parse(wiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
-  for (const t of ["route", "retrieve", "ask", "audit.explain"]) {
+  for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) {
     ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
   }
 
