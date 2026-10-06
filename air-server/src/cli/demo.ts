@@ -127,7 +127,7 @@ async function main() {
   const sb = await sqlQuery(pool, "SELECT status, count(*)::int AS n, sum(total)::bigint AS revenue FROM bench.orders GROUP BY status ORDER BY status");
   for (const r of sb.rows) line(`  ${r.status}: ${r.n}건 / 매출 ${r.revenue}`);
   const denied = await sqlQuery(pool, "SELECT * FROM bench.admin_secrets");
-  line(`  보안: admin_secrets 접근 -> ${denied.ok ? "허용(!!)" : "거부됨 (" + (denied.error ?? "").slice(0, 40) + ")"}`);
+  line(`  보안: admin_secrets 접근 -> ${denied.ok ? "허용(!!)" : "거부됨 (" + (denied.error ?? "") + ")"}`);
 
   hr("3) L2 vector.search (BGE-M3 의미검색)");
   const vs = await vectorSearch(pool, emb, "물건이 마음에 안 들어 돈 돌려받고 싶어요", 3, "bench.documents");

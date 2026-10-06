@@ -152,7 +152,7 @@ export function buildResources() {
               routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
               retrieval:
                 "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null",
-              fusion: "RRF 상위 항목과 합의한 소스",
+              fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",
               grounding:
@@ -172,7 +172,7 @@ export function buildResources() {
             policies: {
               "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",
               "sql-repair": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정",
-              "graph-unresolved-gate": "질의가 지목한 개체를 해소하지 못하면 컨텍스트를 0건으로(환각 차단)",
+              "graph-unresolved-gate": "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단)",
               "context-budget": "토큰 예산으로 후보를 자름",
               "branch-isolation": "레인 하나가 실패해도 나머지로 응답",
             },

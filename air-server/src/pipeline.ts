@@ -54,6 +54,8 @@ export interface RetrieveResult {
   vector?: VectorResult;
   graph?: GraphLaneResult;
   fused: Fused<ContextItem>[];
+  /** RRF 입력 목록마다의 레인 이름. fused[].sources 의 번호가 이 배열의 위치다. */
+  fusion_lanes?: string[];
   curated: Curated;
   context: string;
   /** 미해소 개체 게이트가 발동했을 때 그 사유. 그 밖에는 없다. */
@@ -406,6 +408,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];
+  const listLanes: string[] = [];
   if (sqlResult?.ok) {
     // Each SQL row is an atomic context item, prefixed with the query that
     // produced it so the 7B can ground its answer (a bare "count=3" is
@@ -417,6 +420,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
         value: { kind: "row" as const, text: `${sqlHead} → ${renderRow(row)}`, source: `sql#${i}`, fields: Object.keys(row).length },
       })),
     );
+    listLanes.push("sql");
   }
   if (vecResult?.ok) {
     lists.push(
@@ -425,6 +429,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
         value: { kind: "chunk", text: `${h.title}: ${h.body}`, source: `documents#${h.id}` },
       })),
     );
+    listLanes.push("vector");
   }
   if (kwResult?.ok && kwResult.hits.length) {
     // 벡터 레인과 같은 key 규칙(documents#id)을 쓴다. 같은 청크를 두 레인이 찾으면
@@ -435,6 +440,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
         value: { kind: "chunk" as const, text: `${h.title}: ${h.body}`, source: `keyword#${h.id}` },
       })),
     );
+    listLanes.push("keyword");
   }
   if (graphResult && graphResult.items.length) {
     lists.push(
@@ -443,6 +449,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
         value: { kind: "chunk" as const, text: it.text, source: `graph#${i}` },
       })),
     );
+    listLanes.push("graph");
   }
 
   // --- RRF merge -> L4 curation ---
@@ -456,6 +463,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     vector: vecResult,
     graph: graphResult,
     fused,
+    fusion_lanes: listLanes,
     curated,
     context: render(curated),
     ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),

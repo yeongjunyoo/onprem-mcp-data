@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-09-30T09:15:32.733Z
+> 생성 시각 2026-10-06T05:03:20.397Z
 > npm 패키지 110개(직접 5 / 전이 105) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(`node scripts/sbom.mjs`).
@@ -103,7 +103,7 @@
 | 75 | postgres-bytea | 1.0.1 | MIT | https://github.com/bendrucker/postgres-bytea |
 | 76 | postgres-date | 1.0.7 | MIT | https://github.com/bendrucker/postgres-date |
 | 77 | postgres-interval | 1.2.0 | MIT | https://github.com/bendrucker/postgres-interval |
-| 78 | proxy-addr | 2.0.7 | MIT | https://github.com/jshttp/proxy-addr |
+| 78 | proxy-addr | 2.0.8 | MIT | https://github.com/jshttp/proxy-addr |
 | 79 | qs | 6.16.0 | BSD-3-Clause | https://github.com/ljharb/qs |
 | 80 | range-parser | 1.3.0 | MIT | https://github.com/jshttp/range-parser |
 | 81 | raw-body | 3.0.2 | MIT | https://github.com/stream-utils/raw-body |

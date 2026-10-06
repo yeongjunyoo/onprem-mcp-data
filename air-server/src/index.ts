@@ -11,6 +11,7 @@
 import { closePool } from "./db.js";
 import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
+import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
 
@@ -48,6 +49,17 @@ async function preflight(): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
+  // 데이터셋 프로파일 오타는 Ollama 와 DB 를 건드리기 전에 거절한다. 그러지 않으면 온톨로지
+  // 적재가 같은 오류를 잡아 「폴백으로 동작한다」를 두 번 찍은 뒤에야 같은 오류로 끝났다
+  // (2026-10-06 기능명세서 리허설). 아직 연 핸들이 없으니 자연 종료로 끝낸다.
+  try {
+    profile();
+  } catch (e) {
+    console.error(e instanceof Error ? `Error: ${e.message}` : e);
+    process.exitCode = 1;
+    return;
+  }
+
   if (!(await preflight())) {
     process.exitCode = 1;
     await closePool();
