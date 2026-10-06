@@ -15,6 +15,7 @@
 import type { AskResult, RetrieveResult } from "./pipeline.js";
 import type { GraphTruncation } from "./graph.js";
 import type { NotFound } from "./notfound.js";
+import { NO_TABLE } from "./nl2sql.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
@@ -46,7 +47,15 @@ export interface AuditRecord {
     deterministic: true;
   };
   retrieval: {
-    sql: { text: string | null; ok: boolean | null; rows: number | null; error: string | null; repaired: boolean };
+    sql: {
+      text: string | null;
+      ok: boolean | null;
+      rows: number | null;
+      error: string | null;
+      repaired: boolean;
+      /** 생성 모델이 만들었지만 실행하지 않은 문장. 그때만 붙고 text 는 null 이다. */
+      refused?: { kind: string; text: string };
+    };
     vector: { hits: number | null };
     graph: { strategy: string | null; seeds: number | null; edges: number | null; truncated: GraphTruncation | null };
     candidates: { sql: number; vector: number; graph: number; fused: number };
@@ -65,6 +74,8 @@ export interface AuditRecord {
   grounding?: { checked: boolean; answer_chars: number; outside_context: string[] };
   /** 미해소 개체 게이트가 발동했을 때만. 왜 못 찾았는지. */
   not_found?: NotFound;
+  /** 섞인 질문에서 일부 개체만 해소됐을 때만. 해소되지 않은 이름마다 왜 못 찾았는지. */
+  missing_entities?: NotFound[];
   branch_errors: string[];
   generated_at: string;
 }
@@ -132,6 +143,16 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         detail: `엔진 또는 가드가 거부: ${r.sql.result?.error ?? "사유 미기록"}`,
       });
     }
+  } else if (r.sql.refused) {
+    // 실행하지 않은 생성 문장도 거부 판정으로 남긴다. 종전에는 조용히 버려 감사 레코드에 흔적이 없었다.
+    policies.push({
+      policy: "sql-read-only",
+      verdict: "deny",
+      detail:
+        r.sql.refused.kind === NO_TABLE
+          ? "생성 모델이 테이블을 읽지 않는 SELECT 를 만들어 실행하지 않았다(데이터와 무관한 상수)"
+          : `생성 모델이 쓰기 문장(${r.sql.refused.kind})을 만들어 실행하지 않았다`,
+    });
   }
 
   // 2) 자기 수정 재시도
@@ -154,6 +175,16 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       policy: "graph-unresolved-gate",
       verdict: "deny",
       detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 근거를 비우고, 찾지 못한 사유 한 줄만 컨텍스트에 남겼다(환각 차단)${why}`,
+    });
+  } else if (r.missing?.length) {
+    // 섞인 질문: 찾은 개체로는 답하되, 없는 개체는 사유를 컨텍스트와 답 앞에 싣는다.
+    const names = r.missing.map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
+    policies.push({
+      policy: "graph-unresolved-gate",
+      verdict: "degrade",
+      detail:
+        `질의가 지목한 개체 일부를 온톨로지에서 해소하지 못했다(${names}). 그 사유를 컨텍스트와 답 앞에 싣고, ` +
+        `찾은 개체의 근거로만 「${r.answer_query ?? r.query}」에 답했다(없는 개체에 찾은 개체의 사실을 붙이지 않음)`,
     });
   }
 
@@ -224,6 +255,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         rows: r.sql.result ? r.sql.result.rowCount : null,
         error: r.sql.result?.error ?? null,
         repaired: Boolean(r.sql.repaired),
+        ...(r.sql.refused ? { refused: r.sql.refused } : {}),
       },
       vector: { hits: r.vector?.ok ? r.vector.hits.length : null },
       graph: {
@@ -249,6 +281,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
   };
 
   if (r.not_found) record.not_found = r.not_found;
+  if (r.missing?.length) record.missing_entities = r.missing;
 
   if (answer !== undefined) {
     record.grounding = {
@@ -267,7 +300,7 @@ export function renderAudit(rec: AuditRecord): string {
     `질의: ${rec.query}`,
     `지문: 규칙 ${rec.routing_fingerprint} / 파이프라인 ${rec.pipeline_fingerprint}`,
     `라우팅: ${rec.routing.lane} -> ${rec.routing.tools.join(", ") || "없음"} (${rec.routing.rationale})`,
-    `SQL: ${rec.retrieval.sql.text ? `${rec.retrieval.sql.ok ? "실행" : "거부"}${rec.retrieval.sql.repaired ? " (1회 교정)" : ""}` : "해당 없음"}`,
+    `SQL: ${rec.retrieval.sql.text ? `${rec.retrieval.sql.ok ? "실행" : "거부"}${rec.retrieval.sql.repaired ? " (1회 교정)" : ""}` : rec.retrieval.sql.refused ? `실행 안 함(생성 문장 ${rec.retrieval.sql.refused.kind})` : "해당 없음"}`,
     `후보: sql ${rec.retrieval.candidates.sql} / vector ${rec.retrieval.candidates.vector} / graph ${rec.retrieval.candidates.graph} -> 융합 ${rec.retrieval.candidates.fused}`,
     `컨텍스트: ${rec.context.items}항목 ${rec.context.chars}자`,
   ];

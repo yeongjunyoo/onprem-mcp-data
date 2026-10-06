@@ -141,9 +141,9 @@ async function main() {
   };
   const documentedFields = Object.keys(auditDoc.fields ?? {}).sort();
   const actualFields = Object.keys(toolRecord).sort();
-  // 특정 경로에서만 붙는 선택 필드(답변 생성, 미해소 게이트). 그냥 예외로 빼면 다음에
+  // 특정 경로에서만 붙는 선택 필드(답변 생성, 미해소 게이트, 섞인 질문의 없는 개체). 그냥 예외로 빼면 다음에
   // 진짜 유령이 생겨도 못 잡으므로, 타입에서 선택인 것만 이름으로 못박아 둔다.
-  const OPTIONAL_FIELDS = ["grounding", "not_found"];
+  const OPTIONAL_FIELDS = ["grounding", "not_found", "missing_entities"];
   const undocumented = actualFields.filter((f) => !documentedFields.includes(f));
   const phantom = documentedFields.filter(
     (f) => !actualFields.includes(f) && !OPTIONAL_FIELDS.includes(f),

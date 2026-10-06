@@ -8,7 +8,7 @@
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ontologySearch } from "./graph.js";
+import { entityLikeName, ontologySearch } from "./graph.js";
 import {
   NOT_FOUND_SIMILARITY,
   classifyNotFound,
@@ -16,7 +16,7 @@ import {
   nameSimilarity,
   similarNames,
 } from "./notfound.js";
-import { ask } from "./pipeline.js";
+import { ask, graphLane, withoutMissing } from "./pipeline.js";
 
 let passed = 0;
 let failed = 0;
@@ -39,6 +39,11 @@ const ENTITIES = [
   { id: 7, name: "Client-J 모니터링 시스템 도입", type: "project" },
 ];
 const LEXICON = ENTITIES.map(({ name, type }) => ({ name, type }));
+// 5) 의 섞인 질문용 엣지. Client-A 는 Product-C1 을 쓰고, 윤소연이 Client-A 를 담당한다.
+const RELATIONS = [
+  { id: 1, src: 1, rel: "USES", dst: 3 },
+  { id: 2, src: 6, rel: "MANAGES_ACCOUNT", dst: 1 },
+];
 
 // ── 1) 유사도: 결정론, 대칭, 표기 차이 흡수 ─────────────────────────────
 {
@@ -146,6 +151,102 @@ const fakePool = {
   ok(r.answer === describeNotFound(r.not_found!), "답이 사유 문장이다");
   // 환각 차단은 그대로 — 컨텍스트에는 not-found 한 줄뿐이다.
   ok(r.graph?.edgeCount === 0 && r.curated.kept.length === 1, "게이트 컨텍스트는 엣지 0, 한 줄");
+}
+
+// ── 5) 섞인 질문: 있는 개체와 없는 개체(G17 ①) ───────────────────────────
+// 「서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘」에 종전 답은 「서울물산의 담당 엔지니어는
+// 류서연」이었다(류서연은 Client-A 담당, 경계 실측 3/3). 게이트가 해소 0건일 때만 섰기 때문이다.
+{
+  for (const [t, want] of [
+    ["서울물산", "서울물산"],
+    ["서울물산이랑", "서울물산"],
+    ["Client-ZZ", "Client-ZZ"],
+    ["Product-Z9", "Product-Z9"],
+    ["마케팅팀", "마케팅팀"],
+    ["모바일사업부", "모바일사업부"],
+  ]) {
+    ok(entityLikeName(t) === want, `${t} 는 이름처럼 생겼다 (got ${entityLikeName(t)})`);
+  }
+  for (const t of ["등록된", "이전", "산업", "팀", "누구야", "e-mail", "COVID-19", "매출"]) {
+    ok(entityLikeName(t) === null, `${t} 는 일반 낱말이다`);
+  }
+
+  const mixed = await ontologySearch(fakePool, "서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘", 5, "companyx");
+  ok(mixed.hits[0]?.canonicalName === "Client-A" && mixed.not_found === undefined, "있는 개체는 그대로 해소된다");
+  ok(
+    mixed.missing?.length === 1 && mixed.missing[0].query_entity === "서울물산" && mixed.missing[0].reason === "not_in_database",
+    `없는 개체는 missing 에 사유와 함께 (got ${JSON.stringify(mixed.missing)})`,
+  );
+  const typo = await ontologySearch(fakePool, "윤소현 담당 고객사와 Client-A가 사용 중인 제품", 5, "companyx");
+  ok(
+    typo.missing?.[0]?.query_entity === "윤소현" && typo.missing[0].reason === "similar_name_mismatch" && typo.missing[0].candidates[0]?.name === "윤소연",
+    `비슷한 이름만 있는 이름도 missing (got ${JSON.stringify(typo.missing)})`,
+  );
+  const generic = await ontologySearch(fakePool, "이전에 등록된 Client-A 제품 목록", 5, "companyx");
+  ok(generic.hits.length > 0 && generic.missing === undefined, "「이전」, 「등록된」은 없는 개체로 올리지 않는다");
+  const plain = await ontologySearch(fakePool, "클라우드사업부 소속 직원들은 누구야?", 5, "companyx");
+  ok(plain.missing === undefined, "해소된 개체만 있는 질문은 그대로");
+
+  ok(
+    withoutMissing("서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘", ["서울물산"]) === "Client-A가 사용 중인 제품을 알려줘",
+    "없는 개체가 든 마디를 뺀다",
+  );
+  ok(withoutMissing("Client-A가 사용 중인 제품과 서울물산 매출을 알려줘", ["서울물산"]) === "Client-A가 사용 중인 제품", "뒤 마디도 뺀다");
+  ok(
+    withoutMissing("Client-A와 서울물산의 담당자를 알려줘", ["서울물산"]) === "Client-A 담당자를 알려줘",
+    "관계어가 남은 마디에 없으면 이름과 조사만 뺀다",
+  );
+
+  // ask: 7B 는 없는 개체가 빠진 질문과, 그 마디의 관계(담당)가 빠진 근거만 받는다.
+  const relPool = {
+    query: async (sql: string, params?: unknown[]) => {
+      if (sql.includes(".relations r") && sql.includes("ANY($1::int[])")) {
+        const [frontier, rels, seen] = params as [number[], string[] | null, number[]];
+        const byId = new Map(ENTITIES.map((e) => [e.id, e]));
+        const rows = RELATIONS.filter(
+          (r) => (frontier.includes(r.src) || frontier.includes(r.dst)) && (!rels || rels.includes(r.rel)) && !seen.includes(r.id),
+        ).map((r) => ({
+          id: r.id,
+          src_entity_id: r.src,
+          src_name: byId.get(r.src)!.name,
+          src_type: byId.get(r.src)!.type,
+          rel_type: r.rel,
+          dst_entity_id: r.dst,
+          dst_name: byId.get(r.dst)!.name,
+          dst_type: byId.get(r.dst)!.type,
+          confidence: 1,
+          provenance: "test",
+        }));
+        return { rowCount: rows.length, rows };
+      }
+      return fakePool.query(sql, params);
+    },
+  } as unknown as Pool;
+  const seen: { q: string; ctx: string }[] = [];
+  const r = await ask("서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘", {
+    pool: relPool,
+    embedder: { name: "test:unused", dim: 8, embed: async () => new Array(8).fill(0) },
+    llm: async (q, ctx) => {
+      seen.push({ q, ctx });
+      return "Client-A가 사용 중인 제품은 Product-C1입니다.";
+    },
+  });
+  const head = describeNotFound(mixed.missing![0]);
+  ok(r.route === "graph" && r.not_found === undefined, `그래프 레인, 전체 게이트는 서지 않는다 (got ${r.route})`);
+  ok(seen[0]?.q === "Client-A가 사용 중인 제품을 알려줘", `7B 는 없는 개체가 빠진 질문을 받는다 (got ${seen[0]?.q})`);
+  ok(Boolean(seen[0] && !seen[0].ctx.includes("윤소연") && seen[0].ctx.includes("Product-C1")), `없는 개체 마디의 관계(담당)는 근거에서 빠진다 (got ${seen[0]?.ctx})`);
+  ok(Boolean(seen[0] && !seen[0].ctx.includes("서울물산")), "사유 줄은 7B 근거에서 뺀다");
+  ok(r.context.startsWith(`[그래프] ${head}`), "retrieve 의 컨텍스트에는 사유 줄이 맨 앞에 있다");
+  ok(r.answer === `${head}\n\nClient-A가 사용 중인 제품은 Product-C1입니다.`, `답은 사유 문장으로 시작한다 (got ${r.answer})`);
+  ok(!r.answer.includes("윤소연"), "찾은 개체의 담당자를 없는 개체에 붙이지 않는다");
+  ok(r.audit.missing_entities?.[0]?.query_entity === "서울물산", "retrieve 의 audit 에도 missing_entities");
+}
+
+// ── 6) 질의어가 하나도 없을 때 빈 괄호를 보이지 않는다(G17 ⑩) ─────────────
+{
+  const none = await graphLane(fakePool, "ㅁㄴㅇㄹ", 5, 2, "companyx");
+  ok(none.strategy === "unresolved" && none.items.length === 1, "질의어가 없으면 탐색하지 않는다");
+  ok(!none.items[0].text.includes("()") && none.items[0].text.includes("개체 이름으로 볼 낱말"), `빈 괄호 대신 이유를 말한다 (got ${none.items[0].text})`);
 }
 
 console.log(`\nnotfound.test: ${passed} passed, ${failed} failed`);

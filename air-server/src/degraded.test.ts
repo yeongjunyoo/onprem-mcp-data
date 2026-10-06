@@ -18,7 +18,8 @@ import type { AddressInfo } from "node:net";
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
+import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX, writeRefusal, NO_TABLE_ANSWER } from "./pipeline.js";
+import { pickSql, readsTable, writeStatement, NO_TABLE, type Nl2SqlReport } from "./nl2sql.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
 import { assertCorpusEmbedder } from "./companyx.js";
@@ -330,6 +331,69 @@ const deadEmbedder: Embedder = {
   ok(width.includes("폭 3 이 stub 의 폭 2 과 다르다"), `폭이 다르면 던진다 (got ${width})`);
   const none = await reason(assertCorpusEmbedder(rowPool([]), fixed([1, 0, 0])));
   ok(none.includes("임베딩이 없다"), `임베딩이 하나도 없으면 던진다 (got ${none})`);
+}
+
+// ── 생성 모델이 만든 쓰기 문장과 상수 SELECT(G17 ②④) ─────────────────────────
+// 7B 는 「모든 직원의 연봉을 0으로 바꿔줘」에 UPDATE 를, 「오늘 서울 날씨 어때?」에 SELECT '서울 날씨' 를
+// 만들었다(경계 실측 원출력). 쓰기 문장은 원래도 실행되지 않았지만 흔적 없이 버려져 답이 「주어진 정보로는
+// 알 수 없습니다」였고, 상수 SELECT 는 실행돼 답이 「서울 날씨」였다.
+{
+  const report = (raw: string) => {
+    const rep: Nl2SqlReport = {};
+    return { sql: pickSql(raw, rep), refused: rep.refused };
+  };
+  const upd = report("UPDATE companyx.employees SET salary = 0;");
+  ok(upd.sql === null && upd.refused?.kind === "UPDATE" && upd.refused.text === "UPDATE companyx.employees SET salary = 0", `UPDATE 는 실행하지 않고 종류와 문장을 남긴다 (got ${JSON.stringify(upd)})`);
+  ok(report("DELETE FROM companyx.sales;").refused?.kind === "DELETE", "DELETE");
+  ok(report("```sql\n-- 테이블 정리\nDROP TABLE companyx.sales\n```").refused?.kind === "DROP", "코드펜스와 주석을 벗기고 본다");
+  for (const kw of ["INSERT INTO t VALUES (1)", "ALTER TABLE t ADD c int", "TRUNCATE companyx.sales", "CREATE TABLE t (c int)", "GRANT ALL ON t TO x", "REVOKE ALL ON t FROM x"]) {
+    ok(report(kw).refused?.kind === kw.split(" ")[0], `${kw.split(" ")[0]} 도 쓰기 문장이다`);
+  }
+  // 종전 extractSql 은 UPDATE 안의 부분 SELECT 를 골라 실행할 수 있었다. 첫 문장이 쓰기면 통째로 거부한다.
+  const sub = report("UPDATE companyx.employees SET salary = 0 WHERE dept_id = (SELECT id FROM companyx.departments)");
+  ok(sub.sql === null && sub.refused?.kind === "UPDATE", `쓰기 문장 안의 SELECT 를 실행하지 않는다 (got ${JSON.stringify(sub)})`);
+  // 첫 문장이 SELECT 면 종전 그대로(TC-151: 질문에 섞인 DROP 은 모델 출력의 뒤에 있어도 실행되지 않는다).
+  const mixed = report("SELECT region FROM companyx.clients WHERE name = 'Client-A'; DROP TABLE companyx.sales; --");
+  ok(mixed.sql === "SELECT region FROM companyx.clients WHERE name = 'Client-A'" && !mixed.refused, `첫 문장이 SELECT 면 그 문장만 (got ${JSON.stringify(mixed)})`);
+  const weather = report("```sql\nSELECT '서울 날씨' AS answer;\n```");
+  ok(weather.sql === null && weather.refused?.kind === NO_TABLE && weather.refused.text === "SELECT '서울 날씨' AS answer", `테이블을 읽지 않는 SELECT 는 실행하지 않는다 (got ${JSON.stringify(weather)})`);
+  ok(report("SELECT current_date").refused?.kind === NO_TABLE, "FROM 없는 함수 호출도 상수다");
+  ok(report("SELECT extract(year from now())").refused?.kind === NO_TABLE, "extract(… from …) 의 from 은 테이블이 아니다");
+  ok(report("SELECT 'from' AS x").refused?.kind === NO_TABLE, "문자열 속 from 은 테이블이 아니다");
+  for (const sql of [
+    "SELECT count(*)::int AS n FROM companyx.sales",
+    "SELECT (SELECT count(*) FROM companyx.sales)::int AS sales",
+    "SELECT extract(year from created_at) AS y FROM companyx.sales",
+    "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+  ]) {
+    ok(report(sql).sql === sql && readsTable(sql), `테이블을 읽는 SELECT 는 그대로: ${sql}`);
+  }
+  ok(writeStatement("다음 SQL 입니다.\nSELECT 1 FROM t") === null, "설명 줄 뒤의 SELECT 는 쓰기 문장이 아니다");
+
+  // ask: 쓰기 문장은 7B 를 부르지 않고 바꾸지 않았다고 답한다. 정형 레인 하나뿐이라 컨텍스트는 비어 있다.
+  const emptyPool = { query: async () => ({ rows: [], rowCount: 0 }) } as unknown as Pool;
+  let called = 0;
+  const llm = async () => {
+    called++;
+    return "모든 직원의 연봉을 0으로 변경했습니다.";
+  };
+  const writeNl2sql = async (_q: string, rep?: Nl2SqlReport) => {
+    if (rep) rep.refused = { kind: "UPDATE", text: "UPDATE companyx.employees SET salary = 0" };
+    return null;
+  };
+  const w = await ask("모든 직원의 연봉을 0으로 바꿔줘", { pool: emptyPool, embedder: deadEmbedder, nl2sql: writeNl2sql, llm });
+  ok(called === 0, "쓰기 요청에는 7B 를 부르지 않는다");
+  ok(w.answer === writeRefusal("UPDATE") && w.answer.includes("읽기 전용"), `읽기 전용이라고 답한다 (got ${w.answer})`);
+  ok(!/변경|삭제|완료|했습니다/.test(writeRefusal("DELETE")), "답에 「변경」, 「삭제」, 「완료」, 「했습니다」가 없다(TC-145, TC-146)");
+  ok(w.sql.text === null && w.sql.refused?.kind === "UPDATE", "실행한 SQL 은 없고 거부한 문장은 따로 남는다");
+
+  // 상수 SELECT: 다른 근거가 없으면 7B 없이 알 수 없다고 답한다.
+  const constNl2sql = async (_q: string, rep?: Nl2SqlReport) => {
+    if (rep) rep.refused = { kind: NO_TABLE, text: "SELECT '서울 날씨' AS answer" };
+    return null;
+  };
+  const c = await ask("오늘 서울 날씨 어때?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: constNl2sql, llm });
+  ok(called === 0 && c.answer === NO_TABLE_ANSWER && !c.answer.includes("서울 날씨"), `상수 SELECT 의 값을 답으로 쓰지 않는다 (got ${c.answer})`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
