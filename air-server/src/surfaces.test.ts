@@ -392,6 +392,40 @@ async function main() {
     ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
   }
 
+  // --- prompts/get: 받은 인자가 템플릿에 들어간다 ---
+  // air 0.3.0 은 프롬프트를 인자 스키마 없는 `prompt(name, description, cb)` 로 등록해, SDK 가 인자를 버린 채
+  // cb 를 불렀다(질문 칸이 빈 템플릿). 같은 호출 형태로 등록해 prompts/list 와 prompts/get 을 SDK 로 잰다.
+  {
+    const mcp = new McpServer({ name: "t", version: "0" });
+    const defs = buildPrompts();
+    for (const p of defs) {
+      // server-runner.js registerPromptToServer 와 같은 형태
+      const cb = async (args: Record<string, string>) => ({
+        messages: (await p.handler(args || {})).map((m) => ({ role: m.role, content: { type: "text" as const, text: m.content } })),
+      });
+      (mcp.prompt as unknown as (...a: unknown[]) => unknown)(p.name, p.description || "", cb);
+    }
+    const client = await connect(mcp);
+    const listed = (await client.listPrompts()).prompts;
+    for (const p of defs) {
+      const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}`).join(",");
+      const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}`).join(",");
+      ok(have === want, `prompts/list 가 ${p.name} 의 인자를 싣는다 (want ${want}, got ${have})`);
+      const values = Object.fromEntries((p.arguments ?? []).map((a) => [a.name, `인자값-${a.name}-7`]));
+      const got = await client.getPrompt({ name: p.name, arguments: values });
+      const text = got.messages.map((m) => (m.content as { text?: string }).text ?? "").join("\n");
+      for (const [k, v] of Object.entries(values)) ok(text.includes(v), `prompts/get ${p.name}: 인자 ${k} 가 본문에 들어간다`);
+    }
+    let missing = "";
+    try {
+      await client.getPrompt({ name: "grounded-answer", arguments: { question: "질문" } });
+    } catch (e) {
+      missing = String(e);
+    }
+    ok(missing.includes("context") && missing.includes("Required"), `필수 인자가 빠지면 빈 칸 템플릿 대신 거절한다 (got ${missing.slice(0, 160)})`);
+    await client.close();
+  }
+
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
 }

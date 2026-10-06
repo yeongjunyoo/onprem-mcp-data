@@ -119,8 +119,9 @@ try {
   const PROMPT_ARGS = {
     "grounded-answer": { question: "환불 정책은?", context: "[SQL 결과] n=3" },
     "nl2sql-with-schema-card": { question: "환불된 주문 수는?" },
-    "explain-routing": { query: "환불된 주문은 몇 건인가?" },
-    "review-generated-sql": { sql: "SELECT 1" },
+    // 선언한 인자 이름 그대로 준다. 인자가 실제로 전달되면서(promptargs.ts) 필수 인자 검사도 한다.
+    "explain-routing": { question: "환불된 주문은 몇 건인가?", routing: "route=structured" },
+    "review-generated-sql": { question: "환불된 주문은 몇 건인가?", sql: "SELECT 1" },
   };
   for (let i = 0; i < prompts.length; i++) {
     const name = prompts[i].name;
