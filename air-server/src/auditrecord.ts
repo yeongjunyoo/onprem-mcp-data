@@ -153,7 +153,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
     policies.push({
       policy: "graph-unresolved-gate",
       verdict: "deny",
-      detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 컨텍스트를 0건으로 만들었다(환각 차단)${why}`,
+      detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 근거를 비우고, 찾지 못한 사유 한 줄만 컨텍스트에 남겼다(환각 차단)${why}`,
     });
   }
 
@@ -180,7 +180,9 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
   const fusion = r.fused.slice(0, 10).map((f) => ({
     key: f.key,
     score: Number(f.score.toFixed(6)),
-    sources: (f as unknown as { sources?: number[] }).sources?.map(String) ?? [],
+    // rrfMerge 는 출처를 입력 목록 번호로 적는다. 번호만으로는 어느 레인인지 읽을 수 없어
+    // 파이프라인이 넘긴 목록별 레인 이름으로 바꾼다. 이름이 없으면 번호를 그대로 둔다.
+    sources: (f.sources ?? []).map((i) => r.fusion_lanes?.[i] ?? String(i)),
     preview: String(f.value.text ?? "").slice(0, 120),
   }));
 

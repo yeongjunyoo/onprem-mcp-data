@@ -96,6 +96,9 @@ function main() {
   const gate = gated.policies.find((p) => p.policy === "graph-unresolved-gate");
   ok(gate?.verdict === "deny", "미해소 개체 게이트를 deny로 기록한다");
   ok(Boolean(gate && gate.detail.includes("환각")), "게이트의 목적을 사유에 적는다");
+  // 게이트는 근거를 비우지만 찾지 못한 사유 한 줄을 컨텍스트에 남긴다(context.items 1).
+  // 사유문이 「0건」이라고 하면 같은 레코드 안에서 모순이다(2026-10-06 리허설).
+  ok(Boolean(gate && !gate.detail.includes("0건") && gate.detail.includes("사유 한 줄")), "게이트 사유문이 남은 안내 한 줄과 맞다");
 
   // 못 찾은 이유가 있으면 판정 사유와 레코드 필드 둘 다에 남는다.
   const notFound = {
@@ -154,7 +157,21 @@ function main() {
 
   ok(outsideContextMentions("Product-C1과 Product-C2", "Product-C1만 있음").join() === "Product-C2", "식별자 단위로 판정");
 
-  // --- 7. 사람이 읽는 요약 ---
+  // --- 7. 융합 출처는 레인 이름으로 ---
+  // rrfMerge 의 sources 는 입력 목록 번호다. 레코드가 「0」, 「1」을 그대로 적으면 어느 레인이
+  // 찾았는지 읽을 수 없다(2026-10-06 리허설에서 fusion[].sources 가 ["0"]).
+  const fusedRec = buildAuditRecord(
+    base({
+      fused: [{ key: "documents#7", value: { kind: "chunk", text: "장애 보고서", source: "documents#7" }, score: 0.0325, sources: [1, 2] }],
+      fusion_lanes: ["sql", "vector", "keyword"],
+    } as unknown as Partial<RetrieveResult>),
+  );
+  ok(
+    JSON.stringify(fusedRec.fusion[0]?.sources) === '["vector","keyword"]',
+    `융합 출처를 레인 이름으로 적는다 (got ${JSON.stringify(fusedRec.fusion[0]?.sources)})`,
+  );
+
+  // --- 8. 사람이 읽는 요약 ---
   const text = renderAudit(denied);
   ok(text.includes("정책 sql-read-only: deny"), "요약에 정책 판정이 나온다");
   ok(text.split("\n").length <= 12, "요약은 열 줄 안쪽");

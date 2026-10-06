@@ -10,6 +10,8 @@ import { buildResources } from "./resources.js";
 import { resolveTransport, SANITIZER_OPTIONS } from "./server.js";
 import { reportOllama } from "./preflight.js";
 import { sanitizerPlugin } from "@airmcp-dev/core";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 let pass = 0,
   fail = 0;
@@ -306,6 +308,19 @@ async function main() {
   ok(preflightOk, "모델이 다 있으면 프리플라이트가 통과한다");
   ok(stdoutLines.length === 0, `프리플라이트가 stdout 에 쓰지 않는다 (got ${stdoutLines.length}줄)`);
   ok(stderrLines.some((l) => l.includes("[환경] Ollama")), "프리플라이트 안내 줄은 stderr 로 간다");
+
+  // --- 기동: 데이터셋 프로파일 오타는 다른 일을 하기 전에 거절한다 ---
+  // 리허설(2026-10-06)에서 DATASET 오타로 띄우면 「폴백으로 동작한다」를 두 번 찍은 뒤에야 같은
+  // 오류로 끝났다. Ollama 주소를 닫힌 포트로 두어, 프로파일보다 Ollama 를 먼저 보면 이 단언이 깨진다.
+  const typo = spawnSync(process.execPath, [fileURLToPath(new URL("./index.js", import.meta.url))], {
+    env: { ...process.env, DATASET: "conpanyx", OLLAMA_HOST: "http://127.0.0.1:9" },
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  ok(typo.status === 1, `DATASET 오타면 종료 코드 1 (got ${typo.status})`);
+  ok(typo.stderr.includes("모르는 프로파일이다") && typo.stderr.includes("companyx | bench | smoke"), "오타 사유와 가능한 값을 알린다");
+  ok(!typo.stderr.includes("폴백"), "폴백으로 돈다는 말 없이 거절한다");
+  ok(typo.stdout === "", "거절할 때도 stdout 에 쓰지 않는다");
 
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
