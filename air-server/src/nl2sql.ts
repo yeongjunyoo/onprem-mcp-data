@@ -11,7 +11,7 @@
 
 export type NL2SQL = (query: string) => Promise<string | null> | string | null;
 
-import { generate } from "./llm.js";
+import { generate, questionForModel } from "./llm.js";
 import { isReadOnly } from "./sql.js";
 
 /** Schema description handed to the model for NL2SQL. */
@@ -52,7 +52,7 @@ export async function llmNL2SQL(query: string): Promise<string | null> {
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "설명, 주석, 코드펜스, 세미콜론 없이 SQL만 출력합니다.",
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);
@@ -78,7 +78,7 @@ export async function benchNL2SQL(query: string): Promise<string | null> {
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "테이블은 반드시 bench. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);
@@ -105,7 +105,7 @@ export async function benchNL2SQLNaive(query: string): Promise<string | null> {
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "테이블은 반드시 bench. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);
@@ -294,7 +294,7 @@ export function buildCompanyxSqlPrompt(query: string): string {
     // 점수도 8/10과 7/10로 변하지 않았다. 효과 없는 문장을 프롬프트에 남기면
     // "튜닝 없음"이라는 주장만 흐려지므로 되돌린다. 근거는 docs/report.md §0.10.
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     "SQL:",
   ].join("\n");
 }
@@ -341,7 +341,7 @@ export async function repairSql(
     "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     `실패한 SQL: ${failedSql}`,
     `${kind === "empty" ? "안내" : "오류"}: ${dbError}`,
     "수정된 SQL:",
@@ -371,7 +371,7 @@ export async function companyxNL2SQLNaive(query: string): Promise<string | null>
     "질문에 답하는 단일 읽기 전용 SQL(SELECT) 한 문장만 출력하세요.",
     "테이블은 반드시 companyx. 접두사로 참조합니다. 설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     "",
-    `질문: ${query}`,
+    `질문: ${questionForModel(query)}`,
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);

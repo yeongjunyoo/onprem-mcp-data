@@ -15,7 +15,7 @@
 
 import { contentTerms } from "./text.js";
 import { profile } from "./profile.js";
-import { postJson } from "./ollamahttp.js";
+import { postJson, type JsonResponse } from "./ollamahttp.js";
 
 export const EMBED_DIM = 1024;
 
@@ -87,10 +87,10 @@ export class OllamaEmbedder implements Embedder {
     const n = Number(process.env.OLLAMA_EMBED_TIMEOUT_MS);
     const deadline = Number.isFinite(n) && n > 0 ? n : 60_000;
     try {
-      const res = await postJson(
-        `${this.host}/api/embeddings`,
-        { model: this.model, prompt: text },
-        AbortSignal.timeout(deadline),
+      // 모델 문맥 길이를 넘는 입력은 오류로 끝내지 않고 앞부분만 다시 보낸다(fitToContext, 이 파일 끝).
+      // 들어가는 입력은 종전 그대로 한 번에 보내므로 그 벡터는 바뀌지 않는다.
+      const res = await fitToContext(text, (input) =>
+        postJson(`${this.host}/api/embeddings`, { model: this.model, prompt: input }, AbortSignal.timeout(deadline)),
       );
       if (res.status < 200 || res.status >= 300) throw new Error(`ollama embeddings ${res.status}: ${res.text}`);
       const json = JSON.parse(res.text) as { embedding: number[] };
@@ -153,4 +153,35 @@ export function getEmbedder(): Embedder {
 /** pgvector text literal for a float array: '[v1,v2,...]'. */
 export function toVectorLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
+}
+
+/** 임베딩 입력이 모델 문맥을 넘을 때 다시 보낼 길이(유니코드 문자 수).
+ *
+ * 호스트 Ollama 0.35.1 의 bge-m3 는 2,048토큰에서 끊는다(모델 카드의 문맥은 8,192). 넘으면 벡터 대신
+ * 500 「the input length exceeds the context length」를 돌려주고, 종전에는 그 오류가 시맨틱 라우터를
+ * 거쳐 ask 의 답으로 그대로 나갔다(같은 질문 200번, 4,400자. 2026-10-06 경계 실측 2/2).
+ * 실측 상한(2026-10-07, 접두 길이 이분 탐색): 문장부호만 이은 글 2,046자(한 자가 한 토큰),
+ * 이모지 2,728자, 한자 3,381자, 그 반복 질문 4,092자, 영문 단어 4,213자, 한글 음절 6,916자.
+ * 가장 나쁜 경우보다 조금 아래로 둔다. */
+export const EMBED_RETRY_CHARS = 2000;
+
+/** 문맥 길이 초과일 때만 앞부분을 잘라 다시 보낸다.
+ *
+ * 처음에는 받은 그대로 보낸다. 들어가는 입력(종전에 되던 모든 질의와 문서)은 한 번에 끝나고 벡터도
+ * 같다. 초과면 앞 EMBED_RETRY_CHARS 자로, 그래도 넘치면(정규화로 글자가 늘어나는 입력) 반씩
+ * 줄인다. 길이는 매번 줄어드니 반드시 끝난다. 자른 사실은 stderr 에 남긴다. 감사 레코드의 query 는
+ * 호출부가 가진 원문 그대로다. 다른 오류는 그대로 돌려줘 호출부가 종전처럼 던진다. */
+export async function fitToContext(
+  text: string,
+  send: (input: string) => Promise<JsonResponse>,
+): Promise<JsonResponse> {
+  let res = await send(text);
+  const chars = Array.from(text); // 서로게이트 쌍(이모지)을 가르지 않는다
+  let len = chars.length;
+  while (res.status >= 400 && /context length/i.test(res.text) && len > 1) {
+    len = len > EMBED_RETRY_CHARS ? EMBED_RETRY_CHARS : Math.floor(len / 2);
+    console.error(`[임베딩] 입력 ${chars.length}자가 임베딩 모델의 문맥 길이를 넘어 앞 ${len}자만 임베딩한다`);
+    res = await send(chars.slice(0, len).join(""));
+  }
+  return res;
 }
