@@ -118,7 +118,8 @@ export function reportOllama(probe: OllamaProbe, required: string[]): boolean {
     console.error("  OLLAMA_HOST=http://localhost:11435 으로 실행하거나, 호스트 Ollama를 켠다\n");
     return false;
   }
-  console.log(`[환경] Ollama ${probe.host} — 모델 ${probe.models.length}종: ${probe.models.join(", ") || "(없음)"}`);
+  // stdout 은 MCP stdio 의 JSON-RPC 통로다. 사람이 읽을 줄은 다른 진단처럼 stderr 로 보낸다.
+  console.error(`[환경] Ollama ${probe.host} — 모델 ${probe.models.length}종: ${probe.models.join(", ") || "(없음)"}`);
   const missing = missingModels(probe, required);
   if (missing.length) {
     console.error(`\n[환경] 필요한 모델이 없다: ${missing.join(", ")}`);

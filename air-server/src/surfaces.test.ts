@@ -7,7 +7,9 @@ import { buildAnswerPrompt } from "./llm.js";
 import { buildCompanyxSqlPrompt } from "./nl2sql.js";
 import { buildAuditRecord } from "./auditrecord.js";
 import { buildResources } from "./resources.js";
-import { resolveTransport } from "./server.js";
+import { resolveTransport, SANITIZER_OPTIONS } from "./server.js";
+import { reportOllama } from "./preflight.js";
+import { sanitizerPlugin } from "@airmcp-dev/core";
 
 let pass = 0,
   fail = 0;
@@ -258,6 +260,52 @@ async function main() {
     if (savedPort === undefined) delete process.env.MCP_PORT;
     else process.env.MCP_PORT = savedPort;
   }
+
+  // --- sanitizer: SQL 비교 연산자를 지우지 않는다 ---
+  // air 기본값(stripHtml)은 `<` 부터 `>` 까지를 태그로 보고 지운다. 서버가 쓰는 설정으로
+  // air 의 실제 미들웨어를 돌려, sql.query 와 ask 에 들어온 연산자가 그대로 남는지 본다.
+  const sanitize = sanitizerPlugin(SANITIZER_OPTIONS).middleware![0].before!;
+  for (const sql of [
+    "SELECT name FROM companyx.employees WHERE salary < 5000 AND salary > 3000",
+    "SELECT count(*) FROM companyx.support_tickets WHERE status <> 'closed'",
+  ]) {
+    const out = (await sanitize({ tool: { name: "sql.query" }, params: { sql } } as never)) as {
+      params: { sql: string };
+    };
+    ok(out.params.sql === sql, `sanitizer 가 SQL 연산자를 지우지 않는다: ${sql}`);
+  }
+  // 한국어 질문은 제목을 꺾쇠로 감싸기도 한다. 기본값이면 제목이 통째로 사라진다.
+  const question = "<클라우드 마이그레이션> 제안서 내용 보여줘";
+  const askOut = (await sanitize({ tool: { name: "ask" }, params: { query: question } } as never)) as {
+    params: { query: string };
+  };
+  ok(askOut.params.query === question, "sanitizer 가 질문 속 꺾쇠 제목을 지우지 않는다");
+  const ctrlOut = (await sanitize({ tool: { name: "ask" }, params: { query: "매출\u0007 합계" } } as never)) as {
+    params: { query: string };
+  };
+  ok(ctrlOut.params.query === "매출 합계", "제어 문자 제거는 그대로 한다");
+
+  // --- stdio: 프리플라이트가 stdout 에 쓰지 않는다 ---
+  // stdout 은 MCP JSON-RPC 통로다. 사람이 읽을 줄이 섞이면 클라이언트가 파싱 오류를 낸다.
+  const realLog = console.log;
+  const realErr = console.error;
+  const stdoutLines: string[] = [];
+  const stderrLines: string[] = [];
+  console.log = (...a: unknown[]) => void stdoutLines.push(a.join(" "));
+  console.error = (...a: unknown[]) => void stderrLines.push(a.join(" "));
+  let preflightOk = false;
+  try {
+    preflightOk = reportOllama(
+      { reachable: true, host: "http://localhost:11434", models: ["qwen2.5-coder:7b", "bge-m3"] } as never,
+      ["qwen2.5-coder:7b", "bge-m3"],
+    );
+  } finally {
+    console.log = realLog;
+    console.error = realErr;
+  }
+  ok(preflightOk, "모델이 다 있으면 프리플라이트가 통과한다");
+  ok(stdoutLines.length === 0, `프리플라이트가 stdout 에 쓰지 않는다 (got ${stdoutLines.length}줄)`);
+  ok(stderrLines.some((l) => l.includes("[환경] Ollama")), "프리플라이트 안내 줄은 stderr 로 간다");
 
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
