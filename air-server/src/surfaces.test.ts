@@ -322,6 +322,76 @@ async function main() {
   ok(!typo.stderr.includes("폴백"), "폴백으로 돈다는 말 없이 거절한다");
   ok(typo.stdout === "", "거절할 때도 stdout 에 쓰지 않는다");
 
+  // MCP 전선은 SDK 의 진짜 요청 처리기로 잰다(같은 프로세스 안의 연결 한 쌍).
+  const { EMPTY_QUERY_MESSAGE, queryParam } = await import("./queryinput.js");
+  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
+  const connect = async (mcp: InstanceType<typeof McpServer>) => {
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await mcp.connect(serverSide);
+    const client = new Client({ name: "surfaces-test", version: "0" });
+    await client.connect(clientSide);
+    return client;
+  };
+
+  // --- 빈 질문: 질의 도구 넷(route, retrieve, ask, audit.explain)이 입력 검증에서 거절한다 ---
+  // 2026-10-06 경계 실측: ask 에 빈 질문을 주면 7B 가 SQL 을 지어내 부서장에 대한 거짓 문장을 답했다(3/3).
+  const qp = queryParam("사용자의 한국어 질의");
+  for (const blank of ["", "   ", "\t\n", "　　", "​", "\u0007"]) {
+    const r = qp.safeParse(blank);
+    ok(!r.success && r.error.issues[0].message === EMPTY_QUERY_MESSAGE, `빈 질문 ${JSON.stringify(blank)} 은 거절한다`);
+  }
+  for (const q of ["서울 매출", "  서울 매출 ", "2025년 3분기 총 매출액은 얼마야? "]) {
+    const r = qp.safeParse(q);
+    ok(r.success && r.data === q, `질문 ${JSON.stringify(q)} 은 손대지 않고 통과한다(트림하지 않는다)`);
+  }
+  {
+    // air 0.3.0 이 도구를 SDK 에 넘기는 형태(registerTool 의 inputSchema 에 zod shape)
+    const mcp = new McpServer({ name: "t", version: "0" });
+    let handled = 0;
+    mcp.registerTool("ask", { inputSchema: { query: qp } }, async () => {
+      handled++;
+      return { content: [{ type: "text" as const, text: "답" }] };
+    });
+    const client = await connect(mcp);
+    const props = (await client.listTools()).tools[0].inputSchema.properties;
+    ok(
+      JSON.stringify(props) === JSON.stringify({ query: { type: "string", description: "사용자의 한국어 질의" } }),
+      `tools/list 의 query 스키마는 종전 그대로다 (got ${JSON.stringify(props)})`,
+    );
+    for (const blank of ["", "   "]) {
+      const r = await client.callTool({ name: "ask", arguments: { query: blank } });
+      const text = (r.content as { text: string }[])[0]?.text ?? "";
+      ok(
+        r.isError === true && text.includes("Input validation error") && text.includes(EMPTY_QUERY_MESSAGE),
+        `MCP 로 빈 질문 ${JSON.stringify(blank)} 을 주면 isError 와 안내 문장 (got ${text.slice(0, 160)})`,
+      );
+    }
+    ok(handled === 0, "빈 질문은 핸들러(파이프라인)에 닿지 않는다");
+    const fine = await client.callTool({ name: "ask", arguments: { query: "서울 매출" } });
+    ok(!fine.isError && handled === 1, "질문이 있으면 핸들러가 돈다");
+    await client.close();
+  }
+  // 서버 정의가 넷 모두에 이 계약을 거는가. buildServer() 는 air dedup 의 타이머가 프로세스를 붙잡으므로
+  // 자식 프로세스에서 부르고 끝낸다. 검증이 핸들러보다 먼저 막으니 DB 도 모델도 필요 없다.
+  const wiring = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+       const s = buildServer(); const out = {};
+       for (const t of ["route", "retrieve", "ask", "audit.explain"]) out[t] = await s.callTool(t, { query: " " });
+       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  const wired = JSON.parse(wiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
+  for (const t of ["route", "retrieve", "ask", "audit.explain"]) {
+    ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
+  }
+
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
 }
