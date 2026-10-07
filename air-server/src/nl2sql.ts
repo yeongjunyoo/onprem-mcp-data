@@ -38,6 +38,7 @@ export const NO_TABLE = "NO_TABLE";
 
 import { generate, questionForModel } from "./llm.js";
 import { isReadOnly } from "./sql.js";
+import { annotateMoney } from "./money.js";
 
 /** Schema description handed to the model for NL2SQL. */
 export const SCHEMA_DDL = [
@@ -629,6 +630,13 @@ export function companyxSchemaCard(): string {
   return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
+/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 문맥 상한(questionForModel)을 지킨 뒤 금액 표현 옆에 만원 값을 적는다:
+ * 「2억 원」 → 「2억 원(=20000만 원)」(money.ts, G17 ⑥). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을
+ * salary >= 2000 으로 썼다(3/3). 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
+export function sqlQuestionForModel(query: string): string {
+  return annotateMoney(questionForModel(query));
+}
+
 /** Company-X NL2SQL 프롬프트 원문.
  *
  * MCP 프롬프트 표면(prompts.ts)이 이 함수를 그대로 부른다. 종전에는 저쪽에
@@ -649,7 +657,7 @@ export function buildCompanyxSqlPrompt(query: string): string {
     // 점수도 8/10과 7/10로 변하지 않았다. 효과 없는 문장을 프롬프트에 남기면
     // "튜닝 없음"이라는 주장만 흐려지므로 되돌린다. 근거는 docs/report.md §0.10.
     "",
-    `질문: ${questionForModel(query)}`,
+    `질문: ${sqlQuestionForModel(query)}`,
     "SQL:",
   ].join("\n");
 }
@@ -701,7 +709,7 @@ export async function repairSql(
     "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
     "",
-    `질문: ${questionForModel(query)}`,
+    `질문: ${sqlQuestionForModel(query)}`,
     `실패한 SQL: ${failedSql}`,
     `${kind === "error" ? "오류" : "안내"}: ${dbError}`,
     "수정된 SQL:",

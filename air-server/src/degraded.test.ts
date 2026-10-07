@@ -754,5 +754,144 @@ const deadEmbedder: Embedder = {
   }
 }
 
+// 금액 단위(G17 ⑥). 7B 는 「연봉이 2억 원 이상인 직원 목록을 알려줘」를 salary >= 2000 으로 써 직원 45명을 모두 돌려줬다
+// (3/3, 경계 실측). 질문의 금액 옆에 만원 값을 적어 넘기고, 금액 열의 비교 숫자가 10배수로 어긋나면 실행 전 검사가 고친다.
+// 생성기와 풀은 가짜를 넣어 모델과 DB 없이 잰다.
+{
+  const { moneyMentions, annotateMoney } = await import("./money.js");
+  const { sqlQuestionForModel, buildCompanyxSqlPrompt } = await import("./nl2sql.js");
+  const { questionForModel } = await import("./llm.js");
+  const { checkMoney, moneyColumns, untrustedAnswer, sqlGatePolicy } = await import("./sqltrust.js");
+  const { executeWithRepair } = await import("./sqlrepair.js");
+
+  for (const [q, manwon] of [
+    ["연봉이 2억 원 이상인 직원 목록을 알려줘", [20000]],
+    ["2억원", [20000]],
+    ["1억 5천만 원", [15000]],
+    ["1억5천만원 이상", [15000]],
+    ["1억 5천 이상", [15000]],
+    ["1억 5000만 원", [15000]],
+    ["5천만 원 이하", [5000]],
+    ["5천만 이상", [5000]],
+    ["3,000만 원", [3000]],
+    ["500만원", [500]],
+    ["1.5억", [15000]],
+    ["5천만~1억 원", [5000, 10000]],
+  ] as const) {
+    ok(JSON.stringify(moneyMentions(q).map((m) => m.manwon)) === JSON.stringify(manwon), `금액 표현을 만원 값으로 읽는다: ${q} → ${manwon}`);
+  }
+  for (const q of ["500만 명", "3000만", "1억 건", "2억 년", "1억 달러", "1억 2", "오천만 원", "연봉 4천", "Product-C1 가격", "1,5억", "2025년 3분기 총 매출액은 얼마야?"]) {
+    ok(moneyMentions(q).length === 0 && annotateMoney(q) === q, `금액이 아니거나 값이 갈리는 것은 읽지 않는다: ${q}`);
+  }
+  ok(annotateMoney("연봉이 2억 원 이상인 직원 목록을 알려줘") === "연봉이 2억 원(=20000만 원) 이상인 직원 목록을 알려줘", "금액 표현 바로 뒤에 만원 값을 적는다");
+  ok(annotateMoney("1억원인 계약과 5천만 원짜리") === "1억원(=10000만 원)인 계약과 5천만 원(=5000만 원)짜리", "표현마다 적는다");
+  ok(annotateMoney("2억 원(=20000만 원)") === "2억 원(=20000만 원)", "이미 적힌 값은 다시 적지 않는다");
+
+  // 금액 표현이 없는 질문은 NL2SQL 프롬프트에 종전 그대로 들어간다(시험항목 질문에는 금액 표현이 없다).
+  for (const q of ["2025년 3분기 총 매출액은 얼마야?", "평균 연봉이 가장 높은 부서는 어디야?", "연봉 알려줘", "지원 티켓 7번은 언제 해결됐어?"]) {
+    ok(sqlQuestionForModel(q) === questionForModel(q) && buildCompanyxSqlPrompt(q).includes(`\n질문: ${q}\nSQL:`), `금액 없는 질문은 그대로: ${q}`);
+  }
+  ok(buildCompanyxSqlPrompt("예산이 3억 원을 넘는 프로젝트는?").includes("\n질문: 예산이 3억 원(=30000만 원)을 넘는 프로젝트는?\nSQL:"), "NL2SQL 프롬프트의 질문 줄에 만원 값이 붙는다");
+
+  // 실행 전 검사 ③: 금액 열과 비교하는 숫자가 질문의 만원 값과 10배수로 어긋나면 단위 오류다.
+  const cols = moneyColumns("companyx");
+  const q2 = "연봉이 2억 원 이상인 직원 목록을 알려줘";
+  const bad = checkMoney("SELECT name FROM companyx.employees WHERE salary >= 2000", q2, cols);
+  ok(bad.length === 1 && bad[0].includes("salary >= 2000") && bad[0].includes("「2억 원」(=20000만 원)") && bad[0].includes("20000 이어야 한다"), `salary >= 2000 은 단위 오류이고 사유가 기대 값을 말한다 (got ${bad})`);
+  for (const sql of [
+    "SELECT name FROM companyx.employees e WHERE 2000 <= e.salary",
+    "SELECT name FROM companyx.employees WHERE salary BETWEEN 2000 AND 90000",
+    "SELECT name FROM companyx.employees WHERE companyx.employees.salary >= 200000000",
+    "SELECT name FROM companyx.employees WHERE salary>=2",
+  ]) ok(checkMoney(sql, q2, cols).length === 1, `반대쪽 비교, BETWEEN, 원 단위, 억 단위도 단위 오류: ${sql}`);
+  for (const sql of [
+    "SELECT name FROM companyx.employees e WHERE e.salary >= 20000",
+    "SELECT name FROM companyx.employees WHERE salary * 12 >= 2000",
+    "SELECT name FROM companyx.employees WHERE salary >= 2000 * 10",
+    "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON e.dept_id = d.id GROUP BY d.name HAVING SUM(e.salary) >= 2000",
+    "SELECT name FROM companyx.employees WHERE name = 'salary >= 2000'",
+    "SELECT name FROM companyx.employees WHERE salary >= 7777",
+    "SELECT name FROM companyx.employees WHERE total_salary >= 2000",
+  ]) ok(checkMoney(sql, q2, cols).length === 0, `만원 값 그대로, 식, 집계, 문자열, 관계없는 숫자, 다른 열은 보지 않는다: ${sql}`);
+  ok(checkMoney("SELECT name FROM companyx.employees WHERE salary >= 2000", "연봉 알려줘", cols).length === 0, "질문에 금액 표현이 없으면 보지 않는다");
+  ok(moneyColumns("bench").length === 0 && moneyColumns("public").length === 0, "만원 단위를 모르는 스키마(bench, smoke)는 끈다");
+
+  // 수리 경로: 단위 오류를 사유로 되먹여 한 번 고치고, 고친 것만 실행한다. 생성기와 풀은 가짜.
+  const fakePool = (rows: (sql: string) => Record<string, unknown>[], executed: string[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (/^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql)) executed.push(sql);
+          const r = /^\s*(select|with)\b/i.test(sql) ? rows(sql) : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const wrong = "SELECT name FROM companyx.employees WHERE salary >= 2000";
+  const right = "SELECT name FROM companyx.employees WHERE salary >= 20000";
+  const hints: string[] = [];
+  const fixTo = (sql: string) => async (_q: string, _f: string, hint: string, _c?: string, kind?: string) => {
+    hints.push(`${kind}: ${hint}`);
+    return sql;
+  };
+  const ran: string[] = [];
+  const fixed = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran), q2, wrong, { repairer: fixTo(right) });
+  ok(
+    fixed.text === right && fixed.repaired && fixed.repairReason === "untrusted" && fixed.gate?.outcome === "repaired" && ran.join() === right,
+    `단위 오류 SQL 은 실행하지 않고, 고친 SQL 만 실행한다 (got ${JSON.stringify({ text: fixed.text, ran, gate: fixed.gate?.outcome })})`,
+  );
+  ok(hints.at(-1)?.startsWith("untrusted: 금액 조건 salary >= 2000") === true && hints.at(-1)?.includes("20000 이어야 한다") === true, `수리 안내가 기대 값을 말한다 (got ${hints.at(-1)})`);
+  ok(sqlGatePolicy(fixed.gate)?.verdict === "repair" && sqlGatePolicy(fixed.gate)?.detail.includes("salary >= 2000") === true, "감사 정책 줄에 수리와 그 사유가 남는다");
+  const ran2: string[] = [];
+  const still = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran2), q2, wrong, { repairer: fixTo("SELECT name FROM companyx.employees WHERE salary >= 200000000") });
+  ok(still.text === null && !still.result && ran2.length === 0 && still.gate?.outcome === "refused" && still.gate.rejected.length === 2, `고친 것도 단위가 틀리면 아무것도 실행하지 않는다 (got ${JSON.stringify(still.gate)})`);
+  // 0행 수리가 금액 단위를 다시 틀리면 처음 SQL 의 0행을 그대로 쓴다(직원 45명을 돌려주지 않는다).
+  const ran3: string[] = [];
+  const kept = await executeWithRepair(fakePool((sql) => (/>= 20000/.test(sql) ? [] : [{ name: "직원" }]), ran3), q2, right, { repairer: fixTo(wrong) });
+  ok(kept.text === right && kept.result?.rows.length === 0 && kept.gate?.outcome === "kept" && ran3.join() === right, `0행 수리의 단위 오류는 실행하지 않는다 (got ${JSON.stringify({ text: kept.text, ran3, gate: kept.gate?.outcome })})`);
+  const ran4: string[] = [];
+  const plain = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran4), "기술지원팀 직원 목록과 연봉을 알려줘", wrong, { repairer: fixTo(right) });
+  ok(plain.text === wrong && !plain.gate && ran4.join() === wrong, "질문에 금액 표현이 없으면 종전 그대로 실행한다");
+  const ran5: string[] = [];
+  const bench = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran5), q2, wrong, { repairer: fixTo(right), schema: "bench" });
+  ok(bench.text === wrong && !bench.gate, "금액 열을 모르는 스키마는 종전 그대로 실행한다");
+
+  // ask: 고쳐도 단위가 틀리면 7B 를 부르지 않고 금액 조건을 말하는 정해진 문장으로 답하고, 감사에 sql-trust-gate deny 가 남는다.
+  let called = 0;
+  const llm = async () => {
+    called++;
+    return "45명입니다.";
+  };
+  // 금액 열은 companyx 프로파일의 스키마에만 있다. 이 스위트는 smoke 로 돌므로 그동안만 바꾼다.
+  const savedDs = process.env.DATASET;
+  const savedKg = process.env.KG_SCHEMA;
+  delete process.env.KG_SCHEMA;
+  process.env.DATASET = "companyx";
+  let asked: Awaited<ReturnType<typeof ask>>;
+  try {
+    asked = await ask(q2, { pool: fakePool(() => [{ name: "직원" }], []), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => wrong });
+  } finally {
+    if (savedDs === undefined) delete process.env.DATASET;
+    else process.env.DATASET = savedDs;
+    if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
+  }
+  ok(called === 0 && asked.sql.text === null && asked.sql.gate?.outcome === "refused", "단위 오류 SQL 은 실행하지 않고 7B 도 부르지 않는다");
+  ok(
+    asked.answer.startsWith("이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다.") &&
+      asked.answer.includes("금액 조건(salary >= 2000)") &&
+      asked.answer.includes("2억 원 = 20000만 원") &&
+      asked.answer.includes("「20000만 원」"),
+    `금액 조건 때문에 답하지 않았다고 말한다 (got ${asked.answer})`,
+  );
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const gate = buildAuditRecord(asked).policies.find((p) => p.policy === "sql-trust-gate");
+  ok(gate?.verdict === "deny" && gate.detail.includes("금액 조건 salary >= 2000"), `감사 레코드에 sql-trust-gate deny 와 사유 (got ${JSON.stringify(gate)})`);
+  // 금액 사유가 외래키나 번호 사유와 함께 있으면 종전 문장이 먼저다.
+  const mixed = untrustedAnswer({ outcome: "refused", rejected: [{ sql: wrong, reasons: [...bad, "e.id = 1 의 번호 1 은 질문에 없다(질문에 없는 번호로 행을 고름)"] }] });
+  ok(mixed.startsWith("이 질문으로는 믿을 수 있는 조회를 만들지 못해") && mixed.includes("질문에 없는 번호(e.id = 1)"), `번호 사유가 있으면 종전 문장 (got ${mixed})`);
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

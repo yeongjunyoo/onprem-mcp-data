@@ -24,8 +24,11 @@
 //   checkSql  — ① 조인 조건의 열 쌍이 스키마에 선언된 외래키인가 ② `id = 숫자` 의 숫자가 질문에 있는가.
 //               「매출 알려줘」에 7B 가 `JOIN employees e ON s.contract_id = e.id` 로 없는 관계를 이어 담당자
 //               이름을 지어냈고, 「연봉 알려줘」에 `WHERE e.id = 1` 로 묻지 않은 한 사람을 골랐다(D3).
+//   checkMoney — ③ 금액 열과 비교하는 숫자가 질문의 금액과 단위가 맞는가. 「연봉이 2억 원 이상」에 7B 가
+//               `salary >= 2000` 을 써 직원 45명을 모두 돌려줬다(G17 ⑥).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
+import { formatManwon, moneyMentions } from "./money.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -211,6 +214,57 @@ export function checkSql(sql: string, question: string, fks: ForeignKey[] | null
   return { ok: reasons.length === 0 && ids.length === 0, reasons, ids };
 }
 
+/** 스키마마다 만원 단위인 금액 열(nl2sql.ts 의 주석 카드). 여기 없는 스키마(smoke 의 public, bench)는 금액 단위를 보지 않는다. */
+const MONEY_COLUMNS = new Map<string, readonly string[]>([["companyx", ["salary", "amount", "budget", "price_monthly"]]]);
+
+export function moneyColumns(schema: string): readonly string[] {
+  return MONEY_COLUMNS.get(schema) ?? [];
+}
+
+/** 금액 단위 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const MONEY_REASON = "금액 조건 ";
+const UNIT_FACTORS = [10, 100, 1000, 10000];
+const same = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+
+/** ③ 질문에 금액 표현(money.ts)이 있을 때, 금액 열을 숫자와 비교하는 조건(=, <>, !=, <, <=, >, >=, BETWEEN)의 숫자가
+ * 질문의 만원 값과 10, 100, 1000, 10000 배로 어긋나면 단위 오류다. 사유는 기대한 만원 값을 말한다(수리 안내가 된다).
+ * 질문의 만원 값과 같은 숫자, 어느 값과도 배수 관계가 아닌 숫자, 집계(SUM(amount) > …)와 식(salary * 12 > …), 확실히
+ * 읽지 못하는 문장은 판정하지 않는다. columns 가 비었으면(금액 열을 모르는 스키마) 끈다. */
+export function checkMoney(sql: string, question: string, columns: readonly string[]): string[] {
+  if (!columns.length) return [];
+  const asked = moneyMentions(question);
+  if (!asked.length) return [];
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const col = `(?<![A-Za-z0-9_$.])(?<![*/%^+\\-|]\\s*)(?:${IDENT}\\.){0,2}(?:${columns.join("|")})(?![A-Za-z0-9_$])`;
+  const lit = "(\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?|\\.\\d+(?:[eE][+-]?\\d+)?)(?![A-Za-z0-9_.])";
+  const litEnd = "(?!\\s*[*/%^+\\-|])";
+  const op = "(?:<>|!=|<=|>=|=|<|>)";
+  const forms = [
+    new RegExp(`${col}\\s*${op}\\s*${lit}${litEnd}`, "gi"),
+    new RegExp(`(?<![A-Za-z0-9_$.])(?<![*/%^+\\-|]\\s*)${lit}\\s*${op}\\s*${col}(?!\\s*[*/%^+\\-|.(])`, "gi"),
+    new RegExp(`${col}\\s+(?:not\\s+)?between\\s+(?:symmetric\\s+)?${lit}\\s+and\\s+${lit}${litEnd}`, "gi"),
+  ];
+  const reasons: string[] = [];
+  for (const re of forms) {
+    for (const m of masked.matchAll(re)) {
+      const cond = sql.slice(m.index, m.index + m[0].length).replace(/\s+/g, " ");
+      for (const raw of m.slice(1).filter((x) => x !== undefined)) {
+        const n = Number(raw);
+        if (asked.some((a) => same(a.manwon, n))) continue;
+        const near = asked.find((a) => UNIT_FACTORS.some((f) => same(n * f, a.manwon) || same(n, a.manwon * f)));
+        if (!near) continue;
+        const want = formatManwon(near.manwon);
+        reasons.push(
+          `${MONEY_REASON}${cond} 의 ${raw} 은 질문의 금액 「${near.text}」(=${want}만 원)과 단위가 다르다. ` +
+            `금액 열은 만원 단위라 ${want} 이어야 한다`,
+        );
+      }
+    }
+  }
+  return reasons;
+}
+
 /** 질문에 없는 번호로 건 id 조건 가운데 그 행의 이름(name 열)이 질문에 그대로 있는 것은 거부하지 않는다.
  * 「Client-N에 메일 보내야 돼」에 c.id = 14 는 Client-N 을 가리키므로 추측이 아니다(qwen3.5:9b 홀드아웃3 h3-05,
  * 정답으로 채점된 SQL). 「연봉 알려줘」의 e.id = 1(윤소연)은 질문에 이름이 없어 그대로 거부한다. 표 이름은
@@ -294,11 +348,23 @@ export function sqlGatePolicy(gate: SqlGate | undefined): PolicyVerdict | undefi
   return { policy: "sql-trust-gate", verdict: gate.outcome === "repaired" ? "repair" : "deny", detail: `${head} — ${why}` };
 }
 
-/** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. */
+/** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. 금액 단위만 걸렸으면 금액 조건을 말하고 만원으로
+ * 바꿔 묻는 법을 알린다. */
 export function untrustedAnswer(gate: SqlGate): string {
   const reasons = gate.rejected.flatMap((r) => r.reasons);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
-  const id = reasons.find((r) => !r.startsWith("조인 조건"))?.match(/^(.+?) 의 번호/)?.[1];
+  const id = reasons.find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON))?.match(/^(.+?) 의 번호/)?.[1];
+  const money = reasons
+    .find((r) => r.startsWith(MONEY_REASON))
+    ?.match(/^금액 조건 (.+?) 의 [^ ]+ 은 질문의 금액 「(.+?)」\(=([^)]+)만 원\)/);
+  if (!join && !id && money) {
+    const [, cond, text, want] = money;
+    return (
+      "이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
+      `생성된 SQL 이 금액 조건(${cond})을 질문의 금액(${text} = ${want}만 원)과 다른 단위로 걸어서 실행하지 않았습니다. ` +
+      `금액은 만원 단위 숫자로 바꿔 다시 물어봐 주세요. 예: 「${text}」 대신 「${want}만 원」`
+    );
+  }
   const why = join
     ? `생성된 SQL 이 외래키가 아닌 열(${join})로 표를 이어서 실행하지 않았습니다. `
     : id
