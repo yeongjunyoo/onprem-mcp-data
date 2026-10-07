@@ -701,6 +701,56 @@ const deadEmbedder: Embedder = {
   });
   ok(llmCalls === 1 && one.answer.startsWith("영업팀과") && one.answer.includes("[조회 결과 1건]"), "단독 1위(1행)는 종전처럼 7B 가 문장을 쓴다");
 
+  // 랜덤 테스트 2차 R11: 조인 열이 그 표에 없으면 사유와 수리 안내가 그 열을 말한다(「projects 에는 dept_id 열이 없다」).
+  {
+    const { untrustedAnswer } = await import("./sqltrust.js");
+    const { executeWithRepair } = await import("./sqlrepair.js");
+    const PFKS = [...FKS, { table: "projects", column: "manager_id", refTable: "employees", refColumn: "id" }, { table: "projects", column: "client_id", refTable: "clients", refColumn: "id" }];
+    const COLS = new Map([
+      ["projects", new Set(["id", "name", "client_id", "manager_id", "contract_id", "status", "budget"])],
+      ["departments", new Set(["id", "name", "head_id"])],
+      ["employees", new Set(["id", "name", "dept_id", "salary"])],
+    ]);
+    const b04 = "SELECT p.name, p.budget, d.name AS department_name FROM companyx.projects p JOIN companyx.departments d ON p.dept_id = d.id ORDER BY p.budget DESC LIMIT 3";
+    const miss = checkSql(b04, "예산이 가장 큰 프로젝트 3개를 알려줘", PFKS, COLS);
+    ok(
+      miss.reasons.join() ===
+        "조인 조건 p.dept_id = d.id 은 없는 열을 쓴다(projects 에는 dept_id 열이 없다). projects 는 manager_id → employees, client_id → clients 로만 이어진다. 질문이 묻지 않은 표의 조인은 뺀다",
+      `없는 열과 그 표가 이어지는 표를 말한다 (got ${miss.reasons})`,
+    );
+    ok(checkSql(b04, "q", PFKS).reasons.join() === "조인 조건 p.dept_id = d.id 은 스키마에 선언된 외래키가 아니다", "열 목록이 없으면 종전 사유");
+    ok(checkSql(qaSales, "매출 알려줘", FKS, COLS).reasons.join() === salesCheck.reasons.join(), "있는 열끼리의 잘못된 조인은 종전 사유(계약 id = 직원 id)");
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: b04, reasons: miss.reasons }] }).includes("생성된 SQL 이 표에 없는 열로 표를 이어서(projects 에는 dept_id 열이 없다) 실행하지 않았습니다."),
+      "거절 문장도 없는 열을 말한다",
+    );
+    // TC-146 의 거절(질문에 없는 번호)은 사유와 문장이 종전 그대로다.
+    const tc146 = checkSql("SELECT name FROM companyx.departments WHERE id = 1", "파이썬으로 피보나치 함수 짜줘", PFKS, COLS);
+    ok(
+      tc146.reasons.length === 0 && tc146.ids[0]?.reason === "id = 1 의 번호 1 은 질문에 없다(질문에 없는 번호로 행을 고름)" &&
+        untrustedAnswer({ outcome: "refused", rejected: [{ sql: "x", reasons: [tc146.ids[0].reason] }] }) ===
+          "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 질문에 없는 번호(id = 1)로 한 건만 골라서 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+      "TC-146 거절은 종전 그대로",
+    );
+    // 수리에 넘기는 안내에 없는 열이 들어간다(카탈로그는 pg_attribute 에서 읽는다).
+    const colRows = [...COLS].flatMap(([t, cs]) => [...cs].map((c) => ({ table_name: t, column_name: c })));
+    const pfkRows = PFKS.map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+    const catPool = {
+      connect: async () => ({ query: async () => ({ rows: [{ name: "p" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }),
+      query: async (sql: string) =>
+        /pg_constraint/.test(sql) ? { rows: pfkRows, rowCount: pfkRows.length } : /pg_attribute/.test(sql) ? { rows: colRows, rowCount: colRows.length } : { rows: [], rowCount: 0 },
+    } as unknown as Pool;
+    let hint = "";
+    const fixedSql = "SELECT p.name, p.budget FROM companyx.projects p ORDER BY p.budget DESC LIMIT 3";
+    const ex = await executeWithRepair(catPool, "예산이 가장 큰 프로젝트 3개를 알려줘", b04, {
+      repairer: async (_q, _sql, why) => {
+        hint = why;
+        return fixedSql;
+      },
+    });
+    ok(hint.includes("projects 에는 dept_id 열이 없다") && ex.repaired && ex.text === fixedSql && ex.gate?.outcome === "repaired", `수리 안내가 없는 열을 말하고, 조인을 뺀 수리를 실행한다 (got ${hint})`);
+  }
+
   // #255 ②: 외래키는 프로파일의 테이블이 있는 스키마에서 읽는다. bench 의 테이블은 bench 스키마에 있고 외래키를
   // 선언한다(eval/internal/schema.sql). 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다.
   {

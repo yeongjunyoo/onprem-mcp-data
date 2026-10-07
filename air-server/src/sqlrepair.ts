@@ -36,7 +36,7 @@
 import type { Pool } from "./db.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
-import { checkMoney, checkSql, confirmNamedIds, declaredForeignKeys, moneyColumns, withTies, type SqlGate } from "./sqltrust.js";
+import { untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
 
 export interface RepairOpts {
   /** 엔진 오류일 때 고친다. false 면 한 번만 실행한다. */
@@ -67,13 +67,10 @@ const EMPTY_FEEDBACK =
 
 export async function executeWithRepair(pool: Pool, query: string, generated: string, opts: RepairOpts = {}): Promise<Executed> {
   const schema = opts.schema ?? "companyx";
-  const fks = await declaredForeignKeys(pool, schema);
-  const money = moneyColumns(schema);
   const repair = opts.repairer ?? repairSql;
   const rejected: SqlGate["rejected"] = [];
   const trusted = async (sql: string) => {
-    const v = checkSql(sql, query, fks);
-    const reasons = [...(v.ok ? [] : await confirmNamedIds(pool, schema, v, query)), ...checkMoney(sql, query, money)];
+    const reasons = await untrustedReasons(pool, schema, sql, query);
     if (reasons.length) rejected.push({ sql, reasons });
     return reasons.length === 0;
   };
