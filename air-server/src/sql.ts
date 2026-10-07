@@ -179,7 +179,46 @@ async function hasRoRole(client: PoolClient): Promise<boolean> {
   return roRole;
 }
 
-export async function sqlQuery(pool: Pool, sql: string): Promise<SqlResult> {
+/** 문장 하나의 실행 상한(ms). 커서로 읽을 때는 나머지 행을 세는 MOVE 까지 이 안에서 끝낸다. */
+const STATEMENT_TIMEOUT_MS = 8_000;
+
+type Read = { rows: Record<string, unknown>[]; rowCount: number | null; fields?: { name: string }[] };
+
+/** 서버 쪽 커서로 MAX_ROWS + 1 행까지만 받는다(⑨). 종전에는 결과를 전부 받은 뒤 200행으로 잘랐다.
+ *
+ * 커서는 FETCH 한 행만 보내고, 넘친 나머지는 MOVE 로 서버에서 세기만 해 rowCount 는 종전처럼 전체 행 수다
+ * (TC-063 「rowCount=500, rows 200건」). cursor_tuple_fraction = 1 이면 커서도 전체 행을 기준으로 계획을 세워
+ * (보통 쿼리와 같은 계획) 행 순서가 같다. LIMIT 하위 질의로 감싸면 순서가 보장되지 않는다. MOVE 는 DECLARE 부터 잰
+ * 상한 안에서만 돈다. 커서로 열 수 없는 문장(데이터를 바꾸는 CTE 등)은 세이브포인트로 되돌려 종전처럼 실행한다. */
+async function readCapped(client: PoolClient, text: string): Promise<Read> {
+  const t0 = Date.now();
+  await client.query("SET LOCAL cursor_tuple_fraction = 1");
+  await client.query("SAVEPOINT mcp_read");
+  try {
+    await client.query(`DECLARE mcp_rows NO SCROLL CURSOR FOR ${text}`);
+  } catch {
+    // 커서가 받지 않는 문장이다(TC-080 의 데이터를 바꾸는 CTE, SELECT INTO, 문법 오류 등). 종전처럼 한 번에 실행해
+    // 결과와 오류 문장이 종전과 같게 한다.
+    await client.query("ROLLBACK TO SAVEPOINT mcp_read");
+    return client.query(text);
+  }
+  const head = await client.query(`FETCH ${MAX_ROWS + 1} FROM mcp_rows`);
+  let rowCount = head.rows.length;
+  if (rowCount > MAX_ROWS) {
+    await client.query(`SET LOCAL statement_timeout = ${Math.max(1, STATEMENT_TIMEOUT_MS - (Date.now() - t0))}`);
+    rowCount += (await client.query("MOVE FORWARD ALL IN mcp_rows")).rowCount ?? 0;
+  }
+  await client.query("CLOSE mcp_rows");
+  return { rows: head.rows, rowCount, fields: head.fields };
+}
+
+/** sql.query 도구가 쓰는 결과 상한. cursor 를 주면 커서로 MAX_ROWS + 1 행까지만 받는다. 생성 SQL 경로(파이프라인,
+ * 평가)는 종전처럼 한 번에 받는다. */
+export interface SqlQueryOpts {
+  cursor?: boolean;
+}
+
+export async function sqlQuery(pool: Pool, sql: string, opts: SqlQueryOpts = {}): Promise<SqlResult> {
   const text = readOnlyText(sql);
   if (text === null) {
     return {
@@ -214,14 +253,14 @@ export async function sqlQuery(pool: Pool, sql: string): Promise<SqlResult> {
     // SET LOCAL is transaction-scoped and reverts on ROLLBACK. mcp_ro is NOT a
     // superuser, so pg_read_file/pg_ls_dir and any write are rejected by the DB.
     if (useRole) await client.query("SET LOCAL ROLE mcp_ro");
-    await client.query("SET LOCAL statement_timeout = '8s'");
+    await client.query(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
     await client.query("SET LOCAL lock_timeout = '2s'");
     // 가드(tokenizeSql)는 문자열을 이 설정으로 읽는다. 서버 기본값이 off 여도 가드와 데이터베이스가 같은 자리에서
     // 문자열을 끝내게 한다(`;` 가 문자열 안에 있다고 본 문장이 데이터베이스에서 두 문장으로 갈리지 않게).
     await client.query("SET LOCAL standard_conforming_strings = on");
-    const res = await client.query(text);
+    const res: Read = opts.cursor ? await readCapped(client, text) : await client.query(text);
     await client.query("ROLLBACK");
-    const all = res.rows as Record<string, unknown>[];
+    const all = res.rows;
     const truncated = all.length > MAX_ROWS;
     return {
       ok: true,

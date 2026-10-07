@@ -213,7 +213,8 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (DB read, no model)
         tags: ["sql", "postgres", "read-only", "pylon7:L3"], // Pylon-7 L3 Resource
-        handler: async ({ sql }) => sqlQuery(getReadPool(), sql as string),
+        // 서버 쪽 커서로 행 상한 + 1 행까지만 받는다(sql.ts readCapped). rowCount 는 종전처럼 전체 행 수다.
+        handler: async ({ sql }) => sqlQuery(getReadPool(), sql as string, { cursor: true }),
       }),
 
       defineTool(VECTOR_TOOL, {

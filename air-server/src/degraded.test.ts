@@ -958,5 +958,85 @@ const deadEmbedder: Embedder = {
   ok(setup.includes("SET LOCAL standard_conforming_strings = on"), "가드와 같은 문자열 규칙(standard_conforming_strings = on)으로 실행한다");
 }
 
+// sql.query 는 결과를 전부 받은 뒤 200행으로 잘랐다(G17 ⑨). 이제 서버 쪽 커서로 201행까지만 받고 나머지는 MOVE 로 세기만 한다.
+// rowCount 는 종전처럼 전체 행 수다(TC-063 「rowCount=500, rows 200건」). 가짜 연결이 PostgreSQL 의 커서 응답을 흉내 낸다.
+{
+  const { sqlQuery, MAX_ROWS } = await import("./sql.js");
+  const cursorPool = (total: number, fail?: { declare?: string; plain?: Error }) => {
+    const log: string[] = [];
+    let pos = 0;
+    const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ id: pos + i + 1 }));
+    const pool = {
+      connect: async () => ({
+        query: async (q: string) => {
+          log.push(q);
+          if (/^DECLARE /.test(q) && fail?.declare) throw new Error(fail.declare);
+          const fetch = /^FETCH (\d+) FROM mcp_rows$/.exec(q);
+          if (fetch) {
+            const r = rows(Math.min(Number(fetch[1]), total - pos));
+            pos += r.length;
+            return { rows: r, rowCount: r.length, fields: [{ name: "id" }] };
+          }
+          if (/^MOVE FORWARD ALL IN mcp_rows$/.test(q)) {
+            const moved = total - pos;
+            pos = total;
+            return { rows: [], rowCount: moved };
+          }
+          if (/^SELECT \* FROM/.test(q)) {
+            if (fail?.plain) throw fail.plain;
+            return { rows: rows(total), rowCount: total, fields: [{ name: "id" }] };
+          }
+          return { rows: [], rowCount: 0 };
+        },
+        release: () => {},
+      }),
+    } as unknown as Pool;
+    return { pool, log };
+  };
+  const sales = "SELECT * FROM companyx.sales";
+
+  const big = cursorPool(500);
+  const r500 = await sqlQuery(big.pool, sales, { cursor: true });
+  ok(r500.ok && r500.rowCount === 500 && r500.rows.length === MAX_ROWS && r500.truncated && r500.rows[199].id === 200, `rowCount 500, rows 200, truncated(TC-063) (got ${r500.rowCount}/${r500.rows.length}/${r500.truncated})`);
+  ok(!big.log.includes(sales), "결과를 한 번에 받는 문장을 보내지 않는다");
+  const at = (re: RegExp) => {
+    for (let i = big.log.length - 1; i >= 0; i--) if (re.test(big.log[i])) return i;
+    return -1;
+  };
+  ok(
+    at(/^SET LOCAL cursor_tuple_fraction = 1$/) >= 0 &&
+      at(/^SET LOCAL cursor_tuple_fraction/) < at(/^SAVEPOINT mcp_read$/) &&
+      at(/^SAVEPOINT/) < at(new RegExp(`^DECLARE mcp_rows NO SCROLL CURSOR FOR ${sales.replace(/\*/g, "\\*")}$`)) &&
+      at(/^DECLARE/) < at(/^FETCH 201 FROM mcp_rows$/) &&
+      at(/^FETCH/) < at(/^SET LOCAL statement_timeout = \d+$/) &&
+      at(/^SET LOCAL statement_timeout = \d+$/) < at(/^MOVE FORWARD ALL IN mcp_rows$/) &&
+      at(/^MOVE/) < at(/^CLOSE mcp_rows$/) &&
+      at(/^CLOSE/) < at(/^ROLLBACK$/),
+    `커서 순서: 계획 기준, 세이브포인트, DECLARE, FETCH 201, 남은 상한, MOVE, CLOSE, ROLLBACK (got ${big.log.join(" / ")})`,
+  );
+  const moveBudget = Number(/^SET LOCAL statement_timeout = (\d+)$/.exec(big.log[at(/^SET LOCAL statement_timeout = \d+$/)])?.[1]);
+  ok(big.log[1] === "SET LOCAL statement_timeout = 8000" && moveBudget > 0 && moveBudget <= 8000, `MOVE 는 처음 상한(8초)에서 쓴 시간을 뺀 안에서 돈다 (got ${moveBudget})`);
+
+  for (const total of [0, 1, 200]) {
+    const small = cursorPool(total);
+    const r = await sqlQuery(small.pool, sales, { cursor: true });
+    ok(r.ok && r.rowCount === total && r.rows.length === total && !r.truncated && !small.log.some((q) => /^MOVE/.test(q)), `${total}행이면 FETCH 한 번으로 끝나고 MOVE 하지 않는다`);
+  }
+  const edge = await sqlQuery(cursorPool(201).pool, sales, { cursor: true });
+  ok(edge.rowCount === 201 && edge.rows.length === 200 && edge.truncated, "201행이면 200행과 truncated");
+
+  // 커서가 받지 않는 문장(TC-080 의 데이터를 바꾸는 CTE)은 세이브포인트로 되돌려 종전처럼 실행한다. 오류 문장이 종전과 같다.
+  const ro = Object.assign(new Error("cannot execute SELECT in a read-only transaction"), { code: "25006" });
+  const cte = cursorPool(0, { declare: "DECLARE CURSOR must not contain data-modifying statements in WITH", plain: ro });
+  const tc080 = await sqlQuery(cte.pool, "SELECT * FROM companyx.sales -- 데이터를 바꾸는 CTE 대신", { cursor: true });
+  ok(!tc080.ok && tc080.error === "cannot execute SELECT in a read-only transaction (25006)", `DECLARE 가 거부하면 종전 실행의 오류를 돌려준다 (got ${tc080.error})`);
+  ok(cte.log.includes("ROLLBACK TO SAVEPOINT mcp_read") && cte.log.indexOf("ROLLBACK TO SAVEPOINT mcp_read") < cte.log.findIndex((q) => /^SELECT \* FROM/.test(q)), "되돌린 뒤 종전 문장을 실행한다");
+
+  // 생성 SQL 경로(파이프라인, 평가)는 cursor 를 주지 않아 종전처럼 한 번에 받는다.
+  const plain = cursorPool(500);
+  const p = await sqlQuery(plain.pool, sales);
+  ok(p.rowCount === 500 && p.rows.length === 200 && plain.log.includes(sales) && !plain.log.some((q) => /^(DECLARE|FETCH|SAVEPOINT)/.test(q)), "cursor 를 주지 않으면 종전 그대로");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
