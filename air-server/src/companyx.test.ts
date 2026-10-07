@@ -169,6 +169,17 @@ async function live() {
   eq(near.not_found?.reason, "similar_name_mismatch", "near-miss -> similar_name_mismatch");
   eq(near.not_found?.candidates[0]?.name, "클라우드사업부", "candidate is the similarly named department");
 
+  // 섞인 질문(G17 ①): 있는 개체는 펼치고 없는 개체는 사유로 남긴다. 없는 개체가 든 마디의 관계(담당)는
+  // 찾은 개체에서 펼치지 않는다 — 펼치면 Client-A 의 담당자가 서울물산의 담당자로 읽혔다.
+  const mixed = await graphLane(pool, "서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘", 5, 2, schema);
+  eq(mixed.missing?.[0]?.query_entity, "서울물산", "mixed question reports the missing entity");
+  eq(mixed.answer_query, "Client-A가 사용 중인 제품을 알려줘", "answer step gets the question without the missing clause");
+  ok(
+    mixed.items[0]?.text.includes("서울물산") && !mixed.items.some((i) => i.text.includes("담당 고객사")) &&
+      mixed.items.some((i) => i.text.includes("Product-C3")),
+    "mixed question: not-found line first, Client-A products kept, no MANAGES_ACCOUNT edge offered",
+  );
+
   // A real entity still traverses.
   const found = await graphLane(pool, "Client-A가 사용 중인 제품 목록은?", 5, 2, schema);
   ok(found.strategy.startsWith("seeded"), `real entity -> seeded traversal (got ${found.strategy})`);
