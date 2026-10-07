@@ -1,5 +1,5 @@
 onprem-mcp-data — 2026 오픈소스 개발자대회 리원에이스 지정과제
-Copyright 2026 onprem-mcp-data contributors
+Copyright 2026 Yeongjun Yoo
 Licensed under the Apache License, Version 2.0.
 
 This product bundles / depends on the following third-party components.
@@ -14,6 +14,14 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
     https://github.com/microsoft/TypeScript
     빌드 전용(런타임에 포함되지 않는다). Apache-2.0 이라 귀속을 함께 적는다.
 - pg (node-postgres)                             — MIT       — https://github.com/brianc/node-postgres
+
+== Files copied unchanged from the air project ==
+- air-server/.ai/context.md, air-server/.vscode/air.code-snippets
+    air CLI 프로젝트 템플릿(packages/cli/src/templates/*)이 만든 파일을 고치지 않고 둔다. Apache-2.0.
+    air 의 NOTICE:
+      air - Build, run, and manage MCP servers
+      Copyright 2026 CodePedia Labs (labs.codepedia.kr)
+      This product includes software developed by CodePedia Labs.
 
 == Data substrate ==
 - PostgreSQL 16                                  — PostgreSQL License (permissive, BSD-like)
