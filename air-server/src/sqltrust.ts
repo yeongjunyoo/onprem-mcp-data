@@ -26,12 +26,15 @@
 //               이름을 지어냈고, 「연봉 알려줘」에 `WHERE e.id = 1` 로 묻지 않은 한 사람을 골랐다(D3).
 //   checkMoney — ③ 금액 열과 비교하는 숫자가 질문의 금액과 단위가 맞는가. 「연봉이 2억 원 이상」에 7B 가
 //               `salary >= 2000` 을 써 직원 45명을 모두 돌려줬다(G17 ⑥).
+//   rankRewrite — 질문이 「두 번째로」처럼 2위 아래 순위를 묻고 생성 SQL 이 `ORDER BY … LIMIT 1 OFFSET k` 로 끝나면 그 순위
+//               (k+1)의 행을 모두 돌려주는 DENSE_RANK 질의로 바꾼다. 「계약을 두 번째로 많이 담당한 직원」은 장미라, 김준혁,
+//               안소연이 4건으로 같은데 OFFSET 1 이 김준혁 한 명만 골랐다.
 //   vagueMeasure — 질문이 측정 항목 한 낱말(「매출 알려줘」)뿐이면 SQL 을 만들지 않고 되묻는다. 7B 가 매출 표 전체를 골랐고
 //               답 문장은 그 가운데 한 건의 값을 매출이라고 말했다(「매출은 1953입니다.」).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
-import { sqlQuery } from "./sql.js";
+import { sqlQuery, tokenizeSql, type SqlToken } from "./sql.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -112,6 +115,173 @@ export function withTies(sql: string): string {
   if (top(/\b(offset|fetch)\b/gi).length) return sql;
   const end = m.index + m[0].length - m[1].length;
   return `${sql.slice(0, m.index)}FETCH FIRST 1 ROWS WITH TIES${sql.slice(end)}`;
+}
+
+const KO_NUMBER: Readonly<Record<string, number>> = {
+  두: 2, 둘: 2, 세: 3, 셋: 3, 네: 4, 넷: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10,
+};
+const ORDINAL_RANK =
+  /(?<![가-힣0-9])(?:(두|세|네|다섯|여섯|일곱|여덟|아홉|열|\d+)\s*번\s?째|(둘|셋|넷|다섯|여섯|일곱|여덟|아홉|열)째|(\d+)위)/g;
+
+/** 질문에 든 순위 가운데 2 이상: 「두 번째」, 「3번째」, 「셋째」, 「2위」. 「첫 번째」와 「1위」는 withTies 가 맡는다. 「위」는 숫자에
+ * 붙어 있을 때만 본다(「08-18 위조」의 18 은 순위가 아니다). 결정론이다. */
+export function ordinalRanks(question: string): number[] {
+  const out = new Set<number>();
+  for (const m of question.matchAll(ORDINAL_RANK)) {
+    const w = m[1] ?? m[2] ?? m[3];
+    const n = /^\d+$/.test(w) ? Number(w) : KO_NUMBER[w];
+    if (n >= 2) out.add(n);
+  }
+  return [...out];
+}
+
+const NAME_RE = /[A-Za-z_\u0080-￿][A-Za-z0-9_$\u0080-￿]*/y;
+
+/** 낱말(tokenizeSql)이 원문에서 끝나는 자리. */
+function tokenEnd(sql: string, t: SqlToken): number {
+  if (t.k === "q") return t.at + 2 + t.v.replace(/"/g, '""').length;
+  if (t.k === "s") return t.at + t.v.length + (sql[t.at] === "'" || sql[t.at] === "$" ? 0 : 1); // E'…' 는 at 이 e 자리다
+  if (t.k === "w") {
+    NAME_RE.lastIndex = t.at;
+    return t.at + (NAME_RE.exec(sql)?.[0].length ?? t.v.length);
+  }
+  return t.at + t.v.length;
+}
+
+/** 별칭으로 쓰이지 않는 낱말. 식 끝의 이 낱말(CASE … END, IS NULL)을 별칭으로 읽지 않는다. */
+const NOT_OUTPUT_NAME = new Set(
+  ("end null true false and or not is in like ilike similar between then else when case from as asc desc over filter " +
+    "within distinct all any some unknown collate at zone").split(" "),
+);
+
+/** 순위 질문의 생성 SQL 을 그 순위의 행을 모두 돌려주는 SQL 로 바꾼다. 바꿀 꼴이 아니면 null.
+ *
+ * 질문의 순위(ordinalRanks)가 k+1 이고 SQL 의 바깥 꼬리가 `ORDER BY <열> LIMIT 1 OFFSET k`(또는 OFFSET k LIMIT 1,
+ * OFFSET k FETCH FIRST 1 ROWS ONLY)일 때만 바꾼다. 바꾼 SQL 은 본 SELECT 목록에 `DENSE_RANK() OVER (ORDER BY <열>)` 를
+ * rank 열로 더하고 LIMIT, OFFSET 을 뺀 질의를 감싸 rank = k+1 인 행을 모두 고른다. 같은 값이 여럿이면 OFFSET k 는 그 가운데
+ * 하나를 골랐다(「계약을 두 번째로 많이 담당한 직원」 4건 셋 가운데 김준혁). ORDER BY 가 출력 열 이름이나 자리 번호를 쓰면 그
+ * 식으로 바꿔 넣는다(창 함수의 ORDER BY 는 출력 열 이름을 모른다). WITH 로 시작하거나 DISTINCT, 집합 연산, FOR UPDATE, 주석,
+ * rank 라는 이름이 있는 문장, 읽지 못하는 문장은 바꾸지 않는다. */
+export function rankRewrite(sql: string, question: string): { text: string; rank: number } | null {
+  const ranks = ordinalRanks(question);
+  if (!ranks.length) return null;
+  const all = tokenizeSql(sql);
+  if (!all?.length) return null;
+  // 원문 조각을 옮겨 붙이므로 낱말 사이에 공백 말고 다른 것(주석)이 있으면 다루지 않는다.
+  let prev = 0;
+  for (const t of all) {
+    if (sql.slice(prev, t.at).trim() || ((t.k === "w" || t.k === "q") && t.v === "rank")) return null;
+    prev = tokenEnd(sql, t);
+  }
+  if (sql.slice(prev).trim()) return null;
+  const toks = all[all.length - 1].k === ";" ? all.slice(0, -1) : all;
+  const depth: number[] = [];
+  let level = 0;
+  for (const t of toks) {
+    if (t.k === ";") return null;
+    if (t.k === ")" || t.k === "]") level--;
+    if (level < 0) return null;
+    depth.push(level);
+    if (t.k === "(" || t.k === "[") level++;
+  }
+  if (level !== 0) return null;
+  // 바깥 절의 키워드. 점 뒤(t.order)는 이름이다.
+  const kw = (i: number) => (depth[i] === 0 && toks[i]?.k === "w" && toks[i - 1]?.k !== "." ? toks[i].v : null);
+  const int = (i: number) => (toks[i]?.k === "o" && /^\d+$/.test(toks[i].v) ? Number(toks[i].v) : null);
+  const isName = (i: number) => toks[i]?.k === "w" || toks[i]?.k === "q";
+  const text = (lo: number, hi: number) => sql.slice(toks[lo].at, tokenEnd(sql, toks[hi - 1]));
+  if (kw(0) !== "select" || kw(1) === "distinct" || kw(1) === "all") return null;
+  let from = -1;
+  let order = -1;
+  let tail = -1;
+  for (let i = 1; i < toks.length; i++) {
+    const w = kw(i);
+    if (w === "select" || w === "union" || w === "intersect" || w === "except" || w === "window" || w === "for" || w === "into") return null;
+    if (w === "from" && from < 0) from = i;
+    else if (w === "order" && kw(i + 1) === "by") {
+      if (order >= 0) return null;
+      order = i;
+    } else if ((w === "limit" || w === "offset" || w === "fetch") && tail < 0) tail = i;
+  }
+  if (from < 0 || order < from || tail < order + 3) return null;
+
+  let limit: number | null = null;
+  let offset: number | null = null;
+  for (let i = tail; i < toks.length; ) {
+    const w = kw(i);
+    if (w === "limit" && limit === null && int(i + 1) !== null) {
+      limit = int(i + 1);
+      i += 2;
+    } else if (w === "offset" && offset === null && int(i + 1) !== null) {
+      offset = int(i + 1);
+      i += 2;
+      if (kw(i) === "row" || kw(i) === "rows") i++;
+    } else if (w === "fetch" && limit === null && (kw(i + 1) === "first" || kw(i + 1) === "next")) {
+      i += 2;
+      limit = int(i) ?? 1;
+      if (int(i) !== null) i++;
+      if (!(kw(i) === "row" || kw(i) === "rows") || kw(i + 1) !== "only") return null;
+      i += 2;
+    } else return null;
+  }
+  if (limit !== 1 || offset === null || offset < 1 || !ranks.includes(offset + 1)) return null;
+
+  const split = (lo: number, hi: number): [number, number][] => {
+    const parts: [number, number][] = [];
+    let start = lo;
+    for (let i = lo; i < hi; i++) {
+      if (depth[i] === 0 && toks[i].k === ",") {
+        parts.push([start, i]);
+        start = i + 1;
+      }
+    }
+    parts.push([start, hi]);
+    return parts;
+  };
+  // 본 SELECT 목록의 항목마다 출력 열 이름과 식. 이름: AS 뒤, 식 뒤에 붙은 이름, 별칭 없는 열(t.x 의 x).
+  const items: { name: string | null; expr: string; star: boolean }[] = [];
+  for (const [lo, hi] of split(1, from)) {
+    if (hi <= lo) return null;
+    const star = toks[hi - 1].k === "o" && toks[hi - 1].v === "*";
+    const last = toks[hi - 1];
+    const before = toks[hi - 2];
+    if (hi - lo >= 3 && kw(hi - 2) === "as" && isName(hi - 1)) items.push({ name: last.v, expr: text(lo, hi - 2), star });
+    else if (
+      hi - lo >= 2 &&
+      isName(hi - 1) &&
+      !(last.k === "w" && NOT_OUTPUT_NAME.has(last.v)) &&
+      (before.k === ")" || before.k === "]" || before.k === "s" || isName(hi - 2) || (before.k === "o" && /^\d/.test(before.v)))
+    ) {
+      items.push({ name: last.v, expr: text(lo, hi - 1), star });
+    } else {
+      const column = toks.slice(lo, hi).every((t, j) => (j % 2 === 0 ? t.k === "w" || t.k === "q" : t.k === "."));
+      items.push({ name: column && (hi - lo) % 2 === 1 ? last.v : null, expr: text(lo, hi), star });
+    }
+  }
+  const keys: string[] = [];
+  for (const [lo, end] of split(order + 2, tail)) {
+    if (end <= lo) return null;
+    let hi = end;
+    if (hi - lo >= 3 && kw(hi - 2) === "nulls" && (kw(hi - 1) === "first" || kw(hi - 1) === "last")) hi -= 2;
+    if (hi - lo >= 2 && (kw(hi - 1) === "asc" || kw(hi - 1) === "desc")) hi -= 1;
+    for (let i = lo; i < hi; i++) if (kw(i) === "using") return null;
+    let expr = text(lo, hi);
+    if (hi - lo === 1 && isName(lo)) {
+      const hit = items.filter((it) => it.name === toks[lo].v);
+      if (hit.length > 1 || hit[0]?.star) return null;
+      if (hit.length) expr = hit[0].expr;
+    } else if (hi - lo === 1 && int(lo) !== null) {
+      const it = items[int(lo)! - 1];
+      if (!it || it.star) return null;
+      expr = it.expr;
+    }
+    keys.push(hi < end ? `${expr} ${text(hi, end)}` : expr);
+  }
+  const rank = offset + 1;
+  const inner =
+    `${sql.slice(0, toks[from].at).trimEnd()}, CAST(DENSE_RANK() OVER (ORDER BY ${keys.join(", ")}) AS integer) AS rank ` +
+    sql.slice(toks[from].at, toks[tail].at).trimEnd();
+  return { text: `SELECT * FROM (${inner}) AS ranked WHERE rank = ${rank}`, rank };
 }
 
 /** 선언된 외래키 한 쌍. table.column 이 refTable.refColumn 을 가리킨다. */
@@ -647,20 +817,26 @@ export function untrustedAnswer(gate: SqlGate): string {
  *
  * 7B 는 컨텍스트의 「FETCH FIRST 1 ROWS WITH TIES」를 보고 한 행만 골라 말했다. 「가장 많은 프로젝트를 진행 중인
  * 고객사는?」 3/3 「Client-J」, 「직원이 가장 많은 부서는 어디야?」 「영업팀」(행은 둘 다 붙음). 공동 1위의 이름은
- * 결정론으로 다 적는다(관계 레인의 「공동 1위 3명」과 같은 말). 이름은 첫 문자열 열, 모델에게 간 행만 쓴다. */
+ * 결정론으로 다 적는다(관계 레인의 「공동 1위 3명」과 같은 말). 이름은 첫 문자열 열, 모델에게 간 행만 쓴다.
+ * 순위 질문을 rankRewrite 로 실행했으면(sql.rank) 그 순위의 같은 값 행들을 같은 말로 적는다: 「공동 2위가 3건입니다: …」. */
 export function tieAnswer(
-  r: { route: string; sql: { text: string | null; result?: { ok: boolean; rows: Record<string, unknown>[] } }; curated: { kept: { source: string }[] } },
+  r: {
+    route: string;
+    sql: { text: string | null; rank?: number; result?: { ok: boolean; rows: Record<string, unknown>[] } };
+    curated: { kept: { source: string }[] };
+  },
   render: (v: unknown) => string,
 ): string | undefined {
   const res = r.sql.result;
   if (r.route !== "structured" || !res?.ok || res.rows.length < 2) return undefined;
-  if (!/\bfetch\s+first\s+1\s+rows\s+with\s+ties\s*;?\s*$/i.test(r.sql.text ?? "")) return undefined;
+  const rank = r.sql.rank ?? (/\bfetch\s+first\s+1\s+rows\s+with\s+ties\s*;?\s*$/i.test(r.sql.text ?? "") ? 1 : 0);
+  if (!rank) return undefined;
   const kept = new Set(r.curated.kept.filter((it) => it.source.startsWith("sql#")).map((it) => Number(it.source.slice(4))));
   const rows = res.rows.filter((_, i) => kept.has(i));
   if (!rows.length) return undefined;
   const col = Object.keys(rows[0]).find((c) => typeof rows[0][c] === "string") ?? Object.keys(rows[0])[0];
   const rest = res.rows.length - rows.length;
-  return `공동 1위가 ${res.rows.length}건입니다: ${rows.map((row) => render(row[col])).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}.`;
+  return `공동 ${rank}위가 ${res.rows.length}건입니다: ${rows.map((row) => render(row[col])).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}.`;
 }
 
 /** ontology.search 의 k 를 vector.search(vector.ts)와 같은 범위로 맞춘다. 0, 음수, 소수가 그대로 SQL LIMIT 에

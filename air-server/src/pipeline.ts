@@ -71,7 +71,7 @@ export interface RetrieveResult {
   /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했거나 질문이 측정 항목 한 낱말뿐이라(gate.vague) SQL 을
    * 만들지 않았을 때만 붙는다. refused 는 생성 모델이 만들었지만 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이
    * 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가
-   * null 이다. */
+   * null 이다. rank 는 순위 질문을 그 순위의 행을 모두 돌려주는 SQL(sqltrust.ts rankRewrite)로 실행했을 때 그 순위다. */
   sql: {
     text: string | null;
     result?: SqlResult;
@@ -79,6 +79,7 @@ export interface RetrieveResult {
     gate?: SqlGate;
     refused?: { kind: string; text: string };
     absent?: string;
+    rank?: number;
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
@@ -453,7 +454,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       repair: deps.repair !== false,
       schema: profile().sqlSchema,
     });
-    return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined, ...(ex.gate ? { gate: ex.gate } : {}) };
+    return {
+      text: ex.text,
+      result: ex.result,
+      repaired: ex.repaired || undefined,
+      ...(ex.gate ? { gate: ex.gate } : {}),
+      ...(ex.rank ? { rank: ex.rank } : {}),
+    };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
     ? vectorSearch(pool, embedder, query, k)
@@ -576,6 +583,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(sql.gate ? { gate: sql.gate } : {}),
       ...(sql.refused ? { refused: sql.refused } : {}),
       ...(sql.absent ? { absent: sql.absent } : {}),
+      ...(sql.rank ? { rank: sql.rank } : {}),
     },
     vector: vecResult,
     graph: graphResult,
@@ -694,8 +702,8 @@ export async function ask(
     return { ...r, answer: NO_TABLE_ANSWER };
   }
 
-  // 공동 1위(WITH TIES 로 2행 이상)는 이름을 모두 적는 결정론 문장으로 답한다(sqltrust.ts tieAnswer).
-  // 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
+  // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
+  // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: withSqlRows(r, tie) };
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.

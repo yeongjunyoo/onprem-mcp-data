@@ -1309,5 +1309,123 @@ const deadEmbedder: Embedder = {
   }
 }
 
+// 순위 질문(「두 번째로 많이」)의 `ORDER BY … LIMIT 1 OFFSET k` 는 같은 순위의 행을 모두 돌려주는 DENSE_RANK 질의로 실행한다.
+// 「계약을 두 번째로 많이 담당한 직원」은 장미라, 김준혁, 안소연이 4건으로 같은데 OFFSET 1 이 김준혁 한 명만 골랐다.
+{
+  const { ordinalRanks, rankRewrite } = await import("./sqltrust.js");
+  const { executeWithRepair } = await import("./sqlrepair.js");
+  for (const [q, ranks] of [
+    ["계약을 두 번째로 많이 담당한 직원은 누구야?", [2]],
+    ["매출이 세번째로 높은 고객사는?", [3]],
+    ["셋째로 큰 계약", [3]],
+    ["2위 고객사는?", [2]],
+    ["12번째 직원", [12]],
+    ["첫 번째로 한 조치가 뭐였지?", []],
+    ["1위 고객사", []],
+    ["서울 지역 매출 상위 5개 고객사를 알려줘", []],
+    ["두 번 이상 계약한 고객사", []],
+    ["2026-08-18 위조 시험", []],
+  ] as const) ok(JSON.stringify(ordinalRanks(q)) === JSON.stringify(ranks), `질문의 순위(2 이상): ${q} → ${JSON.stringify(ranks)} (got ${JSON.stringify(ordinalRanks(q))})`);
+
+  const q2 = "계약을 두 번째로 많이 담당한 직원은 누구야?";
+  const second =
+    "SELECT e.name FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY COUNT(c.id) DESC LIMIT 1 OFFSET 1";
+  const ranked =
+    "SELECT * FROM (SELECT e.name, CAST(DENSE_RANK() OVER (ORDER BY COUNT(c.id) DESC) AS integer) AS rank FROM companyx.employees e " +
+    "JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY COUNT(c.id) DESC) AS ranked WHERE rank = 2";
+  ok(JSON.stringify(rankRewrite(second, q2)) === JSON.stringify({ text: ranked, rank: 2 }), `OFFSET 1 을 2위의 행 전부로 (got ${rankRewrite(second, q2)?.text})`);
+  ok(
+    rankRewrite(
+      "SELECT d.name, COUNT(e.id) AS employee_count FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY employee_count DESC OFFSET 1 LIMIT 1;",
+      "직원이 두 번째로 많은 부서는 어디야?",
+    )?.text ===
+      "SELECT * FROM (SELECT d.name, COUNT(e.id) AS employee_count, CAST(DENSE_RANK() OVER (ORDER BY COUNT(e.id) DESC) AS integer) AS rank " +
+        "FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY employee_count DESC) AS ranked WHERE rank = 2",
+    "출력 열 이름으로 정렬하면 그 식을 창 함수에 넣는다(OFFSET 이 앞, 끝 세미콜론)",
+  );
+  ok(
+    rankRewrite(
+      "SELECT c.name, SUM(s.amount) total FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY 2 DESC NULLS LAST OFFSET 2 ROWS FETCH FIRST 1 ROWS ONLY",
+      "매출이 세 번째로 높은 고객사는?",
+    )?.text ===
+      "SELECT * FROM (SELECT c.name, SUM(s.amount) total, CAST(DENSE_RANK() OVER (ORDER BY SUM(s.amount) DESC NULLS LAST) AS integer) AS rank " +
+        "FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY 2 DESC NULLS LAST) AS ranked WHERE rank = 3",
+    "자리 번호 정렬, NULLS LAST, OFFSET … FETCH FIRST 1 ROWS ONLY",
+  );
+  for (const [q, sql] of [
+    ["계약을 많이 담당한 직원 목록", second], // 질문에 순위가 없다
+    ["계약을 세 번째로 많이 담당한 직원은 누구야?", second], // 질문의 순위(3)와 OFFSET 1 이 어긋난다
+    [q2, second.replace("LIMIT 1 OFFSET 1", "LIMIT 2 OFFSET 1")],
+    [q2, second.replace(" OFFSET 1", "")],
+    [q2, `WITH x AS (SELECT 1) ${second}`],
+    [q2, second.replace("SELECT e.name", "SELECT DISTINCT e.name")],
+    [q2, `${second} -- 2위`],
+    [q2, `SELECT * FROM (${second}) s`],
+    [q2, `SELECT name FROM companyx.employees UNION ${second}`],
+    [q2, second.replace("SELECT e.name", "SELECT e.name, RANK() OVER (ORDER BY e.id) AS rank")],
+    [q2, "SELECT e.name, d.name FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id ORDER BY name LIMIT 1 OFFSET 1"],
+    [q2, `${second} FOR UPDATE`],
+    [q2, "SELECT e.name FROM companyx.employees e ORDER BY e.salary DESC LIMIT 1 OFFSET $1"],
+  ] as const) ok(rankRewrite(sql, q) === null, `순위 질문의 꼴이 아니면 바꾸지 않는다: ${q} / ${sql}`);
+
+  // 실행: 바꾼 SQL 이 검사를 지나 행을 돌려주면 그것을 쓰고, 실행되지 않거나 0행이면 처음 SQL 을 그대로 실행한다.
+  const fkRows = [
+    { table_name: "contracts", column_name: "manager_id", ref_table: "employees", ref_column: "id" },
+    { table_name: "employees", column_name: "dept_id", ref_table: "departments", ref_column: "id" },
+  ];
+  const tied = [
+    { name: "장미라", rank: 2 },
+    { name: "김준혁", rank: 2 },
+    { name: "안소연", rank: 2 },
+  ];
+  const rankPool = (answer: (sql: string) => Record<string, unknown>[] | Error, executed: string[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (!/^\s*(select|with)\b/i.test(sql) || /pg_roles/.test(sql)) return { rows: [], rowCount: 0, fields: [] };
+          executed.push(sql);
+          const rows = answer(sql);
+          if (rows instanceof Error) throw rows;
+          return { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string) => (/pg_constraint/.test(sql) ? { rows: fkRows, rowCount: fkRows.length } : { rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const byRank = (rows: Record<string, unknown>[] | Error) => (sql: string) => (/DENSE_RANK/.test(sql) ? rows : [{ name: "김준혁" }]);
+
+  const ran: string[] = [];
+  const ex = await executeWithRepair(rankPool(byRank(tied), ran), q2, second, { repair: false });
+  ok(ex.text === ranked && ex.rank === 2 && ex.result?.rows.length === 3 && ran.join() === ranked && !ex.gate, `같은 순위 셋을 모두 돌려준다 (got ${JSON.stringify({ text: ex.text, ran })})`);
+  const failures: [string, Record<string, unknown>[] | Error][] = [
+    ["실행 오류", Object.assign(new Error('column "cnt" does not exist'), { code: "42703" })],
+    ["0행", []],
+  ];
+  for (const [why, rows] of failures) {
+    const log: string[] = [];
+    const back = await executeWithRepair(rankPool(byRank(rows), log), q2, second, { repair: false });
+    ok(back.text === second && back.rank === undefined && back.result?.rows.length === 1 && log.join(" | ") === `${ranked} | ${second}`, `바꾼 SQL 이 ${why}면 처음 SQL 을 그대로 실행한다 (got ${JSON.stringify(log)})`);
+  }
+  const plainLog: string[] = [];
+  const plain = await executeWithRepair(rankPool(byRank(tied), plainLog), "계약을 많이 담당한 직원 목록", second, { repair: false });
+  ok(plain.text === second && plain.rank === undefined && plainLog.join() === second, "순위를 묻지 않은 질문은 종전 그대로 실행한다");
+
+  // ask: 공동 순위는 7B 없이 이름을 모두 적는 결정론 문장, 한 행이면 종전처럼 7B 가 쓴다.
+  let llmCalls = 0;
+  const llm = async () => {
+    llmCalls++;
+    return "김준혁입니다.";
+  };
+  const askWith = (rows: Record<string, unknown>[]) =>
+    ask(q2, { pool: rankPool(byRank(rows), []), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => second });
+  const tie = await askWith(tied);
+  ok(
+    tie.answer.startsWith("공동 2위가 3건입니다: 장미라, 김준혁, 안소연.") && tie.answer.includes("[조회 결과 3건]\n- name: 장미라, rank: 2") && llmCalls === 0 && tie.sql.rank === 2 && tie.sql.text === ranked,
+    `공동 2위는 이름을 모두 적는다 (got ${tie.answer})`,
+  );
+  const one = await askWith([{ name: "조현우", rank: 2 }]);
+  ok(llmCalls === 1 && one.answer.startsWith("김준혁입니다.") && one.answer.includes("[조회 결과 1건]\n- name: 조현우, rank: 2"), "그 순위가 한 행이면 종전처럼 7B 가 문장을 쓴다");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
