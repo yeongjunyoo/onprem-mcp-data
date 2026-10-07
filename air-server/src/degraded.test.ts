@@ -412,5 +412,117 @@ const deadEmbedder: Embedder = {
   ok(generated === 1, "부서 인원 질문은 정형 레인으로 간다");
 }
 
+// 임베딩 입력이 모델 문맥을 넘을 때(embedder.ts fitToContext). 2026-10-06 경계 실측에서 같은 질문 200번
+// (4,400자)이 「ollama embeddings 500: the input length exceeds the context length」를 답으로 냈다.
+// 가짜 Ollama 는 문맥을 넘는 입력에 그 500 을 돌려준다. 문맥은 4,000자(실측에서 이 반복 질문은
+// 4,092자까지 들어갔다), /tight 는 600자다.
+{
+  const seen: string[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const prompt = String(JSON.parse(body).prompt);
+      seen.push(prompt);
+      if (req.url?.startsWith("/missing/")) {
+        res.writeHead(404).end("model not found");
+        return;
+      }
+      const n = Array.from(prompt).length;
+      if (n > (req.url?.startsWith("/tight/") ? 600 : 4000)) {
+        res.writeHead(500, { "content-type": "application/json" }).end('{"error":"the input length exceeds the context length"}');
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ embedding: [n, 1] }));
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const { OllamaEmbedder, EMBED_RETRY_CHARS } = await import("./embedder.js");
+  // 자른 사실은 stderr 로 간다. 그 줄만 모으고 단언의 FAIL 줄은 그대로 찍히게 호출 동안만 가로챈다.
+  const logs: string[] = [];
+  const quiet = async <T,>(f: () => Promise<T>): Promise<T> => {
+    const realError = console.error;
+    console.error = (...a: unknown[]) => void logs.push(a.join(" "));
+    try {
+      return await f();
+    } finally {
+      console.error = realError;
+    }
+  };
+  try {
+    const emb = new OllamaEmbedder("bge-m3", base);
+    seen.length = 0;
+    ok((await quiet(() => emb.embed("짧은 질문")))[0] === 5 && seen.length === 1, "문맥 안의 입력은 한 번에, 그대로 보낸다");
+    const tc153 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+    seen.length = 0;
+    ok(
+      (await quiet(() => emb.embed(tc153)))[0] === 2200 && seen.length === 1 && logs.length === 0,
+      "들어가는 입력(TC-153 의 2,200자)은 자르지 않고 한 번에 보낸다",
+    );
+    const long = "2025년 3분기 총 매출액은 얼마야? ".repeat(200);
+    seen.length = 0;
+    const v = await quiet(() => emb.embed(long));
+    ok(v[0] === EMBED_RETRY_CHARS && seen.length === 2, `넘치면 앞 ${EMBED_RETRY_CHARS}자로 다시 보낸다 (got ${v[0]}, 호출 ${seen.length})`);
+    ok(seen[1] === long.slice(0, EMBED_RETRY_CHARS), "다시 보낸 것은 원문의 앞부분이다");
+    ok(
+      logs.some((l) => l.includes("입력 4400자") && l.includes(`앞 ${EMBED_RETRY_CHARS}자`)),
+      `자른 사실을 stderr 에 남긴다 (got ${logs.join(" | ")})`,
+    );
+
+    seen.length = 0;
+    const tight = await quiet(() => new OllamaEmbedder("bge-m3", `${base}/tight`).embed(long));
+    ok(tight[0] === 500 && seen.length === 4, `그래도 넘치면 반씩 줄인다(4,400 → 2,000 → 1,000 → 500) (got ${tight[0]}, 호출 ${seen.length})`);
+
+    seen.length = 0;
+    await quiet(() => emb.embed("\u{1F600}".repeat(5000)));
+    const cut = seen[1] ?? "";
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+    ok(Array.from(cut).length === EMBED_RETRY_CHARS && !lone.test(cut), "이모지(서로게이트 쌍)를 가르지 않고 문자 단위로 자른다");
+
+    seen.length = 0;
+    let missErr = "";
+    try {
+      await quiet(() => new OllamaEmbedder("bge-m3", `${base}/missing`).embed(long));
+    } catch (e) {
+      missErr = String(e);
+    }
+    ok(
+      missErr.includes("ollama embeddings 404: model not found") && seen.length === 1,
+      `문맥 초과가 아닌 오류는 다시 보내지 않고 종전처럼 던진다 (got ${missErr})`,
+    );
+  } finally {
+    server.close();
+    server.closeAllConnections();
+  }
+}
+
+// 생성 프롬프트의 질문 상한(llm.ts questionForModel). num_ctx 를 넘는 프롬프트는 Ollama 가 앞쪽(지시문과
+// 스키마 카드)을 잘라, 같은 질문 200번에 7B 가 「제공한 정보는 충분하지 않습니다」라고 답했다(3/3).
+{
+  const { questionForModel, LLM_QUESTION_MAX_CHARS, buildAnswerPrompt } = await import("./llm.js");
+  const { buildCompanyxSqlPrompt } = await import("./nl2sql.js");
+  const realError = console.error;
+  const notes: string[] = [];
+  console.error = (...a: unknown[]) => void notes.push(a.join(" "));
+  let tc153Same = false, longCut = "", answerHasCut = false, sqlHasCut = false, emojiCut = "";
+  const tc153 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+  const long = "2025년 3분기 총 매출액은 얼마야? ".repeat(200);
+  try {
+    tc153Same = questionForModel(tc153) === tc153 && buildAnswerPrompt(tc153, "c").includes(`[질문] ${tc153}\n`);
+    longCut = questionForModel(long);
+    answerHasCut = buildAnswerPrompt(long, "c").includes(`[질문] ${longCut}\n[답변]`);
+    sqlHasCut = buildCompanyxSqlPrompt(long).includes(`질문: ${longCut}\nSQL:`);
+    emojiCut = questionForModel("\u{1F600}".repeat(3000));
+  } finally {
+    console.error = realError;
+  }
+  ok(tc153Same, "상한 안의 질문(TC-153 의 2,200자)은 프롬프트에 그대로 들어간다");
+  ok(longCut === long.slice(0, LLM_QUESTION_MAX_CHARS), `넘는 질문은 앞 ${LLM_QUESTION_MAX_CHARS}자만 넣는다 (got ${longCut.length})`);
+  ok(answerHasCut && sqlHasCut, "답변 프롬프트와 NL2SQL 프롬프트가 같은 상한을 쓴다");
+  ok(notes.some((l) => l.includes("질문 4400자") && l.includes(`앞 ${LLM_QUESTION_MAX_CHARS}자`)), `자른 사실을 stderr 에 남긴다 (got ${notes[0]})`);
+  ok(Array.from(emojiCut).length === LLM_QUESTION_MAX_CHARS && emojiCut === "\u{1F600}".repeat(LLM_QUESTION_MAX_CHARS), "서로게이트 쌍을 가르지 않는다");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

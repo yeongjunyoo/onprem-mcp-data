@@ -12,11 +12,11 @@ import { definePrompt } from "@airmcp-dev/core";
 // 노출본을 손으로 베끼지 않는다. 실행 경로가 쓰는 바로 그 함수를 부른다.
 import { buildAnswerPrompt } from "./llm.js";
 import { buildCompanyxSqlPrompt } from "./nl2sql.js";
-
+import { exposeArguments } from "./promptargs.js"; // prompts/get 인자 전달(air 0.3.0 우회)
 import { profile } from "./profile.js";
 
 export function buildPrompts() {
-  return [
+  return exposeArguments([
     definePrompt({
       name: "grounded-answer",
       description:
@@ -102,5 +102,5 @@ export function buildPrompts() {
         },
       ],
     }),
-  ];
+  ]);
 }

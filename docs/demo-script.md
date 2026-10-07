@@ -14,7 +14,7 @@ docker compose ps -a models          # Exited (0). 1 이면 모델을 못 받았
 
 # 2) 환경: 매 셸마다. companyx 적재는 처음 한 번 npm run companyx:load
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mcpdata
-export OLLAMA_HOST=http://localhost:11435
+export OLLAMA_HOST=http://localhost:11435   # 컨테이너 Ollama(CPU). GPU 호스트면 http://localhost:11434 (아래 첫 항목)
 export EMBEDDER=ollama                      # 적재와 검색이 같은 bge-m3 를 쓴다. 기본값 hash 로 적재하면 문서 검색이 엉뚱한 조각을 낸다
 export DATASET_DIR=/path/to/companyx-v1.0   # 저장소의 datasets 폴더에 풀었으면 필요 없다
 
@@ -28,6 +28,11 @@ npm run companyx:score               # 빠른 확인은 npm run companyx:score -
 npm run fault:demo
 ```
 
+- **GPU 호스트라면 호스트 Ollama(11434)로 돌린다.** 기능테스트 시연의 기본 경로다. 호스트에
+  Ollama 를 설치해 `ollama pull qwen2.5-coder:7b`, `ollama pull bge-m3` 로 두 모델을 받고,
+  2) 의 `OLLAMA_HOST` 만 `http://localhost:11434` 로 바꾼다. DB 는 그대로 컨테이너(5433)다.
+  위 블록의 11435 는 GPU 없이 어디서나 재현되는 컨테이너 Ollama(CPU) 경로이고, 아래 실측표가
+  그 환경의 값이다. 기동 줄 `[환경] Ollama <주소>` 가 실제로 붙은 쪽을 알려 준다.
 - **모델은 시연 전에 받아 둔다.** 당일 pull 은 온라인에서 멈출 수 있다. `models` 서비스는
   볼륨에 모델이 있으면 네트워크 없이 확인만 하고 끝나고, 없을 때만 받는다. 못 받으면 exit 1 로
   남으므로 `docker compose ps -a` 에서 보인다.

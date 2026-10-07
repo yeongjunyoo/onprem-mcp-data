@@ -116,14 +116,15 @@ server.prompt(prompt.name, prompt.description || "", handler)
 
 SDK 문서: *"Registers a **zero-argument** prompt ... @deprecated Use `registerPrompt`
 instead."* 인자를 받는 오버로드가 따로 있는데 안 쓴다. 결과적으로 우리가 정의한
-`question`·`context` 같은 인자가 `prompts/list` 에서 **빈 배열**로 나가고, 클라이언트는
-템플릿의 어느 자리를 채울지 알 수 없다.
+`question`·`context` 같은 인자가 `prompts/list` 에서 **빈 배열**로 나가고, `prompts/get` 은
+받은 인자를 버린 채 템플릿을 만들어 질문 자리가 비어 있었다(2026-10-06 확인).
 
 - **재현**: `node scripts/verify-prompt-arguments.mjs` — 정의한 인자와 목록을 대조한다.
 - **확인 범위**: 0.2.0 과 0.3.0 둘 다 같다(2026-08-17).
-- **현재 우리 대응**: 설명 문자열 끝에 `[인자] name(필수): 설명` 을 붙이는 **우회**다.
-  검사는 `arguments` 또는 설명 둘 중 하나로 전달되면 통과하므로, 상류가 고쳐지면
-  그것도 통과하고 **우회로를 지울 수 있다.**
+- **현재 우리 대응**: `air-server/src/promptargs.ts` 가 SDK 의 `prompt()` 를 감싸, 우리가 인자를
+  선언한 프롬프트가 그 오버로드로 들어올 때 선언한 인자 스키마를 끼워 넣는다. 그래서 목록에
+  `arguments` 가 실리고 `prompts/get` 이 인자를 템플릿에 넣는다. 그 전의 우회(설명 끝의
+  `[인자] name(필수): 설명`)도 남겨 두었다. 상류가 고쳐지면 **`promptargs.ts` 를 지운다.**
 
 우회로를 여기 적어 두는 이유는 분명하다 — **임시 조치를 영구화하는 가장 흔한 방법이
 적지 않는 것이다.**
