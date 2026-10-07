@@ -139,6 +139,20 @@ async function live() {
   const scanAll = await relationScan(pool, { relTypes: ["LEADS"], limit: 200 }, schema);
   ok(scanAll.edges.length > scanF.edges.length, "filter actually removes edges");
 
+  // 상태 조건은 시드 확장에도 걸린다(랜덤 테스트 2차 R4). Client-AC 의 프로젝트 넷 중 보류(성능 최적화)가 빠진다.
+  const inProgress = { side: "target" as const, key: "status", value: "in_progress" };
+  const acId = (await ontologySearch(pool, "Client-AC", 1, schema)).hits[0].entityId;
+  const acAll = await graphExpand(pool, acId, 1, ["HAS_PROJECT"], schema, "both");
+  const acNow = await graphExpand(pool, acId, 1, ["HAS_PROJECT"], schema, "both", GRAPH_LIMITS, inProgress);
+  eq([acAll.edges.length, acNow.edges.length], [4, 3], "seed expansion keeps only in_progress projects");
+  ok(!acNow.edges.some((e) => e.dstName.includes("성능 최적화")), "the on_hold project is not offered as in progress");
+  const acLane = await graphLane(pool, "Client-AC에서 진행 중인 프로젝트는 뭐야?", 5, 2, schema, { relTypes: ["HAS_PROJECT"], filter: inProgress });
+  const acLines = new Set(acLane.items.filter((i) => i.text.startsWith("[그래프] Client-AC의")).map((i) => i.text));
+  ok(acLines.size === 3 && ![...acLines].some((t) => t.includes("성능 최적화")), `graph lane offers Client-AC's three in_progress projects only (got ${[...acLines]})`);
+  // 시드 자신은 거르지 않는다: 보류 프로젝트를 시드로 펼쳐도 그 프로젝트의 엣지는 남는다.
+  const held = (await ontologySearch(pool, "Client-AC 성능 최적화", 1, schema)).hits[0].entityId;
+  ok((await graphExpand(pool, held, 1, ["LEADS"], schema, "both", GRAPH_LIMITS, inProgress)).edges.length === 1, "the seed's own edges are not filtered");
+
 
   // A department name is also a property alias on every one of its employees.
   // Canonical-exact must outrank alias-exact or the department is evicted from the

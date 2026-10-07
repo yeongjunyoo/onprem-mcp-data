@@ -339,6 +339,13 @@ export const GRAPH_LIMITS: Readonly<GraphLimits> = Object.freeze({
 
 export type Direction = "out" | "in" | "both";
 
+/** 노드 속성 조건(router.ts GraphPlan.filter 와 같은 꼴). side 는 엣지의 출발(source)과 도착(target) 가운데 어느 끝을 보는지. */
+export interface NodeFilter {
+  side: "source" | "target";
+  key: string;
+  value: string;
+}
+
 /** BFS relation edges from a seed entity up to `depth`, optional rel_type filter.
  *
  * Direction matters and defaults to BOTH: half of the sponsor's graph questions are
@@ -348,7 +355,9 @@ export type Direction = "out" | "in" | "both";
  * direction (src -rel-> dst) regardless of which way they were traversed.
  *
  * Bounded by `limits` (GRAPH_LIMITS). Hitting a cap stops the walk and reports
- * `truncated` — a silently cut result reads as "no such relation". */
+ * `truncated` — a silently cut result reads as "no such relation".
+ *
+ * `filter` keeps only edges whose endpoint on that side carries the property value (walk). */
 export async function graphExpand(
   pool: Pool,
   entityId: number,
@@ -357,11 +366,12 @@ export async function graphExpand(
   schema = kgSchema(),
   direction: Direction = "both",
   limits: GraphLimits = GRAPH_LIMITS,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   const requested = Math.max(1, Math.floor(depth) || 1);
   const d = Math.min(limits.maxHops, requested);
   const rel = relTypes && relTypes.length ? relTypes : null;
-  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d);
+  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d, filter);
 }
 
 /** 홉마다 탈 엣지 타입을 따로 정한 탐색. hops[i] 가 i+1 번째 홉의 엣지 타입이다.
@@ -374,11 +384,16 @@ export async function graphWalk(
   hops: string[][],
   schema = kgSchema(),
   limits: GraphLimits = GRAPH_LIMITS,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   const levels = hops.slice(0, limits.maxHops).map((h) => (h.length ? h : null));
-  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops);
+  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops, filter);
 }
 
+/** filter 가 있으면 그 쪽 끝 개체가 같은 키에 다른 값을 가진 엣지는 타지 않는다. 그 키가 없는 개체(상태가 없는 고객사,
+ * 직원, 제품)와 시드 자신은 거르지 않는다. 「Client-AC에서 진행 중인 프로젝트」의 진행 중(status=in_progress)은 시드의
+ * 엣지에도 걸려야 한다. 종전에는 관계 스캔(relationScan)에만 걸려 보류(on_hold) 프로젝트가 진행 중으로 나왔다(랜덤
+ * 테스트 사전 점검 2차 R4). 속성 열이 없는 스키마(bench)에서는 거르지 않는다. */
 async function walk(
   pool: Pool,
   entityId: number,
@@ -387,9 +402,15 @@ async function walk(
   direction: Direction,
   limits: GraphLimits,
   cutByHops: boolean,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   try {
     const s = safeSchema(schema);
+    const f = filter && (await hasProps(pool, s)) ? filter : undefined;
+    const [end, endId] = f?.side === "source" ? ["se", "r.src_entity_id"] : ["de", "r.dst_entity_id"];
+    const filterSql = f
+      ? `\n            AND (${endId} = $7 OR NOT COALESCE(${end}.properties ? $5, false) OR ${end}.properties ->> $5 = $6)`
+      : "";
     const d = levels.length;
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
@@ -415,10 +436,10 @@ async function walk(
            JOIN ${s}.entities de ON de.id = r.dst_entity_id
           WHERE ${match}
             AND ($2::text[] IS NULL OR r.rel_type = ANY($2::text[]))
-            AND NOT (r.id = ANY($3::int[]))
+            AND NOT (r.id = ANY($3::int[]))${filterSql}
           ORDER BY r.id
           LIMIT $4`,
-        [frontier, levels[level - 1], seenIds, room + 1],
+        [frontier, levels[level - 1], seenIds, room + 1, ...(f ? [f.key, f.value, entityId] : [])],
       );
       const overflow = res.rows.length > room;
       const rows = overflow ? res.rows.slice(0, room) : res.rows;

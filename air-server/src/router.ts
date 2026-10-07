@@ -259,14 +259,20 @@ const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value
   [/계획\s*(중|단계)/, { side: "target", key: "status", value: "planning" }],
 ];
 
+/** 상태 낱말 뒤 같은 마디에 오면 그 상태로 거르라는 말이 아닌 것: 「계획 중인 것도 빼지 마」, 「완료된 건 빼고」,
+ * 「진행 중이 아닌」, 「완료된 것까지 포함해서」. 조건은 시드의 엣지에도 걸리므로(pipeline.ts graphLane) 이런 말을
+ * 조건으로 읽으면 묻지 않은 상태만 남거나 반대로 거른다. 그때는 거르지 않는다. */
+const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함)/;
+
 export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   if (superlative && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
   }
   for (const [re, f] of PROPERTY_FILTERS) {
-    if (re.test(q)) {
-      plan.filter = f;
+    const m = re.exec(q);
+    if (m) {
+      if (!NOT_A_RESTRICTION.test(q.slice(m.index + m[0].length))) plan.filter = f;
       break;
     }
   }

@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
 // 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
@@ -254,6 +254,18 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   for (const q of ["서울물산 담당 엔지니어는 누구야?", "가장 많은 고객을 담당하는 직원은?", "서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘"]) {
     const r = route(q);
     ok(r.graphHits.includes("MANAGES_ACCOUNT") && !/not counted/.test(r.rationale), `고객 담당 질문은 그대로: ${q}`);
+  }
+}
+
+// ── 상태 조건은 거르라는 말일 때만 (랜덤 테스트 2차 R4) ──────────────────
+//
+// 조건은 시드의 엣지에도 걸린다. 「계획 중인 것도 빼지 마」를 조건으로 읽으면 계획 중인 프로젝트만 남는다.
+{
+  const inProgress = { side: "target", key: "status", value: "in_progress" };
+  eq(buildGraphPlan("진행 중인 프로젝트를 이끄는 직원 목록", ["LEADS"], false).filter, inProgress, "진행 중은 조건(TC-050, TC-111, TC-130)");
+  eq(buildGraphPlan("Client-AC에서 진행 중인 프로젝트는 뭐야?", ["HAS_PROJECT"], false).filter, inProgress, "시드가 있어도 조건");
+  for (const q of ["서재원 쪽 프로젝트 묶음에 뭐뭐 있지? 계획 중인 것도 빼지 마", "Client-A 프로젝트 중 완료된 건 빼고 알려줘", "진행 중이 아닌 프로젝트", "완료된 것까지 포함해서 전부"]) {
+    eq(buildGraphPlan(q, ["LEADS"], false).filter, undefined, `빼다, 말고, 아닌, 포함이 붙으면 조건이 아니다: ${q}`);
   }
 }
 

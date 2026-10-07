@@ -47,6 +47,7 @@ import {
   pathCandidates,
   rankingCandidates,
   kgSchema,
+  GRAPH_LIMITS,
   type GraphEdge,
   type GraphTruncation,
 } from "./graph.js";
@@ -255,10 +256,12 @@ export async function graphLane(
     const walk =
       p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, answerQuery ?? query, others) : undefined;
     if (walk?.fitted) fitted.push(`${hit.canonicalName}: ${walk.fitted}`);
+    // 계획의 속성 조건(진행 중 → status=in_progress)은 시드의 엣지에도 건다. 관계 스캔에만 걸려 「Client-AC에서 진행 중인
+    // 프로젝트」에 보류 프로젝트가 섞였다(랜덤 테스트 사전 점검 2차 R4).
     const exp =
       walk && walk.hops.length > 1
-        ? await graphWalk(pool, hit.entityId, walk.hops, schema)
-        : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both");
+        ? await graphWalk(pool, hit.entityId, walk.hops, schema, GRAPH_LIMITS, p?.filter)
+        : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both", GRAPH_LIMITS, p?.filter);
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
