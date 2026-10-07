@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases, isEntityName } from "./router.js";
+import { identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -139,7 +139,7 @@ const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?
  * 「알 수 없습니다」였고, 「ClientA」는 「찾지 못했습니다」였다(랜덤 테스트 사전 점검 2차 R10, 회색 F10). 붙여 쓴 고객사
  * 식별자는 대문자일 때만 본다(「clients」가 Client-S 가 되지 않게). */
 export function joinSpacedIds(query: string): string {
-  return query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
+  const ids = query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
     const client = /^client$/i.test(type);
     const name = `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}`;
     const spaced = /^\s+$/.test(sep);
@@ -147,6 +147,38 @@ export function joinSpacedIds(query: string): string {
     if (sep === "" && (client ? !/^[A-Z]{1,2}$/.test(id) || type === "CLIENT" : !/^[A-Za-z]\d{1,2}$/.test(id))) return m;
     return isEntityName(name) ? name : m;
   });
+  return joinLooseNames(ids);
+}
+
+const NAME_PARTICLE = /(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/;
+
+/** 공백, 하이픈, 밑줄로 갈라 쓰거나 대소문자만 다르게 쓴 개체 이름(「클라우드 사업부」, 「CLIENT-A」)을 사전의 정본 이름으로
+ * 바꾼다(router.ts looseEntityName). 「클라우드 사업부 소속 직원들」은 「클라우드」, 「사업부」로 갈려 부서가 시드가 되지 않고,
+ * 별칭이 그 말로 시작하는 직원 다섯만 펼쳐 열 명 가운데 다섯을 답했다. 이어 붙인 낱말 둘이나 셋(사이에 공백, 하이픈,
+ * 밑줄만)이 한 개체의 이름과만 같을 때 바꾸고, 끝의 조사는 남긴다. 갈라 쓴 데가 없는 한 낱말(「clients」 → Client-S)은 보지
+ * 않는다. 글자가 다른 이름(「클라우드사업팀」, 「서울물산」)은 그대로라 종전처럼 찾지 못한 개체로 답한다. */
+function joinLooseNames(q: string): string {
+  const toks = [...q.matchAll(/[A-Za-z0-9]+|[가-힣]+/g)].map((m) => ({ at: m.index!, end: m.index! + m[0].length }));
+  let out = "";
+  let pos = 0;
+  for (let i = 0; i < toks.length; i++) {
+    for (let n = Math.min(3, toks.length - i); n >= 2; n--) {
+      const win = toks.slice(i, i + n);
+      if (!win.every((t, j) => j === 0 || /^[\s\-_]*$/.test(q.slice(win[j - 1].end, t.at)))) continue;
+      const full = q.slice(win[0].at, win[n - 1].end);
+      const tail = NAME_PARTICLE.exec(full)?.[0] ?? "";
+      const hit = (tail ? [full.slice(0, -tail.length), full] : [full]).find((text) => {
+        const name = looseEntityName(text);
+        return name !== undefined && /[\s\-_]/.test(text) && text !== name && !isEntityName(text);
+      });
+      if (hit === undefined) continue;
+      out += q.slice(pos, win[0].at) + looseEntityName(hit)!;
+      pos = win[0].at + hit.length;
+      i += n - 1;
+      break;
+    }
+  }
+  return out + q.slice(pos);
 }
 
 export function seedTerms(query: string): string[] {

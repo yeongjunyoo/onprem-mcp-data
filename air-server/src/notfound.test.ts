@@ -289,6 +289,37 @@ const fakePool = {
   for (const q of ["clients 목록", "CLIENTS", "client is big", "client_1 담당 직원은?", "client zz 담당자"]) {
     ok(joinSpacedIds(q) === q, `복수형, 대문자 낱말, 영어 낱말, 외부 id, 사전에 없는 이름은 그대로: ${q}`);
   }
+  // 회색 F10 일반화: 공백, 하이픈, 밑줄과 대소문자만 다른 표기는 한 개체의 이름과만 같을 때 그 이름으로 바꾼다.
+  installOntology(
+    [
+      { name: "Client-A", type: "client" },
+      { name: "Client-AA", type: "client" },
+      { name: "Client-S", type: "client" },
+      { name: "클라우드사업부", type: "department" },
+      { name: "김준혁", type: "employee" },
+      { name: "데이터팀", type: "department" },
+      { name: "데이터-팀", type: "project" },
+    ],
+    [],
+  );
+  const loose: [string, string][] = [
+    ["클라우드 사업부 소속 직원들은 누구야?", "클라우드사업부 소속 직원들은 누구야?"],
+    ["클라우드 사업부의 팀장은?", "클라우드사업부의 팀장은?"],
+    ["CLIENT-A가 사용하는 제품은?", "Client-A가 사용하는 제품은?"],
+    ["Client - A가 사용하는 제품은?", "Client-A가 사용하는 제품은?"],
+    ["client-aa 담당자", "Client-AA 담당자"],
+    ["김 준혁 담당 고객사", "김준혁 담당 고객사"],
+  ];
+  for (const [q, want] of loose) ok(joinSpacedIds(q) === want, `갈라 쓴 이름을 사전의 이름으로: ${q} (got ${joinSpacedIds(q)})`);
+  for (const q of [
+    "클라우드사업팀 소속 직원들은 누구야?", // 글자가 다르다(TC-135)
+    "클라우드 사업팀 소속 직원들은 누구야?",
+    "서울물산 담당 엔지니어는 누구야?", // 없는 개체(TC-134)
+    "clients 목록", // 갈라 쓴 데가 없는 한 낱말은 보지 않는다
+    "데이터 팀 목록", // 두 개체가 같은 열쇠(데이터팀, 데이터-팀)라 어느 쪽인지 모른다
+    "Client-A와 클라우드사업부", // 이미 사전의 이름
+  ]) ok(joinSpacedIds(q) === q, `그대로: ${q} (got ${joinSpacedIds(q)})`);
+  ok(JSON.stringify(seedTerms("클라우드 사업부 소속 직원들은 누구야?")) === '["클라우드사업부","직원들"]', `시드는 부서 이름 하나 (got ${JSON.stringify(seedTerms("클라우드 사업부 소속 직원들은 누구야?"))})`);
   installOntology([], []);
   // 회색 H05, H06: 관형사(어떤, 이전, 모든, 무슨)는 개체 후보가 아니다. 못 찾은 개체로는 질문의 다른 낱말을 댄다.
   ok(JSON.stringify(seedTerms("너는 어떤 데이터베이스를 쓰니?")) === '["데이터베이스","쓰니"]', `「어떤」을 시드로 쓰지 않는다 (got ${JSON.stringify(seedTerms("너는 어떤 데이터베이스를 쓰니?"))})`);

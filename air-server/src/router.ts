@@ -311,6 +311,19 @@ export function isEntityName(name: string): boolean {
   return ENTITY_NAMES.has(name);
 }
 
+/** 공백, 하이픈, 밑줄을 빼고 소문자로 바꾼 이름. */
+function looseKey(s: string): string {
+  return s.normalize("NFC").toLowerCase().replace(/[\s\-_]+/g, "");
+}
+/** looseKey -> 정본 이름. 다른 개체 둘이 같은 열쇠를 가지면 null(어느 쪽인지 모른다). */
+let LOOSE_NAMES = new Map<string, string | null>();
+
+/** 공백, 하이픈, 밑줄과 대소문자만 다른 표기(「클라우드 사업부」, 「CLIENT A」)가 가리키는 개체의 정본 이름. 그 표기를 정규화한
+ * 것이 사전의 이름 하나(한 개체)와만 같을 때만 돌려준다. 글자가 다르면(「클라우드사업팀」) undefined. */
+export function looseEntityName(text: string): string | undefined {
+  return LOOSE_NAMES.get(looseKey(text)) ?? undefined;
+}
+
 /** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
  *
  * 한 타입쌍에 엣지가 여럿일 수 있다. 고객과 제품 사이에는 USES 와 REPORTED_ISSUE 가,
@@ -358,6 +371,12 @@ export function installOntology(
     const name = (n.name ?? "").trim();
     if (n.id !== undefined && !canonicalById.has(n.id)) canonicalById.set(n.id, name);
     if (!CANONICAL_OF.has(name)) CANONICAL_OF.set(name, n.id !== undefined ? canonicalById.get(n.id)! : name);
+  }
+  LOOSE_NAMES = new Map();
+  for (const { name } of ENTITY_LEXICON) {
+    const key = looseKey(name);
+    const canonical = CANONICAL_OF.get(name) ?? name;
+    LOOSE_NAMES.set(key, LOOSE_NAMES.has(key) && LOOSE_NAMES.get(key) !== canonical ? null : canonical);
   }
 
   // 타입쌍 -> 엣지. 노드 id 접두사가 타입이다(client_7 -> client).
