@@ -49,6 +49,17 @@ export function queryParam(description: string) {
     .refine((q) => !isBlankQuery(q), { message: EMPTY_QUERY_MESSAGE });
 }
 
+/** 빠진 필수 인자의 검증 문장에 기대한 형을 남긴다. MCP SDK 1.30 부터 입력 검증 오류가 「<문장> at <경로>」 한 줄로 줄어
+ * 나가는데, zod 3 의 빠진 인자 문장은 「Required」뿐이라 무엇이 와야 하는지가 화면에서 사라졌다(1.29 는 expected, received 가 든
+ * 오류 목록을 그대로 보냈다. TC-042). 다른 오류 문장은 zod 기본 그대로다. zod 전역 설정이라 buildServer 가 건다. */
+export function installInputErrorMessages(): void {
+  z.setErrorMap((issue, ctx) =>
+    issue.code === z.ZodIssueCode.invalid_type && issue.received === z.ZodParsedType.undefined
+      ? { message: `Required (expected ${issue.expected}, received undefined)` }
+      : { message: ctx.defaultError },
+  );
+}
+
 /** audit.explain 의 format 칸. json 과 text 말고는 같은 입력 검증 길(-32602)로 거절한다. 종전에는 모르는 값(xml 등)을
  * 조용히 json 으로 돌려줬다(G17 ⑪). 값이 없으면 json 이다. tools/list 의 입력 스키마는 종전 그대로다. */
 export function formatParam(description: string) {

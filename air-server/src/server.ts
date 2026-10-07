@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { formatParam, queryParam } from "./queryinput.js";
+import { formatParam, installInputErrorMessages, queryParam } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -135,6 +135,7 @@ export const SANITIZER_OPTIONS = { stripHtml: false } as const;
 
 export function buildServer(): AirServer {
   const ds = profile();
+  installInputErrorMessages();
   return defineServer({
     name: "onprem-mcp-data",
     version: PACKAGE_VERSION,
