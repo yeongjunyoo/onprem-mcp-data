@@ -29,14 +29,14 @@
 //           7/10, 12/20. 바뀐 문항은 h3-11 하나이고 나빠진 문항은 없다.
 //
 // 실행 전에는 sqltrust.ts 의 검사와 재작성을 거친다(생성 SQL 과 수리 SQL 모두).
-//   검사 — 외래키가 아닌 열로 조인하거나 질문에 없는 번호로 id 를 거는 SQL 은 실행하지 않고, 사유를
-//          되먹여 한 번 고친다. 고친 것도 거부되면 실행할 SQL 이 없다(gate.outcome = refused).
+//   검사 — 외래키가 아닌 열로 조인하거나 질문에 없는 번호로 id 를 거는 SQL, 금액 열을 질문의 금액과 다른 단위로
+//          비교하는 SQL 은 실행하지 않고, 사유를 되먹여 한 번 고친다. 고친 것도 거부되면 실행할 SQL 이 없다(gate.outcome = refused).
 //   재작성 — 바깥 `ORDER BY … LIMIT 1` 은 `FETCH FIRST 1 ROWS WITH TIES` 로 실행한다(공동 1위를 다 보임).
 //          돌려주는 text 는 실제로 실행한 문장이다.
 import type { Pool } from "./db.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
-import { checkSql, confirmNamedIds, declaredForeignKeys, withTies, type SqlGate } from "./sqltrust.js";
+import { untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
 
 export interface RepairOpts {
   /** 엔진 오류일 때 고친다. false 면 한 번만 실행한다. */
@@ -45,6 +45,8 @@ export interface RepairOpts {
   emptyRepair?: boolean;
   /** 컬럼 목록을 읽을 스키마. */
   schema?: string;
+  /** 수리 SQL 을 만드는 함수. 미지정이면 생성 모델(nl2sql.ts repairSql). 단위 테스트가 모델 대신 넣는다. */
+  repairer?: typeof repairSql;
 }
 
 export interface Executed {
@@ -65,11 +67,10 @@ const EMPTY_FEEDBACK =
 
 export async function executeWithRepair(pool: Pool, query: string, generated: string, opts: RepairOpts = {}): Promise<Executed> {
   const schema = opts.schema ?? "companyx";
-  const fks = await declaredForeignKeys(pool, schema);
+  const repair = opts.repairer ?? repairSql;
   const rejected: SqlGate["rejected"] = [];
   const trusted = async (sql: string) => {
-    const v = checkSql(sql, query, fks);
-    const reasons = v.ok ? [] : await confirmNamedIds(pool, schema, v, query);
+    const reasons = await untrustedReasons(pool, schema, sql, query);
     if (reasons.length) rejected.push({ sql, reasons });
     return reasons.length === 0;
   };
@@ -78,7 +79,7 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
   if (!(await trusted(generated))) {
     const cols = opts.repair === false ? "" : await columnsForSql(pool, generated, schema).catch(() => "");
     const fixed =
-      opts.repair === false ? null : await repairSql(query, generated, rejected[0].reasons.join(" "), cols, "untrusted");
+      opts.repair === false ? null : await repair(query, generated, rejected[0].reasons.join(" "), cols, "untrusted");
     if (!fixed || !(await trusted(fixed))) return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
     const text = withTies(fixed);
     return { text, result: await sqlQuery(pool, text), repaired: true, repairReason: "untrusted", gate: { outcome: "repaired", rejected } };
@@ -93,8 +94,8 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
 
   const cols = await columnsForSql(pool, text, schema).catch(() => "");
   const fixed = failed
-    ? await repairSql(query, text, first.error ?? "unknown error", cols, "error")
-    : await repairSql(query, text, EMPTY_FEEDBACK, cols, "empty");
+    ? await repair(query, text, first.error ?? "unknown error", cols, "error")
+    : await repair(query, text, EMPTY_FEEDBACK, cols, "empty");
   if (!fixed) return { text, result: first, repaired: false };
   // 수리한 SQL 도 같은 검사를 거친다. 오류를 고치려다 없는 관계로 조인한 것이면(「매출 알려줘」) 믿을 만한
   // SQL 이 없는 것이고, 0행을 고치려다 그랬으면 처음 SQL 의 0행이 답이다.

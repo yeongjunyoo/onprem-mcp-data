@@ -46,6 +46,8 @@ export const ROUTE_OUTPUT_SCHEMA = {
     .object({
       relTypes: z.array(z.string()),
       aggregate: z.enum(["source", "target"]).optional(),
+      // 「가장 적은」 집계면 asc(적은 쪽부터). 없으면 많은 쪽부터(router.ts buildGraphPlan).
+      order: z.enum(["asc"]).optional(),
       filter: z.object({ side: z.enum(["source", "target"]), key: z.string(), value: z.string() }).optional(),
     })
     .nullable()

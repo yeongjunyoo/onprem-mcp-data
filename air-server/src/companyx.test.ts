@@ -139,6 +139,26 @@ async function live() {
   const scanAll = await relationScan(pool, { relTypes: ["LEADS"], limit: 200 }, schema);
   ok(scanAll.edges.length > scanF.edges.length, "filter actually removes edges");
 
+  // 상태 조건은 시드 확장에도 걸린다(랜덤 테스트 2차 R4). Client-AC 의 프로젝트 넷 중 보류(성능 최적화)가 빠진다.
+  const inProgress = { side: "target" as const, key: "status", value: "in_progress" };
+  const acId = (await ontologySearch(pool, "Client-AC", 1, schema)).hits[0].entityId;
+  const acAll = await graphExpand(pool, acId, 1, ["HAS_PROJECT"], schema, "both");
+  const acNow = await graphExpand(pool, acId, 1, ["HAS_PROJECT"], schema, "both", GRAPH_LIMITS, inProgress);
+  eq([acAll.edges.length, acNow.edges.length], [4, 3], "seed expansion keeps only in_progress projects");
+  ok(!acNow.edges.some((e) => e.dstName.includes("성능 최적화")), "the on_hold project is not offered as in progress");
+  const acLane = await graphLane(pool, "Client-AC에서 진행 중인 프로젝트는 뭐야?", 5, 2, schema, { relTypes: ["HAS_PROJECT"], filter: inProgress });
+  const acLines = new Set(acLane.items.filter((i) => i.text.startsWith("[그래프] Client-AC의")).map((i) => i.text));
+  ok(acLines.size === 3 && ![...acLines].some((t) => t.includes("성능 최적화")), `graph lane offers Client-AC's three in_progress projects only (got ${[...acLines]})`);
+  // 시드 자신은 거르지 않는다: 보류 프로젝트를 시드로 펼쳐도 그 프로젝트의 엣지는 남는다.
+  const held = (await ontologySearch(pool, "Client-AC 성능 최적화", 1, schema)).hits[0].entityId;
+  ok((await graphExpand(pool, held, 1, ["LEADS"], schema, "both", GRAPH_LIMITS, inProgress)).edges.length === 1, "the seed's own edges are not filtered");
+
+
+  // 밑줄과 %는 LIKE 와일드카드가 아니라 글자다(랜덤 테스트 2차 R12). 종전에는 「Client_A」가 Client-A~AD 다섯에 같은 점수로 걸렸다.
+  // 이 테스트는 라우터 사전을 설치하지 않아 Client_A 를 Client-A 로 합치지 않는다(R10 은 notfound.test).
+  const under = await ontologySearch(pool, "Client_A", 5, schema);
+  ok(under.hits.length === 0 && under.not_found?.candidates[0]?.name === "Client-A", `Client_A matches no name by wildcard (got ${under.hits.map((h) => h.canonicalName)})`);
+  eq((await ontologySearch(pool, "Client%", 5, schema)).hits.length, 0, "% is a literal character");
 
   // A department name is also a property alias on every one of its employees.
   // Canonical-exact must outrank alias-exact or the department is evicted from the
@@ -167,6 +187,13 @@ async function live() {
   const tie = await graphLane(pool, "가장 많은 고객을 담당하는 직원은?", 5, 2, schema);
   const tied = tie.items.filter((i) => i.text.includes("공동 1위"));
   ok(tied.length >= 2, `tied top rank is rendered as 공동 (got ${tied.length})`);
+
+  // 「가장 적은」은 적은 쪽부터, 엣지가 없는 개체도 0건으로 센다(랜덤 테스트 2차 R6). 담당 고객사가 없는 직원 15명, 1곳은 9명.
+  const fewScan = await relationScan(pool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, schema);
+  const zeros = fewScan.ranking.filter((r) => r.count === 0).length;
+  eq([fewScan.ranking.length, zeros, fewScan.ranking.filter((r) => r.count === 1).length], [45, 15, 9], "fewest scan counts every employee, zero-edge ones first");
+  const fewLane = await graphLane(pool, "담당하는 고객사가 가장 적은 직원은 누구야?", 5, 2, schema, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" });
+  ok(fewLane.fewest?.entries.length === 15 && fewLane.fewest.count === 0, `graph lane carries all 15 tied fewest (got ${fewLane.fewest?.entries.length})`);
 
   // Unresolved-entity gate: no fabricated context for an entity absent from the data.
   const missing = await graphLane(pool, "서울물산 담당 엔지니어는 누구야?", 5, 2, schema);

@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases } from "./router.js";
+import { identifyingAliases, isEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -115,6 +115,8 @@ const SEED_STOP = new Set([
   // 서수, 의문 낱말, 정도 부사와 서술어. 「계약을 두 번째로 많이 담당한 직원은 누구야?」의 「번째」를
   // 데이터에 없는 개체로 답했다(랜덤 테스트 사전 점검 D5). 낱말 자체는 어떤 개체 이름에도 없다.
   "번째", "몇", "어느", "많이", "적게", "담당한", "담당하는", "누구야", "어디야", "뭐야", "언제야", "얼마야",
+  // 관형사. 「너는 어떤 데이터베이스를 쓰니?」에 「개체(어떤)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 2차 회색 H05, H06).
+  "어떤", "무슨", "모든", "이전", "이런", "그런", "저런", "여러",
   // 영어 의문사와 기능어(「Who manages the Samsung account?」의 「Who」). 소문자로 대조한다.
   "who", "what", "which", "where", "when", "why", "how", "the", "an", "is", "are", "was", "were", "do",
   "does", "did", "of", "for", "to", "in", "on", "and", "or", "with", "by", "from", "me", "show", "list",
@@ -130,11 +132,20 @@ const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?
 /** 「Client A」, 「product c1」처럼 하이픈 대신 띄어 쓴 사업자 식별자를 「Client-A」, 「Product-C1」로.
  * 띄어 쓰면 한 글자 토큰(A)이 버려지고 남은 「Client」가 고객사 전부에 걸렸다(D4: 「Client A 담당 엔지니어」에
  * 담당자 둘 중 하나만 답함). 고객사 식별자는 대문자 한두 자, 제품 식별자는 영문 한 자와 숫자만 합친다
- * (「client is」는 합치지 않는다). */
+ * (「client is」는 합치지 않는다).
+ *
+ * 소문자로 띄어 쓴 것(「client b」), 하이픈 없이 붙인 것(「ClientA」), 밑줄로 이은 것(「Client_A」)은 합친 이름이
+ * 온톨로지 사전에 있을 때만 합친다(router.ts isEntityName). 「client b 담당자 누구야?」는 시드 낱말이 하나도 남지 않아
+ * 「알 수 없습니다」였고, 「ClientA」는 「찾지 못했습니다」였다(랜덤 테스트 사전 점검 2차 R10, 회색 F10). 붙여 쓴 고객사
+ * 식별자는 대문자일 때만 본다(「clients」가 Client-S 가 되지 않게). */
 export function joinSpacedIds(query: string): string {
-  return query.replace(/\b(client|product)\s+([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, id: string) => {
-    const ok = /^client$/i.test(type) ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id);
-    return ok ? `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}` : m;
+  return query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
+    const client = /^client$/i.test(type);
+    const name = `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}`;
+    const spaced = /^\s+$/.test(sep);
+    if (spaced && (client ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id))) return name;
+    if (sep === "" && (client ? !/^[A-Z]{1,2}$/.test(id) || type === "CLIENT" : !/^[A-Za-z]\d{1,2}$/.test(id))) return m;
+    return isEntityName(name) ? name : m;
   });
 }
 
@@ -146,6 +157,11 @@ export function seedTerms(query: string): string[] {
     out.add(w);
   }
   return [...out];
+}
+
+/** LIKE, ILIKE 패턴에 넣을 낱말. 역슬래시, %, _ 를 글자 그대로 찾게 앞에 역슬래시를 붙인다(PostgreSQL 의 기본 이스케이프 문자). */
+export function likeLiteral(term: string): string {
+  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 export interface OntologyResult {
@@ -201,16 +217,18 @@ export async function ontologySearch(
     // alias; without the split the 6 employees tie with the department and the
     // shorter-name tiebreak evicts the department itself — so the HEAD_IS edge the
     // question asks for never enters the context.
+    // LIKE 패턴에는 낱말을 글자 그대로 넣는다(t.pat, likeLiteral). 「Client_A」의 밑줄이 한 글자 와일드카드가 되어
+    // Client-A 부터 Client-AD 까지 다섯이 같은 점수로 걸렸다(랜덤 테스트 사전 점검 2차 R12).
     const scoreExpr = (col: string, exact: number) => `CASE
             WHEN lower(${col}) = lower(t.term) THEN ${exact}
-            WHEN lower(${col}) LIKE lower(t.term) || '%' THEN 2
+            WHEN lower(${col}) LIKE lower(t.pat) || '%' THEN 2
             ELSE 1 END`;
     // 여러 낱말로 된 이름(프로젝트 「Client-C DB 마이그레이션」)은 낱말로 쪼갠 대조로는
     // 통째로 잡히지 않는다. 「Client-C」가 고객사와 정확히 맞아 고객사가 시드가 되고,
     // 질문이 가리킨 프로젝트는 접두 일치 후보로 밀려 탐색되지 않았다(홀드아웃3 「Client-C DB
     // 마이그레이션, 누가 끌고 가는 거야?」). 이름이 질문에 그대로 있으면 가장 강한 시드다.
     const resolve = (ts: string[], limit: number, text: string) => pool.query(
-      `WITH t AS (SELECT unnest($1::text[]) AS term),
+      `WITH t AS (SELECT * FROM unnest($1::text[], $4::text[]) AS t(term, pat)),
             m AS (
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
                      'canonical'::text AS via, e.canonical_name AS matched, 5 AS score
@@ -222,13 +240,13 @@ export async function ontologySearch(
                      'canonical'::text AS via, t.term AS matched,
                      ${scoreExpr("e.canonical_name", 4)} AS score
                 FROM ${s}.entities e JOIN t
-                  ON e.canonical_name ILIKE '%' || t.term || '%'
+                  ON e.canonical_name ILIKE '%' || t.pat || '%'
               UNION ALL
               SELECT e.id, e.type, e.canonical_name, ${propsCol},
                      'alias', t.term, ${scoreExpr("a.alias", 3)}
                 FROM ${s}.entities e
                 JOIN ${s}.aliases a ON a.entity_id = e.id
-                JOIN t ON a.alias ILIKE '%' || t.term || '%'
+                JOIN t ON a.alias ILIKE '%' || t.pat || '%'
             )
        SELECT id, type, canonical_name, properties,
               (array_agg(via ORDER BY score DESC, via))[1] AS via,
@@ -238,7 +256,7 @@ export async function ontologySearch(
         GROUP BY id, type, canonical_name, properties
         ORDER BY max(score) DESC, length(canonical_name) ASC, id
         LIMIT $2`,
-      [ts, limit, text],
+      [ts, limit, text, ts.map(likeLiteral)],
     );
     const res = await resolve(terms, k, joinSpacedIds(query));
     const hits: OntologyHit[] = res.rows.map((r) => ({
@@ -339,6 +357,13 @@ export const GRAPH_LIMITS: Readonly<GraphLimits> = Object.freeze({
 
 export type Direction = "out" | "in" | "both";
 
+/** 노드 속성 조건(router.ts GraphPlan.filter 와 같은 꼴). side 는 엣지의 출발(source)과 도착(target) 가운데 어느 끝을 보는지. */
+export interface NodeFilter {
+  side: "source" | "target";
+  key: string;
+  value: string;
+}
+
 /** BFS relation edges from a seed entity up to `depth`, optional rel_type filter.
  *
  * Direction matters and defaults to BOTH: half of the sponsor's graph questions are
@@ -348,7 +373,9 @@ export type Direction = "out" | "in" | "both";
  * direction (src -rel-> dst) regardless of which way they were traversed.
  *
  * Bounded by `limits` (GRAPH_LIMITS). Hitting a cap stops the walk and reports
- * `truncated` — a silently cut result reads as "no such relation". */
+ * `truncated` — a silently cut result reads as "no such relation".
+ *
+ * `filter` keeps only edges whose endpoint on that side carries the property value (walk). */
 export async function graphExpand(
   pool: Pool,
   entityId: number,
@@ -357,11 +384,12 @@ export async function graphExpand(
   schema = kgSchema(),
   direction: Direction = "both",
   limits: GraphLimits = GRAPH_LIMITS,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   const requested = Math.max(1, Math.floor(depth) || 1);
   const d = Math.min(limits.maxHops, requested);
   const rel = relTypes && relTypes.length ? relTypes : null;
-  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d);
+  return walk(pool, entityId, Array.from({ length: d }, () => rel), schema, direction, limits, requested > d, filter);
 }
 
 /** 홉마다 탈 엣지 타입을 따로 정한 탐색. hops[i] 가 i+1 번째 홉의 엣지 타입이다.
@@ -374,11 +402,16 @@ export async function graphWalk(
   hops: string[][],
   schema = kgSchema(),
   limits: GraphLimits = GRAPH_LIMITS,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   const levels = hops.slice(0, limits.maxHops).map((h) => (h.length ? h : null));
-  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops);
+  return walk(pool, entityId, levels, schema, "both", limits, hops.length > limits.maxHops, filter);
 }
 
+/** filter 가 있으면 그 쪽 끝 개체가 같은 키에 다른 값을 가진 엣지는 타지 않는다. 그 키가 없는 개체(상태가 없는 고객사,
+ * 직원, 제품)와 시드 자신은 거르지 않는다. 「Client-AC에서 진행 중인 프로젝트」의 진행 중(status=in_progress)은 시드의
+ * 엣지에도 걸려야 한다. 종전에는 관계 스캔(relationScan)에만 걸려 보류(on_hold) 프로젝트가 진행 중으로 나왔다(랜덤
+ * 테스트 사전 점검 2차 R4). 속성 열이 없는 스키마(bench)에서는 거르지 않는다. */
 async function walk(
   pool: Pool,
   entityId: number,
@@ -387,9 +420,15 @@ async function walk(
   direction: Direction,
   limits: GraphLimits,
   cutByHops: boolean,
+  filter?: NodeFilter,
 ): Promise<GraphResult> {
   try {
     const s = safeSchema(schema);
+    const f = filter && (await hasProps(pool, s)) ? filter : undefined;
+    const [end, endId] = f?.side === "source" ? ["se", "r.src_entity_id"] : ["de", "r.dst_entity_id"];
+    const filterSql = f
+      ? `\n            AND (${endId} = $7 OR NOT COALESCE(${end}.properties ? $5, false) OR ${end}.properties ->> $5 = $6)`
+      : "";
     const d = levels.length;
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
@@ -415,10 +454,10 @@ async function walk(
            JOIN ${s}.entities de ON de.id = r.dst_entity_id
           WHERE ${match}
             AND ($2::text[] IS NULL OR r.rel_type = ANY($2::text[]))
-            AND NOT (r.id = ANY($3::int[]))
+            AND NOT (r.id = ANY($3::int[]))${filterSql}
           ORDER BY r.id
           LIMIT $4`,
-        [frontier, levels[level - 1], seenIds, room + 1],
+        [frontier, levels[level - 1], seenIds, room + 1, ...(f ? [f.key, f.value, entityId] : [])],
       );
       const overflow = res.rows.length > room;
       const rows = overflow ? res.rows.slice(0, room) : res.rows;
@@ -478,6 +517,8 @@ export interface RelationScanOptions {
   relTypes: string[];
   /** Rank endpoints by edge count on this side (superlative questions). */
   aggregate?: "source" | "target";
+  /** asc 면 적은 쪽부터 센다. 그 쪽 타입의 개체 가운데 맞는 엣지가 하나도 없는 것도 0건으로 넣는다(「가장 적은」). */
+  order?: "asc";
   /** Keep only edges whose endpoint carries this property value (e.g. status=in_progress). */
   filter?: { side: "source" | "target"; key: string; value: string };
   limit?: number;
@@ -540,11 +581,29 @@ export async function relationScan(
         cur.count++;
         counts.set(id, cur);
       }
+      const asc = opts.order === "asc";
+      if (asc) {
+        // 「가장 적은」은 엣지가 없는 개체(담당 고객사가 없는 직원)까지 센다. 그 쪽 끝에 이 관계로 나오는 타입의 개체 전부다.
+        const end = opts.aggregate === "source" ? "src_entity_id" : "dst_entity_id";
+        const all = await pool.query(
+          `SELECT e.id, e.canonical_name, e.type
+             FROM ${s}.entities e
+            WHERE e.type IN (SELECT DISTINCT x.type
+                               FROM ${s}.relations r JOIN ${s}.entities x ON x.id = r.${end}
+                              WHERE r.rel_type = ANY($1::text[]))
+            ORDER BY e.id`,
+          [opts.relTypes],
+        );
+        for (const row of all.rows) {
+          const id = Number(row.id);
+          if (!counts.has(id)) counts.set(id, { name: String(row.canonical_name), type: String(row.type), count: 0 });
+        }
+      }
       ranking.push(
         ...[...counts.entries()]
           .map(([entityId, v]) => ({ entityId, ...v }))
-          // count desc, then id asc: total order => zero run-to-run variance.
-          .sort((a, b) => b.count - a.count || a.entityId - b.entityId),
+          // count desc (asc 면 오름차순), then id asc: total order => zero run-to-run variance.
+          .sort((a, b) => (asc ? a.count - b.count : b.count - a.count) || a.entityId - b.entityId),
       );
     }
     return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, limit) };
@@ -667,7 +726,13 @@ export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number 
  *
  * 홉마다 따로 적으면 7B 가 「Client-Y 가 Product-D1 을 쓴다」와 「Client-Y 의 프로젝트」를
  * 스스로 이어 읽어야 한다. 한 줄에 경로 전체를 적어 잇는 일을 모델에 맡기지 않는다.
- * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다. */
+ * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다.
+ *
+ * 둘째 엣지를 거꾸로 타서 답이 그 엣지의 출발점이면(제품 ← 고객사 ← 담당 직원) 답이 줄 가운데에 묻힌다.
+ * 「Client-Q의 사용 중인 제품: Product-C1 → 조현우의 담당 고객사: Client-Q」에 7B 는 「Product-C1 담당 엔지니어는
+ * 누구야?」(사업자 graph/schema.md 의 예시 질의)를 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검 2차 R2, 3/3).
+ * 그때는 답부터 적는다: 「조현우의 담당 고객사: Client-Q → Client-Q의 사용 중인 제품: Product-C1」. 답이 둘째 엣지의
+ * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다. */
 export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
   const viaMid = new Map<number, GraphEdge>();
   for (const e of edges) {
@@ -679,16 +744,17 @@ export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] 
   const out: Candidate[] = [];
   edges.forEach((e2, i) => {
     if (e2.depth !== 2) return;
-    const [mid, ansType, ansId] = viaMid.has(e2.srcId)
-      ? [e2.srcId, e2.dstType, e2.dstId]
-      : [e2.dstId, e2.srcType, e2.srcId];
+    const forward = viaMid.has(e2.srcId);
+    const [mid, ansType, ansId] = forward ? [e2.srcId, e2.dstType, e2.dstId] : [e2.dstId, e2.srcType, e2.srcId];
     const e1 = viaMid.get(mid);
     if (!e1) return;
     out.push({
       canonicalKey: entityKey(ansType, ansId),
       sourceKey: `graph#p${i}`,
       source: "graph" as const,
-      text: `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`,
+      text: forward
+        ? `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`
+        : `[그래프 경로] ${line(e2)} → ${line(e1)} (${e2.relType}→${e1.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
     });
   });
@@ -702,6 +768,7 @@ export function rankingCandidates(
   ranking: RelationScanResult["ranking"],
   relType: string,
   topN = 5,
+  order?: "asc",
 ): Candidate[] {
   // Standard competition ranking (1224): equal degree = equal rank, marked 공동.
   // "가장 많은 고객을 담당하는 직원" has a 3-way tie in the sponsor data; numbering
@@ -712,11 +779,15 @@ export function rankingCandidates(
     const tied = ranking.filter((x) => x.count === r.count).length > 1;
     return { ...r, i, rank, tied };
   });
-  return withRank.slice(0, topN).map((r) => ({
+  // 적은 쪽부터(asc)는 순위 앞에 「적은 순」을 붙이고, 공동 1위가 다섯을 넘으면 그 전부를 싣는다(답 문장이 이름을 다 적는다,
+  // pipeline.ts fewestAnswer). 많은 쪽부터는 종전 글 그대로다(TC-132, TC-133).
+  const asc = order === "asc";
+  const n = asc ? Math.max(topN, withRank.filter((r) => r.rank === 1).length) : topN;
+  return withRank.slice(0, n).map((r) => ({
     canonicalKey: entityKey(r.type, r.entityId),
     sourceKey: `graph#r${r.i}`,
     source: "graph" as const,
-    text: `[그래프 집계] ${r.name} (${r.type}) — ${relLabel(relType)} ${r.count}건, ${r.tied ? "공동 " : ""}${r.rank}위`,
-    provenance: `relation-rank:${relType}:#${r.rank}${r.tied ? "-tied" : ""}`,
+    text: `[그래프 집계] ${r.name} (${r.type}) — ${relLabel(relType)} ${r.count}건, ${asc ? "적은 순 " : ""}${r.tied ? "공동 " : ""}${r.rank}위`,
+    provenance: `relation-rank${asc ? "-asc" : ""}:${relType}:#${r.rank}${r.tied ? "-tied" : ""}`,
   }));
 }

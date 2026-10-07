@@ -427,7 +427,7 @@ for (const doc of DOCS) {
 
 // ── C. 대역 일치 ────────────────────────────────────────────────────────
 // 한국어 문서와 영어 문서가 서로 다른 수를 말하면 둘 중 하나는 낡은 것이다.
-const ASSERTIONS = /(\d{3})\s*(?:단언|assertions)/g;
+const ASSERTIONS = /(\d{3,4})\s*(?:단언|assertions)/g;
 const perDoc = {};
 for (const doc of ["README.md", "README.en.md"]) {
   if (!existsSync(resolve(ROOT, doc))) continue;

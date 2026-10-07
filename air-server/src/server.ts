@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { queryParam } from "./queryinput.js";
+import { formatParam, queryParam } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -213,7 +213,8 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (DB read, no model)
         tags: ["sql", "postgres", "read-only", "pylon7:L3"], // Pylon-7 L3 Resource
-        handler: async ({ sql }) => sqlQuery(getReadPool(), sql as string),
+        // 서버 쪽 커서로 행 상한 + 1 행까지만 받는다(sql.ts readCapped). rowCount 는 종전처럼 전체 행 수다.
+        handler: async ({ sql }) => sqlQuery(getReadPool(), sql as string, { cursor: true }),
       }),
 
       defineTool(VECTOR_TOOL, {
@@ -306,7 +307,7 @@ export function buildServer(): AirServer {
           "쓰지 말 것: 답만 필요할 때(→ ask). 캐시에서 제외돼 매번 끝까지 실행하므로 같은 질의를 반복하면 그만큼 비용이 든다.",
         params: {
           query: queryParam("감사할 한국어 질의"),
-          format: { type: "string", description: "json(기본) 또는 text", optional: true },
+          format: formatParam("json(기본) 또는 text"),
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
         layer: 7,

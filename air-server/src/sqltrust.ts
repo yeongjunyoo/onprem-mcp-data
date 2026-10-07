@@ -24,8 +24,11 @@
 //   checkSql  — ① 조인 조건의 열 쌍이 스키마에 선언된 외래키인가 ② `id = 숫자` 의 숫자가 질문에 있는가.
 //               「매출 알려줘」에 7B 가 `JOIN employees e ON s.contract_id = e.id` 로 없는 관계를 이어 담당자
 //               이름을 지어냈고, 「연봉 알려줘」에 `WHERE e.id = 1` 로 묻지 않은 한 사람을 골랐다(D3).
+//   checkMoney — ③ 금액 열과 비교하는 숫자가 질문의 금액과 단위가 맞는가. 「연봉이 2억 원 이상」에 7B 가
+//               `salary >= 2000` 을 써 직원 45명을 모두 돌려줬다(G17 ⑥).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
+import { formatManwon, moneyMentions } from "./money.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -130,10 +133,20 @@ const NOT_ALIAS = new Set(
     .split(" "),
 );
 
+/** 표마다의 열 이름(declaredColumns). 없는 열로 조인한 사유를 「projects 에는 dept_id 열이 없다」로 적는 데 쓴다. */
+export type TableColumns = ReadonlyMap<string, ReadonlySet<string>>;
+
+/** 없는 열로 조인한 사유의 꼴. untrustedAnswer 가 괄호 안을 답에 옮긴다. */
+const MISSING_COLUMN = /^조인 조건 .+? 은 없는 열을 쓴다\(([^)]+)\)/;
+
 /** 생성 SQL 을 실행해도 되는지. 확실히 읽지 못하는 부분은 거부하지 않는다(검사는 아는 꼴만 막는다).
  *  ① `JOIN … ON a.x = b.y` 의 열 쌍마다 선언된 외래키(어느 방향이든)여야 한다. fks 가 비었으면 이 검사는 끈다.
+ *     columns 가 있고 한쪽 열이 그 표에 아예 없으면 사유가 그 열과 그 표가 외래키로 이어지는 표를 말한다: 「조인 조건
+ *     p.dept_id = d.id 은 없는 열을 쓴다(projects 에는 dept_id 열이 없다). projects 는 client_id → clients, manager_id →
+ *     employees, contract_id → contracts 로만 이어진다. 질문이 묻지 않은 표의 조인은 뺀다」. 종전 사유(「외래키가 아니다」)로는
+ *     수리가 같은 조인을 다시 냈다(랜덤 테스트 사전 점검 2차 R11, 「예산이 가장 큰 프로젝트 3개」 3/3 거절).
  *  ② `x.id = 숫자`(또는 `id = 숫자`)의 숫자는 질문에 있어야 한다. 질문에 없는 번호로 한 행을 고르는 것은 추측이다. */
-export function checkSql(sql: string, question: string, fks: ForeignKey[] | null): SqlCheck {
+export function checkSql(sql: string, question: string, fks: ForeignKey[] | null, columns?: TableColumns | null): SqlCheck {
   const masked = maskSql(sql);
   if (masked === null) return { ok: true, reasons: [], ids: [] };
   const reasons: string[] = [];
@@ -188,7 +201,22 @@ export function checkSql(sql: string, question: string, fks: ForeignKey[] | null
         const rt = alias.get(rq);
         if (!lt || !rt) continue; // 어느 표인지 모르면 판정하지 않는다
         const valid = [...lt].some((t1) => [...rt].some((t2) => fkPair(t1, lc, t2, rc)));
-        if (!valid) reasons.push(`조인 조건 ${e[1]} = ${e[2]} 은 스키마에 선언된 외래키가 아니다`);
+        if (valid) continue;
+        // 열 목록을 아는 표에서 그 열이 어느 표에도 없으면 없는 열이다. 수리 안내가 되도록 그 표가 외래키로 이어지는 표를 덧붙인다.
+        const absent = (ts: Set<string>, c: string) => (columns && [...ts].every((t) => columns.get(t)?.size && !columns.get(t)!.has(c)) ? [...ts] : null);
+        const missing = [[absent(lt, lc), lc], [absent(rt, rc), rc]].filter((x): x is [string[], string] => x[0] !== null);
+        if (!missing.length) {
+          reasons.push(`조인 조건 ${e[1]} = ${e[2]} 은 스키마에 선언된 외래키가 아니다`);
+          continue;
+        }
+        const paths = missing.map(([ts]) => {
+          const out = fks.filter((f) => ts.includes(f.table)).map((f) => `${f.column} → ${f.refTable}`);
+          return `${ts.join("/")} 는 ${out.length ? `${out.join(", ")} 로만 이어진다` : "다른 표를 가리키는 열이 없다"}`;
+        });
+        reasons.push(
+          `조인 조건 ${e[1]} = ${e[2]} 은 없는 열을 쓴다(${missing.map(([ts, c]) => `${ts.join("/")} 에는 ${c} 열이 없다`).join(", ")}). ` +
+            `${paths.join(". ")}. 질문이 묻지 않은 표의 조인은 뺀다`,
+        );
       }
     }
   }
@@ -209,6 +237,171 @@ export function checkSql(sql: string, question: string, fks: ForeignKey[] | null
     ids.push({ col, num, tables, reason: `${col} = ${num} 의 번호 ${num} 은 질문에 없다(질문에 없는 번호로 행을 고름)` });
   }
   return { ok: reasons.length === 0 && ids.length === 0, reasons, ids };
+}
+
+/** 집계를 부풀리는 조인 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const FANOUT_REASON = "집계 ";
+
+/** 부모 표(가리켜지는 쪽) 열의 집계가 자식 표(가리키는 쪽)와의 조인으로 부풀 수 있는 자리. */
+export interface FanoutJoin {
+  /** 생성 SQL 에 쓰인 집계 그대로(SUM(c.amount)). */
+  agg: string;
+  parent: string;
+  child: string;
+  /** 부모를 가리키는 자식 표의 외래키 열. 이 열에 같은 값이 둘 이상 있어야 실제로 부푼다(confirmFanout). */
+  childColumn: string;
+  /** 조인 조건 그대로(s.contract_id = c.id). */
+  join: string;
+}
+
+/** ④ SUM, AVG 의 열이 가리켜지는 쪽 표(부모)에 있고, 같은 질의 단계에서 부모가 자기를 가리키는 표(자식)와 선언된 외래키로
+ * 조인돼 있으면 부모 한 행이 자식 행 수만큼 겹쳐 집계된다. 「Client-Q 매출 합계랑 계약 금액 합계 각각 알려줘」에
+ * `sales s JOIN contracts c ON s.contract_id = c.id` 로 SUM(c.amount) 를 해 계약 합계 107,850(실제 11,250)을 답했다(랜덤
+ * 테스트 사전 점검 2차 R8). AVG 는 부모의 키로 묶었으면(GROUP BY c.id) 묶음마다 같은 값의 평균이라 맞다. SUM 은 묶어도
+ * 겹친 수만큼 커서 막는다. 집계와 조인은 같은 괄호 깊이(같은 SELECT)만 짝짓는다. 하위 질의로 따로 집계한 값은 걸리지 않는다.
+ * 확실히 읽지 못하는 문장, 별칭 없이 쓴 열, fks 가 빈 스키마는 판정하지 않는다. */
+export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[] {
+  if (!fks?.length) return [];
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const d = depths(masked);
+  if (!d) return [];
+  const known = new Set(fks.flatMap((f) => [f.table, f.refTable]));
+  const out: FanoutJoin[] = [];
+  const aggRe = new RegExp(`\\b(sum|avg)\\s*\\(\\s*(?:distinct\\s+)?((?:${IDENT}\\.){1,2}${IDENT})\\s*\\)`, "gi");
+  for (const a of masked.matchAll(aggRe)) {
+    const at = a.index ?? 0;
+    const level = d[at];
+    // 집계가 든 SELECT 의 범위: 같은 깊이를 여는 괄호 뒤부터 닫는 괄호 앞까지(맨 바깥이면 문장 전체)
+    let lo = 0;
+    let hi = masked.length;
+    if (level > 0) {
+      for (let i = at; i >= 0; i--) if (masked[i] === "(" && d[i] === level - 1) { lo = i + 1; break; }
+      for (let i = at; i < masked.length; i++) if (masked[i] === ")" && d[i] === level - 1) { hi = i; break; }
+    }
+    const here = (re: RegExp) => [...masked.slice(lo, hi).matchAll(re)].filter((m) => d[lo + (m.index ?? 0)] === level);
+    const bind = new Map<string, string>();
+    for (const m of here(new RegExp(`\\b(?:from|join)\\s+((?:${IDENT}\\.)?${IDENT})(?:\\s+(?:as\\s+)?(${IDENT}))?`, "gi"))) {
+      const table = m[1].split(".").pop()!.toLowerCase();
+      if (!known.has(table)) continue;
+      bind.set(table, table);
+      const al = m[2]?.toLowerCase();
+      if (al && !NOT_ALIAS.has(al)) bind.set(al, table);
+    }
+    const [aq, ac] = a[2].toLowerCase().split(".").slice(-2);
+    const parent = bind.get(aq);
+    if (!parent) continue;
+    const group = here(/\bgroup\s+by\b/gi)[0];
+    let groupText = "";
+    if (group) {
+      const from = lo + (group.index ?? 0);
+      const stop = [...masked.slice(from, hi).matchAll(/\b(having|order|limit|offset|fetch|window|union|intersect|except)\b/gi)].find(
+        (m) => d[from + (m.index ?? 0)] === level,
+      );
+      groupText = masked.slice(from, stop ? from + (stop.index ?? 0) : hi).toLowerCase();
+    }
+    const eqRe = new RegExp(`(?<![A-Za-z0-9_.])((?:${IDENT}\\.){1,2}${IDENT})\\s*=\\s*((?:${IDENT}\\.){1,2}${IDENT})(?![A-Za-z0-9_.(])`, "g");
+    for (const e of here(eqRe)) {
+      const sides = [e[1], e[2]].map((x) => x.toLowerCase().split(".").slice(-2) as [string, string]);
+      for (const [[pq, pc], [cq, cc]] of [[sides[0], sides[1]], [sides[1], sides[0]]]) {
+        if (pq !== aq) continue;
+        const child = bind.get(cq);
+        if (!child || !fks.some((f) => f.table === child && f.column === cc && f.refTable === parent && f.refColumn === pc)) continue;
+        // AVG 는 부모의 키로 묶으면 맞다.
+        const keyed = new RegExp(`(?<![A-Za-z0-9_])(?:${aq}|${parent})\\.${pc}(?![A-Za-z0-9_])`).test(groupText);
+        if (a[1].toLowerCase() === "avg" && keyed) continue;
+        const agg = sql.slice(at, at + a[0].length);
+        if (!out.some((x) => x.agg === agg && x.child === child)) {
+          out.push({ agg, parent, child, childColumn: cc, join: sql.slice(lo + (e.index ?? 0), lo + (e.index ?? 0) + e[0].length) });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+const dupCache = new WeakMap<object, Map<string, boolean>>();
+
+/** fanoutJoins 의 자리 가운데 자식의 외래키 열에 같은 값이 둘 이상 있는 것(실제로 부푸는 조인)의 사유. 부서장(departments.head_id)
+ * 처럼 한 부모를 한 자식만 가리키는 열이면 조인해도 부풀지 않아 막지 않는다. 읽지 못하면 막지 않는다. */
+export async function confirmFanout(pool: Pool, schema: string, joins: FanoutJoin[]): Promise<string[]> {
+  const reasons: string[] = [];
+  for (const j of joins) {
+    if (![schema, j.child, j.childColumn].every((x) => /^[a-z_][a-z0-9_]*$/.test(x))) continue;
+    const key = `${schema}.${j.child}.${j.childColumn}`;
+    let dup = dupCache.get(pool)?.get(key);
+    if (dup === undefined) {
+      try {
+        const res = await pool.query(
+          `SELECT EXISTS (SELECT 1 FROM ${schema}.${j.child} WHERE ${j.childColumn} IS NOT NULL GROUP BY ${j.childColumn} HAVING count(*) > 1) AS dup`,
+        );
+        const v = (res?.rows?.[0] as { dup?: unknown } | undefined)?.dup;
+        if (typeof v !== "boolean") continue;
+        dup = v;
+        if (!dupCache.has(pool)) dupCache.set(pool, new Map());
+        dupCache.get(pool)!.set(key, dup);
+      } catch {
+        continue;
+      }
+    }
+    if (!dup) continue;
+    reasons.push(
+      `${FANOUT_REASON}${j.agg} 은 ${j.parent} 의 열인데 ${j.parent} 를 가리키는 ${j.child} 와 조인(${j.join})해 ${j.parent} 한 행이 ` +
+        `${j.child} 행 수만큼 겹쳐 집계된다. ${j.parent} 의 값은 ${j.child} 와 조인하지 않은 하위 질의로 따로 집계한다`,
+    );
+  }
+  return reasons;
+}
+
+/** 스키마마다 만원 단위인 금액 열(nl2sql.ts 의 주석 카드). 여기 없는 스키마(smoke 의 public, bench)는 금액 단위를 보지 않는다. */
+const MONEY_COLUMNS = new Map<string, readonly string[]>([["companyx", ["salary", "amount", "budget", "price_monthly"]]]);
+
+export function moneyColumns(schema: string): readonly string[] {
+  return MONEY_COLUMNS.get(schema) ?? [];
+}
+
+/** 금액 단위 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const MONEY_REASON = "금액 조건 ";
+const UNIT_FACTORS = [10, 100, 1000, 10000];
+const same = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+
+/** ③ 질문에 금액 표현(money.ts)이 있을 때, 금액 열을 숫자와 비교하는 조건(=, <>, !=, <, <=, >, >=, BETWEEN)의 숫자가
+ * 질문의 만원 값과 10, 100, 1000, 10000 배로 어긋나면 단위 오류다. 사유는 기대한 만원 값을 말한다(수리 안내가 된다).
+ * 질문의 만원 값과 같은 숫자, 어느 값과도 배수 관계가 아닌 숫자, 집계(SUM(amount) > …)와 식(salary * 12 > …), 확실히
+ * 읽지 못하는 문장은 판정하지 않는다. columns 가 비었으면(금액 열을 모르는 스키마) 끈다. */
+export function checkMoney(sql: string, question: string, columns: readonly string[]): string[] {
+  if (!columns.length) return [];
+  const asked = moneyMentions(question);
+  if (!asked.length) return [];
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const col = `(?<![A-Za-z0-9_$.])(?<![*/%^+\\-|]\\s*)(?:${IDENT}\\.){0,2}(?:${columns.join("|")})(?![A-Za-z0-9_$])`;
+  const lit = "(\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?|\\.\\d+(?:[eE][+-]?\\d+)?)(?![A-Za-z0-9_.])";
+  const litEnd = "(?!\\s*[*/%^+\\-|])";
+  const op = "(?:<>|!=|<=|>=|=|<|>)";
+  const forms = [
+    new RegExp(`${col}\\s*${op}\\s*${lit}${litEnd}`, "gi"),
+    new RegExp(`(?<![A-Za-z0-9_$.])(?<![*/%^+\\-|]\\s*)${lit}\\s*${op}\\s*${col}(?!\\s*[*/%^+\\-|.(])`, "gi"),
+    new RegExp(`${col}\\s+(?:not\\s+)?between\\s+(?:symmetric\\s+)?${lit}\\s+and\\s+${lit}${litEnd}`, "gi"),
+  ];
+  const reasons: string[] = [];
+  for (const re of forms) {
+    for (const m of masked.matchAll(re)) {
+      const cond = sql.slice(m.index, m.index + m[0].length).replace(/\s+/g, " ");
+      for (const raw of m.slice(1).filter((x) => x !== undefined)) {
+        const n = Number(raw);
+        if (asked.some((a) => same(a.manwon, n))) continue;
+        const near = asked.find((a) => UNIT_FACTORS.some((f) => same(n * f, a.manwon) || same(n, a.manwon * f)));
+        if (!near) continue;
+        const want = formatManwon(near.manwon);
+        reasons.push(
+          `${MONEY_REASON}${cond} 의 ${raw} 은 질문의 금액 「${near.text}」(=${want}만 원)과 단위가 다르다. ` +
+            `금액 열은 만원 단위라 ${want} 이어야 한다`,
+        );
+      }
+    }
+  }
+  return reasons;
 }
 
 /** 질문에 없는 번호로 건 id 조건 가운데 그 행의 이름(name 열)이 질문에 그대로 있는 것은 거부하지 않는다.
@@ -272,6 +465,48 @@ export async function declaredForeignKeys(pool: Pool, schema: string): Promise<F
   }
 }
 
+const COLUMNS_SQL = `
+  SELECT c.relname AS table_name, a.attname AS column_name
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = $1 AND a.attnum > 0 AND NOT a.attisdropped AND c.relkind IN ('r', 'v', 'm', 'p', 'f')`;
+
+const colCache = new WeakMap<object, Map<string, TableColumns>>();
+
+/** 스키마의 표마다 열 이름. 풀마다 한 번 읽는다(카탈로그라 권한에 따라 가려지지 않는다). 읽지 못하면 null(없는 열 사유를
+ * 쓰지 않고 종전 사유로 둔다). */
+export async function declaredColumns(pool: Pool, schema: string): Promise<TableColumns | null> {
+  const hit = colCache.get(pool)?.get(schema);
+  if (hit) return hit;
+  try {
+    const res = await pool.query(COLUMNS_SQL, [schema]);
+    const cols = new Map<string, Set<string>>();
+    for (const r of (res?.rows ?? []) as Record<string, unknown>[]) {
+      if (typeof r.table_name !== "string" || typeof r.column_name !== "string") continue;
+      if (!cols.has(r.table_name)) cols.set(r.table_name, new Set());
+      cols.get(r.table_name)!.add(r.column_name);
+    }
+    if (!colCache.has(pool)) colCache.set(pool, new Map());
+    colCache.get(pool)!.set(schema, cols);
+    return cols;
+  } catch {
+    return null;
+  }
+}
+
+/** 생성 SQL(과 수리 SQL)을 실행하기 전의 검사 사유. 비었으면 실행해도 된다. executeWithRepair 가 부르고, 순서는 조인과 id
+ * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout)이다. */
+export async function untrustedReasons(pool: Pool, schema: string, sql: string, question: string): Promise<string[]> {
+  const fks = await declaredForeignKeys(pool, schema);
+  const v = checkSql(sql, question, fks, await declaredColumns(pool, schema));
+  return [
+    ...(v.ok ? [] : await confirmNamedIds(pool, schema, v, question)),
+    ...checkMoney(sql, question, moneyColumns(schema)),
+    ...(await confirmFanout(pool, schema, fanoutJoins(sql, fks))),
+  ];
+}
+
 /** 실행 전 검사의 기록. 검사가 아무것도 거부하지 않았으면 만들지 않는다.
  *  refused  — 실행할 믿을 만한 SQL 이 없다. 답하지 않는다.
  *  repaired — 처음 SQL 을 거부하고 수리한 SQL 을 실행했다.
@@ -294,16 +529,36 @@ export function sqlGatePolicy(gate: SqlGate | undefined): PolicyVerdict | undefi
   return { policy: "sql-trust-gate", verdict: gate.outcome === "repaired" ? "repair" : "deny", detail: `${head} — ${why}` };
 }
 
-/** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. */
+/** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. 금액 단위만 걸렸으면 금액 조건을 말하고 만원으로
+ * 바꿔 묻는 법을 알린다. */
 export function untrustedAnswer(gate: SqlGate): string {
   const reasons = gate.rejected.flatMap((r) => r.reasons);
+  const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
-  const id = reasons.find((r) => !r.startsWith("조인 조건"))?.match(/^(.+?) 의 번호/)?.[1];
-  const why = join
+  const id = reasons
+    .find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON) && !r.startsWith(FANOUT_REASON))
+    ?.match(/^(.+?) 의 번호/)?.[1];
+  const money = reasons
+    .find((r) => r.startsWith(MONEY_REASON))
+    ?.match(/^금액 조건 (.+?) 의 [^ ]+ 은 질문의 금액 「(.+?)」\(=([^)]+)만 원\)/);
+  const fan = reasons.find((r) => r.startsWith(FANOUT_REASON))?.match(/^집계 (.+?) 은 (\S+) 의 열인데 \S+ 를 가리키는 (\S+) 와 조인/);
+  if (!join && !id && !fan && money) {
+    const [, cond, text, want] = money;
+    return (
+      "이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
+      `생성된 SQL 이 금액 조건(${cond})을 질문의 금액(${text} = ${want}만 원)과 다른 단위로 걸어서 실행하지 않았습니다. ` +
+      `금액은 만원 단위 숫자로 바꿔 다시 물어봐 주세요. 예: 「${text}」 대신 「${want}만 원」`
+    );
+  }
+  const why = missing
+    ? `생성된 SQL 이 표에 없는 열로 표를 이어서(${missing}) 실행하지 않았습니다. `
+    : join
     ? `생성된 SQL 이 외래키가 아닌 열(${join})로 표를 이어서 실행하지 않았습니다. `
     : id
       ? `생성된 SQL 이 질문에 없는 번호(${id})로 한 건만 골라서 실행하지 않았습니다. `
-      : "";
+      : fan
+        ? `생성된 SQL 이 ${fan[2]} 의 값(${fan[1]})을 ${fan[3]} 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다. `
+        : "";
   return (
     "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
     why +

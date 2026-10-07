@@ -48,3 +48,16 @@ export function queryParam(description: string) {
     .describe(description)
     .refine((q) => !isBlankQuery(q), { message: EMPTY_QUERY_MESSAGE });
 }
+
+/** audit.explain 의 format 칸. json 과 text 말고는 같은 입력 검증 길(-32602)로 거절한다. 종전에는 모르는 값(xml 등)을
+ * 조용히 json 으로 돌려줬다(G17 ⑪). 값이 없으면 json 이다. tools/list 의 입력 스키마는 종전 그대로다. */
+export function formatParam(description: string) {
+  return z
+    .string()
+    .describe(description)
+    .refine(
+      (f) => f === "json" || f === "text",
+      (f) => ({ message: `format 은 json(기본) 또는 text 만 받습니다. 받은 값: ${JSON.stringify(f)}` }),
+    )
+    .optional();
+}
