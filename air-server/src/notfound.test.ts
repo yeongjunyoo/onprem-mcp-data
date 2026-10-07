@@ -8,14 +8,17 @@
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { entityLikeName, ontologySearch } from "./graph.js";
+import { entityLikeName, joinSpacedIds, ontologySearch, seedTerms } from "./graph.js";
 import {
   NOT_FOUND_SIMILARITY,
+  absentAttribute,
   classifyNotFound,
+  describeAbsentAttribute,
   describeNotFound,
   nameSimilarity,
   similarNames,
 } from "./notfound.js";
+import { companyxSchemaCard } from "./nl2sql.js";
 import { ask, graphLane, withoutMissing } from "./pipeline.js";
 
 let passed = 0;
@@ -247,6 +250,45 @@ const fakePool = {
   const none = await graphLane(fakePool, "ㅁㄴㅇㄹ", 5, 2, "companyx");
   ok(none.strategy === "unresolved" && none.items.length === 1, "질의어가 없으면 탐색하지 않는다");
   ok(!none.items[0].text.includes("()") && none.items[0].text.includes("개체 이름으로 볼 낱말"), `빈 괄호 대신 이유를 말한다 (got ${none.items[0].text})`);
+}
+
+// ── 7) 랜덤 테스트 사전 점검 D4·D5·D2 ─────────────────────────────────────
+{
+  // D4: 띄어 쓴 식별자를 하이픈 꼴로 합치고, 유형 낱말 단독은 시드로 쓰지 않는다.
+  ok(JSON.stringify(seedTerms("Client A 담당 엔지니어는 누구야?")) === '["Client-A"]', `Client A → Client-A (got ${JSON.stringify(seedTerms("Client A 담당 엔지니어는 누구야?"))})`);
+  ok(seedTerms("client K 담당 엔지니어는 누구야?")[0] === "Client-K", "소문자 유형 낱말도 합친다");
+  ok(seedTerms("Product C1을 사용하는 고객사는 어디야?")[0] === "Product-C1", "Product C1 → Product-C1");
+  ok(joinSpacedIds("Which client is the biggest?") === "Which client is the biggest?", "「client is」는 식별자가 아니다");
+  ok(seedTerms("Client 목록 보여줘").length === 0, "유형 낱말 단독은 시드가 아니다");
+  ok(JSON.stringify(seedTerms("Client-A가 사용 중인 제품 목록은?")) === '["Client-A"]', "하이픈 이름은 그대로(TC-124)");
+
+  // D5: 서수와 영어 기능어는 개체가 아니고, 못 찾은 개체로는 이름처럼 생긴 낱말을 먼저 댄다.
+  ok(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?").length === 0, `「번째」를 개체로 읽지 않는다 (got ${JSON.stringify(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?"))})`);
+  ok(JSON.stringify(seedTerms("서울물산의 두번째로 큰 계약")) === '["서울물산"]', "붙여 쓴 서수도 뺀다");
+  ok(JSON.stringify(seedTerms("Who manages the Samsung account?")) === '["Samsung"]', "영어 의문사와 기능어를 뺀다");
+  ok(classifyNotFound(["누구야", "Samsung"], LEXICON).query_entity === "Samsung", "이름처럼 생긴 낱말을 먼저 댄다");
+  ok(classifyNotFound(["대한민국", "대통령"], LEXICON).query_entity === "대한민국", "이름처럼 생긴 낱말이 없으면 첫 질의어(TC-143)");
+  ok(classifyNotFound(["서울물산", "누구야"], LEXICON).query_entity === "서울물산", "서울물산 그대로(TC-132)");
+
+  // D2: 데이터에 없는 항목은 정형 레인에 넘기지 않는다. 있는 열과 부서 인원은 막지 않는다.
+  const card = companyxSchemaCard();
+  ok(absentAttribute("직원들의 평균 나이는 몇 살이야?", card) === "나이", "나이");
+  ok(absentAttribute("남자 직원은 몇 명이야?", card) === "성별", "남자 → 성별");
+  ok(absentAttribute("Client-A의 직원 수는 몇 명이야?", card) === "고객사의 직원 수", "고객사의 직원 수");
+  ok(absentAttribute("직원들 주소 알려줘", card) === "주소", "주소");
+  for (const q of [
+    "클라우드사업부 직원 수는 몇 명이야?",
+    "Client-A 담당 직원 수는?",
+    "박소연의 이메일 주소 알려줘",
+    "Client-A 연락처 알려줘",
+    "고객사 수는 몇 개야?",
+    "기술지원팀 직원 목록과 연봉을 알려줘",
+    "2025년 3분기 총 매출액은 얼마야?",
+  ]) {
+    ok(absentAttribute(q, card) === null, `있는 데이터를 묻는 질문은 통과: ${q}`);
+  }
+  ok(absentAttribute("직원 나이 평균", "employees(id, name, age int) -- 나이") === null, "스키마 카드에 있는 낱말은 막지 않는다");
+  ok(describeAbsentAttribute("나이").startsWith("질문에 나온 항목(나이)은 이 데이터에 없는 정보라 답할 수 없습니다."), "없는 항목 문장");
 }
 
 console.log(`\nnotfound.test: ${passed} passed, ${failed} failed`);

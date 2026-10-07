@@ -20,6 +20,7 @@ import type { Pool } from "pg";
 import type { Embedder } from "./embedder.js";
 import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX, writeRefusal, NO_TABLE_ANSWER } from "./pipeline.js";
 import { pickSql, readsTable, writeStatement, NO_TABLE, type Nl2SqlReport } from "./nl2sql.js";
+import { describeAbsentAttribute } from "./notfound.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
 import { assertCorpusEmbedder } from "./companyx.js";
@@ -394,6 +395,21 @@ const deadEmbedder: Embedder = {
   };
   const c = await ask("오늘 서울 날씨 어때?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: constNl2sql, llm });
   ok(called === 0 && c.answer === NO_TABLE_ANSWER && !c.answer.includes("서울 날씨"), `상수 SELECT 의 값을 답으로 쓰지 않는다 (got ${c.answer})`);
+
+  // 없는 항목(랜덤 테스트 사전 점검 D2): 생성 모델에 넘기지 않고 없다고 답한다. 부서 인원은 그대로 넘긴다.
+  let generated = 0;
+  const countingNl2sql = async () => {
+    generated++;
+    return null;
+  };
+  const age = await ask("직원들의 평균 나이는 몇 살이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(age.route === "structured" || age.route === "hybrid", `정형 레인 질문 (got ${age.route})`);
+  ok(generated === 0 && called === 0 && age.sql.absent === "나이", "없는 항목은 SQL 도 답도 생성하지 않는다");
+  ok(age.answer === describeAbsentAttribute("나이"), `나이는 없는 항목이라고 답한다 (got ${age.answer})`);
+  const head = await ask("Client-A의 직원 수는 몇 명이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(head.sql.absent === "고객사의 직원 수" && !/\d+명/.test(head.answer), `고객사의 직원 수를 지어내지 않는다 (got ${head.answer})`);
+  await ask("클라우드사업부 직원 수는 몇 명이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(generated === 1, "부서 인원 질문은 정형 레인으로 간다");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

@@ -153,7 +153,8 @@ export function buildResources() {
               retrieval:
                 "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null. "
                 + "sql.refused 는 생성 모델이 만들었지만 실행하지 않은 문장이 있을 때만 붙는다. {kind, text}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
-                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT)이고, 이때 sql.text 는 null 이다(실행한 SQL 없음)",
+                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT)이고, 이때 sql.text 는 null 이다(실행한 SQL 없음). "
+                + "sql.absent 는 질문이 묻는 항목(나이, 성별, 고객사의 직원 수 등)이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목 이름이다",
               fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",
@@ -176,7 +177,7 @@ export function buildResources() {
             },
             policies: {
               "sql-read-only":
-                "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다. 생성 모델이 쓰기 문장이나 테이블을 읽지 않는 SELECT 를 만들면 실행하지 않고 deny 로 남긴다",
+                "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다. 생성 모델이 쓰기 문장이나 테이블을 읽지 않는 SELECT 를 만들면 실행하지 않고, 질문이 스키마에 없는 항목을 물으면 SQL 을 만들지 않고 deny 로 남긴다",
               "sql-repair": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정",
               "graph-unresolved-gate":
                 "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단, deny). "

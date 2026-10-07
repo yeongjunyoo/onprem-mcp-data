@@ -14,7 +14,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
-import { classifyNotFound, similarNames, type NotFound } from "./notfound.js";
+import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
 import { identifyingAliases } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -97,13 +97,37 @@ const SEED_STOP = new Set([
   "제품", "고객", "고객사", "직원", "부서", "프로젝트", "계약", "이슈", "목록", "현황", "관련",
   "관련된", "누구", "어디", "무엇", "얼마", "가장", "많은", "적은", "진행", "중인", "알려줘",
   "보여줘", "궁금해", "엔지니어", "지원",
+  // 서수, 의문 낱말, 정도 부사와 서술어. 「계약을 두 번째로 많이 담당한 직원은 누구야?」의 「번째」를
+  // 데이터에 없는 개체로 답했다(랜덤 테스트 사전 점검 D5). 낱말 자체는 어떤 개체 이름에도 없다.
+  "번째", "몇", "어느", "많이", "적게", "담당한", "담당하는", "누구야", "어디야", "뭐야", "언제야", "얼마야",
+  // 영어 의문사와 기능어(「Who manages the Samsung account?」의 「Who」). 소문자로 대조한다.
+  "who", "what", "which", "where", "when", "why", "how", "the", "an", "is", "are", "was", "were", "do",
+  "does", "did", "of", "for", "to", "in", "on", "and", "or", "with", "by", "from", "me", "show", "list",
+  "tell", "give", "please", "all", "many", "much", "most", "manage", "manages", "managed", "use", "uses",
+  "used", "using", "account", "accounts",
+  // 유형 낱말 단독(「Client A」의 「Client」)은 모든 고객사에 부분 일치해 시드가 다섯으로 퍼졌다(D4).
+  "client", "clients", "product", "products", "customer", "customers", "employee", "employees",
+  "project", "projects",
 ]);
+/** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
+const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
+
+/** 「Client A」, 「product c1」처럼 하이픈 대신 띄어 쓴 사업자 식별자를 「Client-A」, 「Product-C1」로.
+ * 띄어 쓰면 한 글자 토큰(A)이 버려지고 남은 「Client」가 고객사 전부에 걸렸다(D4: 「Client A 담당 엔지니어」에
+ * 담당자 둘 중 하나만 답함). 고객사 식별자는 대문자 한두 자, 제품 식별자는 영문 한 자와 숫자만 합친다
+ * (「client is」는 합치지 않는다). */
+export function joinSpacedIds(query: string): string {
+  return query.replace(/\b(client|product)\s+([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, id: string) => {
+    const ok = /^client$/i.test(type) ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id);
+    return ok ? `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}` : m;
+  });
+}
 
 export function seedTerms(query: string): string[] {
   const out = new Set<string>();
-  for (const raw of query.match(SEED_TOKEN) ?? []) {
+  for (const raw of joinSpacedIds(query).match(SEED_TOKEN) ?? []) {
     const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
-    if (w.length < 2 || SEED_STOP.has(w)) continue;
+    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
   return [...out];
@@ -119,19 +143,7 @@ export interface OntologyResult {
   error?: string;
 }
 
-/** 개체 이름처럼 생긴 질의어인가. 맞으면 이름 부분(뒤에 붙은 조사를 뗀 것)을, 아니면 null.
- *
- * 질의어 일부만 해소된 섞인 질문에서 해소되지 않은 질의어를 「데이터에 없다」고 말할지 가른다.
- * 사업자 식별자 꼴(Client-A, Product-C1)과 조직 접미사(물산, 전자, 팀, 사업부 …)로 끝나는 낱말만
- * 이름으로 본다. 「등록된」, 「이전」 같은 일반 낱말은 해소되지 않아도 개체가 아니다 — 그 낱말을
- * 개체로 읽어 「찾지 못했습니다」라고 답한 오라우팅이 실측에 있었다(근거표 「넣지 않은 것」). */
-const NAME_ID = /^[A-Z][A-Za-z]*-[A-Z]{1,3}\d*$/;
-const ORG_NAME =
-  /^([가-힣A-Za-z0-9]+?(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소))(?:이랑|랑|하고|이나|이며|이고|께서|한테)?$/;
-export function entityLikeName(term: string): string | null {
-  if (NAME_ID.test(term)) return term;
-  return term.match(ORG_NAME)?.[1] ?? null;
-}
+export { entityLikeName } from "./notfound.js";
 
 /** 비슷한 이름 판정을 이름 후보로 쓰는 최소 길이. 두 글자 낱말(「재원」, 「현우」)은 세 글자 직원
  * 이름과 0.67 로 겹쳐 일반 낱말이 이름으로 잡힌다. notfound.ts 도 두 글자의 한 글자 차이는 넣지 않는다. */
@@ -213,7 +225,7 @@ export async function ontologySearch(
         LIMIT $2`,
       [ts, limit, text],
     );
-    const res = await resolve(terms, k, query);
+    const res = await resolve(terms, k, joinSpacedIds(query));
     const hits: OntologyHit[] = res.rows.map((r) => ({
       entityId: Number(r.id),
       type: String(r.type),

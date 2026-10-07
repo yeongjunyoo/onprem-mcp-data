@@ -55,6 +55,8 @@ export interface AuditRecord {
       repaired: boolean;
       /** 생성 모델이 만들었지만 실행하지 않은 문장. 그때만 붙고 text 는 null 이다. */
       refused?: { kind: string; text: string };
+      /** 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목. 그때만 붙는다. */
+      absent?: string;
     };
     vector: { hits: number | null };
     graph: { strategy: string | null; seeds: number | null; edges: number | null; truncated: GraphTruncation | null };
@@ -152,6 +154,12 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         r.sql.refused.kind === NO_TABLE
           ? "생성 모델이 테이블을 읽지 않는 SELECT 를 만들어 실행하지 않았다(데이터와 무관한 상수)"
           : `생성 모델이 쓰기 문장(${r.sql.refused.kind})을 만들어 실행하지 않았다`,
+    });
+  } else if (r.sql.absent) {
+    policies.push({
+      policy: "sql-read-only",
+      verdict: "deny",
+      detail: `질문의 항목(${r.sql.absent})이 데이터 스키마에 없어 SQL 을 만들지 않았다(없는 열을 다른 열로 바꿔 답하지 않음)`,
     });
   }
 
@@ -256,6 +264,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         error: r.sql.result?.error ?? null,
         repaired: Boolean(r.sql.repaired),
         ...(r.sql.refused ? { refused: r.sql.refused } : {}),
+        ...(r.sql.absent ? { absent: r.sql.absent } : {}),
       },
       vector: { hits: r.vector?.ok ? r.vector.hits.length : null },
       graph: {
@@ -300,7 +309,7 @@ export function renderAudit(rec: AuditRecord): string {
     `질의: ${rec.query}`,
     `지문: 규칙 ${rec.routing_fingerprint} / 파이프라인 ${rec.pipeline_fingerprint}`,
     `라우팅: ${rec.routing.lane} -> ${rec.routing.tools.join(", ") || "없음"} (${rec.routing.rationale})`,
-    `SQL: ${rec.retrieval.sql.text ? `${rec.retrieval.sql.ok ? "실행" : "거부"}${rec.retrieval.sql.repaired ? " (1회 교정)" : ""}` : rec.retrieval.sql.refused ? `실행 안 함(생성 문장 ${rec.retrieval.sql.refused.kind})` : "해당 없음"}`,
+    `SQL: ${rec.retrieval.sql.text ? `${rec.retrieval.sql.ok ? "실행" : "거부"}${rec.retrieval.sql.repaired ? " (1회 교정)" : ""}` : rec.retrieval.sql.refused ? `실행 안 함(생성 문장 ${rec.retrieval.sql.refused.kind})` : rec.retrieval.sql.absent ? `만들지 않음(없는 항목 ${rec.retrieval.sql.absent})` : "해당 없음"}`,
     `후보: sql ${rec.retrieval.candidates.sql} / vector ${rec.retrieval.candidates.vector} / graph ${rec.retrieval.candidates.graph} -> 융합 ${rec.retrieval.candidates.fused}`,
     `컨텍스트: ${rec.context.items}항목 ${rec.context.chars}자`,
   ];

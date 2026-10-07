@@ -36,7 +36,7 @@ import {
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
-import { describeNotFound, type NotFound } from "./notfound.js";
+import { absentAttribute, describeAbsentAttribute, describeNotFound, type NotFound } from "./notfound.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -50,8 +50,15 @@ export interface RetrieveDeps {
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  /** refused 는 생성 모델이 만들었지만 실행하지 않은 문장(nl2sql.ts pickSql). 그때 text 는 null 이다. */
-  sql: { text: string | null; result?: SqlResult; repaired?: boolean; refused?: { kind: string; text: string } };
+  /** refused 는 생성 모델이 만들었지만 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이 묻는 항목이
+   * 스키마에 없어 SQL 을 만들지 않았을 때 그 항목(notfound.ts absentAttribute). 둘 다 text 는 null 이다. */
+  sql: {
+    text: string | null;
+    result?: SqlResult;
+    repaired?: boolean;
+    refused?: { kind: string; text: string };
+    absent?: string;
+  };
   vector?: VectorResult;
   graph?: GraphLaneResult;
   fused: Fused<ContextItem>[];
@@ -390,6 +397,10 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   // in one (e.g. NL2SQL throws) still yields the other's context (graceful degradation). ---
   const sqlBranch = (async (): Promise<RetrieveResult["sql"]> => {
     if (!wantSql) return { text: null };
+    // 없는 항목(나이, 성별, 고객사의 직원 수)을 묻는 질문은 생성 모델에 넘기지 않는다. 넘기면 다른 열로
+    // 바꿔 답했다(랜덤 테스트 사전 점검 D2).
+    const absent = absentAttribute(query, profile().schemaCard);
+    if (absent) return { text: null, absent };
     const report: Nl2SqlReport = {};
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
@@ -515,7 +526,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   return {
     query,
     route: decision.route,
-    sql: { text: sqlText, result: sqlResult, repaired: sql.repaired, ...(sql.refused ? { refused: sql.refused } : {}) },
+    sql: {
+      text: sqlText,
+      result: sqlResult,
+      repaired: sql.repaired,
+      ...(sql.refused ? { refused: sql.refused } : {}),
+      ...(sql.absent ? { absent: sql.absent } : {}),
+    },
     vector: vecResult,
     graph: graphResult,
     fused,
@@ -577,6 +594,10 @@ export async function ask(
   const refused = r.sql.refused;
   if (refused && refused.kind !== NO_TABLE) {
     return { ...r, answer: writeRefusal(refused.kind) };
+  }
+  // 묻는 항목이 데이터에 없고 다른 레인의 근거도 없다. 7B 없이 그렇게 답한다.
+  if (r.sql.absent && r.context.length === 0) {
+    return { ...r, answer: describeAbsentAttribute(r.sql.absent) };
   }
 
   // ★ 근거가 없는 것과 근거를 **가져올 수 없는** 것은 다르다.

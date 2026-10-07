@@ -193,6 +193,14 @@ function main() {
     "상수 SELECT 도 거부로 남긴다",
   );
   ok(okSql.sql.refused === undefined && r1.retrieval.sql.refused === undefined, "실행한 SQL 에는 refused 가 붙지 않는다");
+  // 없는 항목(랜덤 테스트 사전 점검 D2): SQL 을 만들지 않은 이유를 남긴다.
+  const absent = buildAuditRecord(base({ sql: { text: null, absent: "나이" } } as never));
+  ok(
+    absent.policies.find((p) => p.policy === "sql-read-only")?.detail ===
+      "질문의 항목(나이)이 데이터 스키마에 없어 SQL 을 만들지 않았다(없는 열을 다른 열로 바꿔 답하지 않음)",
+    "없는 항목을 거부 사유로 남긴다",
+  );
+  ok(absent.retrieval.sql.absent === "나이" && renderAudit(absent).includes("SQL: 만들지 않음(없는 항목 나이)"), "레코드와 요약에 없는 항목");
 
   // --- 10. 섞인 질문의 없는 개체(G17 ①) ---
   const missing = [{ reason: "not_in_database" as const, query_entity: "서울물산", candidates: [] }];
