@@ -13,6 +13,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
 // 직접 의존성의 사용 목적 — 사람이 유지하는 유일한 수기 항목.
 const PURPOSE = {
   '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리',
+  '@modelcontextprotocol/sdk': 'MCP 공식 TypeScript SDK. 프롬프트 인자 검증(promptargs.ts)이 직접 쓰고 air 도 이 위에서 동작',
   pg: 'PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링',
   typescript: '빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일',
   '@types/node': '타입 정의(개발 전용)',
