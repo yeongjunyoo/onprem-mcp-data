@@ -192,6 +192,8 @@ async function live() {
   const fewScan = await relationScan(pool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, schema);
   const zeros = fewScan.ranking.filter((r) => r.count === 0).length;
   eq([fewScan.ranking.length, zeros, fewScan.ranking.filter((r) => r.count === 1).length], [45, 15, 9], "fewest scan counts every employee, zero-edge ones first");
+  const fewCapped = await relationScan(pool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc", limit: 10 }, schema);
+  eq(fewCapped.ranking.length, 15, "the scan cap never cuts the fewest tie group (15 zero-edge employees under limit 10)");
   const fewLane = await graphLane(pool, "담당하는 고객사가 가장 적은 직원은 누구야?", 5, 2, schema, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" });
   ok(fewLane.fewest?.entries.length === 15 && fewLane.fewest.count === 0, `graph lane carries all 15 tied fewest (got ${fewLane.fewest?.entries.length})`);
 

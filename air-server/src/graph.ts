@@ -606,7 +606,9 @@ export async function relationScan(
           .sort((a, b) => (asc ? a.count - b.count : b.count - a.count) || a.entityId - b.entityId),
       );
     }
-    return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, limit) };
+    // 「가장 적은」의 공동 1위는 상한에서 자르지 않는다. 자르면 답 문장(pipeline.ts fewestAnswer)이 잘린 수를 공동 1위의 수로 말한다
+    const ties = opts.order === "asc" && ranking.length ? ranking.filter((r) => r.count === ranking[0].count).length : 0;
+    return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, Math.max(limit, ties)) };
   } catch (err) {
     return { ok: false, edges: [], ranking: [], error: describeError(err) };
   }

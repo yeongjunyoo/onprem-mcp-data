@@ -1378,6 +1378,17 @@ const deadEmbedder: Embedder = {
         "FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY 2 DESC NULLS LAST) AS ranked WHERE rank = 3",
     "자리 번호 정렬, NULLS LAST, OFFSET … FETCH FIRST 1 ROWS ONLY",
   );
+  // 둘째 정렬 키(이름)는 같은 값을 늘어놓는 순서다. 순위에 넣으면 공동 순위가 갈라져 한 명만 남는다(PR #257 Codex P1).
+  ok(
+    rankRewrite(
+      "SELECT e.name, COUNT(c.id) AS contract_count FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id " +
+        "GROUP BY e.id, e.name ORDER BY contract_count DESC, e.name ASC LIMIT 1 OFFSET 1",
+      q2,
+    )?.text ===
+      "SELECT * FROM (SELECT e.name, COUNT(c.id) AS contract_count, CAST(DENSE_RANK() OVER (ORDER BY COUNT(c.id) DESC) AS integer) AS rank " +
+        "FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY contract_count DESC, e.name ASC) AS ranked WHERE rank = 2",
+    "순위는 첫 정렬 키로만 매기고 둘째 키는 안쪽 ORDER BY 에 남는다",
+  );
   for (const [q, sql] of [
     ["계약을 많이 담당한 직원 목록", second], // 질문에 순위가 없다
     ["계약을 세 번째로 많이 담당한 직원은 누구야?", second], // 질문의 순위(3)와 OFFSET 1 이 어긋난다

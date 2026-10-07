@@ -161,7 +161,9 @@ const NOT_OUTPUT_NAME = new Set(
  * OFFSET k FETCH FIRST 1 ROWS ONLY)일 때만 바꾼다. 바꾼 SQL 은 본 SELECT 목록에 `DENSE_RANK() OVER (ORDER BY <열>)` 를
  * rank 열로 더하고 LIMIT, OFFSET 을 뺀 질의를 감싸 rank = k+1 인 행을 모두 고른다. 같은 값이 여럿이면 OFFSET k 는 그 가운데
  * 하나를 골랐다(「계약을 두 번째로 많이 담당한 직원」 4건 셋 가운데 김준혁). ORDER BY 가 출력 열 이름이나 자리 번호를 쓰면 그
- * 식으로 바꿔 넣는다(창 함수의 ORDER BY 는 출력 열 이름을 모른다). WITH 로 시작하거나 DISTINCT, 집합 연산, FOR UPDATE, 주석,
+ * 식으로 바꿔 넣는다(창 함수의 ORDER BY 는 출력 열 이름을 모른다). 순위는 첫 정렬 키로만 매긴다. 둘째 키부터는 같은 값을
+ * 늘어놓는 순서(`ORDER BY COUNT(c.id) DESC, e.name`)라 순위에 넣으면 공동 순위가 갈라져 한 명만 남는다. 그 키들은 안쪽
+ * 질의의 ORDER BY 에 그대로 남아 행 순서만 정한다. WITH 로 시작하거나 DISTINCT, 집합 연산, FOR UPDATE, 주석,
  * rank 라는 이름이 있는 문장, 읽지 못하는 문장은 바꾸지 않는다. */
 export function rankRewrite(sql: string, question: string): { text: string; rank: number } | null {
   const ranks = ordinalRanks(question);
@@ -259,28 +261,27 @@ export function rankRewrite(sql: string, question: string): { text: string; rank
       items.push({ name: column && (hi - lo) % 2 === 1 ? last.v : null, expr: text(lo, hi), star });
     }
   }
-  const keys: string[] = [];
-  for (const [lo, end] of split(order + 2, tail)) {
-    if (end <= lo) return null;
-    let hi = end;
-    if (hi - lo >= 3 && kw(hi - 2) === "nulls" && (kw(hi - 1) === "first" || kw(hi - 1) === "last")) hi -= 2;
-    if (hi - lo >= 2 && (kw(hi - 1) === "asc" || kw(hi - 1) === "desc")) hi -= 1;
-    for (let i = lo; i < hi; i++) if (kw(i) === "using") return null;
-    let expr = text(lo, hi);
-    if (hi - lo === 1 && isName(lo)) {
-      const hit = items.filter((it) => it.name === toks[lo].v);
-      if (hit.length > 1 || hit[0]?.star) return null;
-      if (hit.length) expr = hit[0].expr;
-    } else if (hi - lo === 1 && int(lo) !== null) {
-      const it = items[int(lo)! - 1];
-      if (!it || it.star) return null;
-      expr = it.expr;
-    }
-    keys.push(hi < end ? `${expr} ${text(hi, end)}` : expr);
+  // 순위는 첫 정렬 키로만 매긴다. 둘째 키부터는 안쪽 질의의 ORDER BY 에 남아 행 순서만 정한다.
+  const [lo, end] = split(order + 2, tail)[0];
+  if (end <= lo) return null;
+  let hi = end;
+  if (hi - lo >= 3 && kw(hi - 2) === "nulls" && (kw(hi - 1) === "first" || kw(hi - 1) === "last")) hi -= 2;
+  if (hi - lo >= 2 && (kw(hi - 1) === "asc" || kw(hi - 1) === "desc")) hi -= 1;
+  for (let i = lo; i < hi; i++) if (kw(i) === "using") return null;
+  let expr = text(lo, hi);
+  if (hi - lo === 1 && isName(lo)) {
+    const hit = items.filter((it) => it.name === toks[lo].v);
+    if (hit.length > 1 || hit[0]?.star) return null;
+    if (hit.length) expr = hit[0].expr;
+  } else if (hi - lo === 1 && int(lo) !== null) {
+    const it = items[int(lo)! - 1];
+    if (!it || it.star) return null;
+    expr = it.expr;
   }
+  const key = hi < end ? `${expr} ${text(hi, end)}` : expr;
   const rank = offset + 1;
   const inner =
-    `${sql.slice(0, toks[from].at).trimEnd()}, CAST(DENSE_RANK() OVER (ORDER BY ${keys.join(", ")}) AS integer) AS rank ` +
+    `${sql.slice(0, toks[from].at).trimEnd()}, CAST(DENSE_RANK() OVER (ORDER BY ${key}) AS integer) AS rank ` +
     sql.slice(toks[from].at, toks[tail].at).trimEnd();
   return { text: `SELECT * FROM (${inner}) AS ranked WHERE rank = ${rank}`, rank };
 }

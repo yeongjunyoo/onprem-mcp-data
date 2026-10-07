@@ -222,6 +222,33 @@ ok(
   ok(mixed.length === 1 && mixed[0].text.split("\n").length === 2, `관계가 다르면 한 후보에 줄을 나눠 싣는다 (got ${JSON.stringify(mixed.map((c) => c.text))})`);
 }
 
+// ── 4b) 「가장 적은」의 공동 1위는 관계 스캔 상한에서 자르지 않는다 ─────────
+// 엣지가 없는 개체 61개가 공동 1위면 상한 60 에서 자른 순위로는 답 문장이 「공동 1위가 60건」이라고 말한다(PR #257 Codex P2).
+{
+  const { relationScan } = await import("./graph.js");
+  const owners = 64; // 1~3 은 엣지가 하나씩, 4~64 의 61개는 없다
+  const scanPool = {
+    query: async (sql: string) => {
+      if (sql.includes("information_schema.columns")) return { rowCount: 0, rows: [] };
+      if (sql.trimStart().startsWith("SELECT r.src_entity_id"))
+        return {
+          rowCount: 3,
+          rows: [1, 2, 3].map((i) => ({
+            src_entity_id: i, src_name: `n${i}`, src_type: "employee", rel_type: "MANAGES_ACCOUNT",
+            dst_entity_id: 100 + i, dst_name: `c${i}`, dst_type: "client", confidence: 1, provenance: "synthetic",
+          })),
+        };
+      return { rowCount: owners, rows: Array.from({ length: owners }, (_, i) => ({ id: i + 1, canonical_name: `n${i + 1}`, type: "employee" })) };
+    },
+  } as unknown as Pool;
+  const few = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, "synthetic");
+  ok(few.ok && few.ranking.length === 61 && few.ranking.every((r) => r.count === 0), `공동 1위 61개를 다 남긴다 (got ${few.ranking.length}, ${few.error ?? ""})`);
+  const most = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc", limit: 10 }, "synthetic");
+  ok(most.ranking.length === 61, `상한을 낮춰도 공동 1위는 다 남긴다 (got ${most.ranking.length})`);
+  const desc = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", limit: 2 }, "synthetic");
+  ok(desc.ranking.length === 2, `많은 쪽부터는 종전대로 상한에서 자른다 (got ${desc.ranking.length})`);
+}
+
 // ── 5) 환경변수로 바꾸고, 잘못된 값은 기동에서 거절한다 ─────────────────
 {
   process.env.GRAPH_MAX_HOPS = "5";
