@@ -16,6 +16,7 @@
 mydata: {
   name: "mydata",
   kgSchema: "bench",              // 그래프 레인을 안 쓰면 기존 스키마를 가리켜 둡니다
+  sqlSchema: "mydata",            // 정형 레인 테이블이 있는 스키마(생성 SQL 검사가 외래키를 여기서 읽습니다)
   vectorTable: "mydata.documents",// id/title/body/embedding 을 가진 테이블
   nl2sql: llmNL2SQL,              // 스키마 카드를 읽는 범용 전략
   schemaCard: `CREATE TABLE mydata.tickets (...);`,  // 모델이 보는 유일한 스키마 설명

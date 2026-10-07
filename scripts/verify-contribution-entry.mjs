@@ -126,6 +126,17 @@ console.log(
         fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
       }
     }
+    // 반대 방향도 본다. 2026-10-07 PR #256 리뷰: 프로파일에 필수 필드(sqlSchema)를 더했는데 예제가
+    // 그대로라 안내대로 붙이면 tsc 가 깨졌다. 위 검사는 예제가 쓰는 이름이 소스에 있는지만 봤다.
+    // DatasetProfile 의 필수 필드(? 가 없는 것)가 예제에 다 있어야 한다.
+    const iface = profileSrc.match(/export interface DatasetProfile \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    const required = [...iface.matchAll(/^[ \t]+([A-Za-z_$][\w$]*)\s*:/gm)].map((m) => m[1]);
+    if (!required.length) fails.push("profile.ts 에서 DatasetProfile 의 필드를 못 읽었다 — 패턴을 확인하라");
+    for (const id of required) {
+      if (!fields.has(id)) {
+        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」의 프로파일 예제에 필수 필드 ${id} 가 없다 — 따라 하면 컴파일이 깨진다`);
+      }
+    }
     for (const m2 of body.matchAll(/npm run ([\w:.-]+)/g)) {
       if (!pkg.scripts?.[m2[1]]) {
         fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 없는 스크립트를 가리킨다: ${m2[1]}`);
