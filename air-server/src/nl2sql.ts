@@ -37,7 +37,7 @@ export interface Nl2SqlReport {
 export const NO_TABLE = "NO_TABLE";
 
 import { generate, questionForModel } from "./llm.js";
-import { isReadOnly } from "./sql.js";
+import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
 
 /** Schema description handed to the model for NL2SQL. */
@@ -100,98 +100,6 @@ export function readsTable(sql: string): boolean {
     .replace(/"(?:[^"]|"")*"/g, '""')
     .replace(/\b(?:extract|substring|trim|overlay)\s*\((?:[^()]|\([^()]*\))*\)/gi, "f()");
   return /\bfrom\b/i.test(s) && (sqlShape(sql, false)?.reads ?? true);
-}
-
-/** SQL 낱말. w 는 따옴표 없는 이름과 키워드(소문자로), q 는 따옴표 이름(대소문자 그대로), s 는 문자열 값,
- * o 는 그 밖의 기호와 숫자다. at 은 원문에서의 자리. */
-interface SqlToken {
-  k: "w" | "q" | "s" | "o" | "(" | ")" | "[" | "]" | "," | ";" | ".";
-  v: string;
-  at: number;
-}
-
-const WORD = /[A-Za-z_\u0080-\uffff][A-Za-z0-9_$\u0080-\uffff]*/y;
-const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y;
-const DOLLAR_TAG = /\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/y;
-const PARAM = /\$\d+/y;
-
-/** SQL 을 낱말로 자른다. 주석은 버린다. 닫히지 않은 따옴표, 달러 따옴표, 블록 주석이 있으면 null. */
-function tokenizeSql(sql: string): SqlToken[] | null {
-  const out: SqlToken[] = [];
-  const n = sql.length;
-  const at = (re: RegExp, i: number) => {
-    re.lastIndex = i;
-    return re.exec(sql)?.[0];
-  };
-  let i = 0;
-  while (i < n) {
-    const c = sql[i];
-    if (/\s/.test(c)) {
-      i++;
-    } else if (c === "-" && sql[i + 1] === "-") {
-      const nl = sql.indexOf("\n", i);
-      i = nl < 0 ? n : nl;
-    } else if (c === "/" && sql[i + 1] === "*") {
-      // PostgreSQL 의 블록 주석은 겹칠 수 있다.
-      let depth = 1;
-      let j = i + 2;
-      while (j < n && depth > 0) {
-        if (sql.startsWith("/*", j) || sql.startsWith("*/", j)) {
-          depth += sql[j] === "/" ? 1 : -1;
-          j += 2;
-        } else j++;
-      }
-      if (depth > 0) return null;
-      i = j;
-    } else if (c === "'") {
-      // E'…' 는 역슬래시 이스케이프를 쓴다. 바로 앞에 붙은 e 는 문자열의 접두사다.
-      const prev = out[out.length - 1];
-      const escaped = prev?.k === "w" && prev.v === "e" && prev.at + 1 === i;
-      let j = i + 1;
-      for (;;) {
-        if (j >= n) return null;
-        if (escaped && sql[j] === "\\") j += 2;
-        else if (sql[j] === "'" && sql[j + 1] === "'") j += 2;
-        else if (sql[j] === "'") break;
-        else j++;
-      }
-      if (escaped) out.pop();
-      out.push({ k: "s", v: sql.slice(i, j + 1), at: escaped ? i - 1 : i });
-      i = j + 1;
-    } else if (c === '"') {
-      let j = i + 1;
-      for (;;) {
-        if (j >= n) return null;
-        if (sql[j] === '"' && sql[j + 1] === '"') j += 2;
-        else if (sql[j] === '"') break;
-        else j++;
-      }
-      out.push({ k: "q", v: sql.slice(i + 1, j).replace(/""/g, '"'), at: i });
-      i = j + 1;
-    } else if (c === "$") {
-      const tag = at(DOLLAR_TAG, i);
-      const param = tag ? undefined : at(PARAM, i);
-      if (tag) {
-        const end = sql.indexOf(tag, i + tag.length);
-        if (end < 0) return null;
-        out.push({ k: "s", v: sql.slice(i, end + tag.length), at: i });
-        i = end + tag.length;
-      } else {
-        out.push({ k: "o", v: param ?? c, at: i });
-        i += param?.length ?? 1;
-      }
-    } else if ("()[],;.".includes(c) && !(c === "." && /\d/.test(sql[i + 1] ?? ""))) {
-      out.push({ k: c as SqlToken["k"], v: c, at: i });
-      i++;
-    } else {
-      const word = at(WORD, i);
-      const num = word ? undefined : at(NUMBER, i);
-      const v = word ?? num ?? c;
-      out.push({ k: word ? "w" : "o", v: word ? word.toLowerCase() : v, at: i });
-      i += v.length;
-    }
-  }
-  return out;
 }
 
 const DML_WORDS = new Set(["insert", "update", "delete", "merge"]);

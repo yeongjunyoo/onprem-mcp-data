@@ -893,5 +893,70 @@ const deadEmbedder: Embedder = {
   ok(mixed.startsWith("이 질문으로는 믿을 수 있는 조회를 만들지 못해") && mixed.includes("질문에 없는 번호(e.id = 1)"), `번호 사유가 있으면 종전 문장 (got ${mixed})`);
 }
 
+// sql.query 의 읽기 전용 가드가 문자열 속 `;`, `--` 를 문장 구조로 읽었다(랜덤 테스트 사전 점검 D7). `SELECT ';' AS x` 는
+// 여러 문장으로 거부됐고 `SELECT '--' AS x` 는 `SELECT '` 로 잘려 실행됐다. 가드는 이제 tokenizeSql 로 문자열, 따옴표 이름,
+// 달러 따옴표, 주석을 가른다. 시험항목 TC-068~075 의 거부는 그대로다. DB 없이 가짜 연결로 실제로 보낸 문장을 본다.
+{
+  const { isReadOnly, sqlQuery, tokenizeSql } = await import("./sql.js");
+  for (const sql of [
+    "SELECT ';' AS x",
+    "SELECT '--' AS x",
+    "SELECT '/*' AS a, '*/' AS b",
+    "SELECT $$;$$ AS d, $t$ -- $t$ AS e",
+    'SELECT ";" FROM companyx.sales',
+    "SELECT E'\\';' AS e",
+    "SELECT 1 /* a /* ; */ b */",
+    "SELECT 1 -- 끝 ;",
+    "SELECT 1;",
+    "SELECT 1; -- 끝",
+  ]) ok(isReadOnly(sql), `문자열, 따옴표 이름, 달러 따옴표, 주석 안의 ; 와 -- 는 문장 구조가 아니다: ${sql}`);
+  for (const sql of [
+    "INSERT INTO companyx.departments (id, name) VALUES (99, '테스트팀')",
+    "UPDATE companyx.employees SET salary = 0",
+    "DELETE FROM companyx.sales",
+    "DROP TABLE companyx.sales",
+    "CREATE TABLE companyx.tmp_x (id int)",
+    "TRUNCATE companyx.support_tickets",
+    "SELECT 1; DROP TABLE companyx.sales",
+    "/* SELECT */ DELETE FROM companyx.sales",
+    "SELECT '--'; DROP TABLE companyx.sales",
+    "SELECT ';' AS x; DROP TABLE companyx.sales",
+    "SELECT 1 -- 주석\r; DROP TABLE companyx.sales",
+    "SELECT 1;;",
+    "-- SELECT 1",
+    "",
+  ]) ok(!isReadOnly(sql), `쓰기, DDL, 여러 문장(문자열 밖의 ;), 주석 속 SELECT 는 그대로 거부한다: ${JSON.stringify(sql)}`);
+  ok(tokenizeSql("SELECT 1 -- a\r; x")?.some((t) => t.k === ";") === true, "줄 주석은 \\r 에서도 끝난다(PostgreSQL 과 같게)");
+
+  const sent: string[] = [];
+  const setup: string[] = [];
+  const pool = {
+    connect: async () => ({
+      query: async (q: string) => {
+        if (/^(BEGIN|SET|ROLLBACK)\b/.test(q) || /pg_roles/.test(q)) setup.push(q);
+        else sent.push(q);
+        return { rows: [{ x: 1 }], rowCount: 1, fields: [{ name: "x" }] };
+      },
+      release: () => {},
+    }),
+  } as unknown as Pool;
+  const runSql = async (sql: string) => {
+    sent.length = 0;
+    setup.length = 0;
+    const r = await sqlQuery(pool, sql);
+    return { ok: r.ok, error: r.error, sent: sent.join(" | ") };
+  };
+  ok((await runSql("SELECT '--' AS x")).sent === "SELECT '--' AS x", "문자열 속 -- 를 지우지 않고 문장 그대로 보낸다");
+  ok((await runSql("SELECT ';' AS x")).sent === "SELECT ';' AS x", "문자열 속 ; 가 있어도 실행한다");
+  ok((await runSql("SELECT 1; -- 끝")).sent === "SELECT 1", "끝의 ; 와 그 뒤 주석은 떼고 보낸다");
+  ok((await runSql("SELECT 'abc")).sent === "SELECT 'abc", "닫히지 않은 따옴표는 종전처럼 보내 데이터베이스가 오류를 말한다");
+  const tc080 = "WITH d AS (DELETE FROM companyx.sales RETURNING *) SELECT count(*) FROM d";
+  ok((await runSql(tc080)).sent === tc080, "데이터를 바꾸는 CTE(TC-080)는 종전처럼 읽기 전용 트랜잭션이 거부하게 보낸다");
+  const multi = await runSql("SELECT 1; DROP TABLE companyx.sales");
+  ok(!multi.ok && multi.sent === "" && multi.error === "rejected: only a single read-only SELECT/WITH query is allowed", "여러 문장은 DB 에 보내지 않고 종전 문장으로 거부한다(TC-074)");
+  await runSql("SELECT 1");
+  ok(setup.includes("SET LOCAL standard_conforming_strings = on"), "가드와 같은 문자열 규칙(standard_conforming_strings = on)으로 실행한다");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
