@@ -157,12 +157,23 @@ const ABSENT_ATTRIBUTES: [RegExp, string][] = [
   [/혈액형/, "혈액형"],
   [/결혼|기혼|미혼|배우자|자녀/, "결혼 여부"],
   [/주민등록번호|주민번호/, "주민등록번호"],
+  // 인사 기록(랜덤 테스트 사전 점검 2차 R7). 직원 표에는 연차, 휴가, 근태, 평가 열이 없다. 「직원별 남은 연차 일수」에 7B 가
+  // 입사일로 「윤소연: 336일」을 계산해 답했고, 「인사 평가 점수가 가장 높은 직원」은 연봉 순으로 골랐다. 「연차」 하나는 근속
+  // 연수(연차가 높은 직원)일 수 있어 휴가의 뜻일 때만 본다. 「연휴가」, 「최고과 최저」, 「작성과」의 휴가, 고과, 성과는 다른 말이다.
+  [/(남은|잔여|사용한|쓴)\s?연차|연차\s?(휴가|일수|사용|신청|며칠|몇\s?일)/, "연차"],
+  [/(?<!연)휴가/, "휴가"],
+  [/근태|출퇴근|결근/, "근태"],
+  [/인사\s?(평가|고과)|평가\s?(점수|등급)|(?<![가-힣])(고과|성과\s?(평가|점수|등급))/, "인사 평가"],
 ];
 /** 고객사의 직원 수. 직원 테이블은 우리 회사 직원이라 고객사의 인원은 데이터에 없다(D2: 「Client-A의 직원
  * 수」에 경영지원팀 인원 8명). 고객사를 담당하는 우리 직원 수(담당, 맡은)는 있는 데이터라 제외한다. */
 const CLIENT_REF = /Client[-\s]?[A-Za-z]{1,2}(?![A-Za-z0-9])|고객사|거래처/i;
 const HEADCOUNT = /직원\s*수|직원[은이]\s*몇|인원|임직원|종업원|사원\s*수/;
 const MANAGED = /담당|맡|관리|배정/;
+/** 사람의 성과(「성과가 가장 좋은 직원」). 매출, 영업, 계약의 성과는 있는 데이터라 제외한다. */
+const PERFORMANCE = /(?<![가-힣])성과/;
+const PERSON = /직원|사원|팀원|사람|누구/;
+const BUSINESS = /매출|영업|판매|계약|실적|수익|금액/;
 
 /** 질문이 묻는 항목이 데이터에 없으면 그 항목 이름, 있으면 null. 결정론이다.
  * 스키마 카드에 같은 낱말이 있으면(그 열이 생기면) 막지 않는다 — 있는 열을 막지 않게 카드로 확인한다. */
@@ -172,6 +183,7 @@ export function absentAttribute(query: string, schemaCard: string): string | nul
     if (m && !schemaCard.includes(m[0]) && !schemaCard.includes(label)) return label;
   }
   if (CLIENT_REF.test(query) && HEADCOUNT.test(query) && !MANAGED.test(query)) return "고객사의 직원 수";
+  if (PERFORMANCE.test(query) && PERSON.test(query) && !BUSINESS.test(query) && !schemaCard.includes("성과")) return "성과 평가";
   return null;
 }
 

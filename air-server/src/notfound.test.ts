@@ -304,6 +304,31 @@ const fakePool = {
   }
   ok(absentAttribute("직원 나이 평균", "employees(id, name, age int) -- 나이") === null, "스키마 카드에 있는 낱말은 막지 않는다");
   ok(describeAbsentAttribute("나이").startsWith("질문에 나온 항목(나이)은 이 데이터에 없는 정보라 답할 수 없습니다."), "없는 항목 문장");
+
+  // 랜덤 테스트 사전 점검 2차 R7: 인사 기록(연차, 휴가, 근태, 평가)도 없는 항목이다.
+  for (const [q, label] of [
+    ["직원별 남은 연차 일수를 알려줘", "연차"],
+    ["연차 사용 많이 한 직원", "연차"],
+    ["여름 휴가 간 사람 누구야?", "휴가"],
+    ["근태가 안 좋은 직원은?", "근태"],
+    ["인사 평가 점수가 가장 높은 직원은 누구야?", "인사 평가"],
+    ["작년 인사고과 결과", "인사 평가"],
+    ["고과 등급 A 받은 직원", "인사 평가"],
+    ["성과가 가장 좋은 직원은 누구야?", "성과 평가"],
+  ]) {
+    ok(absentAttribute(q, card) === label, `${label}: ${q} (got ${absentAttribute(q, card)})`);
+  }
+  for (const q of [
+    "연차가 가장 높은 직원은 누구야?",
+    "추석 연휴가 언제야?",
+    "연봉 최고과 최저 차이는?",
+    "보고서 작성과 관련된 문서",
+    "Product-C1의 확장성과 성능",
+    "영업팀 직원 성과 알려줘",
+    "2025년 매출 성과는 어때?",
+  ]) {
+    ok(absentAttribute(q, card) === null, `다른 뜻이거나 있는 데이터는 통과: ${q} (got ${absentAttribute(q, card)})`);
+  }
 }
 
 console.log(`\nnotfound.test: ${passed} passed, ${failed} failed`);
