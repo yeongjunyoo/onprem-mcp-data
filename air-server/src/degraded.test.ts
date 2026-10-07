@@ -793,6 +793,15 @@ const deadEmbedder: Embedder = {
   }
   ok(buildCompanyxSqlPrompt("예산이 3억 원을 넘는 프로젝트는?").includes("\n질문: 예산이 3억 원(=30000만 원)을 넘는 프로젝트는?\nSQL:"), "NL2SQL 프롬프트의 질문 줄에 만원 값이 붙는다");
 
+  // 상대 연도(랜덤 테스트 2차 R3). 생성 모델에 넘기는 질문에서만 서울 기준 연도로 바꾼다.
+  const { absoluteYears } = await import("./nl2sql.js");
+  const oct7 = new Date("2026-10-07T12:00:00+09:00");
+  ok(absoluteYears("작년에 새로 등록된 고객사는 몇 곳이야?", oct7) === "2025년에 새로 등록된 고객사는 몇 곳이야?", "작년 → 올해 - 1");
+  ok(absoluteYears("재작년과 지난해, 올해, 금년, 내년", oct7) === "2024년과 2025년, 2026년, 2026년, 2027년", "재작년, 지난해, 올해, 금년, 내년");
+  ok(absoluteYears("작년 매출", new Date("2026-12-31T15:00:00Z")) === "2026년 매출", "연도는 서울 시각으로 센다(UTC 로는 아직 2026-12-31)");
+  ok(absoluteYears("지난달 매출과 이번 분기 매출", oct7) === "지난달 매출과 이번 분기 매출", "월과 분기를 가리키는 말은 그대로");
+  ok(sqlQuestionForModel("작년 매출이 1억 원 이상인 고객사", oct7) === "2025년 매출이 1억 원(=10000만 원) 이상인 고객사", "연도를 바꾼 뒤 금액을 적는다");
+
   // 실행 전 검사 ③: 금액 열과 비교하는 숫자가 질문의 만원 값과 10배수로 어긋나면 단위 오류다.
   const cols = moneyColumns("companyx");
   const q2 = "연봉이 2억 원 이상인 직원 목록을 알려줘";

@@ -538,11 +538,30 @@ export function companyxSchemaCard(): string {
   return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
-/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 문맥 상한(questionForModel)을 지킨 뒤 금액 표현 옆에 만원 값을 적는다:
- * 「2억 원」 → 「2억 원(=20000만 원)」(money.ts, G17 ⑥). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을
- * salary >= 2000 으로 썼다(3/3). 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
-export function sqlQuestionForModel(query: string): string {
-  return annotateMoney(questionForModel(query));
+/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). */
+const RELATIVE_YEAR: Record<string, number> = { 재작년: -2, 작년: -1, 지난해: -1, 올해: 0, 금년: 0, 내년: 1 };
+const RELATIVE_YEAR_RE = /재작년|작년|지난해|올해|금년|내년/g;
+
+/** 서울 시각으로 오늘의 연도. */
+export function seoulYear(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
+}
+
+/** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년, 재작년 → (올해 - 2)년, 올해, 금년 → 올해,
+ * 내년 → (올해 + 1)년. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검 2차 R3,
+ * 「작년에 새로 등록된 고객사는 몇 곳이야?」에 0곳, 2025년 등록은 14곳). 월과 분기를 가리키는 말(지난달, 이번 분기)은
+ * 그대로 둔다. 상대 연도가 없는 질문은 받은 그대로 돌려준다. */
+export function absoluteYears(q: string, now: Date = new Date()): string {
+  const year = seoulYear(now);
+  return q.replace(RELATIVE_YEAR_RE, (w) => `${year + RELATIVE_YEAR[w]}년`);
+}
+
+/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 문맥 상한(questionForModel)을 지킨 뒤 상대 연도를 연도로 바꾸고
+ * (absoluteYears, 감사 레코드의 query 는 원문 그대로) 금액 표현 옆에 만원 값을 적는다: 「2억 원」 → 「2억 원(=20000만 원)」
+ * (money.ts, G17 ⑥). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을 salary >= 2000 으로 썼다(3/3). 상대 연도와
+ * 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
+export function sqlQuestionForModel(query: string, now: Date = new Date()): string {
+  return annotateMoney(absoluteYears(questionForModel(query), now));
 }
 
 /** Company-X NL2SQL 프롬프트 원문.
