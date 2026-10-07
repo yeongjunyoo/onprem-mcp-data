@@ -102,6 +102,22 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
 ];
 
+/** 그래프에 관계로 없는 표와 문서의 항목. 이 낱말이 든 질문의 「담당」은 계약 담당(contracts.manager_id), 티켓 처리
+ * 담당(support_tickets.assignee_id), 장애 대응 담당(장애 보고서)이지 고객 담당 관계(MANAGES_ACCOUNT)가 아니다.
+ *
+ * 그래프는 노드 5종(고객사, 제품, 직원, 프로젝트, 부서)과 엣지 7종뿐이다. 계약과 티켓은 USES, REPORTED_ISSUE 엣지의 속성
+ * (contract_id, amount, ticket_id)으로만 남고 담당자가 없다. 매출, 연봉과 급여, 장애는 그래프에 없고, 예산은 프로젝트
+ * 노드의 속성이라 관계가 아니다(그래프 레인은 속성을 근거로 싣지 않는다). 그래서 「계약을 가장 많이 담당한 직원」이 맡은
+ * 고객사 수 순위로 답했고, 「티켓 7번 담당자」는 고객 담당 그래프에서 「티켓」을 개체로 찾았다(랜덤 테스트 사전 점검 2차 R1).
+ * 이 낱말이 있으면 규칙은 「담당」을 MANAGES_ACCOUNT 동사로 세지 않고, 시맨틱 폴백의 그래프 판정도 적용하지 않는다
+ * (semroute.ts routeQuery). */
+const TABLE_ONLY_NOUN = /티켓|계약|장애|매출|금액|연봉|급여|예산/;
+
+/** 질문에 든 그래프 밖 항목(TABLE_ONLY_NOUN)의 첫 낱말. 없으면 undefined. */
+export function tableOnlyNoun(q: string): string | undefined {
+  return TABLE_ONLY_NOUN.exec(q)?.[0];
+}
+
 // 타입 미지정 관계 신호. "연결된/이어진"은 어떤 엣지인지 문장만으로는 정해지지
 // 않지만, 컬럼이나 문서가 아닌 「엣지」를 묻는다는 것만은 확정적이다.
 // RELATED_TO는 buildGraphPlan이 relTypes에서 털어내므로 무타입 확장으로 간다.
@@ -542,7 +558,10 @@ export function route(query: string): RouteDecision {
   const q = query.trim();
   const s = scan(q.replace(FULL_DAY, " "), STRUCTURED_SIGNALS);
   const m = scan(q, SEMANTIC_SIGNALS);
-  const verbs = scan(q, RELATION_VERBS);
+  // 계약, 티켓, 장애 같은 그래프 밖 항목의 「담당」은 고객 담당 관계가 아니다(TABLE_ONLY_NOUN).
+  const tableNoun = tableOnlyNoun(q);
+  const allVerbs = scan(q, RELATION_VERBS);
+  const verbs = tableNoun ? allVerbs.filter((v) => v !== "MANAGES_ACCOUNT") : allVerbs;
   const generic = scan(q, GENERIC_RELATION_VERBS);
   const nouns = scan(q, RELATION_NOUNS);
   const docs = scan(q, DOC_SIGNALS);
@@ -626,6 +645,7 @@ export function route(query: string): RouteDecision {
     // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
+  if (verbs.length < allVerbs.length) rationale += `; 담당 not counted as MANAGES_ACCOUNT (table noun ${tableNoun})`;
 
   const scores: Record<Lane, number> = {
     nl2sql: WEIGHT.structured * s.length,

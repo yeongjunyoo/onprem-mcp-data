@@ -153,6 +153,13 @@ const marker = new MarkerEmbedder();
   ok(/semantic knowledge_graph/.test(d.rationale), "근거에 시맨틱이 남는다");
   ok(d.graphPlan !== undefined, "그래프 탐색 계획이 붙는다");
 
+  // 그래프에 관계로 없는 항목(계약)을 묻는 질문은 그래프 앵커가 가까워도 그래프로 보내지 않는다(랜덤 테스트 2차 R1).
+  const table = "계약 말썽 많이 나는 편이야?";
+  const kept = await routeQuery(table, marker);
+  eq(kept.semantic?.lane, "knowledge_graph", "시맨틱은 그래프라고 본다");
+  eq([kept.route, kept.semantic?.applied], [route(table).route, false], "그래프 밖 항목이면 시맨틱의 그래프 판정은 적용하지 않고 규칙 결정 그대로");
+  ok(/semantic knowledge_graph not applied .*: table noun 계약 has no graph edge$/.test(kept.rationale), `근거에 적용하지 않은 이유가 남는다 (got ${kept.rationale})`);
+
   // 규칙이 확신하는 질문에는 폴백이 끼어들지 않는다.
   const sure = "Client-A가 사용 중인 제품 목록은?";
   eq(JSON.stringify(await routeQuery(sure, marker)), JSON.stringify(route(sure)), "확신 구간은 규칙 그대로");

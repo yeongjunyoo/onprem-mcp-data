@@ -240,5 +240,22 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
 }
 
+// ── 그래프 밖 항목의 「담당」 (랜덤 테스트 사전 점검 2차 R1) ─────────────
+//
+// 계약, 티켓, 장애의 담당은 고객 담당 관계(MANAGES_ACCOUNT)가 아니다. 그래프에는 그 담당자가 없다.
+{
+  const c = route("계약을 가장 많이 담당한 직원은 누구야?");
+  ok(!c.graphHits.includes("MANAGES_ACCOUNT"), "계약의 담당은 고객 담당 동사로 세지 않는다");
+  eq(c.route, "structured", "계약 담당 집계는 정형");
+  ok(/; 담당 not counted as MANAGES_ACCOUNT \(table noun 계약\)$/.test(c.rationale), `근거에 세지 않은 이유가 남는다 (got ${c.rationale})`);
+  eq(route("티켓 7번 담당자는 누구야?").gate.scores.knowledge_graph, 0, "티켓 담당자는 그래프 점수가 없다");
+  eq(route("Client-H 장애 때 대응한 담당자는 누구야?").route, "semantic", "장애 대응 담당은 문서 질문");
+  // 그래프 밖 항목이 없는 「담당」 질문은 그대로다(TC-108, TC-132, TC-134, TC-152, TC-160).
+  for (const q of ["서울물산 담당 엔지니어는 누구야?", "가장 많은 고객을 담당하는 직원은?", "서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘"]) {
+    const r = route(q);
+    ok(r.graphHits.includes("MANAGES_ACCOUNT") && !/not counted/.test(r.rationale), `고객 담당 질문은 그대로: ${q}`);
+  }
+}
+
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -31,6 +31,7 @@ import {
   route,
   maskEntities,
   buildGraphPlan,
+  tableOnlyNoun,
   LANES,
   SQL_TOOL,
   VECTOR_TOOL,
@@ -185,6 +186,17 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   const v = await semanticVerdict(query, embedder);
   if (!v) return d;
   if (v.margin < SEMANTIC_MIN_MARGIN) return { ...d, semantic: v };
+  // 계약, 티켓, 장애처럼 그래프에 관계로 없는 항목을 묻는 질문은 그래프 앵커(「고객 제일 많이 맡은 사람」)가 가까워도
+  // 그래프로 보내지 않는다. 그래프에는 그 답이 없어 맡은 고객사 수 순위가 답이 됐다(랜덤 테스트 사전 점검 2차 R1).
+  // 규칙의 결정을 그대로 둔다(시맨틱도 확신이 없을 때와 같다).
+  const noun = v.lane === "knowledge_graph" ? tableOnlyNoun(query.trim()) : undefined;
+  if (noun) {
+    return {
+      ...d,
+      rationale: `${d.rationale}; semantic knowledge_graph not applied (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)}): table noun ${noun} has no graph edge`,
+      semantic: v,
+    };
+  }
   const t = TOOLS_OF[v.lane];
   const superlative = d.structuredHits.includes("superlative");
   // 그래프로 넘길 때 탐색할 엣지: 규칙의 타입쌍 추론이 있으면 그것을, 없으면 최근접
