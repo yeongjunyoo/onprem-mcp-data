@@ -1529,5 +1529,124 @@ const deadEmbedder: Embedder = {
   );
 }
 
+// 문서 개수 질문(랜덤 테스트 사전 점검 2차 R9). 「Product-C1 관련 장애 보고서는 몇 건이야?」에 7B 가 조각 다섯을 보고 「2건」(실제 1건),
+// 「Product-C1 관련 문서는 몇 개야?」는 정형으로 가서 매출 46건을 셌다(실제 3건). 문서 제목으로 세고 7B 없이 답한다.
+{
+  const { installOntology } = await import("./router.js");
+  const { documentCountAnswer } = await import("./pipeline.js");
+  const savedDataset = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  installOntology(
+    [
+      { id: "1", name: "Client-A", type: "client" },
+      { id: "6", name: "Client-F", type: "client" },
+      { id: "31", name: "Product-C1", type: "product" },
+      { id: "33", name: "Product-C12", type: "product" },
+      { id: "40", name: "김준혁", type: "employee" },
+    ] as { id: string; name: string; type: string }[],
+    [],
+  );
+  const titles = [
+    "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27)",
+    "[장애보고] Client-B Product-C12 서비스 장애 (2025-04-22)",
+    "[기술문서] Product-C1 설치 가이드",
+    "[회의록] Client-A 정기 미팅 (2025-04-21)",
+    "[제안서] Client-F Product-C1 도입 제안",
+  ];
+  const sent: string[] = [];
+  const docPool = (fail?: Error) =>
+    ({
+      query: async (sql: string) => {
+        sent.push(sql);
+        if (fail) throw fail;
+        // 문서 뷰의 제목은 「문서 제목 — 절 제목」이다. 같은 문서의 조각이 여럿이다.
+        return { rows: titles.map((t, i) => ({ title: t, first: i * 7 + 1 })), rowCount: titles.length };
+      },
+    }) as unknown as Pool;
+  let llmCalls = 0;
+  const llm = async () => {
+    llmCalls++;
+    return "2건";
+  };
+  const incident = await ask("Product-C1 관련 장애 보고서는 몇 건이야?", { pool: docPool(), embedder: deadEmbedder, llm });
+  ok(
+    incident.answer === "문서 제목 기준으로 Product-C1 관련 장애 보고서는 1건입니다: [장애보고] Client-A Product-C1 서비스 장애 (2025-12-27)." && llmCalls === 0,
+    `장애 보고서는 제목의 꼬리표와 이름으로 센다(Product-C12 는 Product-C1 이 아니다) (got ${incident.answer})`,
+  );
+  ok(incident.route === "semantic" && /^document count \(Product-C1 장애 보고서\)/.test(incident.audit.route.rationale) && incident.sql.text === null && incident.vector === undefined, "정형, 벡터 레인을 부르지 않고 근거에 남긴다");
+  ok(/SELECT split_part\(title, ' — ', 1\) AS title, min\(id\) AS first FROM companyx\.documents GROUP BY 1 ORDER BY 2, 1/.test(sent[0] ?? ""), `문서 뷰에서 문서 제목을 적재 순서로 읽는다 (got ${sent[0]})`);
+  ok(incident.context.includes("[문서] [장애보고] Client-A Product-C1 서비스 장애 (2025-12-27)") && incident.context.includes("[문서 개수] 문서 5건 가운데 제목 기준 Product-C1 관련 장애 보고서: 1건"), "센 결과와 제목이 컨텍스트에 있다(답의 개체가 근거 안)");
+  const all = await ask("Product-C1 관련 문서는 몇 개야?", { pool: docPool(), embedder: deadEmbedder, llm });
+  ok(
+    all.answer === "문서 제목 기준으로 Product-C1 관련 문서는 3건입니다: [장애보고] Client-A Product-C1 서비스 장애 (2025-12-27), [기술문서] Product-C1 설치 가이드, [제안서] Client-F Product-C1 도입 제안.",
+    `문서는 종류를 가리지 않는다 (got ${all.answer})`,
+  );
+  const minutes = await ask("회의록은 몇 개야?", { pool: docPool(), embedder: deadEmbedder, llm });
+  ok(minutes.answer === "문서 제목 기준으로 회의록은 1건입니다: [회의록] Client-A 정기 미팅 (2025-04-21).", `개체가 없으면 그 종류 전부, 받침 뒤는 「은」 (got ${minutes.answer})`);
+  const none = await ask("Client-F 관련 회의록은 몇 건이야?", { pool: docPool(), embedder: deadEmbedder, llm });
+  ok(none.answer === "문서 제목 기준으로 Client-F 관련 회의록은 없습니다(0건).", `없으면 0건이라고 말한다 (got ${none.answer})`);
+  ok(documentCountAnswer({ request: { kind: "문서" }, ok: true, total: 12, titles: Array.from({ length: 12 }, (_, i) => `D${i + 1}`) }).endsWith("D10 외 2건."), "제목은 열 건까지 적고 나머지는 건수만");
+  const down = await ask("Product-C1 관련 문서는 몇 개야?", { pool: docPool(new Error("connection refused")), embedder: deadEmbedder, llm });
+  ok(down.answer.startsWith("조회에 실패해 답할 근거를 가져오지 못했습니다.") && down.answer.includes("documents: connection refused") && llmCalls === 0, `문서 조회가 실패하면 0건이라 하지 않고 실패를 말한다 (got ${down.answer})`);
+  process.env.DATASET = "smoke";
+  const smoke = await ask("Product-C1 관련 문서는 몇 개야?", { pool: docPool(), embedder: deadEmbedder, llm, nl2sql: async () => null });
+  ok(smoke.documents === undefined && !/document count/.test(smoke.audit.route.rationale), "제목 꼬리표는 Company-X 규약이라 다른 프로파일에서는 쓰지 않는다");
+  installOntology([], []);
+  if (savedDataset === undefined) delete process.env.DATASET;
+  else process.env.DATASET = savedDataset;
+}
+
+// 정형 레인에는 개체 게이트가 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」(TC-143)에 「서울물산의 … 매출액은 없습니다.」라고
+// 서울물산이 있는 고객사처럼 답했다. 이름처럼 생긴 낱말이 온톨로지에 없고 생성 SQL 이 그 이름을 그대로 찾았으면 사유를 답 앞에 붙인다.
+// 답의 나머지와 조회 행 블록은 그대로다.
+{
+  const savedDataset = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  const KNOWN = ["Client-A", "기술지원팀", "Product-C1", "김준혁"];
+  const ontoPool = (sqlRows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? sqlRows : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string, params?: unknown[]) => {
+        if (sql.includes("information_schema.columns")) return { rowCount: 1, rows: [{}] };
+        if (sql.includes("canonical_name AS name")) return { rowCount: KNOWN.length, rows: KNOWN.map((name) => ({ name, type: "client" })) };
+        if (sql.includes("WITH t AS")) {
+          const terms = (params?.[0] ?? []) as string[];
+          const rows = KNOWN.flatMap((name, id) =>
+            terms.some((t) => name.toLowerCase().includes(t.toLowerCase()))
+              ? [{ id, type: "client", canonical_name: name, properties: null, via: "canonical", matched: terms[0], score: 4 }]
+              : [],
+          );
+          return { rowCount: rows.length, rows };
+        }
+        return { rowCount: 0, rows: [] };
+      },
+    }) as unknown as Pool;
+  const tc143 = "서울물산의 2025년 3분기 총 매출액은 얼마야?";
+  const sumSql = (name: string) => `SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE client_id IN (SELECT id FROM companyx.clients WHERE name = '${name}') AND quarter = '2025-Q3'`;
+  const llm = async () => "서울물산의 2025년 3분기 총 매출액은 없습니다.";
+  const r = await ask(tc143, { pool: ontoPool([{ total_sales: null }]), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => sumSql("서울물산") });
+  ok(
+    r.answer ===
+      "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.\n\n" +
+        "서울물산의 2025년 3분기 총 매출액은 없습니다.\n\n[조회 결과 1건]\n- total_sales: null",
+    `없는 개체의 사유를 답 앞에 붙이고 답과 행 블록은 그대로 (got ${JSON.stringify(r.answer)})`,
+  );
+  ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
+  const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });
+  ok(other.answer.startsWith("120입니다."), `생성 SQL 이 그 이름을 찾지 않았으면 사유를 붙이지 않는다(답과 어긋남) (got ${other.answer})`);
+  for (const q of ["Client-A의 2025년 3분기 총 매출액은 얼마야?", "기술지원팀 직원들의 평균 연봉은?", "Product-C1 매출 합계는?", "김준혁이 담당한 계약의 총 금액은 얼마야?", "2019년에 등록된 고객사는 몇 개야?"]) {
+    const ex = await ask(q, { pool: ontoPool([{ n: 1 }]), embedder: deadEmbedder, repair: false, llm: async () => "답", nl2sql: async () => "SELECT 1 AS n FROM companyx.clients" });
+    ok(ex.sql.missing === undefined && ex.answer.startsWith("답"), `있는 이름, 이름이 아닌 말에는 붙지 않는다: ${q} (got ${ex.answer})`);
+  }
+  if (savedDataset === undefined) delete process.env.DATASET;
+  else process.env.DATASET = savedDataset;
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

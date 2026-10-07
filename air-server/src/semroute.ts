@@ -27,11 +27,14 @@
 // 집계와 조회, 문서 유형마다 섹션, 엣지 타입마다 한 유형. 결정은 최근접 앵커의 도구이고, 임베딩 모델이 같으면 같은
 // 질문에 같은 결정이 나온다.
 import type { Embedder } from "./embedder.js";
+import { profile } from "./profile.js";
+import { mentionTerms } from "./graph.js";
 import {
   route,
   maskEntities,
   buildGraphPlan,
   tableOnlyNoun,
+  documentCountRequest,
   LANES,
   SQL_TOOL,
   VECTOR_TOOL,
@@ -182,6 +185,14 @@ const TOOLS_OF: Record<Lane, { route: RouteDecision["route"]; tools: string[] }>
  * 결정을 그대로 돌려준다. 어느 경우든 audit 에 무엇이 결정했는지 남는다. */
 export async function routeQuery(query: string, embedder?: Embedder): Promise<RouteDecision> {
   const d = route(query);
+  // 문서 개수 질문은 문서 제목으로 센다(router.ts documentCountRequest, pipeline.ts documentCount). 조각 상위 k 개를 읽는
+  // 벡터 레인도, 문서 표가 없는 정형 레인도 문서 수를 셀 수 없어 규칙 점수와 시맨틱 폴백으로 레인을 고르지 않는다. 제목의
+  // 종류 꼬리표는 Company-X 문서의 규약이라 그 프로파일에서만 쓴다.
+  const docCount = profile().name === "companyx" ? documentCountRequest(query.trim()) : undefined;
+  if (docCount) {
+    const what = `${docCount.entity ? `${docCount.entity} ` : ""}${docCount.kind}`;
+    return { ...d, route: "semantic", tools: [VECTOR_TOOL], graphPlan: undefined, rationale: `document count (${what}) -> count document titles`, docCount };
+  }
   if (d.gate.confident || !embedder || !semanticReady()) return d;
   const v = await semanticVerdict(query, embedder);
   if (!v) return d;
@@ -202,11 +213,22 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   // 그래프로 넘길 때 탐색할 엣지: 규칙의 타입쌍 추론이 있으면 그것을, 없으면 최근접
   // 앵커의 유형(= 엣지 타입)을 쓴다.
   const rel = d.typePair?.relation ?? (v.nearest.lane === "knowledge_graph" ? v.nearest.type : undefined);
+  const plan = v.lane === "knowledge_graph" ? buildGraphPlan(query.trim(), rel ? [rel] : [], superlative) : undefined;
+  // 그래프 레인은 질문이 이름을 댄 개체(graph.ts mentionTerms)나 관계 집계, 상태 조건에서 출발한다. 셋 다 없으면 그래프 판정은
+  // 쓸 데가 없어, 규칙이 고른 다른 레인이 있으면 그것을 둔다. 「2019년에 등록된 고객사 목록을 보여줘」는 규칙이 정형(격차 2)을
+  // 골랐는데 앵커 「{제품} 들어가 있는 고객 목록」이 그래프로 보내 「개체(등록된)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 2차).
+  if (plan && d.gate.pick !== null && d.gate.pick !== "knowledge_graph" && !plan.aggregate && !plan.filter && !mentionTerms(query).length) {
+    return {
+      ...d,
+      rationale: `${d.rationale}; semantic knowledge_graph not applied (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)}): no entity named to start from`,
+      semantic: v,
+    };
+  }
   return {
     ...d,
     route: t.route,
     tools: t.tools,
-    graphPlan: v.lane === "knowledge_graph" ? buildGraphPlan(query.trim(), rel ? [rel] : [], superlative) : undefined,
+    graphPlan: plan,
     rationale: `rule margin ${d.gate.margin} < gate; semantic ${v.lane} (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)})`,
     semantic: { ...v, applied: true },
   };

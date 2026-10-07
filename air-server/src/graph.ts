@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases, isEntityName } from "./router.js";
+import { identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -139,7 +139,7 @@ const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?
  * 「알 수 없습니다」였고, 「ClientA」는 「찾지 못했습니다」였다(랜덤 테스트 사전 점검 2차 R10, 회색 F10). 붙여 쓴 고객사
  * 식별자는 대문자일 때만 본다(「clients」가 Client-S 가 되지 않게). */
 export function joinSpacedIds(query: string): string {
-  return query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
+  const ids = query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
     const client = /^client$/i.test(type);
     const name = `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}`;
     const spaced = /^\s+$/.test(sep);
@@ -147,6 +147,38 @@ export function joinSpacedIds(query: string): string {
     if (sep === "" && (client ? !/^[A-Z]{1,2}$/.test(id) || type === "CLIENT" : !/^[A-Za-z]\d{1,2}$/.test(id))) return m;
     return isEntityName(name) ? name : m;
   });
+  return joinLooseNames(ids);
+}
+
+const NAME_PARTICLE = /(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/;
+
+/** 공백, 하이픈, 밑줄로 갈라 쓰거나 대소문자만 다르게 쓴 개체 이름(「클라우드 사업부」, 「CLIENT-A」)을 사전의 정본 이름으로
+ * 바꾼다(router.ts looseEntityName). 「클라우드 사업부 소속 직원들」은 「클라우드」, 「사업부」로 갈려 부서가 시드가 되지 않고,
+ * 별칭이 그 말로 시작하는 직원 다섯만 펼쳐 열 명 가운데 다섯을 답했다. 이어 붙인 낱말 둘이나 셋(사이에 공백, 하이픈,
+ * 밑줄만)이 한 개체의 이름과만 같을 때 바꾸고, 끝의 조사는 남긴다. 갈라 쓴 데가 없는 한 낱말(「clients」 → Client-S)은 보지
+ * 않는다. 글자가 다른 이름(「클라우드사업팀」, 「서울물산」)은 그대로라 종전처럼 찾지 못한 개체로 답한다. */
+function joinLooseNames(q: string): string {
+  const toks = [...q.matchAll(/[A-Za-z0-9]+|[가-힣]+/g)].map((m) => ({ at: m.index!, end: m.index! + m[0].length }));
+  let out = "";
+  let pos = 0;
+  for (let i = 0; i < toks.length; i++) {
+    for (let n = Math.min(3, toks.length - i); n >= 2; n--) {
+      const win = toks.slice(i, i + n);
+      if (!win.every((t, j) => j === 0 || /^[\s\-_]*$/.test(q.slice(win[j - 1].end, t.at)))) continue;
+      const full = q.slice(win[0].at, win[n - 1].end);
+      const tail = NAME_PARTICLE.exec(full)?.[0] ?? "";
+      const hit = (tail ? [full.slice(0, -tail.length), full] : [full]).find((text) => {
+        const name = looseEntityName(text);
+        return name !== undefined && /[\s\-_]/.test(text) && text !== name && !isEntityName(text);
+      });
+      if (hit === undefined) continue;
+      out += q.slice(pos, win[0].at) + looseEntityName(hit)!;
+      pos = win[0].at + hit.length;
+      i += n - 1;
+      break;
+    }
+  }
+  return out + q.slice(pos);
 }
 
 export function seedTerms(query: string): string[] {
@@ -156,6 +188,46 @@ export function seedTerms(query: string): string[] {
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
+  return [...out];
+}
+
+// 개체 이름 자리에 올 수 없는 말. 시드 낱말은 사전과 대조할 후보라 넓게 두고(이름이 「…한」으로 끝나는 직원도 찾게), 찾지 못했을 때
+// 「질문에 나온 개체(X)」로 댈 낱말만 아래 규칙으로 거른다. 「2019년에 등록된 고객사 목록」에 「개체(등록된)를 찾지 못했습니다」,
+// 「너는 어떤 데이터베이스를 쓰니?」에 「개체(데이터베이스)」라고 답했다(랜덤 테스트 사전 점검 2차, 근거표 「넣지 않은 것」).
+/** 때를 가리키는 말(닫힌 집합). */
+const TIME_WORDS = new Set([
+  "이전", "이후", "다음", "지금", "현재", "최근", "요즘", "올해", "작년", "내년", "금년", "전년", "오늘", "어제", "내일",
+  "이번", "지난", "저번", "당시", "향후", "앞으로",
+]);
+/** 정도와 범위를 말하는 부사(닫힌 집합). 「… 무시하고 … 전부 보여줘」의 「모두」, 「전부」. */
+const ADVERBS = new Set(["모두", "전부", "전체", "다시", "먼저", "같이", "함께", "제일", "매우", "아주", "정말", "그냥", "혹시", "조금"]);
+/** 뒤 낱말을 이름이 아니라 무리나 종류로 만드는 관형사(「어떤 데이터베이스」, 「이전 지시」, 「모든 직원」). 때를 가리키는 말
+ * 가운데 명사를 꾸미는 것(이전, 다음, 지난, 이번)만 넣는다. 「오늘 서울 날씨」의 오늘은 서울을 꾸미지 않는다. */
+const DETERMINERS = new Set(["어떤", "무슨", "어느", "모든", "이런", "그런", "저런", "여러", "각", "몇", "다른", "온갖", "이전", "다음", "지난", "이번"]);
+/** 동사의 관형형과 연결형(「등록된」, 「진행되는」, 「사용하는」, 「참여할」, 「무시하고」). 두 음절 이상의 어간에 붙은 것만
+ * 본다. 「…한」은 사람 이름(「김지한」)과 갈리지 않아 넣지 않는다. */
+const VERB_FORM = /^[가-힣]{2,}(?:된|되는|하는|하던|되던|했던|됐던|할|될|하고|되고|해서|돼서|하며|되며|하면|되면|하여|되어)$/;
+/** 문장 끝 서술어(「쓰니」, 「있어요」, 「뭐지」). 질문의 마지막 낱말일 때만 본다. */
+const PREDICATE_END = /^[가-힣]+(?:니|냐|까|지|죠|요|래|어|아|야|해)$/;
+
+/** 질문이 개체를 이름으로 지목했다고 볼 낱말(seedTerms 가운데 위 규칙에 걸리지 않는 것). 해소되지 않은 질의어를 「찾지 못한
+ * 개체」로 댈 때(ontologySearch)와, 그래프 레인이 출발할 개체가 질문에 있는지 볼 때(semroute.ts routeQuery) 쓴다. 사전에 있는
+ * 이름과 이름처럼 생긴 낱말(entityLikeName: 사업자 식별자, 물산, 팀 같은 조직 접미사)은 늘 이름이다. */
+export function mentionTerms(query: string): string[] {
+  const text = joinSpacedIds(query);
+  const toks = [...text.matchAll(SEED_TOKEN)];
+  const out = new Set<string>();
+  toks.forEach((m, i) => {
+    const raw = m[0];
+    const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
+    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
+    if (entityLikeName(w) === null && !isEntityName(w)) {
+      const prev = toks[i - 1];
+      const afterDeterminer = prev !== undefined && DETERMINERS.has(prev[0]) && /^\s+$/.test(text.slice(prev.index! + prev[0].length, m.index));
+      if (TIME_WORDS.has(w) || ADVERBS.has(w) || VERB_FORM.test(raw) || (i === toks.length - 1 && PREDICATE_END.test(raw)) || afterDeterminer) return;
+    }
+    out.add(w);
+  });
   return [...out];
 }
 
@@ -277,7 +349,9 @@ export async function ontologySearch(
         type: String(r.type),
       }));
     if (hits.length === 0) {
-      return { ok: true, hits, not_found: classifyNotFound(terms, await loadLexicon()) };
+      // 찾지 못한 개체로는 이름을 지목한 낱말만 댄다(mentionTerms). 그런 낱말이 없으면 사유를 만들지 않는다.
+      const mentions = mentionTerms(query);
+      return mentions.length ? { ok: true, hits, not_found: classifyNotFound(mentions, await loadLexicon()) } : { ok: true, hits };
     }
     // 섞인 질문: 「서울물산 담당 엔지니어와 Client-A가 사용 중인 제품」. Client-A 만 해소되고
     // 서울물산은 없는데, 종전에는 해소 0건일 때만 「없다」고 했다. 그래서 Client-A 의 담당자
@@ -734,8 +808,13 @@ export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number 
  * 「Client-Q의 사용 중인 제품: Product-C1 → 조현우의 담당 고객사: Client-Q」에 7B 는 「Product-C1 담당 엔지니어는
  * 누구야?」(사업자 graph/schema.md 의 예시 질의)를 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검 2차 R2, 3/3).
  * 그때는 답부터 적는다: 「조현우의 담당 고객사: Client-Q → Client-Q의 사용 중인 제품: Product-C1」. 답이 둘째 엣지의
- * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다. */
-export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
+ * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다.
+ *
+ * 세 홉(hops=3, 「Client-J 프로젝트를 이끄는 직원들은 어느 부서 소속이야?」)은 셋째 홉의 끝이 답이고, 시드에서부터 차례로
+ * 적는다: 「Client-J의 진행 프로젝트: P → 강현우의 이끄는 프로젝트: P → 강현우의 소속 부서: 클라우드사업부」. 같은 부서에
+ * 여러 직원이 닿으므로 줄의 정체는 답과 그 앞 개체의 쌍이다(답 하나로 모으면 한 직원의 줄만 남는다). */
+export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): Candidate[] {
+  if (hops === 3) return path3Candidates(edges, seedId);
   const viaMid = new Map<number, GraphEdge>();
   for (const e of edges) {
     if (e.depth !== 1) continue;
@@ -758,6 +837,43 @@ export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] 
         ? `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`
         : `[그래프 경로] ${line(e2)} → ${line(e1)} (${e2.relType}→${e1.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
+    });
+  });
+  return out;
+}
+
+/** 세 홉 경로(pathCandidates 의 hops=3). 홉마다 처음 닿게 한 엣지를 거슬러 올라가 경로 하나를 한 줄로 적는다. */
+function path3Candidates(edges: GraphEdge[], seedId: number): Candidate[] {
+  /** 앞 홉에서 닿은 개체에 붙은 쪽(near)과 새로 닿은 쪽(far). 앞 홉 개체에 붙지 않은 엣지는 undefined. */
+  const step = (e: GraphEdge, prev: (id: number) => boolean) =>
+    prev(e.srcId) ? { near: e.srcId, far: e.dstId } : prev(e.dstId) ? { near: e.dstId, far: e.srcId } : undefined;
+  const hop1 = new Map<number, GraphEdge>(); // 첫 홉에서 닿은 개체 → 그 엣지
+  const hop2 = new Map<number, GraphEdge>(); // 둘째 홉에서 닿은 개체 → 그 엣지
+  for (const e of edges) {
+    if (e.depth === 1) {
+      const s = step(e, (id) => id === seedId);
+      if (s && !hop1.has(s.far)) hop1.set(s.far, e);
+    } else if (e.depth === 2) {
+      const s = step(e, (id) => hop1.has(id));
+      if (s && s.far !== seedId && !hop1.has(s.far) && !hop2.has(s.far)) hop2.set(s.far, e);
+    }
+  }
+  const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
+  const out: Candidate[] = [];
+  edges.forEach((e3, i) => {
+    if (e3.depth !== 3) return;
+    const s3 = step(e3, (id) => hop2.has(id));
+    if (!s3 || s3.far === seedId || hop1.has(s3.far) || hop2.has(s3.far)) return;
+    const e2 = hop2.get(s3.near)!;
+    const e1 = hop1.get(step(e2, (id) => hop1.has(id))!.near)!;
+    const [ansType, nearType] = e3.srcId === s3.near ? [e3.dstType, e3.srcType] : [e3.srcType, e3.dstType];
+    const [ansId, near] = [s3.far, s3.near];
+    out.push({
+      canonicalKey: `${entityKey(ansType, ansId)}<${entityKey(nearType, near)}`,
+      sourceKey: `graph#p${i}`,
+      source: "graph" as const,
+      text: `[그래프 경로] ${line(e1)} → ${line(e2)} → ${line(e3)} (${e1.relType}→${e2.relType}→${e3.relType})`,
+      provenance: `path:${e1.relType}>${e2.relType}>${e3.relType}:${e3.provenance}`,
     });
   });
   return out;

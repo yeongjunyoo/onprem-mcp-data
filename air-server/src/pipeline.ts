@@ -23,7 +23,7 @@
 
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
-import { route, audit as routeAuditLog, fitPlanToSeed, GRAPH_TOOL, type RouteDecision, type GraphPlan } from "./router.js";
+import { route, audit as routeAuditLog, fitPlanToSeed, GRAPH_TOOL, type RouteDecision, type GraphPlan, type DocCountRequest } from "./router.js";
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
@@ -38,6 +38,8 @@ import { answer as llmAnswer } from "./llm.js";
 import {
   ontologySearch,
   seedTerms,
+  mentionTerms,
+  entityLikeName,
   graphExpand,
   graphWalk,
   relationScan,
@@ -80,9 +82,13 @@ export interface RetrieveResult {
     refused?: { kind: string; text: string };
     absent?: string;
     rank?: number;
+    /** 질문이 이름처럼 생긴 낱말로 지목했는데 데이터에 없는 개체(sqlMissingNames). 있을 때만. */
+    missing?: NotFound[];
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
+  /** 문서 개수 질문(router.ts documentCountRequest)일 때만. 제목으로 고른 문서와 전체 문서 수. */
+  documents?: DocCountResult;
   fused: Fused<ContextItem>[];
   /** RRF 입력 목록마다의 레인 이름. fused[].sources 의 번호가 이 배열의 위치다. */
   fusion_lanes?: string[];
@@ -221,6 +227,9 @@ export async function graphLane(
   // does not match. A similar name is reported, never expanded.
   if (onto.hits.length === 0 && !(p?.aggregate || p?.filter)) {
     const terms = seedTerms(query);
+    // 찾지 못한 대상으로는 이름을 지목한 낱말만 댄다(graph.ts mentionTerms). 「등록된」, 「어떤 데이터베이스」만 있으면 개체를
+    // 지목하지 않은 질문이라 「개체 이름으로 볼 낱말을 찾지 못해」 문장이다.
+    const mentions = mentionTerms(query);
     return {
       seeds: [],
       edgeCount: 0,
@@ -235,8 +244,8 @@ export async function graphLane(
           // 「대상()」처럼 빈 괄호를 보였고, 없는 개체를 단정하는 문장도 맞지 않았다.
           text: onto.not_found
             ? `[그래프] ${describeNotFound(onto.not_found)}`
-            : terms.length
-              ? `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
+            : mentions.length
+              ? `[그래프] 질의에 등장한 대상(${mentions.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
               : "[그래프] 질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.",
           provenance: "ontology:unresolved",
         },
@@ -270,7 +279,7 @@ export async function graphLane(
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
-    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId));
+    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId, walk.hops.length));
     else {
       if (edgesAt < 0) edgesAt = items.length;
       edgeGroups.push({ edges: exp.edges, seedId: hit.entityId });
@@ -336,6 +345,72 @@ export async function graphLane(
     ...(fitted.length ? { fitted } : {}),
     ...partial,
   };
+}
+
+/** 정형 레인 질문이 이름처럼 생긴 낱말(Client-ZZ 꼴, 물산, 팀 같은 조직 접미사, graph.ts mentionTerms)로 지목했는데 온톨로지에서
+ * 찾지 못한 개체마다의 사유. 정형 레인에는 개체 게이트가 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」에 「서울물산의 … 매출액은
+ * 없습니다.」라고 서울물산이 있는 고객사처럼 답했다. 「등록된」, 「어떤」, 「이전」 같은 말은 이름이 아니라 보지 않는다. Company-X 는
+ * 이름을 가진 표(고객사, 제품, 직원, 부서, 프로젝트)가 모두 온톨로지 노드라 그 프로파일에서만 쓴다. */
+export async function sqlMissingNames(pool: Pool, query: string, schema = kgSchema()): Promise<NotFound[]> {
+  const out: NotFound[] = [];
+  for (const term of mentionTerms(query)) {
+    const name = entityLikeName(term);
+    if (!name) continue;
+    const o = await ontologySearch(pool, name, 1, schema);
+    if (o.ok && !o.hits.length && o.not_found) out.push(o.not_found);
+  }
+  return out;
+}
+
+export interface DocCountResult {
+  request: DocCountRequest;
+  ok: boolean;
+  /** 전체 문서 수(제목 기준). */
+  total: number;
+  /** 질문의 개체와 종류에 맞는 문서 제목. 문서 적재 순서. */
+  titles: string[];
+  error?: string;
+}
+
+/** 문서 제목이 질문의 개체와 종류에 맞는가. 개체 이름은 앞뒤가 영숫자가 아닐 때만 맞는다(Client-A 가 Client-AB 에 맞지 않게). */
+export function documentMatches(title: string, req: DocCountRequest): boolean {
+  const flat = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  if (req.tag && !title.startsWith(req.tag)) return false;
+  if (req.words && !flat(title).includes(flat(req.words))) return false;
+  if (req.entity) {
+    const name = req.entity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (!new RegExp(`(?<![A-Za-z0-9])${name}(?![A-Za-z0-9])`).test(title)) return false;
+  }
+  return true;
+}
+
+/** 문서 개수 질문의 결정론 조회. 문서 뷰(제목 = 「문서 제목 — 절 제목」)에서 문서 제목을 적재 순서로 읽어 고른다. */
+export async function documentCount(pool: Pool, req: DocCountRequest, table = profile().vectorTable): Promise<DocCountResult> {
+  if (!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/.test(table)) throw new Error(`unsafe table identifier: ${table}`);
+  try {
+    const res = await pool.query(
+      `SELECT split_part(title, ' — ', 1) AS title, min(id) AS first FROM ${table} GROUP BY 1 ORDER BY 2, 1`,
+    );
+    const all = res.rows.map((r) => String(r.title));
+    return { request: req, ok: true, total: all.length, titles: all.filter((t) => documentMatches(t, req)) };
+  } catch (err) {
+    return { request: req, ok: false, total: 0, titles: [], error: describeError(err) };
+  }
+}
+
+/** 받침이 있으면 「은」, 없으면 「는」. */
+function topic(word: string): string {
+  const c = word.charCodeAt(word.length - 1);
+  return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 ? "은" : "는";
+}
+
+/** 문서 개수 질문의 답 문장. 7B 를 부르지 않는다. 제목은 열 건까지 적고 나머지는 건수만. */
+export function documentCountAnswer(d: DocCountResult, max = 10): string {
+  const subject = `${d.request.entity ? `${d.request.entity} 관련 ` : ""}${d.request.kind}`;
+  const head = `문서 제목 기준으로 ${subject}${topic(subject)}`;
+  if (!d.titles.length) return `${head} 없습니다(0건).`;
+  const rest = d.titles.length - Math.min(max, d.titles.length);
+  return `${head} ${d.titles.length}건입니다: ${d.titles.slice(0, max).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}.`;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -453,7 +528,12 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
 
   // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
   const decision = await routeQuery(query, embedder);
-  const { sql: wantSql, vector: wantVec, graph: wantGraph } = lanesFor(decision);
+  // 문서 개수 질문은 벡터 검색 대신 문서 제목을 센다(documentCount).
+  const docCount = decision.docCount;
+  const lanes = lanesFor(decision);
+  const wantSql = !docCount && lanes.sql;
+  const wantVec = !docCount && lanes.vector;
+  const wantGraph = !docCount && lanes.graph;
 
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
@@ -469,6 +549,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     const vague = vagueMeasure(query, profile().sqlSchema);
     if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     const report: Nl2SqlReport = {};
+    const missing = profile().name === "companyx" ? await sqlMissingNames(pool, query) : [];
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
@@ -484,6 +565,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       repaired: ex.repaired || undefined,
       ...(ex.gate ? { gate: ex.gate } : {}),
       ...(ex.rank ? { rank: ex.rank } : {}),
+      ...(missing.length ? { missing } : {}),
     };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
@@ -513,12 +595,16 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       })()
     : Promise.resolve(undefined);
 
-  const [sqlSettled, vecSettled, graphSettled, kwSettled] = await Promise.allSettled([
+  const docBranch: Promise<DocCountResult | undefined> = docCount ? documentCount(pool, docCount) : Promise.resolve(undefined);
+
+  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled] = await Promise.allSettled([
     sqlBranch,
     vecBranch,
     graphBranch,
     keywordBranch,
+    docBranch,
   ]);
+  const docResult = docSettled.status === "fulfilled" ? docSettled.value : undefined;
   const sql: RetrieveResult["sql"] = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null };
   const sqlText = sql.text;
   const sqlResult = sql.result;
@@ -547,6 +633,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   if (vecResult && !vecResult.ok) {
     branchErrors.push(`vector: ${vecResult.error ?? "unknown"}`);
   }
+  if (docSettled.status === "rejected") branchErrors.push(`documents: ${String(docSettled.reason)}`);
+  if (docResult && !docResult.ok) branchErrors.push(`documents: ${docResult.error ?? "unknown"}`);
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];
@@ -593,6 +681,21 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     );
     listLanes.push("graph");
   }
+  if (docResult?.ok) {
+    // 센 결과 한 줄과 고른 문서 제목. 답 문장(documentCountAnswer)의 제목과 개체가 모두 컨텍스트에 있다.
+    const what = `${docResult.request.entity ? `${docResult.request.entity} 관련 ` : ""}${docResult.request.kind}`;
+    lists.push([
+      {
+        key: "documents#count",
+        value: { kind: "chunk" as const, text: `[문서 개수] 문서 ${docResult.total}건 가운데 제목 기준 ${what}: ${docResult.titles.length}건`, source: "documents#count" },
+      },
+      ...docResult.titles.map((t, i) => ({
+        key: `documents#title:${t}`,
+        value: { kind: "chunk" as const, text: `[문서] ${t}`, source: `documents#t${i}` },
+      })),
+    ]);
+    listLanes.push("documents");
+  }
 
   // --- RRF merge -> L4 curation ---
   const fused = rrfMerge(lists);
@@ -609,9 +712,11 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(sql.refused ? { refused: sql.refused } : {}),
       ...(sql.absent ? { absent: sql.absent } : {}),
       ...(sql.rank ? { rank: sql.rank } : {}),
+      ...(sql.missing ? { missing: sql.missing } : {}),
     },
     vector: vecResult,
     graph: graphResult,
+    ...(docResult ? { documents: docResult } : {}),
     fused,
     fusion_lanes: listLanes,
     curated,
@@ -716,6 +821,9 @@ export async function ask(
     };
   }
 
+  // 문서 개수 질문은 제목으로 센 수와 제목을 그대로 답한다. 7B 는 조각을 보고 수를 셌다(「2건」, 실제 1건).
+  if (r.documents?.ok) return { ...r, answer: documentCountAnswer(r.documents) };
+
   // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
   // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다.
   if (r.not_found) {
@@ -729,8 +837,12 @@ export async function ask(
 
   // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
   // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
+  // 정형 레인 질문이 데이터에 없는 개체를 이름으로 지목했고 생성 SQL 이 그 이름을 그대로 찾았으면 그 사유를 답 앞에 붙인다
+  // (sqlMissingNames). SQL 이 그 이름을 찾지 않았으면(모델이 다른 이름으로 찾았으면) 사유와 답이 어긋나 붙이지 않는다.
+  const sqlMissing = (r.sql.missing ?? []).filter((nf) => r.sql.text?.includes(nf.query_entity));
+  const missingSqlHead = sqlMissing.length ? `${sqlMissing.map(describeNotFound).join(" ")}\n\n` : "";
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
-  if (tie) return { ...r, answer: withSqlRows(r, tie) };
+  if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.
   const few = fewestAnswer(r);
   if (few) return { ...r, answer: few };
@@ -738,7 +850,7 @@ export async function ask(
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
   const missingLines = new Set((r.missing ?? []).map((nf) => `[그래프] ${describeNotFound(nf)}`));
-  const head = missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "";
+  const head = (missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "") + missingSqlHead;
   const answerContext = missingLines.size
     ? r.context.split("\n").filter((l) => !missingLines.has(l)).join("\n")
     : r.context;
