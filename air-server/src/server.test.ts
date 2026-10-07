@@ -33,6 +33,42 @@ async function main() {
   const v = JSON.parse(await server.callTool("vector.search", { query: "환불 정책", k: 2 }));
   ok(v.ok && v.hits.length === 2 && v.hits[0].title === "환불 정책", "vector.search tool via callTool");
 
+  // stdio 클라이언트가 입력을 닫으면 서버가 스스로 끝난다(index.ts). 기동 줄을 본 뒤 입력을 닫고 종료를 기다린다
+  {
+    const { spawn } = await import("node:child_process");
+    const { fileURLToPath } = await import("node:url");
+    const child = spawn(process.execPath, [fileURLToPath(new URL("./index.js", import.meta.url))], { stdio: ["pipe", "pipe", "pipe"] });
+    let err = "";
+    child.stderr.on("data", (d) => (err += d));
+    const started = await new Promise<boolean>((res) => {
+      const timer = setTimeout(() => res(false), 120_000);
+      child.stderr.on("data", () => {
+        if (err.includes("[air] Starting")) {
+          clearTimeout(timer);
+          res(true);
+        }
+      });
+      child.on("exit", () => {
+        clearTimeout(timer);
+        res(false);
+      });
+    });
+    ok(started, `서버가 기동한다 (stderr ${err.slice(-200)})`);
+    const t0 = Date.now();
+    child.stdin.end();
+    const code = await new Promise<number | null>((res) => {
+      const timer = setTimeout(() => {
+        child.kill();
+        res(null);
+      }, 15_000);
+      child.on("exit", (c) => {
+        clearTimeout(timer);
+        res(c);
+      });
+    });
+    ok(code === 0, `입력을 닫으면 서버가 종료 코드 0 으로 끝난다 (got ${code}, ${Date.now() - t0}ms)`);
+  }
+
   await closePool();
   console.log(`\nserver.test: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

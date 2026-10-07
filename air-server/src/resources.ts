@@ -151,7 +151,10 @@ export function buildResources() {
                 "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing: "선택된 레인과 근거가 된 어휘, 결정론 여부",
               retrieval:
-                "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null",
+                "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null. "
+                + "sql.refused 는 생성 모델이 만들었지만 실행하지 않은 문장이 있을 때만 붙는다. {kind, text}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
+                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT)이고, 이때 sql.text 는 null 이다(실행한 SQL 없음). "
+                + "sql.absent 는 질문이 묻는 항목(나이, 성별, 고객사의 직원 수 등)이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목 이름이다",
               fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
               context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
               policies: "실제로 발동한 정책만 기록한다",
@@ -160,6 +163,9 @@ export function buildResources() {
               not_found:
                 "미해소 개체 게이트가 발동했을 때만 붙는다. {reason, query_entity, candidates[{name, type, score}]}. "
                 + "reason 은 not_in_database(비슷한 이름도 없음) 또는 similar_name_mismatch(비슷한 이름의 다른 개체만 있음 — 후보로만 알리고 해소하지 않는다)",
+              missing_entities:
+                "질문의 개체 중 일부만 해소됐을 때만 붙는다. 해소되지 않은 이름(사업자 식별자 꼴, 조직 접미사, 비슷한 이름이 있는 낱말)마다 "
+                + "not_found 와 같은 {reason, query_entity, candidates}. 찾은 개체로는 답하고 이 사유를 컨텍스트와 답 앞에 싣는다",
               branch_errors:
                 "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword) 이거나 답변 생성(answer)이다. "
                 + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",
@@ -170,9 +176,14 @@ export function buildResources() {
                 "이 도구의 캐시 정책 선언(cached | excluded). **관측값이 아니라 선언**이다 — 실제 적중 여부가 아니라 이 도구를 캐시에 넣기로 했는지를 말한다",
             },
             policies: {
-              "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",
+              "sql-read-only":
+                "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다. 생성 모델이 쓰기 문장이나 테이블을 읽지 않는 SELECT 를 만들면 실행하지 않고, 질문이 스키마에 없는 항목을 물으면 SQL 을 만들지 않고 deny 로 남긴다",
               "sql-repair": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정",
-              "graph-unresolved-gate": "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단)",
+              "sql-trust-gate":
+                "생성 SQL 을 실행 전에 검사: 조인 열 쌍이 선언된 외래키가 아니거나 질문에 없는 번호로 id 를 걸면 실행하지 않고 1회 수리. 수리도 거부되면 답하지 않음(deny)",
+              "graph-unresolved-gate":
+                "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단, deny). "
+                + "일부만 해소되면 찾은 개체로 답하되 없는 개체의 사유를 컨텍스트와 답 앞에 싣는다(degrade)",
               "context-budget": "토큰 예산으로 후보를 자름",
               "branch-isolation": "레인 하나가 실패해도 나머지로 응답",
             },

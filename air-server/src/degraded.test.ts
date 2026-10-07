@@ -18,7 +18,9 @@ import type { AddressInfo } from "node:net";
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX } from "./pipeline.js";
+import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX, writeRefusal, NO_TABLE_ANSWER } from "./pipeline.js";
+import { pickSql, readsTable, writeStatement, NO_TABLE, type Nl2SqlReport } from "./nl2sql.js";
+import { describeAbsentAttribute } from "./notfound.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
 import { assertCorpusEmbedder } from "./companyx.js";
@@ -330,6 +332,288 @@ const deadEmbedder: Embedder = {
   ok(width.includes("폭 3 이 stub 의 폭 2 과 다르다"), `폭이 다르면 던진다 (got ${width})`);
   const none = await reason(assertCorpusEmbedder(rowPool([]), fixed([1, 0, 0])));
   ok(none.includes("임베딩이 없다"), `임베딩이 하나도 없으면 던진다 (got ${none})`);
+}
+
+// ── 생성 모델이 만든 쓰기 문장과 상수 SELECT(G17 ②④) ─────────────────────────
+// 7B 는 「모든 직원의 연봉을 0으로 바꿔줘」에 UPDATE 를, 「오늘 서울 날씨 어때?」에 SELECT '서울 날씨' 를
+// 만들었다(경계 실측 원출력). 쓰기 문장은 원래도 실행되지 않았지만 흔적 없이 버려져 답이 「주어진 정보로는
+// 알 수 없습니다」였고, 상수 SELECT 는 실행돼 답이 「서울 날씨」였다.
+{
+  const report = (raw: string) => {
+    const rep: Nl2SqlReport = {};
+    return { sql: pickSql(raw, rep), refused: rep.refused };
+  };
+  const upd = report("UPDATE companyx.employees SET salary = 0;");
+  ok(upd.sql === null && upd.refused?.kind === "UPDATE" && upd.refused.text === "UPDATE companyx.employees SET salary = 0", `UPDATE 는 실행하지 않고 종류와 문장을 남긴다 (got ${JSON.stringify(upd)})`);
+  ok(report("DELETE FROM companyx.sales;").refused?.kind === "DELETE", "DELETE");
+  ok(report("```sql\n-- 테이블 정리\nDROP TABLE companyx.sales\n```").refused?.kind === "DROP", "코드펜스와 주석을 벗기고 본다");
+  for (const kw of ["INSERT INTO t VALUES (1)", "ALTER TABLE t ADD c int", "TRUNCATE companyx.sales", "CREATE TABLE t (c int)", "GRANT ALL ON t TO x", "REVOKE ALL ON t FROM x"]) {
+    ok(report(kw).refused?.kind === kw.split(" ")[0], `${kw.split(" ")[0]} 도 쓰기 문장이다`);
+  }
+  // 종전 extractSql 은 UPDATE 안의 부분 SELECT 를 골라 실행할 수 있었다. 첫 문장이 쓰기면 통째로 거부한다.
+  const sub = report("UPDATE companyx.employees SET salary = 0 WHERE dept_id = (SELECT id FROM companyx.departments)");
+  ok(sub.sql === null && sub.refused?.kind === "UPDATE", `쓰기 문장 안의 SELECT 를 실행하지 않는다 (got ${JSON.stringify(sub)})`);
+  // 첫 문장이 SELECT 면 종전 그대로(TC-151: 질문에 섞인 DROP 은 모델 출력의 뒤에 있어도 실행되지 않는다).
+  const mixed = report("SELECT region FROM companyx.clients WHERE name = 'Client-A'; DROP TABLE companyx.sales; --");
+  ok(mixed.sql === "SELECT region FROM companyx.clients WHERE name = 'Client-A'" && !mixed.refused, `첫 문장이 SELECT 면 그 문장만 (got ${JSON.stringify(mixed)})`);
+  const weather = report("```sql\nSELECT '서울 날씨' AS answer;\n```");
+  ok(weather.sql === null && weather.refused?.kind === NO_TABLE && weather.refused.text === "SELECT '서울 날씨' AS answer", `테이블을 읽지 않는 SELECT 는 실행하지 않는다 (got ${JSON.stringify(weather)})`);
+  ok(report("SELECT current_date").refused?.kind === NO_TABLE, "FROM 없는 함수 호출도 상수다");
+  ok(report("SELECT extract(year from now())").refused?.kind === NO_TABLE, "extract(… from …) 의 from 은 테이블이 아니다");
+  ok(report("SELECT 'from' AS x").refused?.kind === NO_TABLE, "문자열 속 from 은 테이블이 아니다");
+  for (const sql of [
+    "SELECT count(*)::int AS n FROM companyx.sales",
+    "SELECT (SELECT count(*) FROM companyx.sales)::int AS sales",
+    "SELECT extract(year from created_at) AS y FROM companyx.sales",
+    "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+  ]) {
+    ok(report(sql).sql === sql && readsTable(sql), `테이블을 읽는 SELECT 는 그대로: ${sql}`);
+  }
+  ok(writeStatement("다음 SQL 입니다.\nSELECT 1 FROM t") === null, "설명 줄 뒤의 SELECT 는 쓰기 문장이 아니다");
+
+  // ask: 쓰기 문장은 7B 를 부르지 않고 바꾸지 않았다고 답한다. 정형 레인 하나뿐이라 컨텍스트는 비어 있다.
+  const emptyPool = { query: async () => ({ rows: [], rowCount: 0 }) } as unknown as Pool;
+  let called = 0;
+  const llm = async () => {
+    called++;
+    return "모든 직원의 연봉을 0으로 변경했습니다.";
+  };
+  const writeNl2sql = async (_q: string, rep?: Nl2SqlReport) => {
+    if (rep) rep.refused = { kind: "UPDATE", text: "UPDATE companyx.employees SET salary = 0" };
+    return null;
+  };
+  const w = await ask("모든 직원의 연봉을 0으로 바꿔줘", { pool: emptyPool, embedder: deadEmbedder, nl2sql: writeNl2sql, llm });
+  ok(called === 0, "쓰기 요청에는 7B 를 부르지 않는다");
+  ok(w.answer === writeRefusal("UPDATE") && w.answer.includes("읽기 전용"), `읽기 전용이라고 답한다 (got ${w.answer})`);
+  ok(!/변경|삭제|완료|했습니다/.test(writeRefusal("DELETE")), "답에 「변경」, 「삭제」, 「완료」, 「했습니다」가 없다(TC-145, TC-146)");
+  ok(w.sql.text === null && w.sql.refused?.kind === "UPDATE", "실행한 SQL 은 없고 거부한 문장은 따로 남는다");
+
+  // 상수 SELECT: 다른 근거가 없으면 7B 없이 알 수 없다고 답한다.
+  const constNl2sql = async (_q: string, rep?: Nl2SqlReport) => {
+    if (rep) rep.refused = { kind: NO_TABLE, text: "SELECT '서울 날씨' AS answer" };
+    return null;
+  };
+  const c = await ask("오늘 서울 날씨 어때?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: constNl2sql, llm });
+  ok(called === 0 && c.answer === NO_TABLE_ANSWER && !c.answer.includes("서울 날씨"), `상수 SELECT 의 값을 답으로 쓰지 않는다 (got ${c.answer})`);
+
+  // 없는 항목(랜덤 테스트 사전 점검 D2): 생성 모델에 넘기지 않고 없다고 답한다. 부서 인원은 그대로 넘긴다.
+  let generated = 0;
+  const countingNl2sql = async () => {
+    generated++;
+    return null;
+  };
+  const age = await ask("직원들의 평균 나이는 몇 살이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(age.route === "structured" || age.route === "hybrid", `정형 레인 질문 (got ${age.route})`);
+  ok(generated === 0 && called === 0 && age.sql.absent === "나이", "없는 항목은 SQL 도 답도 생성하지 않는다");
+  ok(age.answer === describeAbsentAttribute("나이"), `나이는 없는 항목이라고 답한다 (got ${age.answer})`);
+  const head = await ask("Client-A의 직원 수는 몇 명이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(head.sql.absent === "고객사의 직원 수" && !/\d+명/.test(head.answer), `고객사의 직원 수를 지어내지 않는다 (got ${head.answer})`);
+  await ask("클라우드사업부 직원 수는 몇 명이야?", { pool: emptyPool, embedder: deadEmbedder, nl2sql: countingNl2sql, llm });
+  ok(generated === 1, "부서 인원 질문은 정형 레인으로 간다");
+}
+
+// 임베딩 입력이 모델 문맥을 넘을 때(embedder.ts fitToContext). 2026-10-06 경계 실측에서 같은 질문 200번
+// (4,400자)이 「ollama embeddings 500: the input length exceeds the context length」를 답으로 냈다.
+// 가짜 Ollama 는 문맥을 넘는 입력에 그 500 을 돌려준다. 문맥은 4,000자(실측에서 이 반복 질문은
+// 4,092자까지 들어갔다), /tight 는 600자다.
+{
+  const seen: string[] = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const prompt = String(JSON.parse(body).prompt);
+      seen.push(prompt);
+      if (req.url?.startsWith("/missing/")) {
+        res.writeHead(404).end("model not found");
+        return;
+      }
+      const n = Array.from(prompt).length;
+      if (n > (req.url?.startsWith("/tight/") ? 600 : 4000)) {
+        res.writeHead(500, { "content-type": "application/json" }).end('{"error":"the input length exceeds the context length"}');
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ embedding: [n, 1] }));
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const { OllamaEmbedder, EMBED_RETRY_CHARS } = await import("./embedder.js");
+  // 자른 사실은 stderr 로 간다. 그 줄만 모으고 단언의 FAIL 줄은 그대로 찍히게 호출 동안만 가로챈다.
+  const logs: string[] = [];
+  const quiet = async <T,>(f: () => Promise<T>): Promise<T> => {
+    const realError = console.error;
+    console.error = (...a: unknown[]) => void logs.push(a.join(" "));
+    try {
+      return await f();
+    } finally {
+      console.error = realError;
+    }
+  };
+  try {
+    const emb = new OllamaEmbedder("bge-m3", base);
+    seen.length = 0;
+    ok((await quiet(() => emb.embed("짧은 질문")))[0] === 5 && seen.length === 1, "문맥 안의 입력은 한 번에, 그대로 보낸다");
+    const tc153 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+    seen.length = 0;
+    ok(
+      (await quiet(() => emb.embed(tc153)))[0] === 2200 && seen.length === 1 && logs.length === 0,
+      "들어가는 입력(TC-153 의 2,200자)은 자르지 않고 한 번에 보낸다",
+    );
+    const long = "2025년 3분기 총 매출액은 얼마야? ".repeat(200);
+    seen.length = 0;
+    const v = await quiet(() => emb.embed(long));
+    ok(v[0] === EMBED_RETRY_CHARS && seen.length === 2, `넘치면 앞 ${EMBED_RETRY_CHARS}자로 다시 보낸다 (got ${v[0]}, 호출 ${seen.length})`);
+    ok(seen[1] === long.slice(0, EMBED_RETRY_CHARS), "다시 보낸 것은 원문의 앞부분이다");
+    ok(
+      logs.some((l) => l.includes("입력 4400자") && l.includes(`앞 ${EMBED_RETRY_CHARS}자`)),
+      `자른 사실을 stderr 에 남긴다 (got ${logs.join(" | ")})`,
+    );
+
+    seen.length = 0;
+    const tight = await quiet(() => new OllamaEmbedder("bge-m3", `${base}/tight`).embed(long));
+    ok(tight[0] === 500 && seen.length === 4, `그래도 넘치면 반씩 줄인다(4,400 → 2,000 → 1,000 → 500) (got ${tight[0]}, 호출 ${seen.length})`);
+
+    seen.length = 0;
+    await quiet(() => emb.embed("\u{1F600}".repeat(5000)));
+    const cut = seen[1] ?? "";
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+    ok(Array.from(cut).length === EMBED_RETRY_CHARS && !lone.test(cut), "이모지(서로게이트 쌍)를 가르지 않고 문자 단위로 자른다");
+
+    seen.length = 0;
+    let missErr = "";
+    try {
+      await quiet(() => new OllamaEmbedder("bge-m3", `${base}/missing`).embed(long));
+    } catch (e) {
+      missErr = String(e);
+    }
+    ok(
+      missErr.includes("ollama embeddings 404: model not found") && seen.length === 1,
+      `문맥 초과가 아닌 오류는 다시 보내지 않고 종전처럼 던진다 (got ${missErr})`,
+    );
+  } finally {
+    server.close();
+    server.closeAllConnections();
+  }
+}
+
+// 생성 프롬프트의 질문 상한(llm.ts questionForModel). num_ctx 를 넘는 프롬프트는 Ollama 가 앞쪽(지시문과
+// 스키마 카드)을 잘라, 같은 질문 200번에 7B 가 「제공한 정보는 충분하지 않습니다」라고 답했다(3/3).
+{
+  const { questionForModel, LLM_QUESTION_MAX_CHARS, buildAnswerPrompt } = await import("./llm.js");
+  const { buildCompanyxSqlPrompt } = await import("./nl2sql.js");
+  const realError = console.error;
+  const notes: string[] = [];
+  console.error = (...a: unknown[]) => void notes.push(a.join(" "));
+  let tc153Same = false, longCut = "", answerHasCut = false, sqlHasCut = false, emojiCut = "";
+  const tc153 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+  const long = "2025년 3분기 총 매출액은 얼마야? ".repeat(200);
+  try {
+    tc153Same = questionForModel(tc153) === tc153 && buildAnswerPrompt(tc153, "c").includes(`[질문] ${tc153}\n`);
+    longCut = questionForModel(long);
+    answerHasCut = buildAnswerPrompt(long, "c").includes(`[질문] ${longCut}\n[답변]`);
+    sqlHasCut = buildCompanyxSqlPrompt(long).includes(`질문: ${longCut}\nSQL:`);
+    emojiCut = questionForModel("\u{1F600}".repeat(3000));
+  } finally {
+    console.error = realError;
+  }
+  ok(tc153Same, "상한 안의 질문(TC-153 의 2,200자)은 프롬프트에 그대로 들어간다");
+  ok(longCut === long.slice(0, LLM_QUESTION_MAX_CHARS), `넘는 질문은 앞 ${LLM_QUESTION_MAX_CHARS}자만 넣는다 (got ${longCut.length})`);
+  ok(answerHasCut && sqlHasCut, "답변 프롬프트와 NL2SQL 프롬프트가 같은 상한을 쓴다");
+  ok(notes.some((l) => l.includes("질문 4400자") && l.includes(`앞 ${LLM_QUESTION_MAX_CHARS}자`)), `자른 사실을 stderr 에 남긴다 (got ${notes[0]})`);
+  ok(Array.from(emojiCut).length === LLM_QUESTION_MAX_CHARS && emojiCut === "\u{1F600}".repeat(LLM_QUESTION_MAX_CHARS), "서로게이트 쌍을 가르지 않는다");
+}
+
+// 생성 SQL 의 실행 전 검사와 공동 순위(sqltrust.ts, 랜덤 테스트 사전 점검 D1·D3·D6). DB 와 모델 없이 잰다.
+{
+  const { withTies, checkSql, confirmNamedIds, clampK, entityIdError } = await import("./sqltrust.js");
+
+  // D1: 바깥 ORDER BY … LIMIT 1 만 WITH TIES 로 바꾼다.
+  const top = "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.id, d.name ORDER BY COUNT(e.id) DESC LIMIT 1";
+  ok(withTies(top) === top.replace(/LIMIT 1$/, "FETCH FIRST 1 ROWS WITH TIES"), `최상위 질문은 공동 1위를 모두 돌려주게 바꾼다 (got ${withTies(top)})`);
+  ok(withTies("SELECT name FROM t ORDER BY x DESC limit 1;") === "SELECT name FROM t ORDER BY x DESC FETCH FIRST 1 ROWS WITH TIES;", "소문자와 끝 세미콜론");
+  ok(withTies("SELECT name FROM t ORDER BY x LIMIT 1 -- 1위") === "SELECT name FROM t ORDER BY x FETCH FIRST 1 ROWS WITH TIES -- 1위", "끝 주석은 그대로 둔다");
+  for (const same of [
+    "SELECT name FROM t ORDER BY x DESC LIMIT 5",
+    "SELECT name FROM t LIMIT 1",
+    "SELECT name FROM t ORDER BY x LIMIT 1 OFFSET 1",
+    "SELECT name FROM t ORDER BY x OFFSET 1 LIMIT 1",
+    "SELECT * FROM (SELECT x FROM t ORDER BY x LIMIT 1) s",
+    "WITH a AS (SELECT x FROM t ORDER BY x LIMIT 1) SELECT * FROM a",
+    "SELECT x, rank() OVER (ORDER BY y) FROM t LIMIT 1",
+    "SELECT x FROM t WHERE n = 'ORDER BY a LIMIT 1'",
+    "SELECT $$a$$ FROM t ORDER BY 1 LIMIT 1",
+    "SELECT name FROM t ORDER BY x LIMIT 10",
+  ]) ok(withTies(same) === same, `LIMIT 2 이상, 하위 쿼리, ORDER BY 없음, OFFSET, 읽지 못하는 문장은 그대로: ${same}`);
+
+  // D3 ①: 조인 열 쌍은 선언된 외래키여야 한다(방향 무관).
+  const FKS = [
+    { table: "sales", column: "contract_id", refTable: "contracts", refColumn: "id" },
+    { table: "sales", column: "client_id", refTable: "clients", refColumn: "id" },
+    { table: "sales", column: "product_id", refTable: "products", refColumn: "id" },
+    { table: "contracts", column: "manager_id", refTable: "employees", refColumn: "id" },
+    { table: "employees", column: "dept_id", refTable: "departments", refColumn: "id" },
+    { table: "departments", column: "head_id", refTable: "employees", refColumn: "id" },
+  ];
+  const qaSales =
+    "SELECT s.id, s.amount, e.name AS manager_name\nFROM companyx.sales s\nJOIN companyx.clients c ON s.client_id = c.id\nJOIN companyx.products p ON s.product_id = p.id\nJOIN companyx.employees e ON s.contract_id = e.id";
+  const salesCheck = checkSql(qaSales, "매출 알려줘", FKS);
+  ok(!salesCheck.ok && salesCheck.reasons.length === 1 && salesCheck.reasons[0].includes("s.contract_id = e.id"), `매출 알려줘의 계약 id = 직원 id 조인을 거부 (got ${salesCheck.reasons})`);
+  ok(checkSql("SELECT e.name FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.employees e ON c.manager_id = e.id", "q", FKS).ok, "외래키를 따라간 조인은 통과");
+  ok(checkSql("SELECT e.name FROM companyx.employees AS e JOIN companyx.contracts c ON e.id = c.manager_id AND c.status = 'active'", "q", FKS).ok, "방향이 반대여도, 값 조건이 붙어도 통과");
+  ok(checkSql("SELECT e.name FROM companyx.departments d JOIN companyx.employees e ON d.head_id = e.id", "q", FKS).ok, "ALTER TABLE 로 선언된 부서장 외래키도 통과");
+  ok(checkSql("WITH x AS (SELECT client_id FROM companyx.sales) SELECT c.name FROM x JOIN companyx.clients c ON x.client_id = c.id", "q", FKS).ok, "CTE 처럼 어느 표인지 모르는 쪽은 판정하지 않는다");
+  ok(checkSql(qaSales, "매출 알려줘", []).ok, "선언된 외래키가 없는 스키마면 조인 검사는 꺼진다");
+
+  // D3 ②: 질문에 없는 번호로 id 를 걸면 거부한다.
+  const salary = checkSql("SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = 1", "연봉 알려줘", FKS);
+  ok(!salary.ok && salary.ids.length === 1 && salary.ids[0].tables.join() === "employees", `연봉 알려줘의 e.id = 1 을 거부 (got ${JSON.stringify(salary.ids)})`);
+  ok(checkSql("SELECT id, resolved_at FROM companyx.support_tickets WHERE id = 7", "지원 티켓 7번은 언제 해결됐어?", FKS).ok, "질문에 있는 번호는 통과(TC 티켓 7번)");
+  ok(checkSql("SELECT name FROM companyx.employees e WHERE e.dept_id = 2 AND e.name = 'id = 3'", "q", FKS).ok, "id 가 아닌 열과 문자열 값은 보지 않는다");
+  const named = (name: string) => ({ query: async () => ({ rows: [{ name }], rowCount: 1 }) }) as unknown as Pool;
+  const n14 = checkSql("SELECT c.contact_name FROM companyx.clients AS c WHERE c.id = 14", "Client-N에 메일 보내야 돼", [...FKS, { table: "contracts", column: "client_id", refTable: "clients", refColumn: "id" }]);
+  ok((await confirmNamedIds(named("Client-N"), "companyx", n14, "Client-N에 메일 보내야 돼")).length === 0, "그 행의 이름이 질문에 있으면 번호가 질문에 없어도 통과(h3-05)");
+  ok((await confirmNamedIds(named("윤소연"), "companyx", salary, "연봉 알려줘")).length === 1, "이름도 질문에 없으면 거부 유지");
+
+  // D6: ontology.search 의 k 와 graph.expand 의 entityId.
+  ok(clampK(0) === 5 && clampK(-1) === 1 && clampK(1.5) === 1 && clampK(100) === 50 && clampK(undefined) === 5 && clampK(7) === 7, "k 는 vector.search 와 같은 범위로 맞춘다");
+  ok(entityIdError(1.5)?.includes("정수여야") === true && entityIdError(31) === undefined && entityIdError(-1) === undefined, "entityId 는 정수만 받는다");
+
+  // 파이프라인: 거부한 SQL 은 실행하지 않고 7B 도 부르지 않는다. 실행한 SQL 은 재작성된 문장이다.
+  const executed: string[] = [];
+  const fkRows = FKS.map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+  const gatePool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        if (/^\s*select/i.test(sql) && !/pg_roles/.test(sql)) executed.push(sql);
+        return { rows: [{ name: "영업팀" }, { name: "클라우드사업부" }], rowCount: 2, fields: [{ name: "name" }] };
+      },
+      release: () => {},
+    }),
+    query: async (sql: string) =>
+      /pg_constraint/.test(sql) ? { rows: fkRows, rowCount: fkRows.length } : /SELECT name::text/.test(sql) ? { rows: [{ name: "윤소연" }], rowCount: 1 } : { rows: [], rowCount: 0 },
+  } as unknown as Pool;
+  let llmCalls = 0;
+  const llm = async () => {
+    llmCalls++;
+    return "영업팀과 클라우드사업부입니다.";
+  };
+  const q = "기술지원팀 직원 목록과 연봉을 알려줘";
+  const refused = await ask(q, { pool: gatePool, embedder: deadEmbedder, repair: false, llm, nl2sql: async () => "SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = 1" });
+  ok(refused.answer.startsWith("이 질문으로는 믿을 수 있는 조회를 만들지 못해") && refused.answer.includes("e.id = 1") && refused.answer.includes("구체적으로"), `거부하면 정해진 문장으로 답한다 (got ${refused.answer})`);
+  ok(llmCalls === 0 && executed.length === 0 && refused.sql.text === null && refused.sql.gate?.outcome === "refused", "거부한 SQL 은 실행하지 않고 7B 도 부르지 않는다");
+  ok(refused.audit.sql_gate?.rejected[0]?.reasons[0]?.includes("e.id = 1") === true, "retrieve 의 audit 에도 거부 사유가 남는다(빈 컨텍스트를 조용히 돌려주지 않음)");
+  const tie = await ask(q, { pool: gatePool, embedder: deadEmbedder, repair: false, llm, nl2sql: async () => top });
+  ok(tie.sql.text?.endsWith("FETCH FIRST 1 ROWS WITH TIES") === true && executed.at(-1) === tie.sql.text && !tie.sql.gate, `감사에 남는 SQL 은 실제로 실행한 문장 (got ${tie.sql.text})`);
+  ok(tie.answer.startsWith("공동 1위가 2건입니다: 영업팀, 클라우드사업부.") && tie.answer.includes("[조회 결과 2건]") && llmCalls === 0, `공동 1위는 이름을 모두 적는 결정론 문장 (got ${tie.answer})`);
+  const one = await ask(q, {
+    pool: { ...gatePool, connect: async () => ({ query: async () => ({ rows: [{ name: "기술지원팀" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }) } as unknown as Pool,
+    embedder: deadEmbedder,
+    repair: false,
+    llm,
+    nl2sql: async () => top,
+  });
+  ok(llmCalls === 1 && one.answer.startsWith("영업팀과") && one.answer.includes("[조회 결과 1건]"), "단독 1위(1행)는 종전처럼 7B 가 문장을 쓴다");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
