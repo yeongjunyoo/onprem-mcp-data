@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // NL2SQL 반복 실행기 — 한 번 재보고 끝내는 수치의 변동폭을 드러낸다.
 //
 // 왜 필요한가: 2026-07-29에 같은 코드, 같은 설정(재시도 없음, 스키마 카드)으로

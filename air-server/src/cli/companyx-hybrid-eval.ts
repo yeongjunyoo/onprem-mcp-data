@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // 하이브리드 검색 평가 — 밀집만, 희소만, 그리고 둘을 RRF로 합친 것을 같은 문항으로 잰다.
 //
 // 왜 이 하네스가 따로 필요한가. 기존 벡터 평가는 임베더를 갈아 끼우며 임베딩 컬럼을

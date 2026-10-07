@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // 실패했을 때 **조용히 다른 것을 돌려주는** 자리를 찾는다.
 //
 // 왜 필요한가. 이 저장소는 README 에서 Docker 의 `PublishedPort: 0` 을 길게

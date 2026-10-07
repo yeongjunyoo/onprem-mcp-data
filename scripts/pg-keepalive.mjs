@@ -1,4 +1,19 @@
 #!/usr/bin/env node
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // WSL2에서 도는 PostgreSQL은 유휴 상태가 되면 VM째 내려간다(실측 2026-07-29:
 // 90초 유휴 후 ECONNREFUSED, 진행 중이던 세션은 57P01로 끊김). 임베딩 백필처럼
 // 수 분 동안 DB를 놀리는 평가에서는 그 사이에 연결이 죽어 평가가 통째로 유실된다.

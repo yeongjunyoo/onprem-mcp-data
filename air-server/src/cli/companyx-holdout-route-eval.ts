@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // 홀드아웃 라우팅 평가 — 사업자 공개 30문항과 겹치지 않는 문구로 라우터를 잰다.
 //
 // 왜 이게 다른가. 공개 30문항 30/30은 라우터 어휘를 그 문항을 읽으며 작성한 in-sample

@@ -1,4 +1,19 @@
 #!/usr/bin/env node
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // SBOM 생성기 — 결과보고서 붙임1(소프트웨어 자재명세서)과 라이선스 검증 대비용.
 // 근거: node_modules에 실제로 설치된 package.json을 읽는다(선언이 아니라 설치 상태).
 // 사용: node scripts/sbom.mjs > docs/sbom.md

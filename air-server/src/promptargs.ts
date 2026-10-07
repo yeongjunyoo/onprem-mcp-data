@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // prompts/get 이 받은 인자를 버리던 결함의 우회. 상류(@airmcp-dev/core)가 고쳐지면 이 파일을 지운다.
 //
 // air 0.3.0 은 프롬프트를 MCP SDK 에 `server.prompt(name, description, cb)` 로 등록한다. 인자 스키마가
