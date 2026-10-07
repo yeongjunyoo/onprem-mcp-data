@@ -1,4 +1,19 @@
 #!/usr/bin/env node
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // SBOM 생성기 — 결과보고서 붙임1(소프트웨어 자재명세서)과 라이선스 검증 대비용.
 // 근거: node_modules에 실제로 설치된 package.json을 읽는다(선언이 아니라 설치 상태).
 // 사용: node scripts/sbom.mjs > docs/sbom.md
@@ -13,6 +28,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
 // 직접 의존성의 사용 목적 — 사람이 유지하는 유일한 수기 항목.
 const PURPOSE = {
   '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리',
+  '@modelcontextprotocol/sdk': 'MCP 공식 TypeScript SDK. 프롬프트 인자 검증(promptargs.ts)이 직접 쓰고 air 도 이 위에서 동작',
   pg: 'PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링',
   typescript: '빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일',
   '@types/node': '타입 정의(개발 전용)',

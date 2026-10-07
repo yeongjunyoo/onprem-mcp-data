@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // 외부 기여자가 처음 밟는 길에 막다른 지점이 없는지 확인한다.
 //
 // 2차 배점의 「커뮤니티」를 심사자는 문서 목록이 아니라 **흐름**으로 본다.
@@ -109,6 +124,17 @@ console.log(
       if (!token.test(body)) continue;
       if (!token.test(profileSrc)) {
         fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
+      }
+    }
+    // 반대 방향도 본다. 2026-10-07 PR #256 리뷰: 프로파일에 필수 필드(sqlSchema)를 더했는데 예제가
+    // 그대로라 안내대로 붙이면 tsc 가 깨졌다. 위 검사는 예제가 쓰는 이름이 소스에 있는지만 봤다.
+    // DatasetProfile 의 필수 필드(? 가 없는 것)가 예제에 다 있어야 한다.
+    const iface = profileSrc.match(/export interface DatasetProfile \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    const required = [...iface.matchAll(/^[ \t]+([A-Za-z_$][\w$]*)\s*:/gm)].map((m) => m[1]);
+    if (!required.length) fails.push("profile.ts 에서 DatasetProfile 의 필드를 못 읽었다 — 패턴을 확인하라");
+    for (const id of required) {
+      if (!fields.has(id)) {
+        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」의 프로파일 예제에 필수 필드 ${id} 가 없다 — 따라 하면 컴파일이 깨진다`);
       }
     }
     for (const m2 of body.matchAll(/npm run ([\w:.-]+)/g)) {

@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // claim 단위 접지 채점 테스트. LLM 심판이 아니라 원자 일치로 채점하므로 여기서
 // 검증하는 것은 "분해와 채점이 결정론적으로 같은 결과를 내는가"다.
 import { completeness, extractAtoms, scoreClaims, splitSentences } from "./claims.js";

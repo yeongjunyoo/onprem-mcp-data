@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // 「근거 없음」과 「조회 실패」를 구분하는가 — DB 없이 검증한다.
 //
 // 2026-08-17 실측: DB 가 죽은 상태에서 `ask` 가 이렇게 답했다.
@@ -365,11 +380,73 @@ const deadEmbedder: Embedder = {
     "SELECT count(*)::int AS n FROM companyx.sales",
     "SELECT (SELECT count(*) FROM companyx.sales)::int AS sales",
     "SELECT extract(year from created_at) AS y FROM companyx.sales",
-    "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+    "WITH x AS (SELECT client_id FROM companyx.sales) SELECT count(*) FROM x",
   ]) {
     ok(report(sql).sql === sql && readsTable(sql), `테이블을 읽는 SELECT 는 그대로: ${sql}`);
   }
   ok(writeStatement("다음 SQL 입니다.\nSELECT 1 FROM t") === null, "설명 줄 뒤의 SELECT 는 쓰기 문장이 아니다");
+
+  // #255 ①: FROM 낱말이 있어도 대상이 CTE(관계를 읽지 않는), VALUES, 집합 반환 함수뿐이면 상수다.
+  for (const sql of [
+    "WITH x AS (SELECT '서울 날씨' AS answer) SELECT answer FROM x",
+    "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+    "WITH a AS (SELECT 1 AS n), b AS (SELECT n + 1 AS m FROM a) SELECT m FROM b",
+    "WITH RECURSIVE r AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM r WHERE n < 3) SELECT n FROM r",
+    'WITH "X" AS (SELECT 1 AS n) SELECT n FROM "X"',
+    "SELECT n FROM (WITH t AS (SELECT 1 AS n) SELECT n FROM t) AS s",
+    "WITH x AS (SELECT 1 AS n) SELECT g FROM x, LATERAL generate_series(1, x.n) AS g",
+    "SELECT * FROM (VALUES (1, '서울'), (2, '부산')) AS v(id, city)",
+    "WITH x AS (SELECT extract(year from now()) AS y) SELECT y FROM x -- from companyx.sales",
+  ]) {
+    const r = report(sql);
+    ok(r.sql === null && r.refused?.kind === NO_TABLE && r.refused.text === sql && !readsTable(sql), `관계를 읽지 않는 문장은 실행하지 않는다(#255): ${sql}`);
+  }
+  // CTE 본문, 쉼표 조인, LATERAL, ONLY, 따옴표 이름, 하위 질의 가운데 하나라도 관계를 읽으면 그대로다. 비재귀 CTE 의
+  // 본문에서 자기 이름(orders)은 같은 이름의 테이블이다.
+  for (const sql of [
+    "WITH sales AS (SELECT 1 AS n) SELECT s.amount FROM companyx.sales s",
+    "WITH t AS (SELECT 1 AS n) SELECT c.name FROM t, companyx.clients c",
+    "WITH t AS (SELECT 1 AS n) SELECT c.name FROM t JOIN LATERAL (SELECT name FROM companyx.clients LIMIT 1) c ON true",
+    'SELECT count(*) FROM ONLY "companyx"."sales"',
+    "WITH orders AS (SELECT * FROM orders WHERE status = 'paid') SELECT count(*) FROM orders",
+    "SELECT n FROM generate_series(1, 3) AS n WHERE EXISTS (SELECT 1 FROM companyx.sales)",
+  ]) {
+    ok(report(sql).sql === sql && readsTable(sql), `관계를 하나라도 읽으면 그대로(#255): ${sql}`);
+  }
+
+  // #255 ③: CTE 본문(겹친 것 포함)이나 WITH 뒤 본문이 데이터를 바꾸면 쓰기 문장이다. text 는 최상위 첫 ; 앞까지.
+  const cteWrite = "WITH changed AS (UPDATE companyx.employees SET salary = 0 RETURNING *) SELECT * FROM changed";
+  const cw = report(cteWrite);
+  ok(cw.sql === null && cw.refused?.kind === "UPDATE" && cw.refused.text === cteWrite, `데이터를 바꾸는 CTE 는 쓰기 문장으로 거부한다 (got ${JSON.stringify(cw)})`);
+  for (const [raw, kind, text] of [
+    ["WITH d AS (DELETE FROM companyx.sales RETURNING *) SELECT count(*) FROM d; SELECT 1", "DELETE", "WITH d AS (DELETE FROM companyx.sales RETURNING *) SELECT count(*) FROM d"],
+    [
+      "```sql\n-- 정리\nwith x as not materialized (insert into companyx.departments (id, name) values (99, 'x') returning id) select id from x\n```",
+      "INSERT",
+      "with x as not materialized (insert into companyx.departments (id, name) values (99, 'x') returning id) select id from x",
+    ],
+    [
+      "WITH a AS (SELECT 1 AS n), b AS MATERIALIZED (MERGE INTO companyx.sales s USING a ON false WHEN NOT MATCHED THEN DO NOTHING) SELECT n FROM a",
+      "MERGE",
+      "WITH a AS (SELECT 1 AS n), b AS MATERIALIZED (MERGE INTO companyx.sales s USING a ON false WHEN NOT MATCHED THEN DO NOTHING) SELECT n FROM a",
+    ],
+    ["WITH a AS (WITH b AS (DELETE FROM companyx.sales RETURNING id) SELECT id FROM b) SELECT count(*) FROM a", "DELETE", "WITH a AS (WITH b AS (DELETE FROM companyx.sales RETURNING id) SELECT id FROM b) SELECT count(*) FROM a"],
+    ["WITH ids AS (SELECT id FROM companyx.sales) DELETE FROM companyx.sales WHERE id IN (SELECT id FROM ids)", "DELETE", "WITH ids AS (SELECT id FROM companyx.sales) DELETE FROM companyx.sales WHERE id IN (SELECT id FROM ids)"],
+  ]) {
+    const w = writeStatement(raw);
+    ok(w?.kind === kind && w.text === text, `${kind} 로 여는 CTE 나 WITH 본문은 쓰기 문장이다(#255) (got ${JSON.stringify(w)})`);
+  }
+  for (const raw of [
+    "WITH x AS (SELECT update_date, deleted_at FROM companyx.t) SELECT * FROM x",
+    "WITH x AS (SELECT 'UPDATE t SET a = 1' AS s, \"delete\" FROM companyx.t) SELECT s FROM x",
+    "WITH x AS (SELECT * FROM companyx.sales FOR UPDATE) SELECT * FROM x",
+    "-- DELETE 는 하지 않는다\nWITH x AS (SELECT id FROM companyx.sales) /* UPDATE */ SELECT id FROM x",
+    "SELECT name FROM companyx.employees ORDER BY salary DESC FETCH FIRST 1 ROWS WITH TIES",
+  ]) {
+    ok(writeStatement(raw) === null && report(raw).sql !== null, `열 이름, 문자열, 따옴표 이름, FOR UPDATE, 주석, WITH TIES 는 쓰기가 아니다(#255): ${raw}`);
+  }
+  const after = report("WITH x AS (SELECT id FROM companyx.sales) SELECT x.id FROM x; DELETE FROM companyx.sales");
+  ok(after.sql === "WITH x AS (SELECT id FROM companyx.sales) SELECT x.id FROM x" && !after.refused, `첫 문장 뒤의 쓰기는 종전처럼 실행 대상이 아니다(TC-151 과 같다) (got ${JSON.stringify(after)})`);
 
   // ask: 쓰기 문장은 7B 를 부르지 않고 바꾸지 않았다고 답한다. 정형 레인 하나뿐이라 컨텍스트는 비어 있다.
   const emptyPool = { query: async () => ({ rows: [], rowCount: 0 }) } as unknown as Pool;
@@ -387,6 +464,15 @@ const deadEmbedder: Embedder = {
   ok(w.answer === writeRefusal("UPDATE") && w.answer.includes("읽기 전용"), `읽기 전용이라고 답한다 (got ${w.answer})`);
   ok(!/변경|삭제|완료|했습니다/.test(writeRefusal("DELETE")), "답에 「변경」, 「삭제」, 「완료」, 「했습니다」가 없다(TC-145, TC-146)");
   ok(w.sql.text === null && w.sql.refused?.kind === "UPDATE", "실행한 SQL 은 없고 거부한 문장은 따로 남는다");
+  // 생성 모델이 데이터를 바꾸는 CTE 를 만들어도 같은 길로 간다(#255 ③): 쓰기 거절 답, 감사의 sql-read-only deny.
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const viaCte = await ask("모든 직원의 연봉을 0으로 바꿔줘", { pool: emptyPool, embedder: deadEmbedder, nl2sql: async (_q, rep) => pickSql(`${cteWrite};`, rep), llm });
+  const readOnly = buildAuditRecord(viaCte).policies.find((p) => p.policy === "sql-read-only");
+  ok(
+    called === 0 && viaCte.answer === writeRefusal("UPDATE") && viaCte.sql.text === null && viaCte.sql.refused?.text === cteWrite,
+    `데이터를 바꾸는 CTE 도 쓰기 거절로 답한다 (got ${viaCte.answer})`,
+  );
+  ok(readOnly?.verdict === "deny" && readOnly.detail.includes("쓰기 문장(UPDATE)"), `감사 레코드에 쓰기 거부가 남는다 (got ${JSON.stringify(readOnly)})`);
 
   // 상수 SELECT: 다른 근거가 없으면 7B 없이 알 수 없다고 답한다.
   const constNl2sql = async (_q: string, rep?: Nl2SqlReport) => {
@@ -614,6 +700,58 @@ const deadEmbedder: Embedder = {
     nl2sql: async () => top,
   });
   ok(llmCalls === 1 && one.answer.startsWith("영업팀과") && one.answer.includes("[조회 결과 1건]"), "단독 1위(1행)는 종전처럼 7B 가 문장을 쓴다");
+
+  // #255 ②: 외래키는 프로파일의 테이블이 있는 스키마에서 읽는다. bench 의 테이블은 bench 스키마에 있고 외래키를
+  // 선언한다(eval/internal/schema.sql). 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다.
+  {
+    const { profile } = await import("./profile.js");
+    const benchFks = [
+      { table_name: "orders", column_name: "customer_id", ref_table: "customers", ref_column: "id" },
+      { table_name: "order_items", column_name: "order_id", ref_table: "orders", ref_column: "id" },
+      { table_name: "order_items", column_name: "product_id", ref_table: "products", ref_column: "id" },
+    ];
+    // 외래키는 풀마다 한 번 읽어 두므로 부를 때마다 새 풀을 쓴다. 어느 스키마를 물었는지 적고, 외래키는 bench 에만 있다.
+    const asked: string[] = [];
+    const schemaPool = () =>
+      ({
+        connect: async () => ({ query: async () => ({ rows: [{ name: "고객 1" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }),
+        query: async (sql: string, params?: unknown[]) => {
+          if (!/pg_constraint/.test(sql)) return { rows: [], rowCount: 0 };
+          asked.push(String(params?.[0]));
+          return params?.[0] === "bench" ? { rows: benchFks, rowCount: benchFks.length } : { rows: [], rowCount: 0 };
+        },
+      }) as unknown as Pool;
+    const badJoin = "SELECT c.name FROM bench.customers c JOIN bench.orders o ON c.id = o.id";
+    const fkJoin = "SELECT c.name FROM bench.customers c JOIN bench.orders o ON o.customer_id = c.id";
+    const run = (sql: string) => ask(q, { pool: schemaPool(), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => sql });
+    const saved = process.env.DATASET;
+    const savedKg = process.env.KG_SCHEMA;
+    delete process.env.KG_SCHEMA;
+    try {
+      for (const [name, schema] of [["smoke", "public"], ["bench", "bench"], ["companyx", "companyx"]]) {
+        process.env.DATASET = name;
+        ok(profile().sqlSchema === schema, `${name} 프로파일의 테이블은 ${schema} 스키마에 있다`);
+      }
+      process.env.DATASET = "bench";
+      const bad = await run(badJoin);
+      ok(
+        asked.at(-1) === "bench" && bad.sql.gate?.outcome === "refused" && bad.answer.includes("외래키가 아닌 열(c.id = o.id)"),
+        `bench 에서도 외래키가 아닌 열의 조인을 실행하지 않는다 (got ${asked.at(-1)}: ${bad.answer})`,
+      );
+      const good = await run(fkJoin);
+      ok(!good.sql.gate && good.sql.text === fkJoin, `bench 의 외래키 조인은 그대로 실행한다 (got ${JSON.stringify(good.sql.gate)})`);
+      process.env.DATASET = "smoke";
+      const smoke = await run(badJoin);
+      ok(asked.at(-1) === "public" && !smoke.sql.gate && smoke.sql.text === badJoin, "외래키를 선언하지 않은 스키마(smoke 의 public)는 종전처럼 조인을 거부하지 않는다");
+      process.env.DATASET = "companyx";
+      await run(fkJoin);
+      ok(asked.at(-1) === "companyx", `companyx 는 종전처럼 companyx 스키마의 외래키를 읽는다 (got ${asked.at(-1)})`);
+    } finally {
+      if (saved === undefined) delete process.env.DATASET;
+      else process.env.DATASET = saved;
+      if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
+    }
+  }
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

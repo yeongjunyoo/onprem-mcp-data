@@ -8,7 +8,7 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
 == Runtime frameworks / libraries ==
 - @airmcp-dev/core (air MCP server framework)   — Apache-2.0 — CodePedia Labs / 리원에이스
     https://github.com/airmcp-dev/air
-- @modelcontextprotocol/sdk                      — MIT       (transitive via air)
+- @modelcontextprotocol/sdk                      — MIT       (direct, also via air)
 - zod                                            — MIT       (transitive via air)
 - TypeScript                                     — Apache-2.0 — Microsoft
     https://github.com/microsoft/TypeScript

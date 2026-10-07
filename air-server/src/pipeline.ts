@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // End-to-end retrieval pipeline (the differentiator spine):
 //   route (L3, deterministic)  ->  parallel fan-out (sql.query ∥ vector.search)
 //   ->  RRF merge  ->  L4 structure-preserving curation  ->  curated context.
@@ -410,10 +425,11 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
-    // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다.
+    // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다. 외래키와 컬럼은 프로파일의 테이블이 있는
+    // 스키마에서 읽는다. 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다(#255).
     const ex = await executeWithRepair(pool, query, text, {
       repair: deps.repair !== false,
-      schema: profile().kgSchema === "companyx" ? "companyx" : "public",
+      schema: profile().sqlSchema,
     });
     return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined, ...(ex.gate ? { gate: ex.gate } : {}) };
   })();

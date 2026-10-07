@@ -1,3 +1,18 @@
+// Copyright 2026 Yeongjun Yoo
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // NL -> SQL for the structured retrieval path.
 //
 // Two strategies share this interface so the pipeline is agnostic:
@@ -55,22 +70,305 @@ const FIRST_STATEMENT = /^\s*(select|with|insert|update|delete|merge|drop|alter|
  *
  * extractSql 은 SELECT 가 없으면 null 을 돌려줘 쓰기 문장은 원래 실행되지 않았다. 그런데 그 사실이
  * 어디에도 남지 않아 「모든 직원의 연봉을 0으로 바꿔줘」의 감사 레코드에 거부 판정이 없었고(G17 ②),
- * UPDATE 안의 부분 SELECT 는 거꾸로 실행될 수 있었다. 첫 문장의 키워드로 가른다. */
+ * UPDATE 안의 부분 SELECT 는 거꾸로 실행될 수 있었다. 첫 문장의 키워드로 가른다.
+ *
+ * SELECT 나 WITH 로 시작해도 CTE 본문(겹친 것 포함)이나 WITH 뒤 본문이 INSERT, UPDATE, DELETE, MERGE 면
+ * 쓰기다. `WITH changed AS (UPDATE … RETURNING *) SELECT * FROM changed` 가 읽기로 분류돼 쓰기 거절이 아닌
+ * 조회 실패로 답했다(#255). 그때 text 는 최상위 첫 `;` 앞까지의 문장이다. */
 export function writeStatement(raw: string): { kind: string; text: string } | null {
   const s = unwrap(raw).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
   const m = s.match(FIRST_STATEMENT);
-  if (!m || /^(select|with)$/i.test(m[1])) return null;
-  return { kind: m[1].toUpperCase(), text: s.slice(m.index).split(";")[0].trim() };
+  if (!m) return null;
+  if (!/^(select|with)$/i.test(m[1])) return { kind: m[1].toUpperCase(), text: s.slice(m.index).split(";")[0].trim() };
+  const stmt = s.slice(m.index);
+  const shape = sqlShape(stmt, true);
+  return shape?.dml ? { kind: shape.dml, text: stmt.slice(0, shape.end).trim() } : null;
 }
 
-/** SELECT 가 테이블(뷰, CTE 포함)을 읽는가. FROM 이 없으면 데이터와 무관한 상수 계산이다.
- * 문자열 값과 FROM 을 문법으로 쓰는 함수(extract, substring, trim, overlay)는 빼고 본다. */
+/** SELECT 가 테이블이나 뷰를 읽는가. 읽지 않으면 데이터와 무관한 상수 계산이다.
+ *
+ * FROM 낱말이 없으면 상수다. 문자열 값과 따옴표 이름, FROM 을 문법으로 쓰는 함수(extract, substring,
+ * trim, overlay)의 FROM 은 세지 않는다. FROM 이 있어도 문장 어디서든(본 질의, CTE 본문, 하위 질의, 쉼표
+ * 조인, LATERAL, ONLY) FROM 이나 JOIN 의 대상 가운데 그 자리에서 보이는 CTE 이름이 아닌 관계가 하나도
+ * 없으면 상수다. VALUES 목록과 집합 반환 함수(generate_series 등)는 관계가 아니고, 주석 속 FROM 은 FROM
+ * 절이 아니다. `WITH x AS (SELECT '서울 날씨' AS answer) SELECT answer FROM x` 가 FROM 낱말 하나로
+ * 통과했다(#255). 문장을 읽지 못하면(닫히지 않은 따옴표나 괄호) 종전처럼 읽는 것으로 둔다. */
 export function readsTable(sql: string): boolean {
   const s = sql
     .replace(/'(?:[^']|'')*'/g, "''")
     .replace(/"(?:[^"]|"")*"/g, '""')
     .replace(/\b(?:extract|substring|trim|overlay)\s*\((?:[^()]|\([^()]*\))*\)/gi, "f()");
-  return /\bfrom\b/i.test(s);
+  return /\bfrom\b/i.test(s) && (sqlShape(sql, false)?.reads ?? true);
+}
+
+/** SQL 낱말. w 는 따옴표 없는 이름과 키워드(소문자로), q 는 따옴표 이름(대소문자 그대로), s 는 문자열 값,
+ * o 는 그 밖의 기호와 숫자다. at 은 원문에서의 자리. */
+interface SqlToken {
+  k: "w" | "q" | "s" | "o" | "(" | ")" | "[" | "]" | "," | ";" | ".";
+  v: string;
+  at: number;
+}
+
+const WORD = /[A-Za-z_\u0080-\uffff][A-Za-z0-9_$\u0080-\uffff]*/y;
+const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y;
+const DOLLAR_TAG = /\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/y;
+const PARAM = /\$\d+/y;
+
+/** SQL 을 낱말로 자른다. 주석은 버린다. 닫히지 않은 따옴표, 달러 따옴표, 블록 주석이 있으면 null. */
+function tokenizeSql(sql: string): SqlToken[] | null {
+  const out: SqlToken[] = [];
+  const n = sql.length;
+  const at = (re: RegExp, i: number) => {
+    re.lastIndex = i;
+    return re.exec(sql)?.[0];
+  };
+  let i = 0;
+  while (i < n) {
+    const c = sql[i];
+    if (/\s/.test(c)) {
+      i++;
+    } else if (c === "-" && sql[i + 1] === "-") {
+      const nl = sql.indexOf("\n", i);
+      i = nl < 0 ? n : nl;
+    } else if (c === "/" && sql[i + 1] === "*") {
+      // PostgreSQL 의 블록 주석은 겹칠 수 있다.
+      let depth = 1;
+      let j = i + 2;
+      while (j < n && depth > 0) {
+        if (sql.startsWith("/*", j) || sql.startsWith("*/", j)) {
+          depth += sql[j] === "/" ? 1 : -1;
+          j += 2;
+        } else j++;
+      }
+      if (depth > 0) return null;
+      i = j;
+    } else if (c === "'") {
+      // E'…' 는 역슬래시 이스케이프를 쓴다. 바로 앞에 붙은 e 는 문자열의 접두사다.
+      const prev = out[out.length - 1];
+      const escaped = prev?.k === "w" && prev.v === "e" && prev.at + 1 === i;
+      let j = i + 1;
+      for (;;) {
+        if (j >= n) return null;
+        if (escaped && sql[j] === "\\") j += 2;
+        else if (sql[j] === "'" && sql[j + 1] === "'") j += 2;
+        else if (sql[j] === "'") break;
+        else j++;
+      }
+      if (escaped) out.pop();
+      out.push({ k: "s", v: sql.slice(i, j + 1), at: escaped ? i - 1 : i });
+      i = j + 1;
+    } else if (c === '"') {
+      let j = i + 1;
+      for (;;) {
+        if (j >= n) return null;
+        if (sql[j] === '"' && sql[j + 1] === '"') j += 2;
+        else if (sql[j] === '"') break;
+        else j++;
+      }
+      out.push({ k: "q", v: sql.slice(i + 1, j).replace(/""/g, '"'), at: i });
+      i = j + 1;
+    } else if (c === "$") {
+      const tag = at(DOLLAR_TAG, i);
+      const param = tag ? undefined : at(PARAM, i);
+      if (tag) {
+        const end = sql.indexOf(tag, i + tag.length);
+        if (end < 0) return null;
+        out.push({ k: "s", v: sql.slice(i, end + tag.length), at: i });
+        i = end + tag.length;
+      } else {
+        out.push({ k: "o", v: param ?? c, at: i });
+        i += param?.length ?? 1;
+      }
+    } else if ("()[],;.".includes(c) && !(c === "." && /\d/.test(sql[i + 1] ?? ""))) {
+      out.push({ k: c as SqlToken["k"], v: c, at: i });
+      i++;
+    } else {
+      const word = at(WORD, i);
+      const num = word ? undefined : at(NUMBER, i);
+      const v = word ?? num ?? c;
+      out.push({ k: word ? "w" : "o", v: word ? word.toLowerCase() : v, at: i });
+      i += v.length;
+    }
+  }
+  return out;
+}
+
+const DML_WORDS = new Set(["insert", "update", "delete", "merge"]);
+/** 괄호 안이 질의인지 가르는 첫 낱말. */
+const QUERY_HEAD = new Set(["select", "values", "table", "with"]);
+/** 이 낱말 바로 뒤는 질의가 새로 시작하는 자리다(TABLE 이름이 올 수 있다). */
+const SET_OP = new Set(["union", "intersect", "except", "all", "distinct"]);
+/** FROM 목록을 끝내는 절 키워드. 그 뒤의 쉼표는 FROM 항목을 가르지 않는다. */
+const FROM_LIST_END = new Set([
+  "where", "group", "having", "window", "order", "limit", "offset", "fetch", "for",
+  "union", "intersect", "except", "returning", "select",
+]);
+
+/** SQL 의 구조. 읽지 못하면 null.
+ *  reads — 관계(테이블, 뷰)를 읽거나 바꾸는가. 대상을 확실히 읽지 못한 FROM, JOIN 항목은 관계로 친다.
+ *  dml   — CTE 본문이나 WITH 뒤 본문을 여는 INSERT, UPDATE, DELETE, MERGE 가운데 가장 앞의 것(대문자).
+ *  end   — 첫 문장의 끝(최상위 첫 `;` 의 자리, 없으면 길이).
+ * firstOnly 면 첫 문장만 본다. */
+function sqlShape(sql: string, firstOnly: boolean): { reads: boolean; dml: string | null; end: number } | null {
+  const toks = tokenizeSql(sql);
+  if (!toks) return null;
+  const close: number[] = new Array(toks.length).fill(-1);
+  const open: number[] = [];
+  const stops: number[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    const k = toks[i].k;
+    if (k === "(" || k === "[") open.push(i);
+    else if (k === ")" || k === "]") {
+      const o = open.pop();
+      if (o === undefined || (toks[o].k === "(") !== (k === ")")) return null;
+      close[o] = i;
+    } else if (k === ";" && open.length === 0) stops.push(i);
+  }
+  if (open.length) return null;
+
+  let failed = false;
+  let dml: { kind: string; at: number } | null = null;
+  const isWord = (i: number, v: string) => toks[i]?.k === "w" && toks[i].v === v;
+  const isName = (i: number) => toks[i]?.k === "w" || toks[i]?.k === "q";
+  /** 키워드로 쓰인 낱말. 점 뒤(t.table)나 AS 뒤(AS from)의 낱말은 이름이다. */
+  const keyword = (i: number) => (toks[i].k === "w" && toks[i - 1]?.k !== "." && !isWord(i - 1, "as") ? toks[i].v : null);
+
+  /** 괄호 [i] 의 안이 질의인가. 첫 낱말이 SELECT, VALUES, TABLE, WITH 이거나 바로 안에 SELECT 가 있다. */
+  const isQueryGroup = (i: number): boolean => {
+    const head = toks[i + 1];
+    if (head?.k === "w" && QUERY_HEAD.has(head.v)) return true;
+    for (let j = i + 1; j < close[i]; j++) {
+      if (toks[j].k === "(" || toks[j].k === "[") j = close[j];
+      else if (isWord(j, "select")) return true;
+    }
+    return false;
+  };
+
+  /** 괄호 하나. 질의면 질의로, 아니면(함수 인자, 식) 안의 괄호만 본다 — 그 안의 FROM 은 extract(… FROM …) 같은 문법이다. */
+  const group = (i: number, scope: ReadonlySet<string>): boolean => {
+    if (toks[i].k === "(" && isQueryGroup(i)) return query(i + 1, close[i], scope, false);
+    let reads = false;
+    for (let j = i + 1; j < close[i]; j++) {
+      if (toks[j].k === "(" || toks[j].k === "[") {
+        if (group(j, scope)) reads = true;
+        j = close[j];
+      }
+    }
+    return reads;
+  };
+
+  /** FROM, JOIN, FROM 목록의 쉼표 뒤에 오는 항목 하나. [관계를 읽는가, 다음 자리]. */
+  const fromItem = (i: number, hi: number, scope: ReadonlySet<string>): [boolean, number] => {
+    while (isWord(i, "lateral") || isWord(i, "only")) i++;
+    if (i >= hi) return [true, i];
+    if (toks[i].k === "(") {
+      // 하위 질의나 VALUES, 아니면 괄호로 묶은 조인
+      const reads = isQueryGroup(i) ? query(i + 1, close[i], scope, false) : scan(i + 1, close[i], scope, true);
+      return [reads, close[i] + 1];
+    }
+    if (isWord(i, "rows") && isWord(i + 1, "from") && toks[i + 2]?.k === "(") return [group(i + 2, scope), close[i + 2] + 1];
+    if (!isName(i)) return [true, i];
+    let j = i + 1;
+    while (j + 1 < hi && toks[j].k === "." && isName(j + 1)) j += 2;
+    if (j < hi && toks[j].k === "(") return [group(j, scope), close[j] + 1]; // 집합 반환 함수
+    return [!(j === i + 1 && scope.has(toks[i].v)), j];
+  };
+
+  /** [lo, hi) 의 절들을 훑는다. fromList 면 괄호로 묶은 조인이라 첫 낱말부터 FROM 항목이다. */
+  const scan = (lo: number, hi: number, scope: ReadonlySet<string>, fromList: boolean): boolean => {
+    let reads = false;
+    let inFrom = fromList;
+    let i = lo;
+    const item = (from: number) => {
+      const [r, next] = fromItem(from, hi, scope);
+      if (r) reads = true;
+      i = next;
+    };
+    if (fromList) item(i);
+    while (i < hi) {
+      const t = toks[i];
+      const kw = keyword(i);
+      // IS [NOT] DISTINCT FROM 의 FROM 은 FROM 절이 아니다.
+      const distinctFrom = isWord(i - 1, "distinct") && (isWord(i - 2, "is") || isWord(i - 2, "not"));
+      if (t.k === "(" || t.k === "[") {
+        if (group(i, scope)) reads = true;
+        i = close[i] + 1;
+      } else if (t.k === "," && inFrom) {
+        item(i + 1);
+      } else if (kw === "join" || (kw === "from" && !distinctFrom)) {
+        inFrom = true;
+        item(i + 1);
+      } else if (kw === "table" && isName(i + 1) && (i === lo || SET_OP.has(toks[i - 1].v))) {
+        item(i + 1); // 질의 머리의 TABLE 이름 = SELECT * FROM 이름
+      } else {
+        if (t.k === ";" || (kw !== null && FROM_LIST_END.has(kw))) inFrom = false;
+        i++;
+      }
+    }
+    return reads;
+  };
+
+  /** [lo, hi) 의 질의 하나. WITH 머리가 있으면 CTE 이름을 범위에 넣는다. 비재귀 CTE 의 본문은 앞선 CTE 만,
+   * 재귀(RECURSIVE)는 목록 전체를 본다. CTE 본문이나 WITH 뒤 본문을 여는 INSERT 등은 dml 로 적는다. */
+  const query = (lo: number, hi: number, scope: ReadonlySet<string>, cteBody: boolean): boolean => {
+    let i = lo;
+    let reads = false;
+    const withHead = isWord(i, "with");
+    if (withHead) {
+      i++;
+      const recursive = isWord(i, "recursive");
+      if (recursive) i++;
+      const ctes: { name: string; lo: number; hi: number }[] = [];
+      for (;;) {
+        // 이름, (열 목록), AS, [NOT] [MATERIALIZED], (본문). 이 꼴이 아니면 읽지 못한 문장이다.
+        const name = i < hi && isName(i) ? toks[i++].v : null;
+        if (toks[i]?.k === "(" && i < hi) i = close[i] + 1;
+        if (name === null || !isWord(i, "as")) {
+          failed = true;
+          return true;
+        }
+        i++;
+        if (isWord(i, "not")) i++;
+        if (isWord(i, "materialized")) i++;
+        if (i >= hi || toks[i].k !== "(") {
+          failed = true;
+          return true;
+        }
+        ctes.push({ name, lo: i + 1, hi: close[i] });
+        i = close[i] + 1;
+        // SEARCH, CYCLE 절을 건너 다음 CTE 나 본문으로
+        while (i < hi && toks[i].k !== "," && toks[i].k !== "(" && !(toks[i].k === "w" && (QUERY_HEAD.has(toks[i].v) || DML_WORDS.has(toks[i].v)))) i++;
+        if (i < hi && toks[i].k === ",") i++;
+        else break;
+      }
+      const names = ctes.map((c) => c.name);
+      ctes.forEach((c, n) => {
+        const seen = new Set([...scope, ...(recursive ? names : names.slice(0, n))]);
+        if (query(c.lo, c.hi, seen, true)) reads = true;
+      });
+      scope = new Set([...scope, ...names]);
+    }
+    if ((withHead || cteBody) && i < hi && toks[i].k === "w" && DML_WORDS.has(toks[i].v)) {
+      if (!dml || toks[i].at < dml.at) dml = { kind: toks[i].v.toUpperCase(), at: toks[i].at };
+      reads = true;
+    }
+    return scan(i, hi, scope, false) || reads;
+  };
+
+  const ends = [...stops, toks.length];
+  let reads = false;
+  let lo = 0;
+  try {
+    for (const hi of firstOnly ? ends.slice(0, 1) : ends) {
+      if (query(lo, hi, new Set(), false)) reads = true;
+      lo = hi + 1;
+    }
+  } catch {
+    return null; // 괄호가 수천 겹이라 호출 스택을 넘는 출력 따위: 읽지 못한 문장으로 둔다
+  }
+  if (failed) return null;
+  const found = dml as { kind: string; at: number } | null;
+  return { reads, dml: found?.kind ?? null, end: stops.length ? toks[stops[0]].at : sql.length };
 }
 
 /** 생성 모델 출력에서 실행할 SQL 을 고른다. 고르지 않은 이유가 쓰기 문장이거나 테이블을 읽지 않는

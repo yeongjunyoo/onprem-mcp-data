@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+# Copyright 2026 Yeongjun Yoo
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """홀드아웃 2차 라우팅 평가셋 — 1차가 오염된 뒤에 일반화를 다시 재기 위한 것.
 
 왜 2차가 필요한가.
