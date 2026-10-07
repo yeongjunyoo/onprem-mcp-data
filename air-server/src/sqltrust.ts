@@ -239,6 +239,120 @@ export function checkSql(sql: string, question: string, fks: ForeignKey[] | null
   return { ok: reasons.length === 0 && ids.length === 0, reasons, ids };
 }
 
+/** 집계를 부풀리는 조인 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const FANOUT_REASON = "집계 ";
+
+/** 부모 표(가리켜지는 쪽) 열의 집계가 자식 표(가리키는 쪽)와의 조인으로 부풀 수 있는 자리. */
+export interface FanoutJoin {
+  /** 생성 SQL 에 쓰인 집계 그대로(SUM(c.amount)). */
+  agg: string;
+  parent: string;
+  child: string;
+  /** 부모를 가리키는 자식 표의 외래키 열. 이 열에 같은 값이 둘 이상 있어야 실제로 부푼다(confirmFanout). */
+  childColumn: string;
+  /** 조인 조건 그대로(s.contract_id = c.id). */
+  join: string;
+}
+
+/** ④ SUM, AVG 의 열이 가리켜지는 쪽 표(부모)에 있고, 같은 질의 단계에서 부모가 자기를 가리키는 표(자식)와 선언된 외래키로
+ * 조인돼 있으면 부모 한 행이 자식 행 수만큼 겹쳐 집계된다. 「Client-Q 매출 합계랑 계약 금액 합계 각각 알려줘」에
+ * `sales s JOIN contracts c ON s.contract_id = c.id` 로 SUM(c.amount) 를 해 계약 합계 107,850(실제 11,250)을 답했다(랜덤
+ * 테스트 사전 점검 2차 R8). AVG 는 부모의 키로 묶었으면(GROUP BY c.id) 묶음마다 같은 값의 평균이라 맞다. SUM 은 묶어도
+ * 겹친 수만큼 커서 막는다. 집계와 조인은 같은 괄호 깊이(같은 SELECT)만 짝짓는다. 하위 질의로 따로 집계한 값은 걸리지 않는다.
+ * 확실히 읽지 못하는 문장, 별칭 없이 쓴 열, fks 가 빈 스키마는 판정하지 않는다. */
+export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[] {
+  if (!fks?.length) return [];
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const d = depths(masked);
+  if (!d) return [];
+  const known = new Set(fks.flatMap((f) => [f.table, f.refTable]));
+  const out: FanoutJoin[] = [];
+  const aggRe = new RegExp(`\\b(sum|avg)\\s*\\(\\s*(?:distinct\\s+)?((?:${IDENT}\\.){1,2}${IDENT})\\s*\\)`, "gi");
+  for (const a of masked.matchAll(aggRe)) {
+    const at = a.index ?? 0;
+    const level = d[at];
+    // 집계가 든 SELECT 의 범위: 같은 깊이를 여는 괄호 뒤부터 닫는 괄호 앞까지(맨 바깥이면 문장 전체)
+    let lo = 0;
+    let hi = masked.length;
+    if (level > 0) {
+      for (let i = at; i >= 0; i--) if (masked[i] === "(" && d[i] === level - 1) { lo = i + 1; break; }
+      for (let i = at; i < masked.length; i++) if (masked[i] === ")" && d[i] === level - 1) { hi = i; break; }
+    }
+    const here = (re: RegExp) => [...masked.slice(lo, hi).matchAll(re)].filter((m) => d[lo + (m.index ?? 0)] === level);
+    const bind = new Map<string, string>();
+    for (const m of here(new RegExp(`\\b(?:from|join)\\s+((?:${IDENT}\\.)?${IDENT})(?:\\s+(?:as\\s+)?(${IDENT}))?`, "gi"))) {
+      const table = m[1].split(".").pop()!.toLowerCase();
+      if (!known.has(table)) continue;
+      bind.set(table, table);
+      const al = m[2]?.toLowerCase();
+      if (al && !NOT_ALIAS.has(al)) bind.set(al, table);
+    }
+    const [aq, ac] = a[2].toLowerCase().split(".").slice(-2);
+    const parent = bind.get(aq);
+    if (!parent) continue;
+    const group = here(/\bgroup\s+by\b/gi)[0];
+    let groupText = "";
+    if (group) {
+      const from = lo + (group.index ?? 0);
+      const stop = [...masked.slice(from, hi).matchAll(/\b(having|order|limit|offset|fetch|window|union|intersect|except)\b/gi)].find(
+        (m) => d[from + (m.index ?? 0)] === level,
+      );
+      groupText = masked.slice(from, stop ? from + (stop.index ?? 0) : hi).toLowerCase();
+    }
+    const eqRe = new RegExp(`(?<![A-Za-z0-9_.])((?:${IDENT}\\.){1,2}${IDENT})\\s*=\\s*((?:${IDENT}\\.){1,2}${IDENT})(?![A-Za-z0-9_.(])`, "g");
+    for (const e of here(eqRe)) {
+      const sides = [e[1], e[2]].map((x) => x.toLowerCase().split(".").slice(-2) as [string, string]);
+      for (const [[pq, pc], [cq, cc]] of [[sides[0], sides[1]], [sides[1], sides[0]]]) {
+        if (pq !== aq) continue;
+        const child = bind.get(cq);
+        if (!child || !fks.some((f) => f.table === child && f.column === cc && f.refTable === parent && f.refColumn === pc)) continue;
+        // AVG 는 부모의 키로 묶으면 맞다.
+        const keyed = new RegExp(`(?<![A-Za-z0-9_])(?:${aq}|${parent})\\.${pc}(?![A-Za-z0-9_])`).test(groupText);
+        if (a[1].toLowerCase() === "avg" && keyed) continue;
+        const agg = sql.slice(at, at + a[0].length);
+        if (!out.some((x) => x.agg === agg && x.child === child)) {
+          out.push({ agg, parent, child, childColumn: cc, join: sql.slice(lo + (e.index ?? 0), lo + (e.index ?? 0) + e[0].length) });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+const dupCache = new WeakMap<object, Map<string, boolean>>();
+
+/** fanoutJoins 의 자리 가운데 자식의 외래키 열에 같은 값이 둘 이상 있는 것(실제로 부푸는 조인)의 사유. 부서장(departments.head_id)
+ * 처럼 한 부모를 한 자식만 가리키는 열이면 조인해도 부풀지 않아 막지 않는다. 읽지 못하면 막지 않는다. */
+export async function confirmFanout(pool: Pool, schema: string, joins: FanoutJoin[]): Promise<string[]> {
+  const reasons: string[] = [];
+  for (const j of joins) {
+    if (![schema, j.child, j.childColumn].every((x) => /^[a-z_][a-z0-9_]*$/.test(x))) continue;
+    const key = `${schema}.${j.child}.${j.childColumn}`;
+    let dup = dupCache.get(pool)?.get(key);
+    if (dup === undefined) {
+      try {
+        const res = await pool.query(
+          `SELECT EXISTS (SELECT 1 FROM ${schema}.${j.child} WHERE ${j.childColumn} IS NOT NULL GROUP BY ${j.childColumn} HAVING count(*) > 1) AS dup`,
+        );
+        const v = (res?.rows?.[0] as { dup?: unknown } | undefined)?.dup;
+        if (typeof v !== "boolean") continue;
+        dup = v;
+        if (!dupCache.has(pool)) dupCache.set(pool, new Map());
+        dupCache.get(pool)!.set(key, dup);
+      } catch {
+        continue;
+      }
+    }
+    if (!dup) continue;
+    reasons.push(
+      `${FANOUT_REASON}${j.agg} 은 ${j.parent} 의 열인데 ${j.parent} 를 가리키는 ${j.child} 와 조인(${j.join})해 ${j.parent} 한 행이 ` +
+        `${j.child} 행 수만큼 겹쳐 집계된다. ${j.parent} 의 값은 ${j.child} 와 조인하지 않은 하위 질의로 따로 집계한다`,
+    );
+  }
+  return reasons;
+}
+
 /** 스키마마다 만원 단위인 금액 열(nl2sql.ts 의 주석 카드). 여기 없는 스키마(smoke 의 public, bench)는 금액 단위를 보지 않는다. */
 const MONEY_COLUMNS = new Map<string, readonly string[]>([["companyx", ["salary", "amount", "budget", "price_monthly"]]]);
 
@@ -382,11 +496,15 @@ export async function declaredColumns(pool: Pool, schema: string): Promise<Table
 }
 
 /** 생성 SQL(과 수리 SQL)을 실행하기 전의 검사 사유. 비었으면 실행해도 된다. executeWithRepair 가 부르고, 순서는 조인과 id
- * (checkSql, confirmNamedIds), 금액 단위(checkMoney)다. */
+ * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout)이다. */
 export async function untrustedReasons(pool: Pool, schema: string, sql: string, question: string): Promise<string[]> {
   const fks = await declaredForeignKeys(pool, schema);
   const v = checkSql(sql, question, fks, await declaredColumns(pool, schema));
-  return [...(v.ok ? [] : await confirmNamedIds(pool, schema, v, question)), ...checkMoney(sql, question, moneyColumns(schema))];
+  return [
+    ...(v.ok ? [] : await confirmNamedIds(pool, schema, v, question)),
+    ...checkMoney(sql, question, moneyColumns(schema)),
+    ...(await confirmFanout(pool, schema, fanoutJoins(sql, fks))),
+  ];
 }
 
 /** 실행 전 검사의 기록. 검사가 아무것도 거부하지 않았으면 만들지 않는다.
@@ -417,11 +535,14 @@ export function untrustedAnswer(gate: SqlGate): string {
   const reasons = gate.rejected.flatMap((r) => r.reasons);
   const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
-  const id = reasons.find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON))?.match(/^(.+?) 의 번호/)?.[1];
+  const id = reasons
+    .find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON) && !r.startsWith(FANOUT_REASON))
+    ?.match(/^(.+?) 의 번호/)?.[1];
   const money = reasons
     .find((r) => r.startsWith(MONEY_REASON))
     ?.match(/^금액 조건 (.+?) 의 [^ ]+ 은 질문의 금액 「(.+?)」\(=([^)]+)만 원\)/);
-  if (!join && !id && money) {
+  const fan = reasons.find((r) => r.startsWith(FANOUT_REASON))?.match(/^집계 (.+?) 은 (\S+) 의 열인데 \S+ 를 가리키는 (\S+) 와 조인/);
+  if (!join && !id && !fan && money) {
     const [, cond, text, want] = money;
     return (
       "이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
@@ -435,7 +556,9 @@ export function untrustedAnswer(gate: SqlGate): string {
     ? `생성된 SQL 이 외래키가 아닌 열(${join})로 표를 이어서 실행하지 않았습니다. `
     : id
       ? `생성된 SQL 이 질문에 없는 번호(${id})로 한 건만 골라서 실행하지 않았습니다. `
-      : "";
+      : fan
+        ? `생성된 SQL 이 ${fan[2]} 의 값(${fan[1]})을 ${fan[3]} 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다. `
+        : "";
   return (
     "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
     why +

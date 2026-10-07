@@ -751,6 +751,52 @@ const deadEmbedder: Embedder = {
     ok(hint.includes("projects 에는 dept_id 열이 없다") && ex.repaired && ex.text === fixedSql && ex.gate?.outcome === "repaired", `수리 안내가 없는 열을 말하고, 조인을 뺀 수리를 실행한다 (got ${hint})`);
   }
 
+  // 랜덤 테스트 2차 R8: 가리켜지는 쪽 표(계약)의 금액을 가리키는 쪽 표(매출)와 조인한 채 더하면 계약 한 건이 매출 건수만큼 겹친다.
+  {
+    const { fanoutJoins, confirmFanout, untrustedAnswer } = await import("./sqltrust.js");
+    const { executeWithRepair } = await import("./sqlrepair.js");
+    const x14 =
+      "SELECT SUM(s.amount) AS total_sales, SUM(c.amount) AS total_contracts FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q'";
+    const fan = fanoutJoins(x14, FKS);
+    ok(JSON.stringify(fan) === JSON.stringify([{ agg: "SUM(c.amount)", parent: "contracts", child: "sales", childColumn: "contract_id", join: "s.contract_id = c.id" }]), `계약 금액의 합을 매출과 조인한 채 구하는 자리 (got ${JSON.stringify(fan)})`);
+    for (const sql of [
+      "SELECT d.name, AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id GROUP BY d.name", // TC-115 꼴: 가리키는 쪽 열
+      "SELECT c.name, SUM(s.amount) FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id GROUP BY c.name", // TC-118 꼴
+      "SELECT (SELECT SUM(s.amount) FROM companyx.sales s) AS a, (SELECT SUM(c.amount) FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id) AS b",
+      "SELECT e.name, AVG(e.salary) FROM companyx.employees e JOIN companyx.contracts c ON c.manager_id = e.id GROUP BY e.id, e.name",
+      "SELECT SUM(c.amount) FROM companyx.contracts c WHERE c.id IN (SELECT s.contract_id FROM companyx.sales s)",
+    ]) ok(fanoutJoins(sql, FKS).length === 0, `가리키는 쪽 열, 하위 질의로 따로 구한 값, 부모 키로 묶은 평균은 통과: ${sql}`);
+    ok(fanoutJoins("SELECT e.name, SUM(e.salary) FROM companyx.employees e JOIN companyx.contracts c ON c.manager_id = e.id GROUP BY e.id, e.name", FKS).length === 1, "합은 부모 키로 묶어도 겹친다");
+    ok(fanoutJoins(x14, []).length === 0 && fanoutJoins("SELECT SUM(c.amount) FROM companyx.contracts c JOIN 'x", FKS).length === 0, "외래키가 없거나 읽지 못하는 문장은 판정하지 않는다");
+    // 자식의 외래키 열에 같은 값이 없으면(부서장처럼 한 부모를 한 자식만 가리킴) 부풀지 않아 막지 않는다.
+    const dupPool = (dup: boolean) => ({ query: async () => ({ rows: [{ dup }], rowCount: 1 }) }) as unknown as Pool;
+    const head = fanoutJoins("SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON d.head_id = e.id", FKS);
+    ok(head.length === 1 && (await confirmFanout(dupPool(false), "companyx", head)).length === 0, "같은 값이 없는 외래키 열과의 조인은 막지 않는다");
+    const why = await confirmFanout(dupPool(true), "companyx", fan);
+    ok(why.length === 1 && why[0].startsWith("집계 SUM(c.amount) 은 contracts 의 열인데 contracts 를 가리키는 sales 와 조인(s.contract_id = c.id)해"), `사유가 집계와 조인을 말한다 (got ${why})`);
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: x14, reasons: why }] }).includes("생성된 SQL 이 contracts 의 값(SUM(c.amount))을 sales 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다."),
+      "거절 문장",
+    );
+    // 실행 전 검사가 수리로 보내고, 따로 구한 수리 SQL 을 실행한다.
+    const xfkRows = [...FKS, { table: "contracts", column: "client_id", refTable: "clients", refColumn: "id" }].map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+    const xpool = {
+      connect: async () => ({ query: async () => ({ rows: [{ total_sales: 23244, total_contracts: 11250 }], rowCount: 1, fields: [] }), release: () => {} }),
+      query: async (sql: string) =>
+        /pg_constraint/.test(sql) ? { rows: xfkRows, rowCount: xfkRows.length } : /HAVING count\(\*\) > 1/.test(sql) ? { rows: [{ dup: true }], rowCount: 1 } : { rows: [], rowCount: 0 },
+    } as unknown as Pool;
+    const split =
+      "SELECT (SELECT SUM(s.amount) FROM companyx.sales s JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q') AS total_sales, (SELECT SUM(c.amount) FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id WHERE cl.name = 'Client-Q') AS total_contracts";
+    let fanHint = "";
+    const fx = await executeWithRepair(xpool, "Client-Q 매출 합계랑 계약 금액 합계 각각 알려줘", x14, {
+      repairer: async (_q, _sql, w) => {
+        fanHint = w;
+        return split;
+      },
+    });
+    ok(fanHint.includes("하위 질의로 따로 집계한다") && fx.repaired && fx.text === split && fx.gate?.outcome === "repaired", `부푼 합계는 실행하지 않고 수리한다 (got ${fanHint})`);
+  }
+
   // #255 ②: 외래키는 프로파일의 테이블이 있는 스키마에서 읽는다. bench 의 테이블은 bench 스키마에 있고 외래키를
   // 선언한다(eval/internal/schema.sql). 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다.
   {
