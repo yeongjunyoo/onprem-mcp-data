@@ -1,11 +1,11 @@
 {
   "note": "테스트 단언 수는 러너 출력에서 집계한다. 문서끼리 합의하는지가 아니라 실제로 몇 개가 통과했는지가 정본이다.",
   "dataset_dependence": "사업자 데이터셋은 배포 조건상 저장소에 없다. router.test 의 온톨로지 커버리지 단언 11건과 semroute.test 의 엣지 타입 앵커 커버리지 단언 1건은 datasets/companyx-v1.0/graph/edges.json 이 있을 때만 돌고, scorecard.test 의 봉인 홀드아웃 그래프, 벡터 전 문항 점검 8건은 같은 자리의 graph/ 와 documents/ 가 있을 때만 돈다 — 그래서 오프라인 합계가 데이터셋 유무로 갈린다. 감추지 않고 두 값을 다 적는다.",
-  "offline_with_dataset": 1078,
-  "offline_ci": 1058,
-  "integration": 151,
-  "total": 1229,
-  "total_ci_verifiable": 1058,
+  "offline_with_dataset": 1085,
+  "offline_ci": 1065,
+  "integration": 152,
+  "total": 1237,
+  "total_ci_verifiable": 1065,
   "suites": {
     "offline": [
       "claims",
@@ -39,15 +39,15 @@
     "claims": 22,
     "normalize": 28,
     "auditrecord": 42,
-    "surfaces": 132,
+    "surfaces": 135,
     "router": 66,
     "semroute": 45,
     "curator": 67,
     "rrf": 38,
-    "graphcaps": 34,
+    "graphcaps": 37,
     "evalmatch": 28,
     "errors": 18,
-    "degraded": 392,
+    "degraded": 393,
     "notfound": 113,
     "scorecard": 53
   },
@@ -55,15 +55,15 @@
     "claims": 22,
     "normalize": 28,
     "auditrecord": 42,
-    "surfaces": 132,
+    "surfaces": 135,
     "router": 55,
     "semroute": 44,
     "curator": 67,
     "rrf": 38,
-    "graphcaps": 34,
+    "graphcaps": 37,
     "evalmatch": 28,
     "errors": 18,
-    "degraded": 392,
+    "degraded": 393,
     "notfound": 113,
     "scorecard": 45
   },
@@ -74,7 +74,7 @@
   "generated_at": "2026-09-30T00:00:00.000Z",
   "integration_verified": {
     "at": "2026-10-08",
-    "passed": 151,
+    "passed": 152,
     "failed": 0,
     "per_suite": {
       "db": 22,
@@ -83,11 +83,11 @@
       "llm": 5,
       "graph": 12,
       "kgretrieve": 7,
-      "companyx": 67,
+      "companyx": 68,
       "ontologyload": 11,
       "auditcache": 6
     },
-    "note": "2026-10-08 랜덤 테스트 2차 수정 브랜치(fix/qa2-safe)에서 호스트 Ollama(11434)로 npm run test:integration 을 돌려 9스위트 151/151 을 실측했다. companyx 가 59 에서 67 로 늘었다(시드 확장의 상태 조건 R4, 「가장 적은」 집계 R6, LIKE 이스케이프 R12 를 사업자 데이터로 확인). 앞선 기록은 2026-10-07 릴리스 브랜치의 143/143 이다.",
+    "note": "2026-10-08 릴리스 브랜치(release/post-qa2-1008)에서 호스트 Ollama(11434)로 npm run test:integration 을 돌려 9스위트 152/152 를 실측했다. companyx 가 67 에서 68 로 늘었다(「가장 적은」의 공동 1위가 관계 스캔 상한에 잘리지 않는지를 사업자 데이터로 확인, PR #257 Codex P2). 앞선 기록은 같은 날 랜덤 테스트 2차 수정 브랜치(fix/qa2-safe)의 151/151 이다.",
     "environments": [
       "DATASET 미설정"
     ]
