@@ -14,7 +14,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
-import { classifyNotFound, type NotFound } from "./notfound.js";
+import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
 import { identifyingAliases } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -97,13 +97,37 @@ const SEED_STOP = new Set([
   "제품", "고객", "고객사", "직원", "부서", "프로젝트", "계약", "이슈", "목록", "현황", "관련",
   "관련된", "누구", "어디", "무엇", "얼마", "가장", "많은", "적은", "진행", "중인", "알려줘",
   "보여줘", "궁금해", "엔지니어", "지원",
+  // 서수, 의문 낱말, 정도 부사와 서술어. 「계약을 두 번째로 많이 담당한 직원은 누구야?」의 「번째」를
+  // 데이터에 없는 개체로 답했다(랜덤 테스트 사전 점검 D5). 낱말 자체는 어떤 개체 이름에도 없다.
+  "번째", "몇", "어느", "많이", "적게", "담당한", "담당하는", "누구야", "어디야", "뭐야", "언제야", "얼마야",
+  // 영어 의문사와 기능어(「Who manages the Samsung account?」의 「Who」). 소문자로 대조한다.
+  "who", "what", "which", "where", "when", "why", "how", "the", "an", "is", "are", "was", "were", "do",
+  "does", "did", "of", "for", "to", "in", "on", "and", "or", "with", "by", "from", "me", "show", "list",
+  "tell", "give", "please", "all", "many", "much", "most", "manage", "manages", "managed", "use", "uses",
+  "used", "using", "account", "accounts",
+  // 유형 낱말 단독(「Client A」의 「Client」)은 모든 고객사에 부분 일치해 시드가 다섯으로 퍼졌다(D4).
+  "client", "clients", "product", "products", "customer", "customers", "employee", "employees",
+  "project", "projects",
 ]);
+/** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
+const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
+
+/** 「Client A」, 「product c1」처럼 하이픈 대신 띄어 쓴 사업자 식별자를 「Client-A」, 「Product-C1」로.
+ * 띄어 쓰면 한 글자 토큰(A)이 버려지고 남은 「Client」가 고객사 전부에 걸렸다(D4: 「Client A 담당 엔지니어」에
+ * 담당자 둘 중 하나만 답함). 고객사 식별자는 대문자 한두 자, 제품 식별자는 영문 한 자와 숫자만 합친다
+ * (「client is」는 합치지 않는다). */
+export function joinSpacedIds(query: string): string {
+  return query.replace(/\b(client|product)\s+([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, id: string) => {
+    const ok = /^client$/i.test(type) ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id);
+    return ok ? `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}` : m;
+  });
+}
 
 export function seedTerms(query: string): string[] {
   const out = new Set<string>();
-  for (const raw of query.match(SEED_TOKEN) ?? []) {
+  for (const raw of joinSpacedIds(query).match(SEED_TOKEN) ?? []) {
     const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
-    if (w.length < 2 || SEED_STOP.has(w)) continue;
+    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
   return [...out];
@@ -114,8 +138,16 @@ export interface OntologyResult {
   hits: OntologyHit[];
   /** 질의어가 있는데 하나도 해소되지 않았을 때만. 왜 못 찾았는지(notfound.ts). */
   not_found?: NotFound;
+  /** 다른 질의어는 해소됐는데 개체 이름처럼 생긴 질의어가 해소되지 않았을 때, 그 이름마다의 사유. */
+  missing?: NotFound[];
   error?: string;
 }
+
+export { entityLikeName } from "./notfound.js";
+
+/** 비슷한 이름 판정을 이름 후보로 쓰는 최소 길이. 두 글자 낱말(「재원」, 「현우」)은 세 글자 직원
+ * 이름과 0.67 로 겹쳐 일반 낱말이 이름으로 잡힌다. notfound.ts 도 두 글자의 한 글자 차이는 넣지 않는다. */
+const SIMILAR_MIN_LEN = 3;
 
 /** Does this schema's entities table carry a `properties` jsonb column?
  * (companyx does — sponsor node properties; the internal bench does not.)
@@ -162,7 +194,7 @@ export async function ontologySearch(
     // 통째로 잡히지 않는다. 「Client-C」가 고객사와 정확히 맞아 고객사가 시드가 되고,
     // 질문이 가리킨 프로젝트는 접두 일치 후보로 밀려 탐색되지 않았다(홀드아웃3 「Client-C DB
     // 마이그레이션, 누가 끌고 가는 거야?」). 이름이 질문에 그대로 있으면 가장 강한 시드다.
-    const res = await pool.query(
+    const resolve = (ts: string[], limit: number, text: string) => pool.query(
       `WITH t AS (SELECT unnest($1::text[]) AS term),
             m AS (
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
@@ -191,8 +223,9 @@ export async function ontologySearch(
         GROUP BY id, type, canonical_name, properties
         ORDER BY max(score) DESC, length(canonical_name) ASC, id
         LIMIT $2`,
-      [terms, k, query],
+      [ts, limit, text],
     );
+    const res = await resolve(terms, k, joinSpacedIds(query));
     const hits: OntologyHit[] = res.rows.map((r) => ({
       entityId: Number(r.id),
       type: String(r.type),
@@ -202,15 +235,35 @@ export async function ontologySearch(
       score: Number(r.score),
       properties: (r.properties ?? undefined) as Record<string, unknown> | undefined,
     }));
+    // 정본 이름만 대조한다. 별칭에는 속성값(지역·직급·상태)이 섞여 있어 "서울물산"이
+    // 지역 별칭 "서울"과 비슷하다는 식의 후보를 만든다. 사전 전체를 읽지만 해소되지 않은
+    // 질의어가 있을 때만 돈다.
+    const loadLexicon = async () =>
+      (await pool.query(`SELECT canonical_name AS name, type FROM ${s}.entities`)).rows.map((r) => ({
+        name: String(r.name),
+        type: String(r.type),
+      }));
     if (hits.length === 0) {
-      // 정본 이름만 대조한다. 별칭에는 속성값(지역·직급·상태)이 섞여 있어 "서울물산"이
-      // 지역 별칭 "서울"과 비슷하다는 식의 후보를 만든다. 사전 전체를 읽지만 못 찾은
-      // 질의에서만 돈다.
-      const lex = await pool.query(`SELECT canonical_name AS name, type FROM ${s}.entities`);
-      const lexicon = lex.rows.map((r) => ({ name: String(r.name), type: String(r.type) }));
-      return { ok: true, hits, not_found: classifyNotFound(terms, lexicon) };
+      return { ok: true, hits, not_found: classifyNotFound(terms, await loadLexicon()) };
     }
-    return { ok: true, hits };
+    // 섞인 질문: 「서울물산 담당 엔지니어와 Client-A가 사용 중인 제품」. Client-A 만 해소되고
+    // 서울물산은 없는데, 종전에는 해소 0건일 때만 「없다」고 했다. 그래서 Client-A 의 담당자
+    // 류서연이 서울물산의 담당자로 답에 나왔다(경계 실측 3/3). 해소되지 않은 질의어 가운데
+    // 이름처럼 생긴 것(entityLikeName)이나 비슷한 이름이 있는 것만 「없는 개체」로 올린다.
+    // hits 는 상위 k 개라 질의어마다 따로 확인한다 — 다른 질의어의 강한 일치에 밀려 보이지
+    // 않을 뿐 해소되는 이름도 있다.
+    const unmatched = terms.filter((t) => !hits.some((h) => h.matched.toLowerCase() === t.toLowerCase()));
+    if (unmatched.length === 0) return { ok: true, hits };
+    const lexicon = await loadLexicon();
+    const missing: NotFound[] = [];
+    for (const t of unmatched) {
+      const name =
+        entityLikeName(t) ?? ([...t].length >= SIMILAR_MIN_LEN && similarNames(t, lexicon).length ? t : null);
+      if (!name) continue;
+      if ((await resolve([name], 1, name)).rows.length) continue;
+      missing.push(classifyNotFound([name], lexicon));
+    }
+    return missing.length ? { ok: true, hits, missing } : { ok: true, hits };
   } catch (err) {
     return { ok: false, hits: [], error: describeError(err) };
   }

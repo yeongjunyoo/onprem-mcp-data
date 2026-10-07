@@ -9,7 +9,17 @@
 //
 // Returning null = "I decline; let the next strategy try."
 
-export type NL2SQL = (query: string) => Promise<string | null> | string | null;
+export type NL2SQL = (query: string, report?: Nl2SqlReport) => Promise<string | null> | string | null;
+
+/** SQL 을 내지 않은 이유를 호출부에 알리는 자리. 생성기가 채우고 파이프라인이 감사 레코드에 싣는다. */
+export interface Nl2SqlReport {
+  /** 생성 모델이 만들었지만 실행하지 않은 문장. kind 는 쓰기 문장이면 그 종류(UPDATE 등),
+   * 테이블을 읽지 않는 SELECT 면 NO_TABLE. */
+  refused?: { kind: string; text: string };
+}
+
+/** 테이블을 읽지 않는 SELECT 의 kind. */
+export const NO_TABLE = "NO_TABLE";
 
 import { generate, questionForModel } from "./llm.js";
 import { isReadOnly } from "./sql.js";
@@ -21,12 +31,16 @@ export const SCHEMA_DDL = [
   "documents(id int, title text, body text, embedding vector)",
 ].join("\n");
 
-/** Strip code fences / prose and keep the first read-only SQL statement. */
-export function extractSql(raw: string): string | null {
+function unwrap(raw: string): string {
   let s = raw.trim();
   const fence = s.match(/```(?:sql)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
-  s = s.replace(/^sql\s*[:\n]/i, "").trim();
+  return s.replace(/^sql\s*[:\n]/i, "").trim();
+}
+
+/** Strip code fences / prose and keep the first read-only SQL statement. */
+export function extractSql(raw: string): string | null {
+  const s = unwrap(raw);
   // take from the first SELECT/WITH to the first semicolon (or end)
   const m = s.match(/\b(select|with)\b[\s\S]*?(?=;|$)/i);
   if (!m) return null;
@@ -34,9 +48,52 @@ export function extractSql(raw: string): string | null {
   return isReadOnly(sql) ? sql : null;
 }
 
+/** 줄 머리에서 시작하는 첫 문장의 키워드. 설명 줄이 앞에 있어도 SQL 문장의 첫 줄을 찾는다. */
+const FIRST_STATEMENT = /^\s*(select|with|insert|update|delete|merge|drop|alter|truncate|create|grant|revoke)\b/im;
+
+/** 모델 출력의 첫 문장이 데이터나 권한, 스키마를 바꾸는 문장이면 그 종류(UPDATE 등)와 문장을, 아니면 null.
+ *
+ * extractSql 은 SELECT 가 없으면 null 을 돌려줘 쓰기 문장은 원래 실행되지 않았다. 그런데 그 사실이
+ * 어디에도 남지 않아 「모든 직원의 연봉을 0으로 바꿔줘」의 감사 레코드에 거부 판정이 없었고(G17 ②),
+ * UPDATE 안의 부분 SELECT 는 거꾸로 실행될 수 있었다. 첫 문장의 키워드로 가른다. */
+export function writeStatement(raw: string): { kind: string; text: string } | null {
+  const s = unwrap(raw).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+  const m = s.match(FIRST_STATEMENT);
+  if (!m || /^(select|with)$/i.test(m[1])) return null;
+  return { kind: m[1].toUpperCase(), text: s.slice(m.index).split(";")[0].trim() };
+}
+
+/** SELECT 가 테이블(뷰, CTE 포함)을 읽는가. FROM 이 없으면 데이터와 무관한 상수 계산이다.
+ * 문자열 값과 FROM 을 문법으로 쓰는 함수(extract, substring, trim, overlay)는 빼고 본다. */
+export function readsTable(sql: string): boolean {
+  const s = sql
+    .replace(/'(?:[^']|'')*'/g, "''")
+    .replace(/"(?:[^"]|"")*"/g, '""')
+    .replace(/\b(?:extract|substring|trim|overlay)\s*\((?:[^()]|\([^()]*\))*\)/gi, "f()");
+  return /\bfrom\b/i.test(s);
+}
+
+/** 생성 모델 출력에서 실행할 SQL 을 고른다. 고르지 않은 이유가 쓰기 문장이거나 테이블을 읽지 않는
+ * SELECT 면 report 에 남긴다. 「오늘 서울 날씨 어때?」에 7B 가 SELECT '서울 날씨' AS answer 를 만들어
+ * 답이 「서울 날씨」였다(G17 ④). sql.query 도구는 이 함수를 거치지 않으므로 SELECT current_user 같은
+ * 직접 실행은 그대로다. */
+export function pickSql(raw: string, report?: Nl2SqlReport): string | null {
+  const write = writeStatement(raw);
+  if (write) {
+    if (report) report.refused = write;
+    return null;
+  }
+  const sql = extractSql(raw);
+  if (sql && !readsTable(sql)) {
+    if (report) report.refused = { kind: NO_TABLE, text: sql };
+    return null;
+  }
+  return sql;
+}
+
 /** 생성 모델(기본 Qwen2.5-Coder-7B) generates a single read-only SQL from the schema + question.
  * This is the path measured (non-circularly) by the execution-match eval. */
-export async function llmNL2SQL(query: string): Promise<string | null> {
+export async function llmNL2SQL(query: string, report?: Nl2SqlReport): Promise<string | null> {
   // 활성 프로파일의 스키마 카드를 쓴다. 2026-08-18 리뷰 지적: 여기에 `SCHEMA_DDL`
   // (smoke 전용)이 박혀 있어서, 새 코퍼스를 프로파일로 붙여도 **모델은 여전히
   // orders/documents 를 본다.** 그러면 "프로파일 항목 하나면 된다" 는 문서가 거짓이 된다.
@@ -56,7 +113,7 @@ export async function llmNL2SQL(query: string): Promise<string | null> {
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);
-  return extractSql(raw);
+  return pickSql(raw, report);
 }
 
 /** Schema card for the contest-grade bench e-commerce dataset (Gate5). */
@@ -70,7 +127,7 @@ export const BENCH_SCHEMA_DDL = [
 ].join("\n");
 
 /** 생성 모델(기본 Qwen2.5-Coder-7B) NL->SQL over the bench schema (benchmark headline path, Gate5). */
-export async function benchNL2SQL(query: string): Promise<string | null> {
+export async function benchNL2SQL(query: string, report?: Nl2SqlReport): Promise<string | null> {
   const prompt = [
     "다음은 PostgreSQL 스키마입니다(모든 테이블은 bench 스키마에 있음).",
     BENCH_SCHEMA_DDL,
@@ -82,7 +139,7 @@ export async function benchNL2SQL(query: string): Promise<string | null> {
     "SQL:",
   ].join("\n");
   const raw = await generate(prompt);
-  return extractSql(raw);
+  return pickSql(raw, report);
 }
 
 /** Ablation baseline: bare table names only — no columns, types, enums, or FK
@@ -300,9 +357,9 @@ export function buildCompanyxSqlPrompt(query: string): string {
 }
 
 /** 생성 모델(기본 Qwen2.5-Coder-7B) NL->SQL over the sponsor's Company-X schema. */
-export async function companyxNL2SQL(query: string): Promise<string | null> {
+export async function companyxNL2SQL(query: string, report?: Nl2SqlReport): Promise<string | null> {
   const raw = await generate(buildCompanyxSqlPrompt(query));
-  return extractSql(raw);
+  return pickSql(raw, report);
 }
 
 /** One deterministic repair attempt: feed the database's OWN error back.

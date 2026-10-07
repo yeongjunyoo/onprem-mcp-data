@@ -201,6 +201,47 @@ function main() {
   ok(text.includes("정책 sql-read-only: deny"), "요약에 정책 판정이 나온다");
   ok(text.split("\n").length <= 12, "요약은 열 줄 안쪽");
 
+  // --- 9. 실행하지 않은 생성 문장(G17 ②④) ---
+  // 쓰기 문장은 실행되지 않았지만 종전 레코드에는 흔적이 없었다(sql.text null, policies []).
+  const write = buildAuditRecord(
+    base({ sql: { text: null, refused: { kind: "UPDATE", text: "UPDATE companyx.employees SET salary = 0" } } } as never),
+  );
+  const wDeny = write.policies.find((p) => p.policy === "sql-read-only");
+  ok(wDeny?.verdict === "deny" && wDeny.detail === "생성 모델이 쓰기 문장(UPDATE)을 만들어 실행하지 않았다", `쓰기 문장 거부를 종류와 함께 남긴다 (got ${JSON.stringify(wDeny)})`);
+  ok(write.retrieval.sql.text === null && write.retrieval.sql.refused?.kind === "UPDATE", "실행한 SQL 은 null, 거부한 문장은 refused 에");
+  ok(renderAudit(write).includes("SQL: 실행 안 함(생성 문장 UPDATE)"), "요약에도 실행하지 않았다고 나온다");
+  const constant = buildAuditRecord(
+    base({ sql: { text: null, refused: { kind: "NO_TABLE", text: "SELECT '서울 날씨' AS answer" } } } as never),
+  );
+  ok(
+    Boolean(constant.policies.find((p) => p.policy === "sql-read-only" && p.verdict === "deny")?.detail.includes("테이블을 읽지 않는 SELECT")),
+    "상수 SELECT 도 거부로 남긴다",
+  );
+  ok(okSql.sql.refused === undefined && r1.retrieval.sql.refused === undefined, "실행한 SQL 에는 refused 가 붙지 않는다");
+  // 없는 항목(랜덤 테스트 사전 점검 D2): SQL 을 만들지 않은 이유를 남긴다.
+  const absent = buildAuditRecord(base({ sql: { text: null, absent: "나이" } } as never));
+  ok(
+    absent.policies.find((p) => p.policy === "sql-read-only")?.detail ===
+      "질문의 항목(나이)이 데이터 스키마에 없어 SQL 을 만들지 않았다(없는 열을 다른 열로 바꿔 답하지 않음)",
+    "없는 항목을 거부 사유로 남긴다",
+  );
+  ok(absent.retrieval.sql.absent === "나이" && renderAudit(absent).includes("SQL: 만들지 않음(없는 항목 나이)"), "레코드와 요약에 없는 항목");
+
+  // --- 10. 섞인 질문의 없는 개체(G17 ①) ---
+  const missing = [{ reason: "not_in_database" as const, query_entity: "서울물산", candidates: [] }];
+  const partial = buildAuditRecord(
+    base({
+      route: "graph",
+      graph: { strategy: "seeded", seeds: [{ entityId: 1, canonicalName: "Client-A", type: "client" }], edgeCount: 2, items: [], missing },
+      missing,
+      answer_query: "Client-A가 사용 중인 제품을 알려줘",
+    } as unknown as Partial<RetrieveResult>),
+  );
+  const pGate = partial.policies.find((p) => p.policy === "graph-unresolved-gate");
+  ok(pGate?.verdict === "degrade" && pGate.detail.includes("(서울물산: not_in_database)") && pGate.detail.includes("「Client-A가 사용 중인 제품을 알려줘」"), `일부만 해소되면 degrade 와 그 이름 (got ${JSON.stringify(pGate)})`);
+  ok(partial.missing_entities?.[0]?.query_entity === "서울물산" && partial.not_found === undefined, "레코드에 missing_entities 가 실리고 not_found 는 없다");
+  ok(r1.missing_entities === undefined, "없는 개체가 없으면 필드도 없다");
+
   console.log(`\nauditrecord.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
 }

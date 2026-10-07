@@ -15,7 +15,7 @@ import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./ke
 import { vectorSearch, type VectorResult } from "./vector.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
-import { type NL2SQL } from "./nl2sql.js";
+import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
 import { tieAnswer, untrustedAnswer, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
@@ -37,7 +37,7 @@ import {
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
-import { describeNotFound, type NotFound } from "./notfound.js";
+import { absentAttribute, describeAbsentAttribute, describeNotFound, type NotFound } from "./notfound.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -51,8 +51,17 @@ export interface RetrieveDeps {
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했을 때만 붙는다. */
-  sql: { text: string | null; result?: SqlResult; repaired?: boolean; gate?: SqlGate };
+  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했을 때만 붙는다. refused 는 생성 모델이 만들었지만
+   * 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때
+   * 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가 null 이다. */
+  sql: {
+    text: string | null;
+    result?: SqlResult;
+    repaired?: boolean;
+    gate?: SqlGate;
+    refused?: { kind: string; text: string };
+    absent?: string;
+  };
   vector?: VectorResult;
   graph?: GraphLaneResult;
   fused: Fused<ContextItem>[];
@@ -62,6 +71,10 @@ export interface RetrieveResult {
   context: string;
   /** 미해소 개체 게이트가 발동했을 때 그 사유. 그 밖에는 없다. */
   not_found?: NotFound;
+  /** 섞인 질문에서 해소되지 않은 이름마다의 사유. 찾은 개체로 답하고 답 앞에 이 사유를 붙인다. */
+  missing?: NotFound[];
+  /** missing 이 있을 때 답 단계가 받는 질문(없는 개체가 든 마디를 뺀 것). */
+  answer_query?: string;
   audit: {
     route: ReturnType<typeof routeAudit>;
     candidates: { sql: number; vector: number; graph: number; fused: number };
@@ -69,6 +82,7 @@ export interface RetrieveResult {
     curate: ReturnType<typeof curateAudit>;
     // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
     not_found?: NotFound;
+    missing_entities?: NotFound[];
     graph_truncated?: GraphTruncation;
     /** 탐색 계획을 시드 타입에 맞게 고쳤으면 무엇을 고쳤는지(시드마다 한 줄). */
     graph_fitted?: string[];
@@ -94,7 +108,40 @@ export interface GraphLaneResult {
   truncated?: GraphTruncation;
   /** 계획을 시드 타입에 맞게 고친 내용(router.ts fitPlanToSeed). */
   fitted?: string[];
+  /** 섞인 질문에서 해소되지 않은 이름마다의 사유(graph.ts ontologySearch 의 missing). */
+  missing?: NotFound[];
+  /** missing 이 있을 때 답 단계와 탐색 계획이 쓰는 질문. 없는 개체가 든 마디를 뺐다. */
+  answer_query?: string;
   error?: string;
+}
+
+/** 섞인 질문에서 없는 개체가 든 마디를 뺀 질문.
+ *
+ * 「서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘」에서 서울물산이 없으면
+ * 「Client-A가 사용 중인 제품을 알려줘」만 남긴다. 그 마디의 관계(「담당」)를 찾은 개체에 걸면
+ * Client-A 의 담당자가 서울물산의 담당자처럼 컨텍스트에 들어가고 7B 가 그렇게 답했다(경계 실측 3/3).
+ * 마디는 「와·과·하고·이랑·랑」 뒤 공백, 쉼표, 「그리고」, 「및」에서 가른다. 남은 마디에 관계어가
+ * 없으면(「Client-A와 서울물산의 담당자」) 관계어가 찾은 개체에도 걸린 것이라 마디 대신 이름과
+ * 그 앞뒤 조사만 뺀다. 결정론이다. */
+export function withoutMissing(query: string, names: string[]): string {
+  const parts = query
+    .split(/(?<=[가-힣A-Za-z0-9])(?:와|과|하고|이랑|랑)\s+|\s*,\s*|\s+(?:그리고|및)\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const kept = parts.filter((p) => !names.some((n) => p.includes(n)));
+  if (kept.length && kept.length < parts.length) {
+    const reduced = kept.join(", ");
+    if (route(reduced).graphPlan?.relTypes.length) return reduced;
+  }
+  let q = query;
+  for (const n of names) {
+    const name = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    q = q.replace(
+      new RegExp(`(?:(?:와|과|하고|이랑|랑)\\s+)?${name}(?:은|는|이|가|을|를|의|와|과|도|에|에서|하고|이랑|랑)?`),
+      " ",
+    );
+  }
+  return q.replace(/\s+/g, " ").trim() || query;
 }
 
 /** Resolve the query's entities, BFS their typed edges, and — when the question
@@ -109,7 +156,14 @@ export async function graphLane(
   schema = kgSchema(),
   plan?: GraphPlan,
 ): Promise<GraphLaneResult> {
-  const p = plan ?? route(query).graphPlan;
+  const onto = await ontologySearch(pool, query, k, schema);
+  if (!onto.ok) return { seeds: [], edgeCount: 0, strategy: "none", items: [], error: onto.error };
+  // 섞인 질문: 찾은 개체는 펼치되, 없는 개체가 든 마디를 뺀 질문으로 계획을 다시 세운다
+  // (withoutMissing). 다시 세운 계획에 관계가 없으면 원래 계획을 쓴다.
+  const missing = onto.missing ?? [];
+  const answerQuery = missing.length ? withoutMissing(query, missing.map((m) => m.query_entity)) : undefined;
+  const replanned = answerQuery ? route(answerQuery).graphPlan : undefined;
+  const p = replanned?.relTypes.length ? replanned : (plan ?? route(query).graphPlan);
   const relTypes = p?.relTypes?.length ? p.relTypes : undefined;
   // When the question names a RELATION, one hop is the answer and every extra hop
   // is noise: "Product-S1 관련 고객 이슈" pulled in Client-X -> Product-C2 edges two
@@ -120,15 +174,21 @@ export async function graphLane(
   // (fitPlanToSeed) into a typed two-hop walk instead of an empty one-hop expansion.
   const hops = relTypes ? 1 : depth;
 
-  const onto = await ontologySearch(pool, query, k, schema);
-  if (!onto.ok) return { seeds: [], edgeCount: 0, strategy: "none", items: [], error: onto.error };
   const seeds = onto.hits.map((h) => ({ entityId: h.entityId, canonicalName: h.canonicalName, type: h.type }));
   // Order matters: EDGES first, name-resolution hits last. RRF keeps one entry per
   // key at its best rank, and a seed hit ("윤소연 — 별칭 매칭 '경영지원팀'") shares its
   // key with the edge that actually answers ("경영지원팀의 부서장: 윤소연"). Listed
   // first, the near-empty seed line won and the model answered "알 수 없습니다" with
   // the answer one line below the cut. Facts before bookkeeping.
-  const items: Candidate[] = [];
+  // 예외는 없는 개체의 사유 줄이다. 예산에 잘리지 않게 맨 앞에 둔다.
+  const items: Candidate[] = missing.map((nf) => ({
+    canonicalKey: `missing#${nf.query_entity}`,
+    sourceKey: "graph#missing",
+    source: "graph" as const,
+    text: `[그래프] ${describeNotFound(nf)}`,
+    provenance: "ontology:missing",
+  }));
+  const partial = missing.length ? { missing, answer_query: answerQuery } : {};
   let edgeCount = 0;
 
   // Anti-hallucination gate: the question names an entity, nothing resolves, and the
@@ -150,9 +210,13 @@ export async function graphLane(
           canonicalKey: `unresolved#${terms.join("+")}`,
           sourceKey: "graph#unresolved",
           source: "graph" as const,
+          // 질의어가 하나도 없으면(「ㅁㄴㅇㄹ」) 찾지 못한 대상의 이름도 없다. 종전 문장은
+          // 「대상()」처럼 빈 괄호를 보였고, 없는 개체를 단정하는 문장도 맞지 않았다.
           text: onto.not_found
             ? `[그래프] ${describeNotFound(onto.not_found)}`
-            : `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`,
+            : terms.length
+              ? `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
+              : "[그래프] 질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.",
           provenance: "ontology:unresolved",
         },
       ],
@@ -173,13 +237,14 @@ export async function graphLane(
     // 계획의 엣지가 이 시드의 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다.
     // GRAPH_PATH_FIT=0 은 검증용 제거 스위치다(고치기 전 동작).
     const others = expandFrom.filter((h) => h !== hit).map((h) => h.type);
-    const walk = p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, query, others) : undefined;
+    const walk =
+      p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, answerQuery ?? query, others) : undefined;
     if (walk?.fitted) fitted.push(`${hit.canonicalName}: ${walk.fitted}`);
     const exp =
       walk && walk.hops.length > 1
         ? await graphWalk(pool, hit.entityId, walk.hops, schema)
         : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both");
-    if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error };
+    if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
     if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId));
@@ -201,7 +266,7 @@ export async function graphLane(
       schema,
     );
     if (!scan.ok) {
-      return { seeds, edgeCount, strategy: "relation-scan", items, error: scan.error };
+      return { seeds, edgeCount, strategy: "relation-scan", items, error: scan.error, ...partial };
     }
     edgeCount += scan.edges.length;
     if (scan.ranking.length) {
@@ -235,6 +300,7 @@ export async function graphLane(
     items,
     ...(truncated ? { truncated } : {}),
     ...(fitted.length ? { fitted } : {}),
+    ...partial,
   };
 }
 
@@ -336,8 +402,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   // in one (e.g. NL2SQL throws) still yields the other's context (graceful degradation). ---
   const sqlBranch = (async (): Promise<RetrieveResult["sql"]> => {
     if (!wantSql) return { text: null };
-    const text = await nl2sql(query);
-    if (!text) return { text: null };
+    // 없는 항목(나이, 성별, 고객사의 직원 수)을 묻는 질문은 생성 모델에 넘기지 않는다. 넘기면 다른 열로
+    // 바꿔 답했다(랜덤 테스트 사전 점검 D2).
+    const absent = absentAttribute(query, profile().schemaCard);
+    if (absent) return { text: null, absent };
+    const report: Nl2SqlReport = {};
+    const text = await nl2sql(query, report);
+    if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
     // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다.
     const ex = await executeWithRepair(pool, query, text, {
@@ -460,7 +531,14 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   return {
     query,
     route: decision.route,
-    sql: { text: sqlText, result: sqlResult, repaired: sql.repaired, ...(sql.gate ? { gate: sql.gate } : {}) },
+    sql: {
+      text: sqlText,
+      result: sqlResult,
+      repaired: sql.repaired,
+      ...(sql.gate ? { gate: sql.gate } : {}),
+      ...(sql.refused ? { refused: sql.refused } : {}),
+      ...(sql.absent ? { absent: sql.absent } : {}),
+    },
     vector: vecResult,
     graph: graphResult,
     fused,
@@ -468,6 +546,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     curated,
     context: render(curated),
     ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
+    ...(graphResult?.missing?.length ? { missing: graphResult.missing, answer_query: graphResult.answer_query } : {}),
     audit: {
       route: routeAudit(decision),
       candidates: {
@@ -479,6 +558,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       branch_errors: branchErrors,
       curate: curateAudit(curated),
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
+      ...(graphResult?.missing?.length ? { missing_entities: graphResult.missing } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
       ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
       ...(sql.gate ? { sql_gate: sql.gate } : {}),
@@ -489,6 +569,19 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
 // --- end-to-end ask: retrieve -> 7B answer over the curated context ---
 
 export type AnswerFn = (query: string, context: string) => Promise<string>;
+
+/** 쓰기 요청의 답. 바뀐 것이 없으므로 무엇을 했다고 말하지 않는다(시험항목 TC-145, TC-146 은
+ * 답에 「변경」, 「삭제」, 「완료」, 「했습니다」가 없어야 한다). */
+export function writeRefusal(kind: string): string {
+  return (
+    "데이터를 바꾸는 요청은 처리하지 않습니다. 이 서버는 읽기 전용이라 조회만 하며, " +
+    `생성 모델이 만든 ${kind} 문은 실행하지 않았습니다.`
+  );
+}
+
+/** 생성 SQL 이 테이블을 읽지 않는 상수 SELECT 뿐이고 다른 근거도 없을 때의 답. */
+export const NO_TABLE_ANSWER =
+  "주어진 정보로는 알 수 없습니다. 이 질문에 답할 데이터가 데이터베이스에 없어 조회하지 않았습니다.";
 
 export interface AskResult extends RetrieveResult {
   answer: string;
@@ -502,6 +595,17 @@ export async function ask(
 ): Promise<AskResult> {
   const r = await retrieve(query, deps);
 
+  // 생성 모델이 쓰기 문장을 만들었다면 질문은 데이터를 바꾸라는 요청이다. 실행하지 않았고 이 서버는
+  // 바꾸지 않으므로 그렇게 말한다. 종전에는 빈 컨텍스트로 7B 를 불러 「주어진 정보로는 알 수 없습니다」라고
+  // 답했다 — 데이터가 없다는 뜻으로 읽힌다(G17 ②).
+  const refused = r.sql.refused;
+  if (refused && refused.kind !== NO_TABLE) {
+    return { ...r, answer: writeRefusal(refused.kind) };
+  }
+  // 묻는 항목이 데이터에 없고 다른 레인의 근거도 없다. 7B 없이 그렇게 답한다.
+  if (r.sql.absent && r.context.length === 0) {
+    return { ...r, answer: describeAbsentAttribute(r.sql.absent) };
+  }
   // 실행 전 검사가 생성 SQL 을 모두 거부했다. 모델에게 쓰게 하지 않고 그 사실과 다시 물을 방법을 말한다.
   if (r.sql.gate?.outcome === "refused") return { ...r, answer: untrustedAnswer(r.sql.gate) };
 
@@ -530,14 +634,28 @@ export async function ask(
     return { ...r, answer: describeNotFound(r.not_found) };
   }
 
+  // 테이블을 읽지 않는 SELECT 만 나왔고 다른 근거도 없다. 데이터에 답이 없는 질문이다.
+  if (refused && r.context.length === 0) {
+    return { ...r, answer: NO_TABLE_ANSWER };
+  }
+
   // 공동 1위(WITH TIES 로 2행 이상)는 이름을 모두 적는 결정론 문장으로 답한다(sqltrust.ts tieAnswer).
-  const tie = tieAnswer(r, renderValue);
+  // 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
+  const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: withSqlRows(r, tie) };
+
+  // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
+  // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
+  const missingLines = new Set((r.missing ?? []).map((nf) => `[그래프] ${describeNotFound(nf)}`));
+  const head = missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "";
+  const answerContext = missingLines.size
+    ? r.context.split("\n").filter((l) => !missingLines.has(l)).join("\n")
+    : r.context;
 
   const gen = deps.llm ?? llmAnswer;
   try {
-    const answer = await gen(query, r.context);
-    return { ...r, answer: withSqlRows(r, answer) };
+    const answer = await gen(r.answer_query ?? query, answerContext);
+    return { ...r, answer: head + withSqlRows(r, answer) };
   } catch (e) {
     // ★ 생성 LLM 이 **기동 후** 죽는 경우.
     //
@@ -551,12 +669,14 @@ export async function ask(
     return {
       ...r,
       // 정형 레인이면 조회 결과는 생성 없이도 보여줄 수 있다.
-      answer: withSqlRows(
-        r,
-        // 건수는 큐레이션이 남긴 항목 수다. context.length 는 글자 수라 「412건」이 됐다.
-        `근거는 ${r.curated.kept.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
-          "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
-      ),
+      answer:
+        head +
+        withSqlRows(
+          r,
+          // 건수는 큐레이션이 남긴 항목 수다. context.length 는 글자 수라 「412건」이 됐다.
+          `근거는 ${r.curated.kept.length}건 찾았지만 답변 생성에 실패했습니다: ${why}\n` +
+            "로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
+        ),
       audit: {
         ...r.audit,
         branch_errors: [...(r.audit?.branch_errors ?? []), `answer: ${why}`],
