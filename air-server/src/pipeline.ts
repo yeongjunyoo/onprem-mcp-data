@@ -23,7 +23,7 @@
 
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
-import { route, audit as routeAuditLog, fitPlanToSeed, type RouteDecision, type GraphPlan } from "./router.js";
+import { route, audit as routeAuditLog, fitPlanToSeed, type RouteDecision, type GraphPlan, type DocCountRequest } from "./router.js";
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
@@ -83,6 +83,8 @@ export interface RetrieveResult {
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
+  /** 문서 개수 질문(router.ts documentCountRequest)일 때만. 제목으로 고른 문서와 전체 문서 수. */
+  documents?: DocCountResult;
   fused: Fused<ContextItem>[];
   /** RRF 입력 목록마다의 레인 이름. fused[].sources 의 번호가 이 배열의 위치다. */
   fusion_lanes?: string[];
@@ -338,6 +340,57 @@ export async function graphLane(
   };
 }
 
+export interface DocCountResult {
+  request: DocCountRequest;
+  ok: boolean;
+  /** 전체 문서 수(제목 기준). */
+  total: number;
+  /** 질문의 개체와 종류에 맞는 문서 제목. 문서 적재 순서. */
+  titles: string[];
+  error?: string;
+}
+
+/** 문서 제목이 질문의 개체와 종류에 맞는가. 개체 이름은 앞뒤가 영숫자가 아닐 때만 맞는다(Client-A 가 Client-AB 에 맞지 않게). */
+export function documentMatches(title: string, req: DocCountRequest): boolean {
+  const flat = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  if (req.tag && !title.startsWith(req.tag)) return false;
+  if (req.words && !flat(title).includes(flat(req.words))) return false;
+  if (req.entity) {
+    const name = req.entity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (!new RegExp(`(?<![A-Za-z0-9])${name}(?![A-Za-z0-9])`).test(title)) return false;
+  }
+  return true;
+}
+
+/** 문서 개수 질문의 결정론 조회. 문서 뷰(제목 = 「문서 제목 — 절 제목」)에서 문서 제목을 적재 순서로 읽어 고른다. */
+export async function documentCount(pool: Pool, req: DocCountRequest, table = profile().vectorTable): Promise<DocCountResult> {
+  if (!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/.test(table)) throw new Error(`unsafe table identifier: ${table}`);
+  try {
+    const res = await pool.query(
+      `SELECT split_part(title, ' — ', 1) AS title, min(id) AS first FROM ${table} GROUP BY 1 ORDER BY 2, 1`,
+    );
+    const all = res.rows.map((r) => String(r.title));
+    return { request: req, ok: true, total: all.length, titles: all.filter((t) => documentMatches(t, req)) };
+  } catch (err) {
+    return { request: req, ok: false, total: 0, titles: [], error: describeError(err) };
+  }
+}
+
+/** 받침이 있으면 「은」, 없으면 「는」. */
+function topic(word: string): string {
+  const c = word.charCodeAt(word.length - 1);
+  return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 ? "은" : "는";
+}
+
+/** 문서 개수 질문의 답 문장. 7B 를 부르지 않는다. 제목은 열 건까지 적고 나머지는 건수만. */
+export function documentCountAnswer(d: DocCountResult, max = 10): string {
+  const subject = `${d.request.entity ? `${d.request.entity} 관련 ` : ""}${d.request.kind}`;
+  const head = `문서 제목 기준으로 ${subject}${topic(subject)}`;
+  if (!d.titles.length) return `${head} 없습니다(0건).`;
+  const rest = d.titles.length - Math.min(max, d.titles.length);
+  return `${head} ${d.titles.length}건입니다: ${d.titles.slice(0, max).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}.`;
+}
+
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** SQL 값 하나를 모델이 읽을 표기로.
@@ -427,8 +480,10 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
 
   // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
   const decision = await routeQuery(query, embedder);
-  const wantSql = decision.route === "structured" || decision.route === "hybrid";
-  const wantVec = decision.route === "semantic" || decision.route === "hybrid";
+  // 문서 개수 질문은 벡터 검색 대신 문서 제목을 센다(documentCount).
+  const docCount = decision.docCount;
+  const wantSql = !docCount && (decision.route === "structured" || decision.route === "hybrid");
+  const wantVec = !docCount && (decision.route === "semantic" || decision.route === "hybrid");
   const wantGraph = decision.route === "graph";
 
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
@@ -489,12 +544,16 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       })()
     : Promise.resolve(undefined);
 
-  const [sqlSettled, vecSettled, graphSettled, kwSettled] = await Promise.allSettled([
+  const docBranch: Promise<DocCountResult | undefined> = docCount ? documentCount(pool, docCount) : Promise.resolve(undefined);
+
+  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled] = await Promise.allSettled([
     sqlBranch,
     vecBranch,
     graphBranch,
     keywordBranch,
+    docBranch,
   ]);
+  const docResult = docSettled.status === "fulfilled" ? docSettled.value : undefined;
   const sql: RetrieveResult["sql"] = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null };
   const sqlText = sql.text;
   const sqlResult = sql.result;
@@ -522,6 +581,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   if (vecResult && !vecResult.ok) {
     branchErrors.push(`vector: ${vecResult.error ?? "unknown"}`);
   }
+  if (docSettled.status === "rejected") branchErrors.push(`documents: ${String(docSettled.reason)}`);
+  if (docResult && !docResult.ok) branchErrors.push(`documents: ${docResult.error ?? "unknown"}`);
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];
@@ -568,6 +629,21 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     );
     listLanes.push("graph");
   }
+  if (docResult?.ok) {
+    // 센 결과 한 줄과 고른 문서 제목. 답 문장(documentCountAnswer)의 제목과 개체가 모두 컨텍스트에 있다.
+    const what = `${docResult.request.entity ? `${docResult.request.entity} 관련 ` : ""}${docResult.request.kind}`;
+    lists.push([
+      {
+        key: "documents#count",
+        value: { kind: "chunk" as const, text: `[문서 개수] 문서 ${docResult.total}건 가운데 제목 기준 ${what}: ${docResult.titles.length}건`, source: "documents#count" },
+      },
+      ...docResult.titles.map((t, i) => ({
+        key: `documents#title:${t}`,
+        value: { kind: "chunk" as const, text: `[문서] ${t}`, source: `documents#t${i}` },
+      })),
+    ]);
+    listLanes.push("documents");
+  }
 
   // --- RRF merge -> L4 curation ---
   const fused = rrfMerge(lists);
@@ -587,6 +663,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     },
     vector: vecResult,
     graph: graphResult,
+    ...(docResult ? { documents: docResult } : {}),
     fused,
     fusion_lanes: listLanes,
     curated,
@@ -690,6 +767,9 @@ export async function ask(
         `조회 자체가 실패했습니다: ${branchErrors.join(" / ")}`,
     };
   }
+
+  // 문서 개수 질문은 제목으로 센 수와 제목을 그대로 답한다. 7B 는 조각을 보고 수를 셌다(「2건」, 실제 1건).
+  if (r.documents?.ok) return { ...r, answer: documentCountAnswer(r.documents) };
 
   // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
   // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다.

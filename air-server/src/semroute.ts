@@ -27,11 +27,13 @@
 // 집계와 조회, 문서 유형마다 섹션, 엣지 타입마다 한 유형. 결정은 최근접 앵커의 도구이고, 임베딩 모델이 같으면 같은
 // 질문에 같은 결정이 나온다.
 import type { Embedder } from "./embedder.js";
+import { profile } from "./profile.js";
 import {
   route,
   maskEntities,
   buildGraphPlan,
   tableOnlyNoun,
+  documentCountRequest,
   LANES,
   SQL_TOOL,
   VECTOR_TOOL,
@@ -182,6 +184,14 @@ const TOOLS_OF: Record<Lane, { route: RouteDecision["route"]; tools: string[] }>
  * 결정을 그대로 돌려준다. 어느 경우든 audit 에 무엇이 결정했는지 남는다. */
 export async function routeQuery(query: string, embedder?: Embedder): Promise<RouteDecision> {
   const d = route(query);
+  // 문서 개수 질문은 문서 제목으로 센다(router.ts documentCountRequest, pipeline.ts documentCount). 조각 상위 k 개를 읽는
+  // 벡터 레인도, 문서 표가 없는 정형 레인도 문서 수를 셀 수 없어 규칙 점수와 시맨틱 폴백으로 레인을 고르지 않는다. 제목의
+  // 종류 꼬리표는 Company-X 문서의 규약이라 그 프로파일에서만 쓴다.
+  const docCount = profile().name === "companyx" ? documentCountRequest(query.trim()) : undefined;
+  if (docCount) {
+    const what = `${docCount.entity ? `${docCount.entity} ` : ""}${docCount.kind}`;
+    return { ...d, route: "semantic", tools: [VECTOR_TOOL], graphPlan: undefined, rationale: `document count (${what}) -> count document titles`, docCount };
+  }
   if (d.gate.confident || !embedder || !semanticReady()) return d;
   const v = await semanticVerdict(query, embedder);
   if (!v) return d;
