@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { queryParam } from "./queryinput.js";
+import { formatParam, queryParam } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -307,7 +307,7 @@ export function buildServer(): AirServer {
           "쓰지 말 것: 답만 필요할 때(→ ask). 캐시에서 제외돼 매번 끝까지 실행하므로 같은 질의를 반복하면 그만큼 비용이 든다.",
         params: {
           query: queryParam("감사할 한국어 질의"),
-          format: { type: "string", description: "json(기본) 또는 text", optional: true },
+          format: formatParam("json(기본) 또는 text"),
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
         layer: 7,
