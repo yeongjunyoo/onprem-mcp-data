@@ -208,6 +208,14 @@ const marker = new MarkerEmbedder();
   const failures = outs.map((o) => strict.safeParse(o)).filter((r) => !r.success).map((r) => (r.success ? "" : r.error.issues[0]?.message));
   eq(failures, [], "route 출력 세 경우가 공개 스키마를 통과한다");
   ok(!strict.safeParse({ ...outs[0], surprise: 1 }).success, "스키마 밖의 필드는 거부된다(클라이언트와 같은 엄격도)");
+  // 공개 JSON Schema 는 안쪽 객체(graph_plan)의 추가 필드도 막는다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
+  const plan = ROUTE_OUTPUT_SCHEMA.graph_plan.unwrap().strict();
+  const plans = [
+    route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan,
+    route("가장 많은 고객을 담당하는 직원은?").graphPlan,
+    route("진행 중인 프로젝트를 이끄는 직원 목록").graphPlan,
+  ];
+  ok(plans.every((p) => p && plan.safeParse(p).success) && plans[0]?.order === "asc", `graph_plan(order, filter 포함)이 공개 스키마를 통과한다 (got ${JSON.stringify(plans)})`);
 }
 
 // ── 평가는 서버와 같은 라우터 상태에서 돈다 ─────────────────────────────
