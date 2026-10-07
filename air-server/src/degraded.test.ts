@@ -758,7 +758,21 @@ const deadEmbedder: Embedder = {
     const x14 =
       "SELECT SUM(s.amount) AS total_sales, SUM(c.amount) AS total_contracts FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q'";
     const fan = fanoutJoins(x14, FKS);
-    ok(JSON.stringify(fan) === JSON.stringify([{ agg: "SUM(c.amount)", parent: "contracts", child: "sales", childColumn: "contract_id", join: "s.contract_id = c.id" }]), `계약 금액의 합을 매출과 조인한 채 구하는 자리 (got ${JSON.stringify(fan)})`);
+    ok(
+      JSON.stringify(fan) ===
+        JSON.stringify([
+          {
+            agg: "SUM(c.amount)",
+            parent: "contracts",
+            child: "sales",
+            childColumn: "contract_id",
+            join: "s.contract_id = c.id",
+            parentKey: "c.id",
+            scope: "FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q'",
+          },
+        ]),
+      `계약 금액의 합을 매출과 조인한 채 구하는 자리와 질의의 범위 (got ${JSON.stringify(fan)})`,
+    );
     for (const sql of [
       "SELECT d.name, AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id GROUP BY d.name", // TC-115 꼴: 가리키는 쪽 열
       "SELECT c.name, SUM(s.amount) FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id GROUP BY c.name", // TC-118 꼴
@@ -774,6 +788,33 @@ const deadEmbedder: Embedder = {
     ok(head.length === 1 && (await confirmFanout(dupPool(false), "companyx", head)).length === 0, "같은 값이 없는 외래키 열과의 조인은 막지 않는다");
     const why = await confirmFanout(dupPool(true), "companyx", fan);
     ok(why.length === 1 && why[0].startsWith("집계 SUM(c.amount) 은 contracts 의 열인데 contracts 를 가리키는 sales 와 조인(s.contract_id = c.id)해"), `사유가 집계와 조인을 말한다 (got ${why})`);
+    // PR #257 리뷰: 겹침은 질의가 고르는 행에서 센다. 자식을 한 행으로 좁힌 질의는 표 전체에 겹침이 있어도 막지 않는다.
+    const probes: string[] = [];
+    const scopedPool = (dup: boolean) =>
+      ({
+        connect: async () => ({
+          query: async (q: string) => {
+            if (/EXISTS/.test(q)) probes.push(q);
+            return /EXISTS/.test(q) ? { rows: [{ dup }], rowCount: 1, fields: [] } : { rows: [], rowCount: 0, fields: [] };
+          },
+          release: () => {},
+        }),
+        query: async () => ({ rows: [{ dup: true }], rowCount: 1 }),
+      }) as unknown as Pool;
+    const one = fanoutJoins("SELECT SUM(c.amount) FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id WHERE s.id = 7", FKS);
+    ok((await confirmFanout(scopedPool(false), "companyx", one)).length === 0, "자식을 한 행으로 좁힌 질의는 표 전체의 겹침과 상관없이 막지 않는다");
+    ok(
+      probes.length === 1 && probes[0].includes("SELECT 1 FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id WHERE s.id = 7 GROUP BY c.id HAVING count(*) > 1"),
+      `질의의 FROM..WHERE 로 부모 키마다 센다 (got ${probes[0]})`,
+    );
+    ok((await confirmFanout(scopedPool(true), "companyx", fan)).length === 1, "질의가 고르는 행에서 겹치면 막는다");
+    ok(fanoutJoins("WITH x AS (SELECT * FROM companyx.sales) SELECT SUM(c.amount) FROM x s JOIN companyx.contracts c ON s.contract_id = c.id", FKS).every((j) => j.scope === undefined), "WITH 로 시작하는 문장은 범위를 비워 표 전체로 센다");
+    // 판정은 기억하지 않는다. 같은 풀에서 데이터가 바뀌면 다음 판정도 바뀐다.
+    let tableDup = false;
+    const flipPool = { query: async () => ({ rows: [{ dup: tableDup }], rowCount: 1 }) } as unknown as Pool;
+    const first = (await confirmFanout(flipPool, "companyx", head)).length;
+    tableDup = true;
+    ok(first === 0 && (await confirmFanout(flipPool, "companyx", head)).length === 1, "처음에 겹침이 없다고 나와도 나중에 생긴 겹침을 막는다");
     ok(
       untrustedAnswer({ outcome: "refused", rejected: [{ sql: x14, reasons: why }] }).includes("생성된 SQL 이 contracts 의 값(SUM(c.amount))을 sales 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다."),
       "거절 문장",

@@ -29,6 +29,7 @@
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
+import { sqlQuery } from "./sql.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -252,6 +253,10 @@ export interface FanoutJoin {
   childColumn: string;
   /** 조인 조건 그대로(s.contract_id = c.id). */
   join: string;
+  /** 부모의 키를 생성 SQL 의 별칭으로(c.id). 질의가 고르는 행에서 겹침을 셀 때 묶는 열. */
+  parentKey: string;
+  /** 집계가 든 SELECT 의 FROM 부터 WHERE 끝까지(원문 그대로). WITH 로 시작하는 문장은 CTE 를 빼면 뜻이 달라져 비워 둔다. */
+  scope?: string;
 }
 
 /** ④ SUM, AVG 의 열이 가리켜지는 쪽 표(부모)에 있고, 같은 질의 단계에서 부모가 자기를 가리키는 표(자식)와 선언된 외래키로
@@ -300,6 +305,16 @@ export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[]
       );
       groupText = masked.slice(from, stop ? from + (stop.index ?? 0) : hi).toLowerCase();
     }
+    // 그 SELECT 의 FROM 부터 다음 절(GROUP BY 등) 앞까지. 질의가 실제로 고르는 행에서 겹침을 셀 때 쓴다(confirmFanout).
+    let scope: string | undefined;
+    const fromAt = here(/\bfrom\b/gi)[0];
+    if (fromAt && !/^\s*with\b/i.test(masked)) {
+      const from = lo + (fromAt.index ?? 0);
+      const stop = [...masked.slice(from, hi).matchAll(/\b(group|having|order|limit|offset|fetch|window|union|intersect|except)\b/gi)].find(
+        (m) => d[from + (m.index ?? 0)] === level,
+      );
+      scope = sql.slice(from, stop ? from + (stop.index ?? 0) : hi).replace(/[\s;]+$/, "");
+    }
     const eqRe = new RegExp(`(?<![A-Za-z0-9_.])((?:${IDENT}\\.){1,2}${IDENT})\\s*=\\s*((?:${IDENT}\\.){1,2}${IDENT})(?![A-Za-z0-9_.(])`, "g");
     for (const e of here(eqRe)) {
       const sides = [e[1], e[2]].map((x) => x.toLowerCase().split(".").slice(-2) as [string, string]);
@@ -312,7 +327,8 @@ export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[]
         if (a[1].toLowerCase() === "avg" && keyed) continue;
         const agg = sql.slice(at, at + a[0].length);
         if (!out.some((x) => x.agg === agg && x.child === child)) {
-          out.push({ agg, parent, child, childColumn: cc, join: sql.slice(lo + (e.index ?? 0), lo + (e.index ?? 0) + e[0].length) });
+          const join = sql.slice(lo + (e.index ?? 0), lo + (e.index ?? 0) + e[0].length);
+          out.push({ agg, parent, child, childColumn: cc, join, parentKey: `${pq}.${pc}`, ...(scope ? { scope } : {}) });
         }
       }
     }
@@ -320,30 +336,13 @@ export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[]
   return out;
 }
 
-const dupCache = new WeakMap<object, Map<string, boolean>>();
-
-/** fanoutJoins 의 자리 가운데 자식의 외래키 열에 같은 값이 둘 이상 있는 것(실제로 부푸는 조인)의 사유. 부서장(departments.head_id)
- * 처럼 한 부모를 한 자식만 가리키는 열이면 조인해도 부풀지 않아 막지 않는다. 읽지 못하면 막지 않는다. */
+/** fanoutJoins 의 자리 가운데 실제로 부푸는 조인의 사유. 부서장(departments.head_id)처럼 한 부모를 한 자식만 가리키거나,
+ * 질의가 자식을 한 행으로 좁혀(WHERE s.id = 7) 부모 한 행이 한 번만 잡히면 막지 않는다. 읽지 못하면 막지 않는다.
+ * 데이터에 따라 바뀌는 판정이라 기억해 두지 않는다(PR #257 리뷰: 처음에 겹침이 없다고 기억하면 나중에 생긴 겹침을 못 막는다). */
 export async function confirmFanout(pool: Pool, schema: string, joins: FanoutJoin[]): Promise<string[]> {
   const reasons: string[] = [];
   for (const j of joins) {
-    if (![schema, j.child, j.childColumn].every((x) => /^[a-z_][a-z0-9_]*$/.test(x))) continue;
-    const key = `${schema}.${j.child}.${j.childColumn}`;
-    let dup = dupCache.get(pool)?.get(key);
-    if (dup === undefined) {
-      try {
-        const res = await pool.query(
-          `SELECT EXISTS (SELECT 1 FROM ${schema}.${j.child} WHERE ${j.childColumn} IS NOT NULL GROUP BY ${j.childColumn} HAVING count(*) > 1) AS dup`,
-        );
-        const v = (res?.rows?.[0] as { dup?: unknown } | undefined)?.dup;
-        if (typeof v !== "boolean") continue;
-        dup = v;
-        if (!dupCache.has(pool)) dupCache.set(pool, new Map());
-        dupCache.get(pool)!.set(key, dup);
-      } catch {
-        continue;
-      }
-    }
+    const dup = (await scopedFanout(pool, j)) ?? (await tableFanout(pool, schema, j));
     if (!dup) continue;
     reasons.push(
       `${FANOUT_REASON}${j.agg} 은 ${j.parent} 의 열인데 ${j.parent} 를 가리키는 ${j.child} 와 조인(${j.join})해 ${j.parent} 한 행이 ` +
@@ -351,6 +350,29 @@ export async function confirmFanout(pool: Pool, schema: string, joins: FanoutJoi
     );
   }
   return reasons;
+}
+
+/** 그 질의가 고르는 행에서 부모 한 행이 두 번 이상 잡히는가. 생성 SQL 의 FROM..WHERE 를 그대로 써서 sql.query 와 같은
+ * 읽기 전용 거래(mcp_ro, 시간 상한)에서 센다. 범위가 없거나(WITH 문장) 실행하지 못하면(바깥 별칭을 쓰는 하위 질의 등) null. */
+async function scopedFanout(pool: Pool, j: FanoutJoin): Promise<boolean | null> {
+  if (!j.scope) return null;
+  const r = await sqlQuery(pool, `SELECT EXISTS (SELECT 1 ${j.scope} GROUP BY ${j.parentKey} HAVING count(*) > 1) AS dup`);
+  const v = r.ok ? (r.rows[0] as { dup?: unknown } | undefined)?.dup : undefined;
+  return typeof v === "boolean" ? v : null;
+}
+
+/** 자식의 외래키 열 전체에 같은 값이 둘 이상 있는가(질의의 범위를 쓸 수 없을 때). 읽지 못하면 null. */
+async function tableFanout(pool: Pool, schema: string, j: FanoutJoin): Promise<boolean | null> {
+  if (![schema, j.child, j.childColumn].every((x) => /^[a-z_][a-z0-9_]*$/.test(x))) return null;
+  try {
+    const res = await pool.query(
+      `SELECT EXISTS (SELECT 1 FROM ${schema}.${j.child} WHERE ${j.childColumn} IS NOT NULL GROUP BY ${j.childColumn} HAVING count(*) > 1) AS dup`,
+    );
+    const v = (res?.rows?.[0] as { dup?: unknown } | undefined)?.dup;
+    return typeof v === "boolean" ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 스키마마다 만원 단위인 금액 열(nl2sql.ts 의 주석 카드). 여기 없는 스키마(smoke 의 public, bench)는 금액 단위를 보지 않는다. */
