@@ -914,6 +914,11 @@ const deadEmbedder: Embedder = {
     ["500만원", [500]],
     ["1.5억", [15000]],
     ["5천만~1억 원", [5000, 10000]],
+    // 바로 뒤에 원이 오면 억 뒤의 자리는 원 단위다(PR #257 Codex). 만을 줄인 읽기는 원이 없을 때만
+    ["1억 5천 원", [10000.5]],
+    ["1억5천원 이상", [10000.5]],
+    ["1억 500 원", [10000.05]],
+    ["1억 5천만 원과 1억 5천", [15000, 15000]],
   ] as const) {
     ok(JSON.stringify(moneyMentions(q).map((m) => m.manwon)) === JSON.stringify(manwon), `금액 표현을 만원 값으로 읽는다: ${q} → ${manwon}`);
   }
@@ -949,6 +954,31 @@ const deadEmbedder: Embedder = {
   ok(answerQuestionForModel("계약 금액이 1억 원 이상인 계약 목록", oct7) === "계약 금액이 1억 원(=10000만 원) 이상인 계약 목록", "답 질문: 금액 뒤에 만원 값");
   for (const q of ["Client-A가 사용 중인 제품 목록은?", "2025년 3분기 총 매출액은 얼마야?", "Product-C1 설치 방법이 궁금해", "평균 연봉이 가장 높은 부서는 어디야?"]) {
     ok(answerQuestionForModel(q, oct7) === questionForModel(q) && buildAnswerPrompt(q, "ctx").includes(`\n[질문] ${q}\n[답변]`), `상대 연도와 금액이 없는 질문은 답 프롬프트에 그대로: ${q}`);
+  }
+
+  // 상한은 덧붙인 뒤의 길이에 건다(PR #257 Codex). 상한 근처의 질문에 금액 표현이 많으면 덧붙임으로 수천 자가 늘었다.
+  {
+    const { LLM_QUESTION_MAX_CHARS } = await import("./llm.js");
+    const notes: string[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => void notes.push(a.map(String).join(" "));
+    let sqlLine = "";
+    let ansLine = "";
+    let plainLong = "";
+    const many = "1억 원 ".repeat(479); // 2,395자(상한 안), 덧붙이면 7,664자
+    try {
+      sqlLine = sqlQuestionForModel(many, oct7);
+      ansLine = answerQuestionForModel(`작년 ${many}`, oct7);
+      plainLong = sqlQuestionForModel("가".repeat(3000), oct7);
+    } finally {
+      console.error = orig;
+    }
+    const closed = (s: string) => (s.match(/\(=/g) ?? []).length === (s.match(/만 원\)/g) ?? []).length;
+    const n = Array.from(sqlLine).length;
+    ok(n <= LLM_QUESTION_MAX_CHARS && n > LLM_QUESTION_MAX_CHARS - 20 && closed(sqlLine), `NL2SQL 질문 줄은 덧붙인 뒤 상한 안, 괄호를 가르지 않음 (got ${n}자, 끝 ${JSON.stringify(sqlLine.slice(-20))})`);
+    ok(Array.from(ansLine).length <= LLM_QUESTION_MAX_CHARS && closed(ansLine) && ansLine.startsWith("작년(2025년) 1억 원(=10000만 원)"), `답 질문 줄도 덧붙인 뒤 상한 안 (got ${Array.from(ansLine).length}자)`);
+    ok(plainLong === "가".repeat(LLM_QUESTION_MAX_CHARS), "덧붙일 것이 없는 긴 질문은 questionForModel 과 같게 앞 2400자");
+    ok(notes.length === 3 && notes.every((l) => l.includes("다 들어가지 않아")), `잘랐다는 줄을 남긴다 (got ${notes.length})`);
   }
 
   // 실행 전 검사 ③: 금액 열과 비교하는 숫자가 질문의 만원 값과 10배수로 어긋나면 단위 오류다.

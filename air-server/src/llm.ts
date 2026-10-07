@@ -177,11 +177,9 @@ export function seoulYear(now: Date = new Date()): number {
  * questionForModel 결과 그대로다. */
 export function answerQuestionForModel(query: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  const withYears = questionForModel(query).replace(
-    RELATIVE_YEAR_RE,
-    (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`,
+  return fitAnnotated(query, (q) =>
+    annotateMoney(q.replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`)),
   );
-  return annotateMoney(withYears);
 }
 
 export async function answer(query: string, context: string, opts?: GenOptions): Promise<string> {
@@ -204,4 +202,23 @@ export function questionForModel(query: string): string {
   if (chars.length <= LLM_QUESTION_MAX_CHARS) return query;
   console.error(`[생성] 질문 ${chars.length}자가 생성 모델 문맥에 다 들어가지 않아 앞 ${LLM_QUESTION_MAX_CHARS}자만 넣는다`);
   return chars.slice(0, LLM_QUESTION_MAX_CHARS).join("");
+}
+
+/** 덧붙인 질문 줄(상대 연도의 연도, 금액의 만원 값)을 상한 안으로. 덧붙이면 길어지므로 상한은 덧붙인 뒤의 길이에 건다. 원문을
+ * 먼저 자르고 덧붙이면 금액 표현이 많은 질문은 상한 근처에서 수천 자가 늘어 문맥을 넘었다(PR #257 Codex). 덧붙인 결과가 상한 안에
+ * 드는 원문 앞부분을 골라 거기에 다시 덧붙이므로 괄호 한가운데서 잘린 값(「2억 원(=200」)은 생기지 않는다. 덧붙일 것이 없으면
+ * questionForModel 과 같다. */
+export function fitAnnotated(query: string, annotate: (q: string) => string): string {
+  const whole = annotate(query);
+  if (Array.from(whole).length <= LLM_QUESTION_MAX_CHARS) return whole;
+  const chars = Array.from(query);
+  let lo = 0;
+  let hi = Math.min(chars.length, LLM_QUESTION_MAX_CHARS);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (Array.from(annotate(chars.slice(0, mid).join(""))).length <= LLM_QUESTION_MAX_CHARS) lo = mid;
+    else hi = mid - 1;
+  }
+  console.error(`[생성] 질문 ${chars.length}자가 생성 모델 문맥에 다 들어가지 않아 앞 ${lo}자만 넣는다`);
+  return annotate(chars.slice(0, lo).join(""));
 }

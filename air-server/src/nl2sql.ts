@@ -36,7 +36,7 @@ export interface Nl2SqlReport {
 /** 테이블을 읽지 않는 SELECT 의 kind. */
 export const NO_TABLE = "NO_TABLE";
 
-import { generate, questionForModel, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
+import { fitAnnotated, generate, questionForModel, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
 import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
 
@@ -555,12 +555,12 @@ export function absoluteYears(q: string, now: Date = new Date()): string {
   return q.replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`);
 }
 
-/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 문맥 상한(questionForModel)을 지킨 뒤 상대 연도를 연도로 바꾸고
- * (absoluteYears, 감사 레코드의 query 는 원문 그대로) 금액 표현 옆에 만원 값을 적는다: 「2억 원」 → 「2억 원(=20000만 원)」
- * (money.ts, G17 ⑥). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을 salary >= 2000 으로 썼다(3/3). 상대 연도와
+/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 상대 연도를 연도로 바꾸고(absoluteYears, 감사 레코드의 query 는 원문
+ * 그대로) 금액 표현 옆에 만원 값을 적은 뒤(「2억 원」 → 「2억 원(=20000만 원)」, money.ts, G17 ⑥) 그 길이로 문맥 상한을
+ * 지킨다(fitAnnotated). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을 salary >= 2000 으로 썼다(3/3). 상대 연도와
  * 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
 export function sqlQuestionForModel(query: string, now: Date = new Date()): string {
-  return annotateMoney(absoluteYears(questionForModel(query), now));
+  return fitAnnotated(query, (q) => annotateMoney(absoluteYears(q, now)));
 }
 
 /** Company-X NL2SQL 프롬프트 원문.
