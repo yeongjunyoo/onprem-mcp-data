@@ -25,6 +25,7 @@
 // from L4 is fed whole rather than aggressively trimmed.
 
 import { postJson } from "./ollamahttp.js";
+import { annotateMoney } from "./money.js";
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 /** 기본 생성 모델. **여기서만 정한다** — 2026-08-19 모델 교체에서 이 값을
@@ -154,9 +155,33 @@ export function buildAnswerPrompt(query: string, context: string): string {
     "[컨텍스트]",
     context.trim() || "(없음)",
     "",
-    `[질문] ${questionForModel(query)}`,
+    `[질문] ${answerQuestionForModel(query)}`,
     "[답변]",
   ].join("\n");
+}
+
+/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). 올해와 금년은 다루지 않는다
+ * (nl2sql.ts absoluteYears 의 실측). 둘째 묶음은 뒤에 붙은 「도」(작년도). */
+export const RELATIVE_YEAR: Record<string, number> = { 재작년: -2, 작년: -1, 지난해: -1, 내년: 1 };
+export const RELATIVE_YEAR_RE = /(재작년|작년|지난해|내년)(도?)/g;
+
+/** 서울 시각으로 오늘의 연도. */
+export function seoulYear(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
+}
+
+/** 답 프롬프트의 질문 줄. 상대 연도 뒤에 연도를, 금액 표현 뒤에 만원 값을 괄호로 덧붙인다: 「작년 매출」 → 「작년(2025년)
+ * 매출」, 「1억 원」 → 「1억 원(=10000만 원)」. 생성 SQL 은 이미 2025년과 만원으로 조회하는데 답 모델은 그 연결을 몰라
+ * 「작년 매출은 얼마야?」에 조회 행 112,773 을 두고 「알 수 없습니다」라고 했고(3/3), 계약 금액 11000(만원)을 「11,000 원」이라고
+ * 썼다(랜덤 테스트 2차 뒤 실측, 2026-10-08). 낱말은 지우지 않고 덧붙이기만 한다. 상대 연도와 금액 표현이 없는 질문은
+ * questionForModel 결과 그대로다. */
+export function answerQuestionForModel(query: string, now: Date = new Date()): string {
+  const year = seoulYear(now);
+  const withYears = questionForModel(query).replace(
+    RELATIVE_YEAR_RE,
+    (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`,
+  );
+  return annotateMoney(withYears);
 }
 
 export async function answer(query: string, context: string, opts?: GenOptions): Promise<string> {

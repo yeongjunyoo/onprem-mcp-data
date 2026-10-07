@@ -36,7 +36,7 @@ export interface Nl2SqlReport {
 /** 테이블을 읽지 않는 SELECT 의 kind. */
 export const NO_TABLE = "NO_TABLE";
 
-import { generate, questionForModel } from "./llm.js";
+import { generate, questionForModel, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
 import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
 
@@ -538,15 +538,7 @@ export function companyxSchemaCard(): string {
   return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
-/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). 올해와 금년은 바꾸지 않는다
- * (absoluteYears). */
-const RELATIVE_YEAR: Record<string, number> = { 재작년: -2, 작년: -1, 지난해: -1, 내년: 1 };
-const RELATIVE_YEAR_RE = /(재작년|작년|지난해|내년)도?/g;
-
-/** 서울 시각으로 오늘의 연도. */
-export function seoulYear(now: Date = new Date()): number {
-  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
-}
+export { seoulYear };
 
 /** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년도, 재작년 → (올해 - 2)년도, 내년 →
  * (올해 + 1)년도. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검 2차 R3, 「작년에

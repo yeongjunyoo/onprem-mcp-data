@@ -900,6 +900,16 @@ const deadEmbedder: Embedder = {
   ok(absoluteYears("지난달 매출과 이번 분기 매출", oct7) === "지난달 매출과 이번 분기 매출", "월과 분기를 가리키는 말은 그대로");
   ok(sqlQuestionForModel("작년 매출이 1억 원 이상인 고객사", oct7) === "2025년도 매출이 1억 원(=10000만 원) 이상인 고객사", "연도를 바꾼 뒤 금액을 적는다");
 
+  // 답 프롬프트의 질문 줄은 낱말을 지우지 않고 연도와 만원 값을 괄호로 덧붙인다(답 모델이 조회 조건과 질문을 잇게).
+  const { answerQuestionForModel, buildAnswerPrompt } = await import("./llm.js");
+  ok(answerQuestionForModel("작년 매출은 얼마야?", oct7) === "작년(2025년) 매출은 얼마야?", "답 질문: 작년 뒤에 연도");
+  ok(answerQuestionForModel("작년도 3분기 매출과 재작년 매출", oct7) === "작년도(2025년) 3분기 매출과 재작년(2024년) 매출", "답 질문: 「작년도」와 재작년");
+  ok(answerQuestionForModel("올해 매출은 얼마야?", oct7) === "올해 매출은 얼마야?", "답 질문: 올해는 그대로");
+  ok(answerQuestionForModel("계약 금액이 1억 원 이상인 계약 목록", oct7) === "계약 금액이 1억 원(=10000만 원) 이상인 계약 목록", "답 질문: 금액 뒤에 만원 값");
+  for (const q of ["Client-A가 사용 중인 제품 목록은?", "2025년 3분기 총 매출액은 얼마야?", "Product-C1 설치 방법이 궁금해", "평균 연봉이 가장 높은 부서는 어디야?"]) {
+    ok(answerQuestionForModel(q, oct7) === questionForModel(q) && buildAnswerPrompt(q, "ctx").includes(`\n[질문] ${q}\n[답변]`), `상대 연도와 금액이 없는 질문은 답 프롬프트에 그대로: ${q}`);
+  }
+
   // 실행 전 검사 ③: 금액 열과 비교하는 숫자가 질문의 만원 값과 10배수로 어긋나면 단위 오류다.
   const cols = moneyColumns("companyx");
   const q2 = "연봉이 2억 원 이상인 직원 목록을 알려줘";
