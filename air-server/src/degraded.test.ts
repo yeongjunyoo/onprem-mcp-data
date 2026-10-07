@@ -1211,5 +1211,103 @@ const deadEmbedder: Embedder = {
   ok(few("relation-scan", ["윤소연", "박소연"], ["윤소연", "박소연"], "structured") === undefined, "그래프 레인일 때만");
 }
 
+// 측정 항목 한 낱말뿐인 요청(「매출 알려줘」)은 조회하지 않고 되묻는다. 7B 가 매출 500건 가운데 200건을 붙이고 「매출은 1953입니다.」
+// (한 건의 값)라고 답했다. 기간, 개체, 집계 같은 다른 내용이 조금이라도 있으면 종전 그대로다. 생성기와 풀은 가짜.
+{
+  const { vagueMeasure, vagueAnswer } = await import("./sqltrust.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  for (const [q, word] of [
+    ["매출 알려줘", "매출"],
+    ["연봉 알려줘", "연봉"],
+    ["예산 알려줘", "예산"],
+    ["매출은?", "매출"],
+    ["연봉이 얼마야?", "연봉"],
+    ["매출 좀 알려줘", "매출"],
+    ["매출액 알려 주세요", "매출액"],
+    ["계약 금액 보여줘", "계약 금액"],
+    ["급여", "급여"],
+    ["월급 알려줘!", "월급"],
+    ["실적 알려줘", "실적"],
+    ["금액은 얼마야?", "금액"],
+  ] as const) ok(vagueMeasure(q, "companyx") === word, `측정 항목 한 낱말뿐인 요청: ${q} → ${word} (got ${vagueMeasure(q, "companyx")})`);
+  for (const q of [
+    "매출 합계 알려줘",
+    "2025년 매출 알려줘",
+    "총 매출은 얼마야?",
+    "올해 매출은 얼마야?",
+    "Client-A 매출 합계는?",
+    "서울 쪽 매출이 어때",
+    "2025년 3분기 총 매출액은 얼마야?",
+    "기술지원팀 직원 목록과 연봉을 알려줘",
+    "평균 연봉이 가장 높은 부서는 어디야?",
+    "연봉 4천",
+    "매출 현황",
+    "가격 알려줘",
+    "매출이 연봉보다 많아?",
+  ]) ok(vagueMeasure(q, "companyx") === null, `다른 내용이 있으면 되묻지 않는다: ${q}`);
+  ok(vagueMeasure("매출 알려줘", "public") === null && vagueMeasure("매출 알려줘", "bench") === null, "측정 항목을 두지 않은 스키마(smoke, bench)는 종전 그대로");
+  ok(
+    vagueAnswer("매출") ===
+      "「매출」만으로는 무엇을 알고 싶은지 정할 수 없어 조회하지 않았습니다. 기간, 고객사, 제품처럼 대상을 함께 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「서울 지역 매출 상위 5개 고객사를 알려줘」",
+    `되묻는 문장 (got ${vagueAnswer("매출")})`,
+  );
+  ok(vagueAnswer("월급").includes("「월급」만으로는") && vagueAnswer("월급").includes("「기술지원팀 직원 목록과 연봉을 알려줘」"), "낱말마다 그 금액 열로 답하는 예시를 든다");
+  // 근거 없이 쓰는 답이라 예시에 개체 식별자가 있으면 감사의 접지 검사가 근거 밖 개체로 적는다(「Client-A 매출 합계는?」에서 실측).
+  const { outsideContextMentions } = await import("./auditrecord.js");
+  for (const w of ["매출", "매출액", "실적", "연봉", "급여", "월급", "예산", "계약 금액", "계약금액", "금액"]) {
+    ok(outsideContextMentions(vagueAnswer(w), "").length === 0, `되묻는 답이 접지 검사에 걸리지 않는다: ${w} (got ${outsideContextMentions(vagueAnswer(w), "")})`);
+  }
+
+  // ask: 생성 모델도 DB 도 부르지 않고 되묻는다. 감사에는 sql-trust-gate deny 와 그 낱말이 남고 읽기 전용 판정은 없다.
+  const executed: string[] = [];
+  const pool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        executed.push(sql);
+        return { rows: [{ amount: 1953 }], rowCount: 1, fields: [{ name: "amount" }] };
+      },
+      release: () => {},
+    }),
+    query: async (sql: string) => {
+      executed.push(sql);
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  let generated = 0;
+  let answered = 0;
+  const deps = {
+    pool,
+    embedder: deadEmbedder,
+    repair: false,
+    llm: async () => {
+      answered++;
+      return "매출은 1953입니다.";
+    },
+    nl2sql: async () => {
+      generated++;
+      return "SELECT amount FROM companyx.sales";
+    },
+  };
+  const saved = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  try {
+    const r = await ask("매출 알려줘", deps);
+    ok(r.answer === vagueAnswer("매출") && generated === 0 && answered === 0 && executed.length === 0, `생성 모델, DB, 답 모델을 부르지 않고 되묻는다 (got ${r.answer})`);
+    ok(r.sql.text === null && r.sql.gate?.outcome === "refused" && r.sql.gate.vague === "매출" && r.audit.sql_gate?.vague === "매출", "retrieve 의 audit 에도 되물은 낱말이 남는다");
+    const rec = buildAuditRecord(r);
+    const gate = rec.policies.find((p) => p.policy === "sql-trust-gate");
+    ok(
+      gate?.verdict === "deny" && gate.detail.includes("측정 항목 한 낱말(「매출」)") && !rec.policies.some((p) => p.policy === "sql-read-only") && rec.retrieval.sql.text === null,
+      `감사는 기존 정책 이름(sql-trust-gate deny)으로 남는다 (got ${JSON.stringify(rec.policies)})`,
+    );
+    ok(rec.grounding?.outside_context.length === 0, `감사의 접지 검사에 근거 밖 개체가 없다 (got ${rec.grounding?.outside_context})`);
+    const total = await ask("매출 합계 알려줘", deps);
+    ok(generated === 1 && answered === 1 && !total.sql.gate && total.answer.startsWith("매출은 1953입니다."), "집계 낱말이 있으면 종전처럼 SQL 을 만들어 답한다");
+  } finally {
+    if (saved === undefined) delete process.env.DATASET;
+    else process.env.DATASET = saved;
+  }
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

@@ -32,7 +32,7 @@ import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
 import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
-import { tieAnswer, untrustedAnswer, type SqlGate } from "./sqltrust.js";
+import { tieAnswer, untrustedAnswer, vagueMeasure, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
@@ -68,9 +68,10 @@ export interface RetrieveDeps {
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했을 때만 붙는다. refused 는 생성 모델이 만들었지만
-   * 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때
-   * 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가 null 이다. */
+  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했거나 질문이 측정 항목 한 낱말뿐이라(gate.vague) SQL 을
+   * 만들지 않았을 때만 붙는다. refused 는 생성 모델이 만들었지만 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이
+   * 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가
+   * null 이다. */
   sql: {
     text: string | null;
     result?: SqlResult;
@@ -438,6 +439,10 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     // 바꿔 답했다(랜덤 테스트 사전 점검 D2).
     const absent = absentAttribute(query, profile().schemaCard);
     if (absent) return { text: null, absent };
+    // 측정 항목 한 낱말뿐인 요청(「매출 알려줘」)도 생성 모델에 넘기지 않고 대상을 되묻는다. 넘기면 7B 가 매출 표 전체를 고르고
+    // 답 문장은 그 가운데 한 건의 값을 매출이라고 말했다(「매출은 1953입니다.」). 감사에는 sql-trust-gate deny 로 남는다.
+    const vague = vagueMeasure(query, profile().sqlSchema);
+    if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     const report: Nl2SqlReport = {};
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };

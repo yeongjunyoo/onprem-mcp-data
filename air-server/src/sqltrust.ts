@@ -26,6 +26,8 @@
 //               이름을 지어냈고, 「연봉 알려줘」에 `WHERE e.id = 1` 로 묻지 않은 한 사람을 골랐다(D3).
 //   checkMoney — ③ 금액 열과 비교하는 숫자가 질문의 금액과 단위가 맞는가. 「연봉이 2억 원 이상」에 7B 가
 //               `salary >= 2000` 을 써 직원 45명을 모두 돌려줬다(G17 ⑥).
+//   vagueMeasure — 질문이 측정 항목 한 낱말(「매출 알려줘」)뿐이면 SQL 을 만들지 않고 되묻는다. 7B 가 매출 표 전체를 골랐고
+//               답 문장은 그 가운데 한 건의 값을 매출이라고 말했다(「매출은 1953입니다.」).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
@@ -536,11 +538,63 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
 export interface SqlGate {
   outcome: "refused" | "repaired" | "kept";
   rejected: { sql: string; reasons: string[] }[];
+  /** 질문이 측정 항목 한 낱말뿐이라(vagueMeasure) SQL 을 만들지 않았을 때 그 낱말. 그때 outcome 은 refused, rejected 는 비었다. */
+  vague?: string;
+}
+
+/** 대상 없이 한 낱말로 물을 때 조회할 값을 정할 수 없는 측정 항목. 스키마마다 둔다(금액 열, moneyColumns 와 같은 방식).
+ * 낱말, 되물을 때 함께 물어 달라는 말, 이 데이터에서 맞게 답하는 예시 질문 둘(라이브로 확인한 것). 금액 열(salary, sales 와
+ * contracts 의 amount, budget)마다 묶고, 「금액」은 어느 금액인지부터 묻는다. 예시에는 개체 식별자(Client-A 등)를 넣지 않는다.
+ * 근거 없이 쓴 답이라 감사 레코드의 접지 검사가 그 이름을 근거 밖 개체로 적는다(「Client-A 매출 합계는?」에서 실측). */
+const VAGUE_MEASURES = new Map<string, readonly { words: string; ask: string; examples: readonly [string, string] }[]>([
+  [
+    "companyx",
+    [
+      { words: "매출액?|실적", ask: "기간, 고객사, 제품처럼 대상을 함께 물어봐 주세요.", examples: ["2025년 3분기 총 매출액은 얼마야?", "서울 지역 매출 상위 5개 고객사를 알려줘"] },
+      { words: "연봉|급여|월급", ask: "부서나 직원처럼 대상을 함께 물어봐 주세요.", examples: ["기술지원팀 직원 목록과 연봉을 알려줘", "평균 연봉이 가장 높은 부서는 어디야?"] },
+      { words: "예산", ask: "프로젝트, 고객사, 진행 상태처럼 대상을 함께 물어봐 주세요.", examples: ["예산이 가장 큰 프로젝트 3개를 알려줘", "진행 중인 프로젝트의 예산 합계는?"] },
+      { words: "계약 ?금액", ask: "고객사, 제품, 계약 상태처럼 대상을 함께 물어봐 주세요.", examples: ["제품별 총 계약 금액을 큰 순서로 보여줘", "현재 활성 상태인 계약의 금액 합계는?"] },
+      { words: "금액", ask: "매출, 계약 금액, 프로젝트 예산 가운데 어느 금액인지와 기간이나 고객사 같은 대상을 함께 물어봐 주세요.", examples: ["2025년 3분기 총 매출액은 얼마야?", "제품별 총 계약 금액을 큰 순서로 보여줘"] },
+    ],
+  ],
+]);
+
+/** 측정 항목 낱말 뒤에 와도 대상을 더하지 않는 말: 조사 하나, 「좀」, 요청과 물음의 끝말. 이 밖의 낱말(합계, 2025년, Client-A,
+ * 서울, 평균, 총 …)이 하나라도 있으면 되묻지 않는다. */
+const VAGUE_TAIL =
+  "(?:은|는|이|가|을|를|도)?(?:\\s*(?:좀|(?:알려|보여|말해|조회해)\\s?(?:줘요?|주세요|줄래요?|주라)|얼마(?:야|예요|에요|지|니|임|인가요?|일까요?)?|어때요?|궁금해요?|궁금합니다))*";
+
+/** 질문이 측정 항목 한 낱말뿐이면(「매출 알려줘」, 「연봉이 얼마야?」, 「예산」) 그 낱말, 아니면 null. 문장부호와 공백만 고르고
+ * 대조한다. 기간, 개체, 집계, 비교처럼 다른 내용이 조금이라도 있으면 null 이다. 이 낱말을 두지 않은 스키마(smoke, bench)도 null.
+ * 결정론이다. */
+export function vagueMeasure(question: string, schema: string): string | null {
+  const families = VAGUE_MEASURES.get(schema);
+  if (!families) return null;
+  const q = question.normalize("NFC").replace(/[?？!！.。,，~～…]+/g, " ").replace(/\s+/g, " ").trim();
+  return new RegExp(`^(${families.map((f) => f.words).join("|")})${VAGUE_TAIL}$`).exec(q)?.[1] ?? null;
+}
+
+/** 측정 항목 한 낱말뿐인 질문의 답. 조회하지 않았다고 말하고, 함께 물을 대상과 이 데이터에서 맞게 답하는 예시를 든다. */
+export function vagueAnswer(word: string): string {
+  const f = [...VAGUE_MEASURES.values()].flat().find((x) => new RegExp(`^(?:${x.words})$`).test(word));
+  return (
+    `「${word}」만으로는 무엇을 알고 싶은지 정할 수 없어 조회하지 않았습니다. ` +
+    (f ? `${f.ask} 예: 「${f.examples[0]}」, 「${f.examples[1]}」` : "기간이나 대상을 함께 물어봐 주세요.")
+  );
 }
 
 /** 감사 레코드의 정책 줄. */
 export function sqlGatePolicy(gate: SqlGate | undefined): PolicyVerdict | undefined {
   if (!gate) return undefined;
+  if (gate.vague) {
+    return {
+      policy: "sql-trust-gate",
+      verdict: "deny",
+      detail:
+        `질문이 측정 항목 한 낱말(「${gate.vague}」)뿐이라 어느 기간, 어느 대상의 값을 조회할지 정할 수 없어 SQL 을 만들지 않았고 ` +
+        "답하지 않았다(대상을 함께 물어 달라고 되물음)",
+    };
+  }
   const why = gate.rejected.map((r) => `「${r.sql.replace(/\s+/g, " ")}」: ${r.reasons.join("; ")}`).join(" / ");
   const head =
     gate.outcome === "refused"
@@ -554,6 +608,7 @@ export function sqlGatePolicy(gate: SqlGate | undefined): PolicyVerdict | undefi
 /** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. 금액 단위만 걸렸으면 금액 조건을 말하고 만원으로
  * 바꿔 묻는 법을 알린다. */
 export function untrustedAnswer(gate: SqlGate): string {
+  if (gate.vague) return vagueAnswer(gate.vague);
   const reasons = gate.rejected.flatMap((r) => r.reasons);
   const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
