@@ -30,6 +30,7 @@ import {
   graphExpand,
   graphWalk,
   pathCandidates,
+  rankingCandidates,
   seedEdgeCandidates,
   type GraphEdge,
   type GraphLimits,
@@ -184,6 +185,18 @@ ok(
       answerFirst[0].text === "[그래프 경로] n6의 담당 고객사: n2 → n2의 사용 중인 제품: n1 (MANAGES_ACCOUNT→USES)",
     `둘째 엣지를 거꾸로 탄 경로는 답(n6)부터 (got ${JSON.stringify(answerFirst.map((c) => c.text))})`,
   );
+}
+
+// ── 4a) 집계 순위 줄: 많은 쪽은 종전 글 그대로(TC-132, TC-133), 적은 쪽은 「적은 순」과 공동 1위 전부 ───
+// 랜덤 테스트 사전 점검 2차 R6: 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위를 답했다.
+{
+  const rk = (counts: number[]) => counts.map((count, i) => ({ entityId: i + 1, name: `e${i + 1}`, type: "employee", count }));
+  const desc = rankingCandidates(rk([4, 4, 4, 3, 3, 2]), "MANAGES_ACCOUNT");
+  ok(desc.length === 5 && desc[0].text === "[그래프 집계] e1 (employee) — 담당 고객사 4건, 공동 1위" && desc[3].text === "[그래프 집계] e4 (employee) — 담당 고객사 3건, 공동 4위", `많은 쪽 순위 줄은 종전 그대로 (got ${desc.map((c) => c.text)})`);
+  const asc = rankingCandidates(rk([0, 0, 0, 0, 0, 0, 0, 1, 2]), "MANAGES_ACCOUNT", 5, "asc");
+  ok(asc.length === 7 && asc[6].text === "[그래프 집계] e7 (employee) — 담당 고객사 0건, 적은 순 공동 1위", `적은 쪽은 공동 1위 일곱을 다 싣는다 (got ${asc.length}: ${asc[6]?.text})`);
+  const ascFew = rankingCandidates(rk([0, 1, 1, 2, 3, 3, 4]), "MANAGES_ACCOUNT", 5, "asc");
+  ok(ascFew.length === 5 && ascFew[0].text.endsWith("0건, 적은 순 1위") && ascFew[1].text.endsWith("1건, 적은 순 공동 2위"), `공동 1위가 다섯보다 적으면 다섯 줄 (got ${ascFew.map((c) => c.text)})`);
 }
 
 // ── 4b) 여러 시드가 같은 답 개체에 닿으면 사실을 버리지 않고 한 줄로 모은다 ───

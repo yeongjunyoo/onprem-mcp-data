@@ -52,10 +52,13 @@ export const LANE_LABEL: Record<Route, string> = {
   hybrid: "nl2sql+vector_search",
 };
 
+/** 최상급. 그래프 집계는 첫 낱말이 적, 낮, 작이면 적은 쪽부터 센다(buildGraphPlan). */
+const SUPERLATIVE = /가장\s*(많|적|높|낮|큰|작)/;
+
 const STRUCTURED_SIGNALS: [RegExp, string][] = [
   [/개수|몇\s*[개건명]|몇\s*\w+(이야|인가|일까)|건수|총\s*몇|카운트/, "count"],
   [/합계|총합|평균|최대|최소|최고|최저|중앙값|분포|통계/, "aggregate"],
-  [/가장\s*(많|적|높|낮|큰|작)/, "superlative"],
+  [SUPERLATIVE, "superlative"],
   [/이상|이하|초과|미만|보다\s*(크|작|높|낮|많|적)/, "comparison"],
   [/정렬|순위|순으로|순서로|상위|하위|top\s*\d+|랭킹|오름차순|내림차순/, "sort"],
   [/\d{4}[-./]\d{1,2}|\d{4}년|\d\s*분기|최근|지난\s*(달|주|해|분기|\d+)|이번\s*(달|주|분기)|작년|올해|어제|오늘|날짜별|월별|연도별/, "time_filter"],
@@ -159,6 +162,8 @@ export interface GraphPlan {
   relTypes: string[];
   /** Rank endpoints by degree on this side — set for superlative questions. */
   aggregate?: "source" | "target";
+  /** 최상급이 「가장 적은, 낮은, 작은」이면 asc(적은 쪽부터, 엣지가 없는 개체는 0건). 없으면 많은 쪽부터. */
+  order?: "asc";
   /** Node-property filter parsed from the query (진행 중 -> status=in_progress). */
   filter?: { side: "source" | "target"; key: string; value: string };
 }
@@ -268,6 +273,8 @@ export function buildGraphPlan(q: string, relTypes: string[], superlative: boole
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   if (superlative && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
+    // 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위(3곳씩 맡은 둘)를 답했다(랜덤 테스트 사전 점검 2차 R6).
+    if (/^[적낮작]$/.test(SUPERLATIVE.exec(q)?.[1] ?? "")) plan.order = "asc";
   }
   for (const [re, f] of PROPERTY_FILTERS) {
     const m = re.exec(q);

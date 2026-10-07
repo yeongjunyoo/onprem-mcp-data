@@ -499,6 +499,8 @@ export interface RelationScanOptions {
   relTypes: string[];
   /** Rank endpoints by edge count on this side (superlative questions). */
   aggregate?: "source" | "target";
+  /** asc 면 적은 쪽부터 센다. 그 쪽 타입의 개체 가운데 맞는 엣지가 하나도 없는 것도 0건으로 넣는다(「가장 적은」). */
+  order?: "asc";
   /** Keep only edges whose endpoint carries this property value (e.g. status=in_progress). */
   filter?: { side: "source" | "target"; key: string; value: string };
   limit?: number;
@@ -561,11 +563,29 @@ export async function relationScan(
         cur.count++;
         counts.set(id, cur);
       }
+      const asc = opts.order === "asc";
+      if (asc) {
+        // 「가장 적은」은 엣지가 없는 개체(담당 고객사가 없는 직원)까지 센다. 그 쪽 끝에 이 관계로 나오는 타입의 개체 전부다.
+        const end = opts.aggregate === "source" ? "src_entity_id" : "dst_entity_id";
+        const all = await pool.query(
+          `SELECT e.id, e.canonical_name, e.type
+             FROM ${s}.entities e
+            WHERE e.type IN (SELECT DISTINCT x.type
+                               FROM ${s}.relations r JOIN ${s}.entities x ON x.id = r.${end}
+                              WHERE r.rel_type = ANY($1::text[]))
+            ORDER BY e.id`,
+          [opts.relTypes],
+        );
+        for (const row of all.rows) {
+          const id = Number(row.id);
+          if (!counts.has(id)) counts.set(id, { name: String(row.canonical_name), type: String(row.type), count: 0 });
+        }
+      }
       ranking.push(
         ...[...counts.entries()]
           .map(([entityId, v]) => ({ entityId, ...v }))
-          // count desc, then id asc: total order => zero run-to-run variance.
-          .sort((a, b) => b.count - a.count || a.entityId - b.entityId),
+          // count desc (asc 면 오름차순), then id asc: total order => zero run-to-run variance.
+          .sort((a, b) => (asc ? a.count - b.count : b.count - a.count) || a.entityId - b.entityId),
       );
     }
     return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, limit) };
@@ -730,6 +750,7 @@ export function rankingCandidates(
   ranking: RelationScanResult["ranking"],
   relType: string,
   topN = 5,
+  order?: "asc",
 ): Candidate[] {
   // Standard competition ranking (1224): equal degree = equal rank, marked 공동.
   // "가장 많은 고객을 담당하는 직원" has a 3-way tie in the sponsor data; numbering
@@ -740,11 +761,15 @@ export function rankingCandidates(
     const tied = ranking.filter((x) => x.count === r.count).length > 1;
     return { ...r, i, rank, tied };
   });
-  return withRank.slice(0, topN).map((r) => ({
+  // 적은 쪽부터(asc)는 순위 앞에 「적은 순」을 붙이고, 공동 1위가 다섯을 넘으면 그 전부를 싣는다(답 문장이 이름을 다 적는다,
+  // pipeline.ts fewestAnswer). 많은 쪽부터는 종전 글 그대로다(TC-132, TC-133).
+  const asc = order === "asc";
+  const n = asc ? Math.max(topN, withRank.filter((r) => r.rank === 1).length) : topN;
+  return withRank.slice(0, n).map((r) => ({
     canonicalKey: entityKey(r.type, r.entityId),
     sourceKey: `graph#r${r.i}`,
     source: "graph" as const,
-    text: `[그래프 집계] ${r.name} (${r.type}) — ${relLabel(relType)} ${r.count}건, ${r.tied ? "공동 " : ""}${r.rank}위`,
-    provenance: `relation-rank:${relType}:#${r.rank}${r.tied ? "-tied" : ""}`,
+    text: `[그래프 집계] ${r.name} (${r.type}) — ${relLabel(relType)} ${r.count}건, ${asc ? "적은 순 " : ""}${r.tied ? "공동 " : ""}${r.rank}위`,
+    provenance: `relation-rank${asc ? "-asc" : ""}:${relType}:#${r.rank}${r.tied ? "-tied" : ""}`,
   }));
 }

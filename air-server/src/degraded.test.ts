@@ -1047,5 +1047,20 @@ const deadEmbedder: Embedder = {
   ok(p.rowCount === 500 && p.rows.length === 200 && plain.log.includes(sales) && !plain.log.some((q) => /^(DECLARE|FETCH|SAVEPOINT)/.test(q)), "cursor 를 주지 않으면 종전 그대로");
 }
 
+// 그래프 집계의 「가장 적은」(랜덤 테스트 사전 점검 2차 R6). 공동 1위가 둘 이상이면 모델에게 간 줄의 이름을 다 적고, 잘린 것은 건수로 말한다.
+{
+  const { fewestAnswer } = await import("./pipeline.js");
+  const few = (strategy: string, entries: string[], kept: string[], route = "graph") =>
+    fewestAnswer({
+      route,
+      graph: { strategy, fewest: { relType: "MANAGES_ACCOUNT", count: 0, entries: entries.map((n) => ({ name: n, text: `t:${n}` })) } },
+      curated: { kept: kept.map((n) => ({ text: `t:${n}` })) },
+    } as unknown as Parameters<typeof fewestAnswer>[0]);
+  ok(few("relation-scan", ["윤소연", "박소연", "홍서연"], ["윤소연", "박소연"]) === "가장 적은 쪽 공동 1위가 3건입니다(담당 고객사 0건): 윤소연, 박소연 외 1건.", "공동이면 이름을 다 적고 잘린 것은 건수로");
+  ok(few("relation-scan", ["윤소연"], ["윤소연"]) === undefined, "하나뿐이면 모델이 답한다");
+  ok(few("seeded+relation-scan", ["윤소연", "박소연"], ["윤소연", "박소연"]) === undefined, "시드가 있는 질문의 전체 순위로는 답하지 않는다");
+  ok(few("relation-scan", ["윤소연", "박소연"], ["윤소연", "박소연"], "structured") === undefined, "그래프 레인일 때만");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

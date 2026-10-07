@@ -269,5 +269,14 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   }
 }
 
+// ── 그래프 집계의 방향 (랜덤 테스트 2차 R6) ─────────────────────────────
+{
+  eq(route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, "가장 적은 → 적은 쪽부터");
+  eq(buildGraphPlan("이슈가 가장 낮은 제품", ["REPORTED_ISSUE"], true).order, "asc", "가장 낮은 → 적은 쪽부터");
+  // 「많은」은 종전 계획 그대로(TC-132, TC-133). order 키가 없다.
+  eq(route("가장 많은 고객을 담당하는 직원은?").graphPlan, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source" }, "가장 많은 → 종전 그대로");
+  eq(buildGraphPlan("기술 지원 이슈가 가장 많은 제품은?", ["REPORTED_ISSUE"], true), { relTypes: ["REPORTED_ISSUE"], aggregate: "target" }, "TC-133 계획 그대로");
+}
+
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

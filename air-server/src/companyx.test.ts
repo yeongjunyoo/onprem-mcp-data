@@ -182,6 +182,13 @@ async function live() {
   const tied = tie.items.filter((i) => i.text.includes("공동 1위"));
   ok(tied.length >= 2, `tied top rank is rendered as 공동 (got ${tied.length})`);
 
+  // 「가장 적은」은 적은 쪽부터, 엣지가 없는 개체도 0건으로 센다(랜덤 테스트 2차 R6). 담당 고객사가 없는 직원 15명, 1곳은 9명.
+  const fewScan = await relationScan(pool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, schema);
+  const zeros = fewScan.ranking.filter((r) => r.count === 0).length;
+  eq([fewScan.ranking.length, zeros, fewScan.ranking.filter((r) => r.count === 1).length], [45, 15, 9], "fewest scan counts every employee, zero-edge ones first");
+  const fewLane = await graphLane(pool, "담당하는 고객사가 가장 적은 직원은 누구야?", 5, 2, schema, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" });
+  ok(fewLane.fewest?.entries.length === 15 && fewLane.fewest.count === 0, `graph lane carries all 15 tied fewest (got ${fewLane.fewest?.entries.length})`);
+
   // Unresolved-entity gate: no fabricated context for an entity absent from the data.
   const missing = await graphLane(pool, "서울물산 담당 엔지니어는 누구야?", 5, 2, schema);
   eq(missing.strategy, "unresolved", "absent entity -> unresolved gate");
