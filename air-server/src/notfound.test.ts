@@ -23,7 +23,7 @@
 import type { Pool } from "pg";
 
 import type { Embedder } from "./embedder.js";
-import { entityLikeName, joinSpacedIds, ontologySearch, seedTerms } from "./graph.js";
+import { entityLikeName, joinSpacedIds, likeLiteral, ontologySearch, seedTerms } from "./graph.js";
 import {
   NOT_FOUND_SIMILARITY,
   absentAttribute,
@@ -290,6 +290,8 @@ const fakePool = {
     ok(joinSpacedIds(q) === q, `복수형, 대문자 낱말, 영어 낱말, 외부 id, 사전에 없는 이름은 그대로: ${q}`);
   }
   installOntology([], []);
+  // R12: LIKE 패턴에는 낱말을 글자 그대로 넣는다.
+  ok(likeLiteral("a_b%c\\d") === "a\\_b\\%c\\\\d" && likeLiteral("Product-C1") === "Product-C1", "LIKE 패턴의 밑줄, %, 역슬래시를 이스케이프한다");
 
   // D5: 서수와 영어 기능어는 개체가 아니고, 못 찾은 개체로는 이름처럼 생긴 낱말을 먼저 댄다.
   ok(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?").length === 0, `「번째」를 개체로 읽지 않는다 (got ${JSON.stringify(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?"))})`);

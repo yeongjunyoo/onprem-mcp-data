@@ -154,6 +154,12 @@ async function live() {
   ok((await graphExpand(pool, held, 1, ["LEADS"], schema, "both", GRAPH_LIMITS, inProgress)).edges.length === 1, "the seed's own edges are not filtered");
 
 
+  // 밑줄과 %는 LIKE 와일드카드가 아니라 글자다(랜덤 테스트 2차 R12). 종전에는 「Client_A」가 Client-A~AD 다섯에 같은 점수로 걸렸다.
+  // 이 테스트는 라우터 사전을 설치하지 않아 Client_A 를 Client-A 로 합치지 않는다(R10 은 notfound.test).
+  const under = await ontologySearch(pool, "Client_A", 5, schema);
+  ok(under.hits.length === 0 && under.not_found?.candidates[0]?.name === "Client-A", `Client_A matches no name by wildcard (got ${under.hits.map((h) => h.canonicalName)})`);
+  eq((await ontologySearch(pool, "Client%", 5, schema)).hits.length, 0, "% is a literal character");
+
   // A department name is also a property alias on every one of its employees.
   // Canonical-exact must outrank alias-exact or the department is evicted from the
   // seed set and its HEAD_IS edge never reaches the context.

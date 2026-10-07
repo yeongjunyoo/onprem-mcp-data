@@ -157,6 +157,11 @@ export function seedTerms(query: string): string[] {
   return [...out];
 }
 
+/** LIKE, ILIKE 패턴에 넣을 낱말. 역슬래시, %, _ 를 글자 그대로 찾게 앞에 역슬래시를 붙인다(PostgreSQL 의 기본 이스케이프 문자). */
+export function likeLiteral(term: string): string {
+  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export interface OntologyResult {
   ok: boolean;
   hits: OntologyHit[];
@@ -210,16 +215,18 @@ export async function ontologySearch(
     // alias; without the split the 6 employees tie with the department and the
     // shorter-name tiebreak evicts the department itself — so the HEAD_IS edge the
     // question asks for never enters the context.
+    // LIKE 패턴에는 낱말을 글자 그대로 넣는다(t.pat, likeLiteral). 「Client_A」의 밑줄이 한 글자 와일드카드가 되어
+    // Client-A 부터 Client-AD 까지 다섯이 같은 점수로 걸렸다(랜덤 테스트 사전 점검 2차 R12).
     const scoreExpr = (col: string, exact: number) => `CASE
             WHEN lower(${col}) = lower(t.term) THEN ${exact}
-            WHEN lower(${col}) LIKE lower(t.term) || '%' THEN 2
+            WHEN lower(${col}) LIKE lower(t.pat) || '%' THEN 2
             ELSE 1 END`;
     // 여러 낱말로 된 이름(프로젝트 「Client-C DB 마이그레이션」)은 낱말로 쪼갠 대조로는
     // 통째로 잡히지 않는다. 「Client-C」가 고객사와 정확히 맞아 고객사가 시드가 되고,
     // 질문이 가리킨 프로젝트는 접두 일치 후보로 밀려 탐색되지 않았다(홀드아웃3 「Client-C DB
     // 마이그레이션, 누가 끌고 가는 거야?」). 이름이 질문에 그대로 있으면 가장 강한 시드다.
     const resolve = (ts: string[], limit: number, text: string) => pool.query(
-      `WITH t AS (SELECT unnest($1::text[]) AS term),
+      `WITH t AS (SELECT * FROM unnest($1::text[], $4::text[]) AS t(term, pat)),
             m AS (
               SELECT e.id, e.type, e.canonical_name, ${propsCol} AS properties,
                      'canonical'::text AS via, e.canonical_name AS matched, 5 AS score
@@ -231,13 +238,13 @@ export async function ontologySearch(
                      'canonical'::text AS via, t.term AS matched,
                      ${scoreExpr("e.canonical_name", 4)} AS score
                 FROM ${s}.entities e JOIN t
-                  ON e.canonical_name ILIKE '%' || t.term || '%'
+                  ON e.canonical_name ILIKE '%' || t.pat || '%'
               UNION ALL
               SELECT e.id, e.type, e.canonical_name, ${propsCol},
                      'alias', t.term, ${scoreExpr("a.alias", 3)}
                 FROM ${s}.entities e
                 JOIN ${s}.aliases a ON a.entity_id = e.id
-                JOIN t ON a.alias ILIKE '%' || t.term || '%'
+                JOIN t ON a.alias ILIKE '%' || t.pat || '%'
             )
        SELECT id, type, canonical_name, properties,
               (array_agg(via ORDER BY score DESC, via))[1] AS via,
@@ -247,7 +254,7 @@ export async function ontologySearch(
         GROUP BY id, type, canonical_name, properties
         ORDER BY max(score) DESC, length(canonical_name) ASC, id
         LIMIT $2`,
-      [ts, limit, text],
+      [ts, limit, text, ts.map(likeLiteral)],
     );
     const res = await resolve(terms, k, joinSpacedIds(query));
     const hits: OntologyHit[] = res.rows.map((r) => ({
