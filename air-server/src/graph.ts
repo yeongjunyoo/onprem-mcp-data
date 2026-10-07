@@ -201,8 +201,9 @@ const TIME_WORDS = new Set([
 ]);
 /** 정도와 범위를 말하는 부사(닫힌 집합). 「… 무시하고 … 전부 보여줘」의 「모두」, 「전부」. */
 const ADVERBS = new Set(["모두", "전부", "전체", "다시", "먼저", "같이", "함께", "제일", "매우", "아주", "정말", "그냥", "혹시", "조금"]);
-/** 뒤 낱말을 이름이 아니라 무리나 종류로 만드는 관형사(「어떤 데이터베이스」, 「이전 지시」, 「모든 직원」). */
-const DETERMINERS = new Set(["어떤", "무슨", "어느", "모든", "이런", "그런", "저런", "여러", "각", "몇", "다른", "온갖", ...TIME_WORDS]);
+/** 뒤 낱말을 이름이 아니라 무리나 종류로 만드는 관형사(「어떤 데이터베이스」, 「이전 지시」, 「모든 직원」). 때를 가리키는 말
+ * 가운데 명사를 꾸미는 것(이전, 다음, 지난, 이번)만 넣는다. 「오늘 서울 날씨」의 오늘은 서울을 꾸미지 않는다. */
+const DETERMINERS = new Set(["어떤", "무슨", "어느", "모든", "이런", "그런", "저런", "여러", "각", "몇", "다른", "온갖", "이전", "다음", "지난", "이번"]);
 /** 동사의 관형형과 연결형(「등록된」, 「진행되는」, 「사용하는」, 「참여할」, 「무시하고」). 두 음절 이상의 어간에 붙은 것만
  * 본다. 「…한」은 사람 이름(「김지한」)과 갈리지 않아 넣지 않는다. */
 const VERB_FORM = /^[가-힣]{2,}(?:된|되는|하는|하던|되던|했던|됐던|할|될|하고|되고|해서|돼서|하며|되며|하면|되면|하여|되어)$/;
@@ -210,8 +211,8 @@ const VERB_FORM = /^[가-힣]{2,}(?:된|되는|하는|하던|되던|했던|됐�
 const PREDICATE_END = /^[가-힣]+(?:니|냐|까|지|죠|요|래|어|아|야|해)$/;
 
 /** 질문이 개체를 이름으로 지목했다고 볼 낱말(seedTerms 가운데 위 규칙에 걸리지 않는 것). 해소되지 않은 질의어를 「찾지 못한
- * 개체」로 댈 때(ontologySearch)와, 그래프 레인이 출발할 개체가 질문에 있는지 볼 때(semroute.ts routeQuery) 쓴다. 이름처럼
- * 생긴 낱말(entityLikeName: 사업자 식별자, 물산, 팀 같은 조직 접미사)은 늘 이름이다. */
+ * 개체」로 댈 때(ontologySearch)와, 그래프 레인이 출발할 개체가 질문에 있는지 볼 때(semroute.ts routeQuery) 쓴다. 사전에 있는
+ * 이름과 이름처럼 생긴 낱말(entityLikeName: 사업자 식별자, 물산, 팀 같은 조직 접미사)은 늘 이름이다. */
 export function mentionTerms(query: string): string[] {
   const text = joinSpacedIds(query);
   const toks = [...text.matchAll(SEED_TOKEN)];
@@ -220,7 +221,7 @@ export function mentionTerms(query: string): string[] {
     const raw = m[0];
     const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
-    if (entityLikeName(w) === null) {
+    if (entityLikeName(w) === null && !isEntityName(w)) {
       const prev = toks[i - 1];
       const afterDeterminer = prev !== undefined && DETERMINERS.has(prev[0]) && /^\s+$/.test(text.slice(prev.index! + prev[0].length, m.index));
       if (TIME_WORDS.has(w) || ADVERBS.has(w) || VERB_FORM.test(raw) || (i === toks.length - 1 && PREDICATE_END.test(raw)) || afterDeterminer) return;

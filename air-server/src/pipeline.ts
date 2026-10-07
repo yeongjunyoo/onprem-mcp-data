@@ -39,6 +39,7 @@ import {
   ontologySearch,
   seedTerms,
   mentionTerms,
+  entityLikeName,
   graphExpand,
   graphWalk,
   relationScan,
@@ -81,6 +82,8 @@ export interface RetrieveResult {
     refused?: { kind: string; text: string };
     absent?: string;
     rank?: number;
+    /** 질문이 이름처럼 생긴 낱말로 지목했는데 데이터에 없는 개체(sqlMissingNames). 있을 때만. */
+    missing?: NotFound[];
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
@@ -344,6 +347,21 @@ export async function graphLane(
   };
 }
 
+/** 정형 레인 질문이 이름처럼 생긴 낱말(Client-ZZ 꼴, 물산, 팀 같은 조직 접미사, graph.ts mentionTerms)로 지목했는데 온톨로지에서
+ * 찾지 못한 개체마다의 사유. 정형 레인에는 개체 게이트가 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」에 「서울물산의 … 매출액은
+ * 없습니다.」라고 서울물산이 있는 고객사처럼 답했다. 「등록된」, 「어떤」, 「이전」 같은 말은 이름이 아니라 보지 않는다. Company-X 는
+ * 이름을 가진 표(고객사, 제품, 직원, 부서, 프로젝트)가 모두 온톨로지 노드라 그 프로파일에서만 쓴다. */
+export async function sqlMissingNames(pool: Pool, query: string, schema = kgSchema()): Promise<NotFound[]> {
+  const out: NotFound[] = [];
+  for (const term of mentionTerms(query)) {
+    const name = entityLikeName(term);
+    if (!name) continue;
+    const o = await ontologySearch(pool, name, 1, schema);
+    if (o.ok && !o.hits.length && o.not_found) out.push(o.not_found);
+  }
+  return out;
+}
+
 export interface DocCountResult {
   request: DocCountRequest;
   ok: boolean;
@@ -504,6 +522,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     const vague = vagueMeasure(query, profile().sqlSchema);
     if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     const report: Nl2SqlReport = {};
+    const missing = profile().name === "companyx" ? await sqlMissingNames(pool, query) : [];
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
@@ -519,6 +538,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       repaired: ex.repaired || undefined,
       ...(ex.gate ? { gate: ex.gate } : {}),
       ...(ex.rank ? { rank: ex.rank } : {}),
+      ...(missing.length ? { missing } : {}),
     };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
@@ -664,6 +684,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(sql.refused ? { refused: sql.refused } : {}),
       ...(sql.absent ? { absent: sql.absent } : {}),
       ...(sql.rank ? { rank: sql.rank } : {}),
+      ...(sql.missing ? { missing: sql.missing } : {}),
     },
     vector: vecResult,
     graph: graphResult,
@@ -788,8 +809,12 @@ export async function ask(
 
   // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
   // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
+  // 정형 레인 질문이 데이터에 없는 개체를 이름으로 지목했고 생성 SQL 이 그 이름을 그대로 찾았으면 그 사유를 답 앞에 붙인다
+  // (sqlMissingNames). SQL 이 그 이름을 찾지 않았으면(모델이 다른 이름으로 찾았으면) 사유와 답이 어긋나 붙이지 않는다.
+  const sqlMissing = (r.sql.missing ?? []).filter((nf) => r.sql.text?.includes(nf.query_entity));
+  const missingSqlHead = sqlMissing.length ? `${sqlMissing.map(describeNotFound).join(" ")}\n\n` : "";
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
-  if (tie) return { ...r, answer: withSqlRows(r, tie) };
+  if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.
   const few = fewestAnswer(r);
   if (few) return { ...r, answer: few };
@@ -797,7 +822,7 @@ export async function ask(
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
   const missingLines = new Set((r.missing ?? []).map((nf) => `[그래프] ${describeNotFound(nf)}`));
-  const head = missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "";
+  const head = (missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "") + missingSqlHead;
   const answerContext = missingLines.size
     ? r.context.split("\n").filter((l) => !missingLines.has(l)).join("\n")
     : r.context;

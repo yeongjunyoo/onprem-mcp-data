@@ -1531,5 +1531,57 @@ const deadEmbedder: Embedder = {
   else process.env.DATASET = savedDataset;
 }
 
+// 정형 레인에는 개체 게이트가 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」(TC-143)에 「서울물산의 … 매출액은 없습니다.」라고
+// 서울물산이 있는 고객사처럼 답했다. 이름처럼 생긴 낱말이 온톨로지에 없고 생성 SQL 이 그 이름을 그대로 찾았으면 사유를 답 앞에 붙인다.
+// 답의 나머지와 조회 행 블록은 그대로다.
+{
+  const savedDataset = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  const KNOWN = ["Client-A", "기술지원팀", "Product-C1", "김준혁"];
+  const ontoPool = (sqlRows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? sqlRows : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string, params?: unknown[]) => {
+        if (sql.includes("information_schema.columns")) return { rowCount: 1, rows: [{}] };
+        if (sql.includes("canonical_name AS name")) return { rowCount: KNOWN.length, rows: KNOWN.map((name) => ({ name, type: "client" })) };
+        if (sql.includes("WITH t AS")) {
+          const terms = (params?.[0] ?? []) as string[];
+          const rows = KNOWN.flatMap((name, id) =>
+            terms.some((t) => name.toLowerCase().includes(t.toLowerCase()))
+              ? [{ id, type: "client", canonical_name: name, properties: null, via: "canonical", matched: terms[0], score: 4 }]
+              : [],
+          );
+          return { rowCount: rows.length, rows };
+        }
+        return { rowCount: 0, rows: [] };
+      },
+    }) as unknown as Pool;
+  const tc143 = "서울물산의 2025년 3분기 총 매출액은 얼마야?";
+  const sumSql = (name: string) => `SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE client_id IN (SELECT id FROM companyx.clients WHERE name = '${name}') AND quarter = '2025-Q3'`;
+  const llm = async () => "서울물산의 2025년 3분기 총 매출액은 없습니다.";
+  const r = await ask(tc143, { pool: ontoPool([{ total_sales: null }]), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => sumSql("서울물산") });
+  ok(
+    r.answer ===
+      "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.\n\n" +
+        "서울물산의 2025년 3분기 총 매출액은 없습니다.\n\n[조회 결과 1건]\n- total_sales: null",
+    `없는 개체의 사유를 답 앞에 붙이고 답과 행 블록은 그대로 (got ${JSON.stringify(r.answer)})`,
+  );
+  ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
+  const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });
+  ok(other.answer.startsWith("120입니다."), `생성 SQL 이 그 이름을 찾지 않았으면 사유를 붙이지 않는다(답과 어긋남) (got ${other.answer})`);
+  for (const q of ["Client-A의 2025년 3분기 총 매출액은 얼마야?", "기술지원팀 직원들의 평균 연봉은?", "Product-C1 매출 합계는?", "김준혁이 담당한 계약의 총 금액은 얼마야?", "2019년에 등록된 고객사는 몇 개야?"]) {
+    const ex = await ask(q, { pool: ontoPool([{ n: 1 }]), embedder: deadEmbedder, repair: false, llm: async () => "답", nl2sql: async () => "SELECT 1 AS n FROM companyx.clients" });
+    ok(ex.sql.missing === undefined && ex.answer.startsWith("답"), `있는 이름, 이름이 아닌 말에는 붙지 않는다: ${q} (got ${ex.answer})`);
+  }
+  if (savedDataset === undefined) delete process.env.DATASET;
+  else process.env.DATASET = savedDataset;
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
