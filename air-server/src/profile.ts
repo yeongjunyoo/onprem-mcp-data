@@ -23,6 +23,9 @@ export interface DatasetProfile {
   name: DatasetName;
   /** Schema holding entities/aliases/relations for the graph lane. */
   kgSchema: string;
+  /** 정형 레인의 테이블이 있는 SQL 스키마. 생성 SQL 검사가 이 스키마의 외래키와 컬럼을 읽는다.
+   * kgSchema 와 다를 수 있다(smoke 는 그래프를 bench 에서 빌리고 테이블은 public 에 있다). */
+  sqlSchema: string;
   /** Table (or view) exposing id/title/body/embedding for vector.search. */
   vectorTable: string;
   /** NL->SQL strategy bound to this corpus's schema card. */
@@ -39,6 +42,7 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
   smoke: {
     name: "smoke",
     kgSchema: "bench", // the smoke seed has no KG of its own
+    sqlSchema: "public", // sql/init/01_schema.sql
     vectorTable: "documents",
     nl2sql: llmNL2SQL,
     schemaCard: SCHEMA_DDL,
@@ -47,6 +51,7 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
   bench: {
     name: "bench",
     kgSchema: "bench",
+    sqlSchema: "bench", // eval/internal/schema.sql
     vectorTable: "bench.documents",
     nl2sql: benchNL2SQL,
     schemaCard: BENCH_SCHEMA_DDL,
@@ -55,6 +60,7 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
   companyx: {
     name: "companyx",
     kgSchema: "companyx",
+    sqlSchema: "companyx",
     vectorTable: "companyx.documents",
     nl2sql: companyxNL2SQL,
     // MCP 스키마 리소스가 보여 주는 카드 = 생성 프롬프트가 쓰는 카드.
