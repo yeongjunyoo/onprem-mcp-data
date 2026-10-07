@@ -38,6 +38,7 @@ import { answer as llmAnswer } from "./llm.js";
 import {
   ontologySearch,
   seedTerms,
+  mentionTerms,
   graphExpand,
   graphWalk,
   relationScan,
@@ -223,6 +224,9 @@ export async function graphLane(
   // does not match. A similar name is reported, never expanded.
   if (onto.hits.length === 0 && !(p?.aggregate || p?.filter)) {
     const terms = seedTerms(query);
+    // 찾지 못한 대상으로는 이름을 지목한 낱말만 댄다(graph.ts mentionTerms). 「등록된」, 「어떤 데이터베이스」만 있으면 개체를
+    // 지목하지 않은 질문이라 「개체 이름으로 볼 낱말을 찾지 못해」 문장이다.
+    const mentions = mentionTerms(query);
     return {
       seeds: [],
       edgeCount: 0,
@@ -237,8 +241,8 @@ export async function graphLane(
           // 「대상()」처럼 빈 괄호를 보였고, 없는 개체를 단정하는 문장도 맞지 않았다.
           text: onto.not_found
             ? `[그래프] ${describeNotFound(onto.not_found)}`
-            : terms.length
-              ? `[그래프] 질의에 등장한 대상(${terms.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
+            : mentions.length
+              ? `[그래프] 질의에 등장한 대상(${mentions.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
               : "[그래프] 질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.",
           provenance: "ontology:unresolved",
         },

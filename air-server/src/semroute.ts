@@ -28,6 +28,7 @@
 // 질문에 같은 결정이 나온다.
 import type { Embedder } from "./embedder.js";
 import { profile } from "./profile.js";
+import { mentionTerms } from "./graph.js";
 import {
   route,
   maskEntities,
@@ -212,11 +213,22 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   // 그래프로 넘길 때 탐색할 엣지: 규칙의 타입쌍 추론이 있으면 그것을, 없으면 최근접
   // 앵커의 유형(= 엣지 타입)을 쓴다.
   const rel = d.typePair?.relation ?? (v.nearest.lane === "knowledge_graph" ? v.nearest.type : undefined);
+  const plan = v.lane === "knowledge_graph" ? buildGraphPlan(query.trim(), rel ? [rel] : [], superlative) : undefined;
+  // 그래프 레인은 질문이 이름을 댄 개체(graph.ts mentionTerms)나 관계 집계, 상태 조건에서 출발한다. 셋 다 없으면 그래프 판정은
+  // 쓸 데가 없어, 규칙이 고른 다른 레인이 있으면 그것을 둔다. 「2019년에 등록된 고객사 목록을 보여줘」는 규칙이 정형(격차 2)을
+  // 골랐는데 앵커 「{제품} 들어가 있는 고객 목록」이 그래프로 보내 「개체(등록된)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 2차).
+  if (plan && d.gate.pick !== null && d.gate.pick !== "knowledge_graph" && !plan.aggregate && !plan.filter && !mentionTerms(query).length) {
+    return {
+      ...d,
+      rationale: `${d.rationale}; semantic knowledge_graph not applied (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)}): no entity named to start from`,
+      semantic: v,
+    };
+  }
   return {
     ...d,
     route: t.route,
     tools: t.tools,
-    graphPlan: v.lane === "knowledge_graph" ? buildGraphPlan(query.trim(), rel ? [rel] : [], superlative) : undefined,
+    graphPlan: plan,
     rationale: `rule margin ${d.gate.margin} < gate; semantic ${v.lane} (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)})`,
     semantic: { ...v, applied: true },
   };
