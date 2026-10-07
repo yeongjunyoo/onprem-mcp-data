@@ -52,10 +52,13 @@ export const LANE_LABEL: Record<Route, string> = {
   hybrid: "nl2sql+vector_search",
 };
 
+/** 최상급. 그래프 집계는 첫 낱말이 적, 낮, 작이면 적은 쪽부터 센다(buildGraphPlan). */
+const SUPERLATIVE = /가장\s*(많|적|높|낮|큰|작)/;
+
 const STRUCTURED_SIGNALS: [RegExp, string][] = [
   [/개수|몇\s*[개건명]|몇\s*\w+(이야|인가|일까)|건수|총\s*몇|카운트/, "count"],
   [/합계|총합|평균|최대|최소|최고|최저|중앙값|분포|통계/, "aggregate"],
-  [/가장\s*(많|적|높|낮|큰|작)/, "superlative"],
+  [SUPERLATIVE, "superlative"],
   [/이상|이하|초과|미만|보다\s*(크|작|높|낮|많|적)/, "comparison"],
   [/정렬|순위|순으로|순서로|상위|하위|top\s*\d+|랭킹|오름차순|내림차순/, "sort"],
   [/\d{4}[-./]\d{1,2}|\d{4}년|\d\s*분기|최근|지난\s*(달|주|해|분기|\d+)|이번\s*(달|주|분기)|작년|올해|어제|오늘|날짜별|월별|연도별/, "time_filter"],
@@ -102,6 +105,22 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
 ];
 
+/** 그래프에 관계로 없는 표와 문서의 항목. 이 낱말이 든 질문의 「담당」은 계약 담당(contracts.manager_id), 티켓 처리
+ * 담당(support_tickets.assignee_id), 장애 대응 담당(장애 보고서)이지 고객 담당 관계(MANAGES_ACCOUNT)가 아니다.
+ *
+ * 그래프는 노드 5종(고객사, 제품, 직원, 프로젝트, 부서)과 엣지 7종뿐이다. 계약과 티켓은 USES, REPORTED_ISSUE 엣지의 속성
+ * (contract_id, amount, ticket_id)으로만 남고 담당자가 없다. 매출, 연봉과 급여, 장애는 그래프에 없고, 예산은 프로젝트
+ * 노드의 속성이라 관계가 아니다(그래프 레인은 속성을 근거로 싣지 않는다). 그래서 「계약을 가장 많이 담당한 직원」이 맡은
+ * 고객사 수 순위로 답했고, 「티켓 7번 담당자」는 고객 담당 그래프에서 「티켓」을 개체로 찾았다(랜덤 테스트 사전 점검 2차 R1).
+ * 이 낱말이 있으면 규칙은 「담당」을 MANAGES_ACCOUNT 동사로 세지 않고, 시맨틱 폴백의 그래프 판정도 적용하지 않는다
+ * (semroute.ts routeQuery). */
+const TABLE_ONLY_NOUN = /티켓|계약|장애|매출|금액|연봉|급여|예산/;
+
+/** 질문에 든 그래프 밖 항목(TABLE_ONLY_NOUN)의 첫 낱말. 없으면 undefined. */
+export function tableOnlyNoun(q: string): string | undefined {
+  return TABLE_ONLY_NOUN.exec(q)?.[0];
+}
+
 // 타입 미지정 관계 신호. "연결된/이어진"은 어떤 엣지인지 문장만으로는 정해지지
 // 않지만, 컬럼이나 문서가 아닌 「엣지」를 묻는다는 것만은 확정적이다.
 // RELATED_TO는 buildGraphPlan이 relTypes에서 털어내므로 무타입 확장으로 간다.
@@ -143,6 +162,8 @@ export interface GraphPlan {
   relTypes: string[];
   /** Rank endpoints by degree on this side — set for superlative questions. */
   aggregate?: "source" | "target";
+  /** 최상급이 「가장 적은, 낮은, 작은」이면 asc(적은 쪽부터, 엣지가 없는 개체는 0건). 없으면 많은 쪽부터. */
+  order?: "asc";
   /** Node-property filter parsed from the query (진행 중 -> status=in_progress). */
   filter?: { side: "source" | "target"; key: string; value: string };
 }
@@ -243,14 +264,22 @@ const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value
   [/계획\s*(중|단계)/, { side: "target", key: "status", value: "planning" }],
 ];
 
+/** 상태 낱말 뒤 같은 마디에 오면 그 상태로 거르라는 말이 아닌 것: 「계획 중인 것도 빼지 마」, 「완료된 건 빼고」,
+ * 「진행 중이 아닌」, 「완료된 것까지 포함해서」. 조건은 시드의 엣지에도 걸리므로(pipeline.ts graphLane) 이런 말을
+ * 조건으로 읽으면 묻지 않은 상태만 남거나 반대로 거른다. 그때는 거르지 않는다. */
+const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함)/;
+
 export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   if (superlative && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
+    // 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위(3곳씩 맡은 둘)를 답했다(랜덤 테스트 사전 점검 2차 R6).
+    if (/^[적낮작]$/.test(SUPERLATIVE.exec(q)?.[1] ?? "")) plan.order = "asc";
   }
   for (const [re, f] of PROPERTY_FILTERS) {
-    if (re.test(q)) {
-      plan.filter = f;
+    const m = re.exec(q);
+    if (m) {
+      if (!NOT_A_RESTRICTION.test(q.slice(m.index + m[0].length))) plan.filter = f;
       break;
     }
   }
@@ -270,6 +299,12 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
 // 왜 필요한가: 홀드아웃 2차(구어체)에서 knowledge_graph strict 1/10이 나왔고,
 // 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
 let ENTITY_LEXICON: { name: string; type: string }[] = [];
+let ENTITY_NAMES = new Set<string>();
+
+/** 이 이름(정본 이름이나 한 개체만 가리키는 별칭)이 설치된 온톨로지 사전에 있는가. 사전이 없으면 false. */
+export function isEntityName(name: string): boolean {
+  return ENTITY_NAMES.has(name);
+}
 
 /** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
  *
@@ -311,6 +346,7 @@ export function installOntology(
   }
   // 긴 이름부터 대조해 부분 일치를 막는다.
   ENTITY_LEXICON.sort((a, b) => b.name.length - a.name.length);
+  ENTITY_NAMES = new Set(seen);
 
   // 타입쌍 -> 엣지. 노드 id 접두사가 타입이다(client_7 -> client).
   const typeOf = new Map<string, string>();
@@ -542,7 +578,10 @@ export function route(query: string): RouteDecision {
   const q = query.trim();
   const s = scan(q.replace(FULL_DAY, " "), STRUCTURED_SIGNALS);
   const m = scan(q, SEMANTIC_SIGNALS);
-  const verbs = scan(q, RELATION_VERBS);
+  // 계약, 티켓, 장애 같은 그래프 밖 항목의 「담당」은 고객 담당 관계가 아니다(TABLE_ONLY_NOUN).
+  const tableNoun = tableOnlyNoun(q);
+  const allVerbs = scan(q, RELATION_VERBS);
+  const verbs = tableNoun ? allVerbs.filter((v) => v !== "MANAGES_ACCOUNT") : allVerbs;
   const generic = scan(q, GENERIC_RELATION_VERBS);
   const nouns = scan(q, RELATION_NOUNS);
   const docs = scan(q, DOC_SIGNALS);
@@ -626,6 +665,7 @@ export function route(query: string): RouteDecision {
     // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
+  if (verbs.length < allVerbs.length) rationale += `; 담당 not counted as MANAGES_ACCOUNT (table noun ${tableNoun})`;
 
   const scores: Record<Lane, number> = {
     nl2sql: WEIGHT.structured * s.length,

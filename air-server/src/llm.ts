@@ -25,6 +25,7 @@
 // from L4 is fed whole rather than aggressively trimmed.
 
 import { postJson } from "./ollamahttp.js";
+import { annotateMoney } from "./money.js";
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 /** 기본 생성 모델. **여기서만 정한다** — 2026-08-19 모델 교체에서 이 값을
@@ -154,9 +155,31 @@ export function buildAnswerPrompt(query: string, context: string): string {
     "[컨텍스트]",
     context.trim() || "(없음)",
     "",
-    `[질문] ${questionForModel(query)}`,
+    `[질문] ${answerQuestionForModel(query)}`,
     "[답변]",
   ].join("\n");
+}
+
+/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). 올해와 금년은 다루지 않는다
+ * (nl2sql.ts absoluteYears 의 실측). 둘째 묶음은 뒤에 붙은 「도」(작년도). */
+export const RELATIVE_YEAR: Record<string, number> = { 재작년: -2, 작년: -1, 지난해: -1, 내년: 1 };
+export const RELATIVE_YEAR_RE = /(재작년|작년|지난해|내년)(도?)/g;
+
+/** 서울 시각으로 오늘의 연도. */
+export function seoulYear(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
+}
+
+/** 답 프롬프트의 질문 줄. 상대 연도 뒤에 연도를, 금액 표현 뒤에 만원 값을 괄호로 덧붙인다: 「작년 매출」 → 「작년(2025년)
+ * 매출」, 「1억 원」 → 「1억 원(=10000만 원)」. 생성 SQL 은 이미 2025년과 만원으로 조회하는데 답 모델은 그 연결을 몰라
+ * 「작년 매출은 얼마야?」에 조회 행 112,773 을 두고 「알 수 없습니다」라고 했고(3/3), 계약 금액 11000(만원)을 「11,000 원」이라고
+ * 썼다(랜덤 테스트 2차 뒤 실측, 2026-10-08). 낱말은 지우지 않고 덧붙이기만 한다. 상대 연도와 금액 표현이 없는 질문은
+ * questionForModel 결과 그대로다. */
+export function answerQuestionForModel(query: string, now: Date = new Date()): string {
+  const year = seoulYear(now);
+  return fitAnnotated(query, (q) =>
+    annotateMoney(q.replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`)),
+  );
 }
 
 export async function answer(query: string, context: string, opts?: GenOptions): Promise<string> {
@@ -179,4 +202,23 @@ export function questionForModel(query: string): string {
   if (chars.length <= LLM_QUESTION_MAX_CHARS) return query;
   console.error(`[생성] 질문 ${chars.length}자가 생성 모델 문맥에 다 들어가지 않아 앞 ${LLM_QUESTION_MAX_CHARS}자만 넣는다`);
   return chars.slice(0, LLM_QUESTION_MAX_CHARS).join("");
+}
+
+/** 덧붙인 질문 줄(상대 연도의 연도, 금액의 만원 값)을 상한 안으로. 덧붙이면 길어지므로 상한은 덧붙인 뒤의 길이에 건다. 원문을
+ * 먼저 자르고 덧붙이면 금액 표현이 많은 질문은 상한 근처에서 수천 자가 늘어 문맥을 넘었다(PR #257 Codex). 덧붙인 결과가 상한 안에
+ * 드는 원문 앞부분을 골라 거기에 다시 덧붙이므로 괄호 한가운데서 잘린 값(「2억 원(=200」)은 생기지 않는다. 덧붙일 것이 없으면
+ * questionForModel 과 같다. */
+export function fitAnnotated(query: string, annotate: (q: string) => string): string {
+  const whole = annotate(query);
+  if (Array.from(whole).length <= LLM_QUESTION_MAX_CHARS) return whole;
+  const chars = Array.from(query);
+  let lo = 0;
+  let hi = Math.min(chars.length, LLM_QUESTION_MAX_CHARS);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (Array.from(annotate(chars.slice(0, mid).join(""))).length <= LLM_QUESTION_MAX_CHARS) lo = mid;
+    else hi = mid - 1;
+  }
+  console.error(`[생성] 질문 ${chars.length}자가 생성 모델 문맥에 다 들어가지 않아 앞 ${lo}자만 넣는다`);
+  return annotate(chars.slice(0, lo).join(""));
 }

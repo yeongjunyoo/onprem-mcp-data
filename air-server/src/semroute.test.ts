@@ -153,6 +153,13 @@ const marker = new MarkerEmbedder();
   ok(/semantic knowledge_graph/.test(d.rationale), "근거에 시맨틱이 남는다");
   ok(d.graphPlan !== undefined, "그래프 탐색 계획이 붙는다");
 
+  // 그래프에 관계로 없는 항목(계약)을 묻는 질문은 그래프 앵커가 가까워도 그래프로 보내지 않는다(랜덤 테스트 2차 R1).
+  const table = "계약 말썽 많이 나는 편이야?";
+  const kept = await routeQuery(table, marker);
+  eq(kept.semantic?.lane, "knowledge_graph", "시맨틱은 그래프라고 본다");
+  eq([kept.route, kept.semantic?.applied], [route(table).route, false], "그래프 밖 항목이면 시맨틱의 그래프 판정은 적용하지 않고 규칙 결정 그대로");
+  ok(/semantic knowledge_graph not applied .*: table noun 계약 has no graph edge$/.test(kept.rationale), `근거에 적용하지 않은 이유가 남는다 (got ${kept.rationale})`);
+
   // 규칙이 확신하는 질문에는 폴백이 끼어들지 않는다.
   const sure = "Client-A가 사용 중인 제품 목록은?";
   eq(JSON.stringify(await routeQuery(sure, marker)), JSON.stringify(route(sure)), "확신 구간은 규칙 그대로");
@@ -201,6 +208,14 @@ const marker = new MarkerEmbedder();
   const failures = outs.map((o) => strict.safeParse(o)).filter((r) => !r.success).map((r) => (r.success ? "" : r.error.issues[0]?.message));
   eq(failures, [], "route 출력 세 경우가 공개 스키마를 통과한다");
   ok(!strict.safeParse({ ...outs[0], surprise: 1 }).success, "스키마 밖의 필드는 거부된다(클라이언트와 같은 엄격도)");
+  // 공개 JSON Schema 는 안쪽 객체(graph_plan)의 추가 필드도 막는다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
+  const plan = ROUTE_OUTPUT_SCHEMA.graph_plan.unwrap().strict();
+  const plans = [
+    route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan,
+    route("가장 많은 고객을 담당하는 직원은?").graphPlan,
+    route("진행 중인 프로젝트를 이끄는 직원 목록").graphPlan,
+  ];
+  ok(plans.every((p) => p && plan.safeParse(p).success) && plans[0]?.order === "asc", `graph_plan(order, filter 포함)이 공개 스키마를 통과한다 (got ${JSON.stringify(plans)})`);
 }
 
 // ── 평가는 서버와 같은 라우터 상태에서 돈다 ─────────────────────────────

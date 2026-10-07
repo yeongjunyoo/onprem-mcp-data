@@ -32,7 +32,7 @@ import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
 import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
-import { tieAnswer, untrustedAnswer, type SqlGate } from "./sqltrust.js";
+import { tieAnswer, untrustedAnswer, vagueMeasure, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
@@ -46,7 +46,9 @@ import {
   seedEdgeCandidates,
   pathCandidates,
   rankingCandidates,
+  relLabel,
   kgSchema,
+  GRAPH_LIMITS,
   type GraphEdge,
   type GraphTruncation,
 } from "./graph.js";
@@ -66,9 +68,10 @@ export interface RetrieveDeps {
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했을 때만 붙는다. refused 는 생성 모델이 만들었지만
-   * 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때
-   * 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가 null 이다. */
+  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했거나 질문이 측정 항목 한 낱말뿐이라(gate.vague) SQL 을
+   * 만들지 않았을 때만 붙는다. refused 는 생성 모델이 만들었지만 실행하지 않은 문장(nl2sql.ts pickSql), absent 는 질문이
+   * 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목(notfound.ts absentAttribute). refused 와 absent 는 text 가
+   * null 이다. rank 는 순위 질문을 그 순위의 행을 모두 돌려주는 SQL(sqltrust.ts rankRewrite)로 실행했을 때 그 순위다. */
   sql: {
     text: string | null;
     result?: SqlResult;
@@ -76,6 +79,7 @@ export interface RetrieveResult {
     gate?: SqlGate;
     refused?: { kind: string; text: string };
     absent?: string;
+    rank?: number;
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
@@ -116,6 +120,8 @@ export interface GraphLaneResult {
   edgeCount: number;
   strategy: "seeded" | "relation-scan" | "seeded+relation-scan" | "unresolved" | "none";
   ranking?: { name: string; type: string; count: number }[];
+  /** 「가장 적은」(계획 order=asc) 집계의 공동 1위 전부. 답 문장이 이름을 다 적는다(fewestAnswer). */
+  fewest?: { relType: string; count: number; entries: { name: string; text: string }[] };
   items: Candidate[];
   /** strategy 가 unresolved 일 때 왜 못 찾았는지. */
   not_found?: NotFound;
@@ -255,10 +261,12 @@ export async function graphLane(
     const walk =
       p && process.env.GRAPH_PATH_FIT !== "0" ? fitPlanToSeed(p.relTypes, hit.type, answerQuery ?? query, others) : undefined;
     if (walk?.fitted) fitted.push(`${hit.canonicalName}: ${walk.fitted}`);
+    // 계획의 속성 조건(진행 중 → status=in_progress)은 시드의 엣지에도 건다. 관계 스캔에만 걸려 「Client-AC에서 진행 중인
+    // 프로젝트」에 보류 프로젝트가 섞였다(랜덤 테스트 사전 점검 2차 R4).
     const exp =
       walk && walk.hops.length > 1
-        ? await graphWalk(pool, hit.entityId, walk.hops, schema)
-        : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both");
+        ? await graphWalk(pool, hit.entityId, walk.hops, schema, GRAPH_LIMITS, p?.filter)
+        : await graphExpand(pool, hit.entityId, hops, walk?.hops[0] ?? relTypes, schema, "both", GRAPH_LIMITS, p?.filter);
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
@@ -273,11 +281,12 @@ export async function graphLane(
   // Relation-level scan: needed when the question names no node (aggregate /
   // status-filtered listings), and harmless as an addition when it names both.
   let ranking: GraphLaneResult["ranking"];
+  let fewest: GraphLaneResult["fewest"];
   const needScan = Boolean(p && p.relTypes.length && (p.aggregate || p.filter || expandFrom.length === 0));
   if (needScan) {
     const scan = await relationScan(
       pool,
-      { relTypes: p!.relTypes, aggregate: p!.aggregate, filter: p!.filter },
+      { relTypes: p!.relTypes, aggregate: p!.aggregate, ...(p!.order ? { order: p!.order } : {}), filter: p!.filter },
       schema,
     );
     if (!scan.ok) {
@@ -286,7 +295,16 @@ export async function graphLane(
     edgeCount += scan.edges.length;
     if (scan.ranking.length) {
       ranking = scan.ranking.slice(0, 5).map((r) => ({ name: r.name, type: r.type, count: r.count }));
-      items.push(...rankingCandidates(scan.ranking, p!.relTypes[0]));
+      const ranked = rankingCandidates(scan.ranking, p!.relTypes[0], 5, p!.order);
+      items.push(...ranked);
+      if (p!.order === "asc") {
+        const min = scan.ranking[0].count;
+        fewest = {
+          relType: p!.relTypes[0],
+          count: min,
+          entries: scan.ranking.flatMap((r, i) => (r.count === min ? [{ name: r.name, text: ranked[i].text }] : [])),
+        };
+      }
     } else {
       items.push(...edgeCandidates(scan.edges));
     }
@@ -312,6 +330,7 @@ export async function graphLane(
     edgeCount,
     strategy,
     ranking,
+    ...(fewest ? { fewest } : {}),
     items,
     ...(truncated ? { truncated } : {}),
     ...(fitted.length ? { fitted } : {}),
@@ -421,6 +440,10 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     // 바꿔 답했다(랜덤 테스트 사전 점검 D2).
     const absent = absentAttribute(query, profile().schemaCard);
     if (absent) return { text: null, absent };
+    // 측정 항목 한 낱말뿐인 요청(「매출 알려줘」)도 생성 모델에 넘기지 않고 대상을 되묻는다. 넘기면 7B 가 매출 표 전체를 고르고
+    // 답 문장은 그 가운데 한 건의 값을 매출이라고 말했다(「매출은 1953입니다.」). 감사에는 sql-trust-gate deny 로 남는다.
+    const vague = vagueMeasure(query, profile().sqlSchema);
+    if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     const report: Nl2SqlReport = {};
     const text = await nl2sql(query, report);
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
@@ -431,7 +454,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       repair: deps.repair !== false,
       schema: profile().sqlSchema,
     });
-    return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined, ...(ex.gate ? { gate: ex.gate } : {}) };
+    return {
+      text: ex.text,
+      result: ex.result,
+      repaired: ex.repaired || undefined,
+      ...(ex.gate ? { gate: ex.gate } : {}),
+      ...(ex.rank ? { rank: ex.rank } : {}),
+    };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
     ? vectorSearch(pool, embedder, query, k)
@@ -554,6 +583,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(sql.gate ? { gate: sql.gate } : {}),
       ...(sql.refused ? { refused: sql.refused } : {}),
       ...(sql.absent ? { absent: sql.absent } : {}),
+      ...(sql.rank ? { rank: sql.rank } : {}),
     },
     vector: vecResult,
     graph: graphResult,
@@ -601,6 +631,23 @@ export const NO_TABLE_ANSWER =
 
 export interface AskResult extends RetrieveResult {
   answer: string;
+}
+
+/** 그래프 집계의 「가장 적은」(시드 없는 관계 스캔, 계획 order=asc)에서 공동 1위가 둘 이상일 때의 답 문장. 7B 를 부르지 않는다.
+ *
+ * 「담당하는 고객사가 가장 적은 직원은 누구야?」는 담당 고객사가 없는 직원 15명이 공동이다(1곳은 9명). 7B 는 컨텍스트의
+ * 순위 줄에서 몇 명만 골라 말한다. SQL 의 공동 1위 답(sqltrust.ts tieAnswer)과 같은 말로, 모델에게 간 줄의 이름을 다 적는다. */
+export function fewestAnswer(r: RetrieveResult): string | undefined {
+  const f = r.graph?.fewest;
+  if (r.route !== "graph" || r.graph?.strategy !== "relation-scan" || !f || f.entries.length < 2) return undefined;
+  const kept = new Set(r.curated.kept.map((it) => it.text));
+  const shown = f.entries.filter((e) => kept.has(e.text));
+  if (!shown.length) return undefined;
+  const rest = f.entries.length - shown.length;
+  return (
+    `가장 적은 쪽 공동 1위가 ${f.entries.length}건입니다(${relLabel(f.relType)} ${f.count}건): ` +
+    `${shown.map((e) => e.name).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}.`
+  );
 }
 
 /** Full pipeline: deterministic retrieval spine + the on-prem 7B answer step.
@@ -655,10 +702,13 @@ export async function ask(
     return { ...r, answer: NO_TABLE_ANSWER };
   }
 
-  // 공동 1위(WITH TIES 로 2행 이상)는 이름을 모두 적는 결정론 문장으로 답한다(sqltrust.ts tieAnswer).
-  // 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
+  // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
+  // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: withSqlRows(r, tie) };
+  // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.
+  const few = fewestAnswer(r);
+  if (few) return { ...r, answer: few };
 
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).

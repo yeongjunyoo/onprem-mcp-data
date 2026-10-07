@@ -36,8 +36,9 @@ export interface Nl2SqlReport {
 /** 테이블을 읽지 않는 SELECT 의 kind. */
 export const NO_TABLE = "NO_TABLE";
 
-import { generate, questionForModel } from "./llm.js";
-import { isReadOnly } from "./sql.js";
+import { fitAnnotated, generate, questionForModel, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
+import { isReadOnly, tokenizeSql } from "./sql.js";
+import { annotateMoney } from "./money.js";
 
 /** Schema description handed to the model for NL2SQL. */
 export const SCHEMA_DDL = [
@@ -99,98 +100,6 @@ export function readsTable(sql: string): boolean {
     .replace(/"(?:[^"]|"")*"/g, '""')
     .replace(/\b(?:extract|substring|trim|overlay)\s*\((?:[^()]|\([^()]*\))*\)/gi, "f()");
   return /\bfrom\b/i.test(s) && (sqlShape(sql, false)?.reads ?? true);
-}
-
-/** SQL 낱말. w 는 따옴표 없는 이름과 키워드(소문자로), q 는 따옴표 이름(대소문자 그대로), s 는 문자열 값,
- * o 는 그 밖의 기호와 숫자다. at 은 원문에서의 자리. */
-interface SqlToken {
-  k: "w" | "q" | "s" | "o" | "(" | ")" | "[" | "]" | "," | ";" | ".";
-  v: string;
-  at: number;
-}
-
-const WORD = /[A-Za-z_\u0080-\uffff][A-Za-z0-9_$\u0080-\uffff]*/y;
-const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y;
-const DOLLAR_TAG = /\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/y;
-const PARAM = /\$\d+/y;
-
-/** SQL 을 낱말로 자른다. 주석은 버린다. 닫히지 않은 따옴표, 달러 따옴표, 블록 주석이 있으면 null. */
-function tokenizeSql(sql: string): SqlToken[] | null {
-  const out: SqlToken[] = [];
-  const n = sql.length;
-  const at = (re: RegExp, i: number) => {
-    re.lastIndex = i;
-    return re.exec(sql)?.[0];
-  };
-  let i = 0;
-  while (i < n) {
-    const c = sql[i];
-    if (/\s/.test(c)) {
-      i++;
-    } else if (c === "-" && sql[i + 1] === "-") {
-      const nl = sql.indexOf("\n", i);
-      i = nl < 0 ? n : nl;
-    } else if (c === "/" && sql[i + 1] === "*") {
-      // PostgreSQL 의 블록 주석은 겹칠 수 있다.
-      let depth = 1;
-      let j = i + 2;
-      while (j < n && depth > 0) {
-        if (sql.startsWith("/*", j) || sql.startsWith("*/", j)) {
-          depth += sql[j] === "/" ? 1 : -1;
-          j += 2;
-        } else j++;
-      }
-      if (depth > 0) return null;
-      i = j;
-    } else if (c === "'") {
-      // E'…' 는 역슬래시 이스케이프를 쓴다. 바로 앞에 붙은 e 는 문자열의 접두사다.
-      const prev = out[out.length - 1];
-      const escaped = prev?.k === "w" && prev.v === "e" && prev.at + 1 === i;
-      let j = i + 1;
-      for (;;) {
-        if (j >= n) return null;
-        if (escaped && sql[j] === "\\") j += 2;
-        else if (sql[j] === "'" && sql[j + 1] === "'") j += 2;
-        else if (sql[j] === "'") break;
-        else j++;
-      }
-      if (escaped) out.pop();
-      out.push({ k: "s", v: sql.slice(i, j + 1), at: escaped ? i - 1 : i });
-      i = j + 1;
-    } else if (c === '"') {
-      let j = i + 1;
-      for (;;) {
-        if (j >= n) return null;
-        if (sql[j] === '"' && sql[j + 1] === '"') j += 2;
-        else if (sql[j] === '"') break;
-        else j++;
-      }
-      out.push({ k: "q", v: sql.slice(i + 1, j).replace(/""/g, '"'), at: i });
-      i = j + 1;
-    } else if (c === "$") {
-      const tag = at(DOLLAR_TAG, i);
-      const param = tag ? undefined : at(PARAM, i);
-      if (tag) {
-        const end = sql.indexOf(tag, i + tag.length);
-        if (end < 0) return null;
-        out.push({ k: "s", v: sql.slice(i, end + tag.length), at: i });
-        i = end + tag.length;
-      } else {
-        out.push({ k: "o", v: param ?? c, at: i });
-        i += param?.length ?? 1;
-      }
-    } else if ("()[],;.".includes(c) && !(c === "." && /\d/.test(sql[i + 1] ?? ""))) {
-      out.push({ k: c as SqlToken["k"], v: c, at: i });
-      i++;
-    } else {
-      const word = at(WORD, i);
-      const num = word ? undefined : at(NUMBER, i);
-      const v = word ?? num ?? c;
-      out.push({ k: word ? "w" : "o", v: word ? word.toLowerCase() : v, at: i });
-      i += v.length;
-    }
-  }
-  return out;
 }
 
 const DML_WORDS = new Set(["insert", "update", "delete", "merge"]);
@@ -629,6 +538,31 @@ export function companyxSchemaCard(): string {
   return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
+export { seoulYear };
+
+/** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년도, 재작년 → (올해 - 2)년도, 내년 →
+ * (올해 + 1)년도. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검 2차 R3, 「작년에
+ * 새로 등록된 고객사는 몇 곳이야?」에 0곳, 2025년 등록은 14곳).
+ *
+ * 말끝과 대상은 실측으로 골랐다(2026-10-08, 같은 프롬프트에서 질문 줄만 바꿔). 「2025년 매출은 얼마야?」는 카드의 분기 예시
+ * 그대로 quarter = '2025-Q3' 이었고(3/3) 「2025년도 매출은 얼마야?」는 한 해 전체(quarter LIKE '2025-%', 3/3)였다. 뒤에 붙은
+ * 「도」(작년도)는 「년도」가 받는다. 올해와 금년은 바꾸지 않는다. 바꾸지 않으면 7B 가 CURRENT_DATE 로 써서 「올해 매출은
+ * 얼마야?」가 맞는데(58,753), 「2026년」으로 바꾸면 quarter = '2026-Q1' 하나만 걸거나(30,478, 3/3) 「2026년도」로 바꾸면 답
+ * 단계가 「587,530원」이라고 썼다(3/3). 월과 분기를 가리키는 말(지난달, 이번 분기)은 그대로 둔다. 상대 연도가 없는 질문은
+ * 받은 그대로 돌려준다. */
+export function absoluteYears(q: string, now: Date = new Date()): string {
+  const year = seoulYear(now);
+  return q.replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`);
+}
+
+/** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 상대 연도를 연도로 바꾸고(absoluteYears, 감사 레코드의 query 는 원문
+ * 그대로) 금액 표현 옆에 만원 값을 적은 뒤(「2억 원」 → 「2억 원(=20000만 원)」, money.ts, G17 ⑥) 그 길이로 문맥 상한을
+ * 지킨다(fitAnnotated). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을 salary >= 2000 으로 썼다(3/3). 상대 연도와
+ * 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
+export function sqlQuestionForModel(query: string, now: Date = new Date()): string {
+  return fitAnnotated(query, (q) => annotateMoney(absoluteYears(q, now)));
+}
+
 /** Company-X NL2SQL 프롬프트 원문.
  *
  * MCP 프롬프트 표면(prompts.ts)이 이 함수를 그대로 부른다. 종전에는 저쪽에
@@ -649,7 +583,7 @@ export function buildCompanyxSqlPrompt(query: string): string {
     // 점수도 8/10과 7/10로 변하지 않았다. 효과 없는 문장을 프롬프트에 남기면
     // "튜닝 없음"이라는 주장만 흐려지므로 되돌린다. 근거는 docs/report.md §0.10.
     "",
-    `질문: ${questionForModel(query)}`,
+    `질문: ${sqlQuestionForModel(query)}`,
     "SQL:",
   ].join("\n");
 }
@@ -701,7 +635,7 @@ export async function repairSql(
     "설명/주석/코드펜스/세미콜론 없이 SQL만 출력.",
     ...(realColumns ? ["", "[이 쿼리가 참조한 테이블의 실제 컬럼]", realColumns] : []),
     "",
-    `질문: ${questionForModel(query)}`,
+    `질문: ${sqlQuestionForModel(query)}`,
     `실패한 SQL: ${failedSql}`,
     `${kind === "error" ? "오류" : "안내"}: ${dbError}`,
     "수정된 SQL:",

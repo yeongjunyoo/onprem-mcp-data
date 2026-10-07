@@ -30,6 +30,7 @@ import {
   graphExpand,
   graphWalk,
   pathCandidates,
+  rankingCandidates,
   seedEdgeCandidates,
   type GraphEdge,
   type GraphLimits,
@@ -175,6 +176,27 @@ ok(
   ok(/n2의 .*: n1 → n2의 .*: n3/.test(lines[0].text), `경로 전체가 한 줄에 있다 (got ${lines[0].text})`);
   const dead = await graphWalk(fakePool(g).pool, 1, [["USES"], ["LEADS"]], "synthetic");
   ok(pathCandidates(dead.edges, 1).length === 0, "다음 홉이 없는 중간 개체는 답이 아니다");
+  // 답이 둘째 엣지의 도착점이면 종전 글 그대로(TC-129), 출발점이면(제품 ← 고객사 ← 담당 직원) 답부터 적는다(랜덤 테스트 2차 R2).
+  ok(lines[0].text === "[그래프 경로] n2의 사용 중인 제품: n1 → n2의 진행 프로젝트: n3 (USES→HAS_PROJECT)", `정방향 경로 줄은 그대로 (got ${lines[0].text})`);
+  const back = await graphWalk(fakePool([...g, { id: 6, src: 6, dst: 2, rel: "MANAGES_ACCOUNT" }]).pool, 1, [["USES"], ["MANAGES_ACCOUNT"]], "synthetic");
+  const answerFirst = pathCandidates(back.edges, 1);
+  ok(
+    answerFirst.length === 1 && answerFirst[0].canonicalKey.endsWith("6") &&
+      answerFirst[0].text === "[그래프 경로] n6의 담당 고객사: n2 → n2의 사용 중인 제품: n1 (MANAGES_ACCOUNT→USES)",
+    `둘째 엣지를 거꾸로 탄 경로는 답(n6)부터 (got ${JSON.stringify(answerFirst.map((c) => c.text))})`,
+  );
+}
+
+// ── 4a) 집계 순위 줄: 많은 쪽은 종전 글 그대로(TC-132, TC-133), 적은 쪽은 「적은 순」과 공동 1위 전부 ───
+// 랜덤 테스트 사전 점검 2차 R6: 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위를 답했다.
+{
+  const rk = (counts: number[]) => counts.map((count, i) => ({ entityId: i + 1, name: `e${i + 1}`, type: "employee", count }));
+  const desc = rankingCandidates(rk([4, 4, 4, 3, 3, 2]), "MANAGES_ACCOUNT");
+  ok(desc.length === 5 && desc[0].text === "[그래프 집계] e1 (employee) — 담당 고객사 4건, 공동 1위" && desc[3].text === "[그래프 집계] e4 (employee) — 담당 고객사 3건, 공동 4위", `많은 쪽 순위 줄은 종전 그대로 (got ${desc.map((c) => c.text)})`);
+  const asc = rankingCandidates(rk([0, 0, 0, 0, 0, 0, 0, 1, 2]), "MANAGES_ACCOUNT", 5, "asc");
+  ok(asc.length === 7 && asc[6].text === "[그래프 집계] e7 (employee) — 담당 고객사 0건, 적은 순 공동 1위", `적은 쪽은 공동 1위 일곱을 다 싣는다 (got ${asc.length}: ${asc[6]?.text})`);
+  const ascFew = rankingCandidates(rk([0, 1, 1, 2, 3, 3, 4]), "MANAGES_ACCOUNT", 5, "asc");
+  ok(ascFew.length === 5 && ascFew[0].text.endsWith("0건, 적은 순 1위") && ascFew[1].text.endsWith("1건, 적은 순 공동 2위"), `공동 1위가 다섯보다 적으면 다섯 줄 (got ${ascFew.map((c) => c.text)})`);
 }
 
 // ── 4b) 여러 시드가 같은 답 개체에 닿으면 사실을 버리지 않고 한 줄로 모은다 ───
@@ -198,6 +220,33 @@ ok(
   ok(new Set(out.map((c) => c.canonicalKey)).size === out.length, "정체는 답 개체 그대로(겹치지 않는다)");
   const mixed = seedEdgeCandidates([{ seedId: 14, edges: [e(n, "USES", s1), e(n, "REPORTED_ISSUE", s1)] }]);
   ok(mixed.length === 1 && mixed[0].text.split("\n").length === 2, `관계가 다르면 한 후보에 줄을 나눠 싣는다 (got ${JSON.stringify(mixed.map((c) => c.text))})`);
+}
+
+// ── 4b) 「가장 적은」의 공동 1위는 관계 스캔 상한에서 자르지 않는다 ─────────
+// 엣지가 없는 개체 61개가 공동 1위면 상한 60 에서 자른 순위로는 답 문장이 「공동 1위가 60건」이라고 말한다(PR #257 Codex P2).
+{
+  const { relationScan } = await import("./graph.js");
+  const owners = 64; // 1~3 은 엣지가 하나씩, 4~64 의 61개는 없다
+  const scanPool = {
+    query: async (sql: string) => {
+      if (sql.includes("information_schema.columns")) return { rowCount: 0, rows: [] };
+      if (sql.trimStart().startsWith("SELECT r.src_entity_id"))
+        return {
+          rowCount: 3,
+          rows: [1, 2, 3].map((i) => ({
+            src_entity_id: i, src_name: `n${i}`, src_type: "employee", rel_type: "MANAGES_ACCOUNT",
+            dst_entity_id: 100 + i, dst_name: `c${i}`, dst_type: "client", confidence: 1, provenance: "synthetic",
+          })),
+        };
+      return { rowCount: owners, rows: Array.from({ length: owners }, (_, i) => ({ id: i + 1, canonical_name: `n${i + 1}`, type: "employee" })) };
+    },
+  } as unknown as Pool;
+  const few = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, "synthetic");
+  ok(few.ok && few.ranking.length === 61 && few.ranking.every((r) => r.count === 0), `공동 1위 61개를 다 남긴다 (got ${few.ranking.length}, ${few.error ?? ""})`);
+  const most = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc", limit: 10 }, "synthetic");
+  ok(most.ranking.length === 61, `상한을 낮춰도 공동 1위는 다 남긴다 (got ${most.ranking.length})`);
+  const desc = await relationScan(scanPool, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", limit: 2 }, "synthetic");
+  ok(desc.ranking.length === 2, `많은 쪽부터는 종전대로 상한에서 자른다 (got ${desc.ranking.length})`);
 }
 
 // ── 5) 환경변수로 바꾸고, 잘못된 값은 기동에서 거절한다 ─────────────────

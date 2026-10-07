@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
 // 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
@@ -238,6 +238,44 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   );
   installOntology([], []);
   eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
+}
+
+// ── 그래프 밖 항목의 「담당」 (랜덤 테스트 사전 점검 2차 R1) ─────────────
+//
+// 계약, 티켓, 장애의 담당은 고객 담당 관계(MANAGES_ACCOUNT)가 아니다. 그래프에는 그 담당자가 없다.
+{
+  const c = route("계약을 가장 많이 담당한 직원은 누구야?");
+  ok(!c.graphHits.includes("MANAGES_ACCOUNT"), "계약의 담당은 고객 담당 동사로 세지 않는다");
+  eq(c.route, "structured", "계약 담당 집계는 정형");
+  ok(/; 담당 not counted as MANAGES_ACCOUNT \(table noun 계약\)$/.test(c.rationale), `근거에 세지 않은 이유가 남는다 (got ${c.rationale})`);
+  eq(route("티켓 7번 담당자는 누구야?").gate.scores.knowledge_graph, 0, "티켓 담당자는 그래프 점수가 없다");
+  eq(route("Client-H 장애 때 대응한 담당자는 누구야?").route, "semantic", "장애 대응 담당은 문서 질문");
+  // 그래프 밖 항목이 없는 「담당」 질문은 그대로다(TC-108, TC-132, TC-134, TC-152, TC-160).
+  for (const q of ["서울물산 담당 엔지니어는 누구야?", "가장 많은 고객을 담당하는 직원은?", "서울물산 담당 엔지니어와 Client-A가 사용 중인 제품을 알려줘"]) {
+    const r = route(q);
+    ok(r.graphHits.includes("MANAGES_ACCOUNT") && !/not counted/.test(r.rationale), `고객 담당 질문은 그대로: ${q}`);
+  }
+}
+
+// ── 상태 조건은 거르라는 말일 때만 (랜덤 테스트 2차 R4) ──────────────────
+//
+// 조건은 시드의 엣지에도 걸린다. 「계획 중인 것도 빼지 마」를 조건으로 읽으면 계획 중인 프로젝트만 남는다.
+{
+  const inProgress = { side: "target", key: "status", value: "in_progress" };
+  eq(buildGraphPlan("진행 중인 프로젝트를 이끄는 직원 목록", ["LEADS"], false).filter, inProgress, "진행 중은 조건(TC-050, TC-111, TC-130)");
+  eq(buildGraphPlan("Client-AC에서 진행 중인 프로젝트는 뭐야?", ["HAS_PROJECT"], false).filter, inProgress, "시드가 있어도 조건");
+  for (const q of ["서재원 쪽 프로젝트 묶음에 뭐뭐 있지? 계획 중인 것도 빼지 마", "Client-A 프로젝트 중 완료된 건 빼고 알려줘", "진행 중이 아닌 프로젝트", "완료된 것까지 포함해서 전부"]) {
+    eq(buildGraphPlan(q, ["LEADS"], false).filter, undefined, `빼다, 말고, 아닌, 포함이 붙으면 조건이 아니다: ${q}`);
+  }
+}
+
+// ── 그래프 집계의 방향 (랜덤 테스트 2차 R6) ─────────────────────────────
+{
+  eq(route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source", order: "asc" }, "가장 적은 → 적은 쪽부터");
+  eq(buildGraphPlan("이슈가 가장 낮은 제품", ["REPORTED_ISSUE"], true).order, "asc", "가장 낮은 → 적은 쪽부터");
+  // 「많은」은 종전 계획 그대로(TC-132, TC-133). order 키가 없다.
+  eq(route("가장 많은 고객을 담당하는 직원은?").graphPlan, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source" }, "가장 많은 → 종전 그대로");
+  eq(buildGraphPlan("기술 지원 이슈가 가장 많은 제품은?", ["REPORTED_ISSUE"], true), { relTypes: ["REPORTED_ISSUE"], aggregate: "target" }, "TC-133 계획 그대로");
 }
 
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);

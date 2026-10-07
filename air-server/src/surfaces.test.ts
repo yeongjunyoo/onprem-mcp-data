@@ -407,6 +407,83 @@ async function main() {
     ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
   }
 
+  // --- audit.explain format: json 과 text 말고는 입력 검증에서 거절한다(G17 ⑪). 종전에는 xml 을 조용히 json 으로 돌려줬다 ---
+  const { formatParam } = await import("./queryinput.js");
+  const fp = formatParam("json(기본) 또는 text");
+  for (const f of [undefined, "json", "text"]) ok(fp.safeParse(f).success, `format ${JSON.stringify(f)} 은 받는다(TC-161 은 text)`);
+  for (const f of ["xml", "TEXT", "", "markdown"]) {
+    const r = fp.safeParse(f);
+    ok(!r.success && r.error.issues[0].message === `format 은 json(기본) 또는 text 만 받습니다. 받은 값: ${JSON.stringify(f)}`, `format ${JSON.stringify(f)} 은 거절하고 받은 값을 말한다`);
+  }
+  {
+    const mcp = new McpServer({ name: "t", version: "0" });
+    const formats: unknown[] = [];
+    mcp.registerTool("audit.explain", { inputSchema: { query: qp, format: fp } }, async (a: { format?: string }) => {
+      formats.push(a.format);
+      return { content: [{ type: "text" as const, text: "레코드" }] };
+    });
+    const client = await connect(mcp);
+    const props = (await client.listTools()).tools[0].inputSchema.properties as Record<string, unknown>;
+    ok(
+      JSON.stringify(props.format) === JSON.stringify({ type: "string", description: "json(기본) 또는 text" }),
+      `tools/list 의 format 스키마는 종전 그대로다 (got ${JSON.stringify(props.format)})`,
+    );
+    const xml = await client.callTool({ name: "audit.explain", arguments: { query: "현재 활성 상태인 계약 수는 몇 개야?", format: "xml" } });
+    const text = (xml.content as { text: string }[])[0]?.text ?? "";
+    ok(xml.isError === true && text.includes("Input validation error") && text.includes('받은 값: "xml"') && formats.length === 0, `MCP 로 format=xml 이면 isError 와 안내, 핸들러에 닿지 않는다 (got ${text.slice(0, 160)})`);
+    for (const f of ["text", "json", undefined]) {
+      const r = await client.callTool({ name: "audit.explain", arguments: f === undefined ? { query: "질문" } : { query: "질문", format: f } });
+      ok(!r.isError && formats.at(-1) === f, `format ${JSON.stringify(f)} 은 핸들러로 간다`);
+    }
+    await client.close();
+  }
+  const fmtWiring = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+       const out = await buildServer().callTool("audit.explain", { query: "질문", format: "xml" });
+       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  const fmtWired = String(JSON.parse(fmtWiring.stdout.split("\n@@")[1] ?? '""'));
+  ok(fmtWired.includes('format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml"'), `서버 정의의 audit.explain 이 format=xml 을 거절한다 (got ${fmtWired.slice(0, 160)})`);
+
+  // --- 빠진 필수 인자: SDK 1.30 부터 검증 오류가 한 줄로 줄어 「Required」만 남았다. 기대한 형을 문장에 남긴다(TC-042) ---
+  {
+    const { z } = await import("zod");
+    const { installInputErrorMessages } = await import("./queryinput.js");
+    installInputErrorMessages();
+    const mcp = new McpServer({ name: "t", version: "0" });
+    mcp.registerTool("sql.query", { inputSchema: { sql: z.string() } }, async () => ({ content: [{ type: "text" as const, text: "행" }] }));
+    mcp.registerTool("graph.expand", { inputSchema: { entityId: z.number() } }, async () => ({ content: [{ type: "text" as const, text: "엣지" }] }));
+    const client = await connect(mcp);
+    const textOf = (r: Record<string, unknown>) => (r.content as { text: string }[])[0]?.text ?? "";
+    const noSql = textOf(await client.callTool({ name: "sql.query", arguments: {} }));
+    ok(
+      noSql.includes("Input validation error") && noSql.includes("Required (expected string, received undefined) at sql"),
+      `sql 인자가 빠지면 기대한 형과 받은 값을 말한다 (got ${noSql.slice(0, 160)})`,
+    );
+    const nullId = textOf(await client.callTool({ name: "graph.expand", arguments: { entityId: null } }));
+    ok(nullId.includes("Expected number, received null at entityId"), `형이 틀린 값은 zod 기본 문장 그대로다(TC-041) (got ${nullId.slice(0, 160)})`);
+    await client.close();
+  }
+  const sqlWiring = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+       const out = await buildServer().callTool("sql.query", {});
+       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  const sqlWired = String(JSON.parse(sqlWiring.stdout.split("\n@@")[1] ?? '""'));
+  ok(sqlWired.includes("Required (expected string, received undefined)"), `서버 정의가 빠진 인자 문장을 건다 (got ${sqlWired.slice(0, 160)})`);
+
   // --- prompts/get: 받은 인자가 템플릿에 들어간다 ---
   // air 0.3.0 은 프롬프트를 인자 스키마 없는 `prompt(name, description, cb)` 로 등록해, SDK 가 인자를 버린 채
   // cb 를 불렀다(질문 칸이 빈 템플릿). 같은 호출 형태로 등록해 prompts/list 와 prompts/get 을 SDK 로 잰다.

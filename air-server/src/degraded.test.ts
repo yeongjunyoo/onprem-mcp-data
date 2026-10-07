@@ -701,6 +701,143 @@ const deadEmbedder: Embedder = {
   });
   ok(llmCalls === 1 && one.answer.startsWith("영업팀과") && one.answer.includes("[조회 결과 1건]"), "단독 1위(1행)는 종전처럼 7B 가 문장을 쓴다");
 
+  // 랜덤 테스트 2차 R11: 조인 열이 그 표에 없으면 사유와 수리 안내가 그 열을 말한다(「projects 에는 dept_id 열이 없다」).
+  {
+    const { untrustedAnswer } = await import("./sqltrust.js");
+    const { executeWithRepair } = await import("./sqlrepair.js");
+    const PFKS = [...FKS, { table: "projects", column: "manager_id", refTable: "employees", refColumn: "id" }, { table: "projects", column: "client_id", refTable: "clients", refColumn: "id" }];
+    const COLS = new Map([
+      ["projects", new Set(["id", "name", "client_id", "manager_id", "contract_id", "status", "budget"])],
+      ["departments", new Set(["id", "name", "head_id"])],
+      ["employees", new Set(["id", "name", "dept_id", "salary"])],
+    ]);
+    const b04 = "SELECT p.name, p.budget, d.name AS department_name FROM companyx.projects p JOIN companyx.departments d ON p.dept_id = d.id ORDER BY p.budget DESC LIMIT 3";
+    const miss = checkSql(b04, "예산이 가장 큰 프로젝트 3개를 알려줘", PFKS, COLS);
+    ok(
+      miss.reasons.join() ===
+        "조인 조건 p.dept_id = d.id 은 없는 열을 쓴다(projects 에는 dept_id 열이 없다). projects 는 manager_id → employees, client_id → clients 로만 이어진다. 질문이 묻지 않은 표의 조인은 뺀다",
+      `없는 열과 그 표가 이어지는 표를 말한다 (got ${miss.reasons})`,
+    );
+    ok(checkSql(b04, "q", PFKS).reasons.join() === "조인 조건 p.dept_id = d.id 은 스키마에 선언된 외래키가 아니다", "열 목록이 없으면 종전 사유");
+    ok(checkSql(qaSales, "매출 알려줘", FKS, COLS).reasons.join() === salesCheck.reasons.join(), "있는 열끼리의 잘못된 조인은 종전 사유(계약 id = 직원 id)");
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: b04, reasons: miss.reasons }] }).includes("생성된 SQL 이 표에 없는 열로 표를 이어서(projects 에는 dept_id 열이 없다) 실행하지 않았습니다."),
+      "거절 문장도 없는 열을 말한다",
+    );
+    // TC-146 의 거절(질문에 없는 번호)은 사유와 문장이 종전 그대로다.
+    const tc146 = checkSql("SELECT name FROM companyx.departments WHERE id = 1", "파이썬으로 피보나치 함수 짜줘", PFKS, COLS);
+    ok(
+      tc146.reasons.length === 0 && tc146.ids[0]?.reason === "id = 1 의 번호 1 은 질문에 없다(질문에 없는 번호로 행을 고름)" &&
+        untrustedAnswer({ outcome: "refused", rejected: [{ sql: "x", reasons: [tc146.ids[0].reason] }] }) ===
+          "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 질문에 없는 번호(id = 1)로 한 건만 골라서 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+      "TC-146 거절은 종전 그대로",
+    );
+    // 수리에 넘기는 안내에 없는 열이 들어간다(카탈로그는 pg_attribute 에서 읽는다).
+    const colRows = [...COLS].flatMap(([t, cs]) => [...cs].map((c) => ({ table_name: t, column_name: c })));
+    const pfkRows = PFKS.map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+    const catPool = {
+      connect: async () => ({ query: async () => ({ rows: [{ name: "p" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }),
+      query: async (sql: string) =>
+        /pg_constraint/.test(sql) ? { rows: pfkRows, rowCount: pfkRows.length } : /pg_attribute/.test(sql) ? { rows: colRows, rowCount: colRows.length } : { rows: [], rowCount: 0 },
+    } as unknown as Pool;
+    let hint = "";
+    const fixedSql = "SELECT p.name, p.budget FROM companyx.projects p ORDER BY p.budget DESC LIMIT 3";
+    const ex = await executeWithRepair(catPool, "예산이 가장 큰 프로젝트 3개를 알려줘", b04, {
+      repairer: async (_q, _sql, why) => {
+        hint = why;
+        return fixedSql;
+      },
+    });
+    ok(hint.includes("projects 에는 dept_id 열이 없다") && ex.repaired && ex.text === fixedSql && ex.gate?.outcome === "repaired", `수리 안내가 없는 열을 말하고, 조인을 뺀 수리를 실행한다 (got ${hint})`);
+  }
+
+  // 랜덤 테스트 2차 R8: 가리켜지는 쪽 표(계약)의 금액을 가리키는 쪽 표(매출)와 조인한 채 더하면 계약 한 건이 매출 건수만큼 겹친다.
+  {
+    const { fanoutJoins, confirmFanout, untrustedAnswer } = await import("./sqltrust.js");
+    const { executeWithRepair } = await import("./sqlrepair.js");
+    const x14 =
+      "SELECT SUM(s.amount) AS total_sales, SUM(c.amount) AS total_contracts FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q'";
+    const fan = fanoutJoins(x14, FKS);
+    ok(
+      JSON.stringify(fan) ===
+        JSON.stringify([
+          {
+            agg: "SUM(c.amount)",
+            parent: "contracts",
+            child: "sales",
+            childColumn: "contract_id",
+            join: "s.contract_id = c.id",
+            parentKey: "c.id",
+            scope: "FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q'",
+          },
+        ]),
+      `계약 금액의 합을 매출과 조인한 채 구하는 자리와 질의의 범위 (got ${JSON.stringify(fan)})`,
+    );
+    for (const sql of [
+      "SELECT d.name, AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id GROUP BY d.name", // TC-115 꼴: 가리키는 쪽 열
+      "SELECT c.name, SUM(s.amount) FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id GROUP BY c.name", // TC-118 꼴
+      "SELECT (SELECT SUM(s.amount) FROM companyx.sales s) AS a, (SELECT SUM(c.amount) FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id) AS b",
+      "SELECT e.name, AVG(e.salary) FROM companyx.employees e JOIN companyx.contracts c ON c.manager_id = e.id GROUP BY e.id, e.name",
+      "SELECT SUM(c.amount) FROM companyx.contracts c WHERE c.id IN (SELECT s.contract_id FROM companyx.sales s)",
+    ]) ok(fanoutJoins(sql, FKS).length === 0, `가리키는 쪽 열, 하위 질의로 따로 구한 값, 부모 키로 묶은 평균은 통과: ${sql}`);
+    ok(fanoutJoins("SELECT e.name, SUM(e.salary) FROM companyx.employees e JOIN companyx.contracts c ON c.manager_id = e.id GROUP BY e.id, e.name", FKS).length === 1, "합은 부모 키로 묶어도 겹친다");
+    ok(fanoutJoins(x14, []).length === 0 && fanoutJoins("SELECT SUM(c.amount) FROM companyx.contracts c JOIN 'x", FKS).length === 0, "외래키가 없거나 읽지 못하는 문장은 판정하지 않는다");
+    // 자식의 외래키 열에 같은 값이 없으면(부서장처럼 한 부모를 한 자식만 가리킴) 부풀지 않아 막지 않는다.
+    const dupPool = (dup: boolean) => ({ query: async () => ({ rows: [{ dup }], rowCount: 1 }) }) as unknown as Pool;
+    const head = fanoutJoins("SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON d.head_id = e.id", FKS);
+    ok(head.length === 1 && (await confirmFanout(dupPool(false), "companyx", head)).length === 0, "같은 값이 없는 외래키 열과의 조인은 막지 않는다");
+    const why = await confirmFanout(dupPool(true), "companyx", fan);
+    ok(why.length === 1 && why[0].startsWith("집계 SUM(c.amount) 은 contracts 의 열인데 contracts 를 가리키는 sales 와 조인(s.contract_id = c.id)해"), `사유가 집계와 조인을 말한다 (got ${why})`);
+    // PR #257 리뷰: 겹침은 질의가 고르는 행에서 센다. 자식을 한 행으로 좁힌 질의는 표 전체에 겹침이 있어도 막지 않는다.
+    const probes: string[] = [];
+    const scopedPool = (dup: boolean) =>
+      ({
+        connect: async () => ({
+          query: async (q: string) => {
+            if (/EXISTS/.test(q)) probes.push(q);
+            return /EXISTS/.test(q) ? { rows: [{ dup }], rowCount: 1, fields: [] } : { rows: [], rowCount: 0, fields: [] };
+          },
+          release: () => {},
+        }),
+        query: async () => ({ rows: [{ dup: true }], rowCount: 1 }),
+      }) as unknown as Pool;
+    const one = fanoutJoins("SELECT SUM(c.amount) FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id WHERE s.id = 7", FKS);
+    ok((await confirmFanout(scopedPool(false), "companyx", one)).length === 0, "자식을 한 행으로 좁힌 질의는 표 전체의 겹침과 상관없이 막지 않는다");
+    ok(
+      probes.length === 1 && probes[0].includes("SELECT 1 FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id WHERE s.id = 7 GROUP BY c.id HAVING count(*) > 1"),
+      `질의의 FROM..WHERE 로 부모 키마다 센다 (got ${probes[0]})`,
+    );
+    ok((await confirmFanout(scopedPool(true), "companyx", fan)).length === 1, "질의가 고르는 행에서 겹치면 막는다");
+    ok(fanoutJoins("WITH x AS (SELECT * FROM companyx.sales) SELECT SUM(c.amount) FROM x s JOIN companyx.contracts c ON s.contract_id = c.id", FKS).every((j) => j.scope === undefined), "WITH 로 시작하는 문장은 범위를 비워 표 전체로 센다");
+    // 판정은 기억하지 않는다. 같은 풀에서 데이터가 바뀌면 다음 판정도 바뀐다.
+    let tableDup = false;
+    const flipPool = { query: async () => ({ rows: [{ dup: tableDup }], rowCount: 1 }) } as unknown as Pool;
+    const first = (await confirmFanout(flipPool, "companyx", head)).length;
+    tableDup = true;
+    ok(first === 0 && (await confirmFanout(flipPool, "companyx", head)).length === 1, "처음에 겹침이 없다고 나와도 나중에 생긴 겹침을 막는다");
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: x14, reasons: why }] }).includes("생성된 SQL 이 contracts 의 값(SUM(c.amount))을 sales 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다."),
+      "거절 문장",
+    );
+    // 실행 전 검사가 수리로 보내고, 따로 구한 수리 SQL 을 실행한다.
+    const xfkRows = [...FKS, { table: "contracts", column: "client_id", refTable: "clients", refColumn: "id" }].map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+    const xpool = {
+      connect: async () => ({ query: async () => ({ rows: [{ total_sales: 23244, total_contracts: 11250 }], rowCount: 1, fields: [] }), release: () => {} }),
+      query: async (sql: string) =>
+        /pg_constraint/.test(sql) ? { rows: xfkRows, rowCount: xfkRows.length } : /HAVING count\(\*\) > 1/.test(sql) ? { rows: [{ dup: true }], rowCount: 1 } : { rows: [], rowCount: 0 },
+    } as unknown as Pool;
+    const split =
+      "SELECT (SELECT SUM(s.amount) FROM companyx.sales s JOIN companyx.clients cl ON s.client_id = cl.id WHERE cl.name = 'Client-Q') AS total_sales, (SELECT SUM(c.amount) FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id WHERE cl.name = 'Client-Q') AS total_contracts";
+    let fanHint = "";
+    const fx = await executeWithRepair(xpool, "Client-Q 매출 합계랑 계약 금액 합계 각각 알려줘", x14, {
+      repairer: async (_q, _sql, w) => {
+        fanHint = w;
+        return split;
+      },
+    });
+    ok(fanHint.includes("하위 질의로 따로 집계한다") && fx.repaired && fx.text === split && fx.gate?.outcome === "repaired", `부푼 합계는 실행하지 않고 수리한다 (got ${fanHint})`);
+  }
+
   // #255 ②: 외래키는 프로파일의 테이블이 있는 스키마에서 읽는다. bench 의 테이블은 bench 스키마에 있고 외래키를
   // 선언한다(eval/internal/schema.sql). 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다.
   {
@@ -752,6 +889,609 @@ const deadEmbedder: Embedder = {
       if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
     }
   }
+}
+
+// 금액 단위(G17 ⑥). 7B 는 「연봉이 2억 원 이상인 직원 목록을 알려줘」를 salary >= 2000 으로 써 직원 45명을 모두 돌려줬다
+// (3/3, 경계 실측). 질문의 금액 옆에 만원 값을 적어 넘기고, 금액 열의 비교 숫자가 10배수로 어긋나면 실행 전 검사가 고친다.
+// 생성기와 풀은 가짜를 넣어 모델과 DB 없이 잰다.
+{
+  const { moneyMentions, annotateMoney } = await import("./money.js");
+  const { sqlQuestionForModel, buildCompanyxSqlPrompt } = await import("./nl2sql.js");
+  const { questionForModel } = await import("./llm.js");
+  const { checkMoney, moneyColumns, untrustedAnswer, sqlGatePolicy } = await import("./sqltrust.js");
+  const { executeWithRepair } = await import("./sqlrepair.js");
+
+  for (const [q, manwon] of [
+    ["연봉이 2억 원 이상인 직원 목록을 알려줘", [20000]],
+    ["2억원", [20000]],
+    ["1억 5천만 원", [15000]],
+    ["1억5천만원 이상", [15000]],
+    ["1억 5천 이상", [15000]],
+    ["1억 5000만 원", [15000]],
+    ["5천만 원 이하", [5000]],
+    ["5천만 이상", [5000]],
+    ["3,000만 원", [3000]],
+    ["500만원", [500]],
+    ["1.5억", [15000]],
+    ["5천만~1억 원", [5000, 10000]],
+    // 바로 뒤에 원이 오면 억 뒤의 자리는 원 단위다(PR #257 Codex). 만을 줄인 읽기는 원이 없을 때만
+    ["1억 5천 원", [10000.5]],
+    ["1억5천원 이상", [10000.5]],
+    ["1억 500 원", [10000.05]],
+    ["1억 5천만 원과 1억 5천", [15000, 15000]],
+  ] as const) {
+    ok(JSON.stringify(moneyMentions(q).map((m) => m.manwon)) === JSON.stringify(manwon), `금액 표현을 만원 값으로 읽는다: ${q} → ${manwon}`);
+  }
+  for (const q of ["500만 명", "3000만", "1억 건", "2억 년", "1억 달러", "1억 2", "오천만 원", "연봉 4천", "Product-C1 가격", "1,5억", "2025년 3분기 총 매출액은 얼마야?"]) {
+    ok(moneyMentions(q).length === 0 && annotateMoney(q) === q, `금액이 아니거나 값이 갈리는 것은 읽지 않는다: ${q}`);
+  }
+  ok(annotateMoney("연봉이 2억 원 이상인 직원 목록을 알려줘") === "연봉이 2억 원(=20000만 원) 이상인 직원 목록을 알려줘", "금액 표현 바로 뒤에 만원 값을 적는다");
+  ok(annotateMoney("1억원인 계약과 5천만 원짜리") === "1억원(=10000만 원)인 계약과 5천만 원(=5000만 원)짜리", "표현마다 적는다");
+  ok(annotateMoney("2억 원(=20000만 원)") === "2억 원(=20000만 원)", "이미 적힌 값은 다시 적지 않는다");
+
+  // 금액 표현이 없는 질문은 NL2SQL 프롬프트에 종전 그대로 들어간다(시험항목 질문에는 금액 표현이 없다).
+  for (const q of ["2025년 3분기 총 매출액은 얼마야?", "평균 연봉이 가장 높은 부서는 어디야?", "연봉 알려줘", "지원 티켓 7번은 언제 해결됐어?"]) {
+    ok(sqlQuestionForModel(q) === questionForModel(q) && buildCompanyxSqlPrompt(q).includes(`\n질문: ${q}\nSQL:`), `금액 없는 질문은 그대로: ${q}`);
+  }
+  ok(buildCompanyxSqlPrompt("예산이 3억 원을 넘는 프로젝트는?").includes("\n질문: 예산이 3억 원(=30000만 원)을 넘는 프로젝트는?\nSQL:"), "NL2SQL 프롬프트의 질문 줄에 만원 값이 붙는다");
+
+  // 상대 연도(랜덤 테스트 2차 R3). 생성 모델에 넘기는 질문에서만 서울 기준 연도로 바꾼다.
+  const { absoluteYears } = await import("./nl2sql.js");
+  const oct7 = new Date("2026-10-07T12:00:00+09:00");
+  ok(absoluteYears("작년에 새로 등록된 고객사는 몇 곳이야?", oct7) === "2025년도에 새로 등록된 고객사는 몇 곳이야?", "작년 → (올해 - 1)년도");
+  ok(absoluteYears("재작년과 지난해, 내년", oct7) === "2024년도과 2025년도, 2027년도", "재작년, 지난해, 내년");
+  ok(absoluteYears("작년도 3분기 매출", oct7) === "2025년도 3분기 매출", "뒤에 붙은 「도」는 한 번만");
+  ok(absoluteYears("올해 매출은 얼마야? 금년 계약은?", oct7) === "올해 매출은 얼마야? 금년 계약은?", "올해와 금년은 그대로(7B 가 CURRENT_DATE 로 쓴다)");
+  ok(absoluteYears("작년 매출", new Date("2026-12-31T15:00:00Z")) === "2026년도 매출", "연도는 서울 시각으로 센다(UTC 로는 아직 2026-12-31)");
+  ok(absoluteYears("지난달 매출과 이번 분기 매출", oct7) === "지난달 매출과 이번 분기 매출", "월과 분기를 가리키는 말은 그대로");
+  ok(sqlQuestionForModel("작년 매출이 1억 원 이상인 고객사", oct7) === "2025년도 매출이 1억 원(=10000만 원) 이상인 고객사", "연도를 바꾼 뒤 금액을 적는다");
+
+  // 답 프롬프트의 질문 줄은 낱말을 지우지 않고 연도와 만원 값을 괄호로 덧붙인다(답 모델이 조회 조건과 질문을 잇게).
+  const { answerQuestionForModel, buildAnswerPrompt } = await import("./llm.js");
+  ok(answerQuestionForModel("작년 매출은 얼마야?", oct7) === "작년(2025년) 매출은 얼마야?", "답 질문: 작년 뒤에 연도");
+  ok(answerQuestionForModel("작년도 3분기 매출과 재작년 매출", oct7) === "작년도(2025년) 3분기 매출과 재작년(2024년) 매출", "답 질문: 「작년도」와 재작년");
+  ok(answerQuestionForModel("올해 매출은 얼마야?", oct7) === "올해 매출은 얼마야?", "답 질문: 올해는 그대로");
+  ok(answerQuestionForModel("계약 금액이 1억 원 이상인 계약 목록", oct7) === "계약 금액이 1억 원(=10000만 원) 이상인 계약 목록", "답 질문: 금액 뒤에 만원 값");
+  for (const q of ["Client-A가 사용 중인 제품 목록은?", "2025년 3분기 총 매출액은 얼마야?", "Product-C1 설치 방법이 궁금해", "평균 연봉이 가장 높은 부서는 어디야?"]) {
+    ok(answerQuestionForModel(q, oct7) === questionForModel(q) && buildAnswerPrompt(q, "ctx").includes(`\n[질문] ${q}\n[답변]`), `상대 연도와 금액이 없는 질문은 답 프롬프트에 그대로: ${q}`);
+  }
+
+  // 상한은 덧붙인 뒤의 길이에 건다(PR #257 Codex). 상한 근처의 질문에 금액 표현이 많으면 덧붙임으로 수천 자가 늘었다.
+  {
+    const { LLM_QUESTION_MAX_CHARS } = await import("./llm.js");
+    const notes: string[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => void notes.push(a.map(String).join(" "));
+    let sqlLine = "";
+    let ansLine = "";
+    let plainLong = "";
+    const many = "1억 원 ".repeat(479); // 2,395자(상한 안), 덧붙이면 7,664자
+    try {
+      sqlLine = sqlQuestionForModel(many, oct7);
+      ansLine = answerQuestionForModel(`작년 ${many}`, oct7);
+      plainLong = sqlQuestionForModel("가".repeat(3000), oct7);
+    } finally {
+      console.error = orig;
+    }
+    const closed = (s: string) => (s.match(/\(=/g) ?? []).length === (s.match(/만 원\)/g) ?? []).length;
+    const n = Array.from(sqlLine).length;
+    ok(n <= LLM_QUESTION_MAX_CHARS && n > LLM_QUESTION_MAX_CHARS - 20 && closed(sqlLine), `NL2SQL 질문 줄은 덧붙인 뒤 상한 안, 괄호를 가르지 않음 (got ${n}자, 끝 ${JSON.stringify(sqlLine.slice(-20))})`);
+    ok(Array.from(ansLine).length <= LLM_QUESTION_MAX_CHARS && closed(ansLine) && ansLine.startsWith("작년(2025년) 1억 원(=10000만 원)"), `답 질문 줄도 덧붙인 뒤 상한 안 (got ${Array.from(ansLine).length}자)`);
+    ok(plainLong === "가".repeat(LLM_QUESTION_MAX_CHARS), "덧붙일 것이 없는 긴 질문은 questionForModel 과 같게 앞 2400자");
+    ok(notes.length === 3 && notes.every((l) => l.includes("다 들어가지 않아")), `잘랐다는 줄을 남긴다 (got ${notes.length})`);
+  }
+
+  // 실행 전 검사 ③: 금액 열과 비교하는 숫자가 질문의 만원 값과 10배수로 어긋나면 단위 오류다.
+  const cols = moneyColumns("companyx");
+  const q2 = "연봉이 2억 원 이상인 직원 목록을 알려줘";
+  const bad = checkMoney("SELECT name FROM companyx.employees WHERE salary >= 2000", q2, cols);
+  ok(bad.length === 1 && bad[0].includes("salary >= 2000") && bad[0].includes("「2억 원」(=20000만 원)") && bad[0].includes("20000 이어야 한다"), `salary >= 2000 은 단위 오류이고 사유가 기대 값을 말한다 (got ${bad})`);
+  for (const sql of [
+    "SELECT name FROM companyx.employees e WHERE 2000 <= e.salary",
+    "SELECT name FROM companyx.employees WHERE salary BETWEEN 2000 AND 90000",
+    "SELECT name FROM companyx.employees WHERE companyx.employees.salary >= 200000000",
+    "SELECT name FROM companyx.employees WHERE salary>=2",
+  ]) ok(checkMoney(sql, q2, cols).length === 1, `반대쪽 비교, BETWEEN, 원 단위, 억 단위도 단위 오류: ${sql}`);
+  for (const sql of [
+    "SELECT name FROM companyx.employees e WHERE e.salary >= 20000",
+    "SELECT name FROM companyx.employees WHERE salary * 12 >= 2000",
+    "SELECT name FROM companyx.employees WHERE salary >= 2000 * 10",
+    "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON e.dept_id = d.id GROUP BY d.name HAVING SUM(e.salary) >= 2000",
+    "SELECT name FROM companyx.employees WHERE name = 'salary >= 2000'",
+    "SELECT name FROM companyx.employees WHERE salary >= 7777",
+    "SELECT name FROM companyx.employees WHERE total_salary >= 2000",
+  ]) ok(checkMoney(sql, q2, cols).length === 0, `만원 값 그대로, 식, 집계, 문자열, 관계없는 숫자, 다른 열은 보지 않는다: ${sql}`);
+  ok(checkMoney("SELECT name FROM companyx.employees WHERE salary >= 2000", "연봉 알려줘", cols).length === 0, "질문에 금액 표현이 없으면 보지 않는다");
+  ok(moneyColumns("bench").length === 0 && moneyColumns("public").length === 0, "만원 단위를 모르는 스키마(bench, smoke)는 끈다");
+
+  // 실행 전 검사 ⑤: 한 해를 묻는데 그해의 한 분기만 고르면 기간이 다르다(「2025년 매출은 얼마야?」 → quarter = '2025-Q3').
+  {
+    const { checkPeriod, untrustedAnswer } = await import("./sqltrust.js");
+    const oct8 = new Date("2026-10-08T07:00:00+09:00");
+    const q3 = "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'";
+    const why = checkPeriod(q3, "2025년 매출은 얼마야?", oct8);
+    ok(why.length === 1 && why[0].startsWith("기간 조건 quarter = '2025-Q3' 은 2025년의 한 분기만 고른다") && why[0].includes("quarter LIKE '2025-%'"), `한 해를 묻는데 한 분기만 고름 (got ${why})`);
+    ok(checkPeriod(q3, "작년 매출은 얼마야?", oct8).length === 1, "상대 연도(작년 = 2025년, 서울 기준)도 본다");
+    ok(checkPeriod("SELECT SUM(s.amount) FROM companyx.sales s WHERE s.quarter = '2025-Q3'", "2025년 총 매출은?", oct8).length === 1, "별칭이 붙은 분기 열");
+    for (const [sql, q] of [
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "2025년 3분기 총 매출액은 얼마야?"], // TC-109(사업자 예시 2번)
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "서울물산의 2025년 3분기 총 매출액은 얼마야?"],
+      ["SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE EXTRACT(YEAR FROM sale_date) = 2023", "2023년 총 매출액은 얼마야?"], // TC-140
+      ["SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE quarter LIKE '2025-%'", "2025년 전체 매출은?"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "2024년 매출 합계는?"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q1'", "2025년 1분기 매출"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q2'", "2025년 상반기 매출"],
+      ["SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at) = 2024", "2024년에 등록된 고객사는 몇 개야?"],
+    ]) ok(checkPeriod(sql, q, oct8).length === 0, `분기를 말하거나 한 해 전체를 고르거나 다른 해면 보지 않는다: ${q}`);
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: q3, reasons: why }] }) ===
+        "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 2025년 전체가 아니라 한 분기(quarter = '2025-Q3')만 골라서 실행하지 않았습니다. 분기를 함께 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」",
+      "기간만 걸렸으면 기간 조건을 말하는 거절 문장",
+    );
+  }
+
+  // 수리 경로: 단위 오류를 사유로 되먹여 한 번 고치고, 고친 것만 실행한다. 생성기와 풀은 가짜.
+  const fakePool = (rows: (sql: string) => Record<string, unknown>[], executed: string[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (/^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql)) executed.push(sql);
+          const r = /^\s*(select|with)\b/i.test(sql) ? rows(sql) : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const wrong = "SELECT name FROM companyx.employees WHERE salary >= 2000";
+  const right = "SELECT name FROM companyx.employees WHERE salary >= 20000";
+  const hints: string[] = [];
+  const fixTo = (sql: string) => async (_q: string, _f: string, hint: string, _c?: string, kind?: string) => {
+    hints.push(`${kind}: ${hint}`);
+    return sql;
+  };
+  const ran: string[] = [];
+  const fixed = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran), q2, wrong, { repairer: fixTo(right) });
+  ok(
+    fixed.text === right && fixed.repaired && fixed.repairReason === "untrusted" && fixed.gate?.outcome === "repaired" && ran.join() === right,
+    `단위 오류 SQL 은 실행하지 않고, 고친 SQL 만 실행한다 (got ${JSON.stringify({ text: fixed.text, ran, gate: fixed.gate?.outcome })})`,
+  );
+  ok(hints.at(-1)?.startsWith("untrusted: 금액 조건 salary >= 2000") === true && hints.at(-1)?.includes("20000 이어야 한다") === true, `수리 안내가 기대 값을 말한다 (got ${hints.at(-1)})`);
+  ok(sqlGatePolicy(fixed.gate)?.verdict === "repair" && sqlGatePolicy(fixed.gate)?.detail.includes("salary >= 2000") === true, "감사 정책 줄에 수리와 그 사유가 남는다");
+  const ran2: string[] = [];
+  const still = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran2), q2, wrong, { repairer: fixTo("SELECT name FROM companyx.employees WHERE salary >= 200000000") });
+  ok(still.text === null && !still.result && ran2.length === 0 && still.gate?.outcome === "refused" && still.gate.rejected.length === 2, `고친 것도 단위가 틀리면 아무것도 실행하지 않는다 (got ${JSON.stringify(still.gate)})`);
+  // 0행 수리가 금액 단위를 다시 틀리면 처음 SQL 의 0행을 그대로 쓴다(직원 45명을 돌려주지 않는다).
+  const ran3: string[] = [];
+  const kept = await executeWithRepair(fakePool((sql) => (/>= 20000/.test(sql) ? [] : [{ name: "직원" }]), ran3), q2, right, { repairer: fixTo(wrong) });
+  ok(kept.text === right && kept.result?.rows.length === 0 && kept.gate?.outcome === "kept" && ran3.join() === right, `0행 수리의 단위 오류는 실행하지 않는다 (got ${JSON.stringify({ text: kept.text, ran3, gate: kept.gate?.outcome })})`);
+  const ran4: string[] = [];
+  const plain = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran4), "기술지원팀 직원 목록과 연봉을 알려줘", wrong, { repairer: fixTo(right) });
+  ok(plain.text === wrong && !plain.gate && ran4.join() === wrong, "질문에 금액 표현이 없으면 종전 그대로 실행한다");
+  const ran5: string[] = [];
+  const bench = await executeWithRepair(fakePool(() => [{ name: "직원" }], ran5), q2, wrong, { repairer: fixTo(right), schema: "bench" });
+  ok(bench.text === wrong && !bench.gate, "금액 열을 모르는 스키마는 종전 그대로 실행한다");
+
+  // ask: 고쳐도 단위가 틀리면 7B 를 부르지 않고 금액 조건을 말하는 정해진 문장으로 답하고, 감사에 sql-trust-gate deny 가 남는다.
+  let called = 0;
+  const llm = async () => {
+    called++;
+    return "45명입니다.";
+  };
+  // 금액 열은 companyx 프로파일의 스키마에만 있다. 이 스위트는 smoke 로 돌므로 그동안만 바꾼다.
+  const savedDs = process.env.DATASET;
+  const savedKg = process.env.KG_SCHEMA;
+  delete process.env.KG_SCHEMA;
+  process.env.DATASET = "companyx";
+  let asked: Awaited<ReturnType<typeof ask>>;
+  try {
+    asked = await ask(q2, { pool: fakePool(() => [{ name: "직원" }], []), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => wrong });
+  } finally {
+    if (savedDs === undefined) delete process.env.DATASET;
+    else process.env.DATASET = savedDs;
+    if (savedKg !== undefined) process.env.KG_SCHEMA = savedKg;
+  }
+  ok(called === 0 && asked.sql.text === null && asked.sql.gate?.outcome === "refused", "단위 오류 SQL 은 실행하지 않고 7B 도 부르지 않는다");
+  ok(
+    asked.answer.startsWith("이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다.") &&
+      asked.answer.includes("금액 조건(salary >= 2000)") &&
+      asked.answer.includes("2억 원 = 20000만 원") &&
+      asked.answer.includes("「20000만 원」"),
+    `금액 조건 때문에 답하지 않았다고 말한다 (got ${asked.answer})`,
+  );
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const gate = buildAuditRecord(asked).policies.find((p) => p.policy === "sql-trust-gate");
+  ok(gate?.verdict === "deny" && gate.detail.includes("금액 조건 salary >= 2000"), `감사 레코드에 sql-trust-gate deny 와 사유 (got ${JSON.stringify(gate)})`);
+  // 금액 사유가 외래키나 번호 사유와 함께 있으면 종전 문장이 먼저다.
+  const mixed = untrustedAnswer({ outcome: "refused", rejected: [{ sql: wrong, reasons: [...bad, "e.id = 1 의 번호 1 은 질문에 없다(질문에 없는 번호로 행을 고름)"] }] });
+  ok(mixed.startsWith("이 질문으로는 믿을 수 있는 조회를 만들지 못해") && mixed.includes("질문에 없는 번호(e.id = 1)"), `번호 사유가 있으면 종전 문장 (got ${mixed})`);
+}
+
+// sql.query 의 읽기 전용 가드가 문자열 속 `;`, `--` 를 문장 구조로 읽었다(랜덤 테스트 사전 점검 D7). `SELECT ';' AS x` 는
+// 여러 문장으로 거부됐고 `SELECT '--' AS x` 는 `SELECT '` 로 잘려 실행됐다. 가드는 이제 tokenizeSql 로 문자열, 따옴표 이름,
+// 달러 따옴표, 주석을 가른다. 시험항목 TC-068~075 의 거부는 그대로다. DB 없이 가짜 연결로 실제로 보낸 문장을 본다.
+{
+  const { isReadOnly, sqlQuery, tokenizeSql } = await import("./sql.js");
+  for (const sql of [
+    "SELECT ';' AS x",
+    "SELECT '--' AS x",
+    "SELECT '/*' AS a, '*/' AS b",
+    "SELECT $$;$$ AS d, $t$ -- $t$ AS e",
+    'SELECT ";" FROM companyx.sales',
+    "SELECT E'\\';' AS e",
+    "SELECT 1 /* a /* ; */ b */",
+    "SELECT 1 -- 끝 ;",
+    "SELECT 1;",
+    "SELECT 1; -- 끝",
+  ]) ok(isReadOnly(sql), `문자열, 따옴표 이름, 달러 따옴표, 주석 안의 ; 와 -- 는 문장 구조가 아니다: ${sql}`);
+  for (const sql of [
+    "INSERT INTO companyx.departments (id, name) VALUES (99, '테스트팀')",
+    "UPDATE companyx.employees SET salary = 0",
+    "DELETE FROM companyx.sales",
+    "DROP TABLE companyx.sales",
+    "CREATE TABLE companyx.tmp_x (id int)",
+    "TRUNCATE companyx.support_tickets",
+    "SELECT 1; DROP TABLE companyx.sales",
+    "/* SELECT */ DELETE FROM companyx.sales",
+    "SELECT '--'; DROP TABLE companyx.sales",
+    "SELECT ';' AS x; DROP TABLE companyx.sales",
+    "SELECT 1 -- 주석\r; DROP TABLE companyx.sales",
+    "SELECT 1;;",
+    "-- SELECT 1",
+    "",
+  ]) ok(!isReadOnly(sql), `쓰기, DDL, 여러 문장(문자열 밖의 ;), 주석 속 SELECT 는 그대로 거부한다: ${JSON.stringify(sql)}`);
+  ok(tokenizeSql("SELECT 1 -- a\r; x")?.some((t) => t.k === ";") === true, "줄 주석은 \\r 에서도 끝난다(PostgreSQL 과 같게)");
+
+  const sent: string[] = [];
+  const setup: string[] = [];
+  const pool = {
+    connect: async () => ({
+      query: async (q: string) => {
+        if (/^(BEGIN|SET|ROLLBACK)\b/.test(q) || /pg_roles/.test(q)) setup.push(q);
+        else sent.push(q);
+        return { rows: [{ x: 1 }], rowCount: 1, fields: [{ name: "x" }] };
+      },
+      release: () => {},
+    }),
+  } as unknown as Pool;
+  const runSql = async (sql: string) => {
+    sent.length = 0;
+    setup.length = 0;
+    const r = await sqlQuery(pool, sql);
+    return { ok: r.ok, error: r.error, sent: sent.join(" | ") };
+  };
+  ok((await runSql("SELECT '--' AS x")).sent === "SELECT '--' AS x", "문자열 속 -- 를 지우지 않고 문장 그대로 보낸다");
+  ok((await runSql("SELECT ';' AS x")).sent === "SELECT ';' AS x", "문자열 속 ; 가 있어도 실행한다");
+  ok((await runSql("SELECT 1; -- 끝")).sent === "SELECT 1", "끝의 ; 와 그 뒤 주석은 떼고 보낸다");
+  ok((await runSql("SELECT 'abc")).sent === "SELECT 'abc", "닫히지 않은 따옴표는 종전처럼 보내 데이터베이스가 오류를 말한다");
+  const tc080 = "WITH d AS (DELETE FROM companyx.sales RETURNING *) SELECT count(*) FROM d";
+  ok((await runSql(tc080)).sent === tc080, "데이터를 바꾸는 CTE(TC-080)는 종전처럼 읽기 전용 트랜잭션이 거부하게 보낸다");
+  const multi = await runSql("SELECT 1; DROP TABLE companyx.sales");
+  ok(!multi.ok && multi.sent === "" && multi.error === "rejected: only a single read-only SELECT/WITH query is allowed", "여러 문장은 DB 에 보내지 않고 종전 문장으로 거부한다(TC-074)");
+  await runSql("SELECT 1");
+  ok(setup.includes("SET LOCAL standard_conforming_strings = on"), "가드와 같은 문자열 규칙(standard_conforming_strings = on)으로 실행한다");
+}
+
+// sql.query 는 결과를 전부 받은 뒤 200행으로 잘랐다(G17 ⑨). 이제 서버 쪽 커서로 201행까지만 받고 나머지는 MOVE 로 세기만 한다.
+// rowCount 는 종전처럼 전체 행 수다(TC-063 「rowCount=500, rows 200건」). 가짜 연결이 PostgreSQL 의 커서 응답을 흉내 낸다.
+{
+  const { sqlQuery, MAX_ROWS } = await import("./sql.js");
+  const cursorPool = (total: number, fail?: { declare?: string; plain?: Error }) => {
+    const log: string[] = [];
+    let pos = 0;
+    const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ id: pos + i + 1 }));
+    const pool = {
+      connect: async () => ({
+        query: async (q: string) => {
+          log.push(q);
+          if (/^DECLARE /.test(q) && fail?.declare) throw new Error(fail.declare);
+          const fetch = /^FETCH (\d+) FROM mcp_rows$/.exec(q);
+          if (fetch) {
+            const r = rows(Math.min(Number(fetch[1]), total - pos));
+            pos += r.length;
+            return { rows: r, rowCount: r.length, fields: [{ name: "id" }] };
+          }
+          if (/^MOVE FORWARD ALL IN mcp_rows$/.test(q)) {
+            const moved = total - pos;
+            pos = total;
+            return { rows: [], rowCount: moved };
+          }
+          if (/^SELECT \* FROM/.test(q)) {
+            if (fail?.plain) throw fail.plain;
+            return { rows: rows(total), rowCount: total, fields: [{ name: "id" }] };
+          }
+          return { rows: [], rowCount: 0 };
+        },
+        release: () => {},
+      }),
+    } as unknown as Pool;
+    return { pool, log };
+  };
+  const sales = "SELECT * FROM companyx.sales";
+
+  const big = cursorPool(500);
+  const r500 = await sqlQuery(big.pool, sales, { cursor: true });
+  ok(r500.ok && r500.rowCount === 500 && r500.rows.length === MAX_ROWS && r500.truncated && r500.rows[199].id === 200, `rowCount 500, rows 200, truncated(TC-063) (got ${r500.rowCount}/${r500.rows.length}/${r500.truncated})`);
+  ok(!big.log.includes(sales), "결과를 한 번에 받는 문장을 보내지 않는다");
+  const at = (re: RegExp) => {
+    for (let i = big.log.length - 1; i >= 0; i--) if (re.test(big.log[i])) return i;
+    return -1;
+  };
+  ok(
+    at(/^SET LOCAL cursor_tuple_fraction = 1$/) >= 0 &&
+      at(/^SET LOCAL cursor_tuple_fraction/) < at(/^SAVEPOINT mcp_read$/) &&
+      at(/^SAVEPOINT/) < at(new RegExp(`^DECLARE mcp_rows NO SCROLL CURSOR FOR ${sales.replace(/\*/g, "\\*")}$`)) &&
+      at(/^DECLARE/) < at(/^FETCH 201 FROM mcp_rows$/) &&
+      at(/^FETCH/) < at(/^SET LOCAL statement_timeout = \d+$/) &&
+      at(/^SET LOCAL statement_timeout = \d+$/) < at(/^MOVE FORWARD ALL IN mcp_rows$/) &&
+      at(/^MOVE/) < at(/^CLOSE mcp_rows$/) &&
+      at(/^CLOSE/) < at(/^ROLLBACK$/),
+    `커서 순서: 계획 기준, 세이브포인트, DECLARE, FETCH 201, 남은 상한, MOVE, CLOSE, ROLLBACK (got ${big.log.join(" / ")})`,
+  );
+  const moveBudget = Number(/^SET LOCAL statement_timeout = (\d+)$/.exec(big.log[at(/^SET LOCAL statement_timeout = \d+$/)])?.[1]);
+  ok(big.log[1] === "SET LOCAL statement_timeout = 8000" && moveBudget > 0 && moveBudget <= 8000, `MOVE 는 처음 상한(8초)에서 쓴 시간을 뺀 안에서 돈다 (got ${moveBudget})`);
+
+  for (const total of [0, 1, 200]) {
+    const small = cursorPool(total);
+    const r = await sqlQuery(small.pool, sales, { cursor: true });
+    ok(r.ok && r.rowCount === total && r.rows.length === total && !r.truncated && !small.log.some((q) => /^MOVE/.test(q)), `${total}행이면 FETCH 한 번으로 끝나고 MOVE 하지 않는다`);
+  }
+  const edge = await sqlQuery(cursorPool(201).pool, sales, { cursor: true });
+  ok(edge.rowCount === 201 && edge.rows.length === 200 && edge.truncated, "201행이면 200행과 truncated");
+
+  // 커서가 받지 않는 문장(TC-080 의 데이터를 바꾸는 CTE)은 세이브포인트로 되돌려 종전처럼 실행한다. 오류 문장이 종전과 같다.
+  const ro = Object.assign(new Error("cannot execute SELECT in a read-only transaction"), { code: "25006" });
+  const cte = cursorPool(0, { declare: "DECLARE CURSOR must not contain data-modifying statements in WITH", plain: ro });
+  const tc080 = await sqlQuery(cte.pool, "SELECT * FROM companyx.sales -- 데이터를 바꾸는 CTE 대신", { cursor: true });
+  ok(!tc080.ok && tc080.error === "cannot execute SELECT in a read-only transaction (25006)", `DECLARE 가 거부하면 종전 실행의 오류를 돌려준다 (got ${tc080.error})`);
+  ok(cte.log.includes("ROLLBACK TO SAVEPOINT mcp_read") && cte.log.indexOf("ROLLBACK TO SAVEPOINT mcp_read") < cte.log.findIndex((q) => /^SELECT \* FROM/.test(q)), "되돌린 뒤 종전 문장을 실행한다");
+
+  // 생성 SQL 경로(파이프라인, 평가)는 cursor 를 주지 않아 종전처럼 한 번에 받는다.
+  const plain = cursorPool(500);
+  const p = await sqlQuery(plain.pool, sales);
+  ok(p.rowCount === 500 && p.rows.length === 200 && plain.log.includes(sales) && !plain.log.some((q) => /^(DECLARE|FETCH|SAVEPOINT)/.test(q)), "cursor 를 주지 않으면 종전 그대로");
+}
+
+// 그래프 집계의 「가장 적은」(랜덤 테스트 사전 점검 2차 R6). 공동 1위가 둘 이상이면 모델에게 간 줄의 이름을 다 적고, 잘린 것은 건수로 말한다.
+{
+  const { fewestAnswer } = await import("./pipeline.js");
+  const few = (strategy: string, entries: string[], kept: string[], route = "graph") =>
+    fewestAnswer({
+      route,
+      graph: { strategy, fewest: { relType: "MANAGES_ACCOUNT", count: 0, entries: entries.map((n) => ({ name: n, text: `t:${n}` })) } },
+      curated: { kept: kept.map((n) => ({ text: `t:${n}` })) },
+    } as unknown as Parameters<typeof fewestAnswer>[0]);
+  ok(few("relation-scan", ["윤소연", "박소연", "홍서연"], ["윤소연", "박소연"]) === "가장 적은 쪽 공동 1위가 3건입니다(담당 고객사 0건): 윤소연, 박소연 외 1건.", "공동이면 이름을 다 적고 잘린 것은 건수로");
+  ok(few("relation-scan", ["윤소연"], ["윤소연"]) === undefined, "하나뿐이면 모델이 답한다");
+  ok(few("seeded+relation-scan", ["윤소연", "박소연"], ["윤소연", "박소연"]) === undefined, "시드가 있는 질문의 전체 순위로는 답하지 않는다");
+  ok(few("relation-scan", ["윤소연", "박소연"], ["윤소연", "박소연"], "structured") === undefined, "그래프 레인일 때만");
+}
+
+// 측정 항목 한 낱말뿐인 요청(「매출 알려줘」)은 조회하지 않고 되묻는다. 7B 가 매출 500건 가운데 200건을 붙이고 「매출은 1953입니다.」
+// (한 건의 값)라고 답했다. 기간, 개체, 집계 같은 다른 내용이 조금이라도 있으면 종전 그대로다. 생성기와 풀은 가짜.
+{
+  const { vagueMeasure, vagueAnswer } = await import("./sqltrust.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  for (const [q, word] of [
+    ["매출 알려줘", "매출"],
+    ["연봉 알려줘", "연봉"],
+    ["예산 알려줘", "예산"],
+    ["매출은?", "매출"],
+    ["연봉이 얼마야?", "연봉"],
+    ["매출 좀 알려줘", "매출"],
+    ["매출액 알려 주세요", "매출액"],
+    ["계약 금액 보여줘", "계약 금액"],
+    ["급여", "급여"],
+    ["월급 알려줘!", "월급"],
+    ["실적 알려줘", "실적"],
+    ["금액은 얼마야?", "금액"],
+  ] as const) ok(vagueMeasure(q, "companyx") === word, `측정 항목 한 낱말뿐인 요청: ${q} → ${word} (got ${vagueMeasure(q, "companyx")})`);
+  for (const q of [
+    "매출 합계 알려줘",
+    "2025년 매출 알려줘",
+    "총 매출은 얼마야?",
+    "올해 매출은 얼마야?",
+    "Client-A 매출 합계는?",
+    "서울 쪽 매출이 어때",
+    "2025년 3분기 총 매출액은 얼마야?",
+    "기술지원팀 직원 목록과 연봉을 알려줘",
+    "평균 연봉이 가장 높은 부서는 어디야?",
+    "연봉 4천",
+    "매출 현황",
+    "가격 알려줘",
+    "매출이 연봉보다 많아?",
+  ]) ok(vagueMeasure(q, "companyx") === null, `다른 내용이 있으면 되묻지 않는다: ${q}`);
+  ok(vagueMeasure("매출 알려줘", "public") === null && vagueMeasure("매출 알려줘", "bench") === null, "측정 항목을 두지 않은 스키마(smoke, bench)는 종전 그대로");
+  ok(
+    vagueAnswer("매출") ===
+      "「매출」만으로는 무엇을 알고 싶은지 정할 수 없어 조회하지 않았습니다. 기간, 고객사, 제품처럼 대상을 함께 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「서울 지역 매출 상위 5개 고객사를 알려줘」",
+    `되묻는 문장 (got ${vagueAnswer("매출")})`,
+  );
+  ok(vagueAnswer("월급").includes("「월급」만으로는") && vagueAnswer("월급").includes("「기술지원팀 직원 목록과 연봉을 알려줘」"), "낱말마다 그 금액 열로 답하는 예시를 든다");
+  // 근거 없이 쓰는 답이라 예시에 개체 식별자가 있으면 감사의 접지 검사가 근거 밖 개체로 적는다(「Client-A 매출 합계는?」에서 실측).
+  const { outsideContextMentions } = await import("./auditrecord.js");
+  for (const w of ["매출", "매출액", "실적", "연봉", "급여", "월급", "예산", "계약 금액", "계약금액", "금액"]) {
+    ok(outsideContextMentions(vagueAnswer(w), "").length === 0, `되묻는 답이 접지 검사에 걸리지 않는다: ${w} (got ${outsideContextMentions(vagueAnswer(w), "")})`);
+  }
+
+  // ask: 생성 모델도 DB 도 부르지 않고 되묻는다. 감사에는 sql-trust-gate deny 와 그 낱말이 남고 읽기 전용 판정은 없다.
+  const executed: string[] = [];
+  const pool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        executed.push(sql);
+        return { rows: [{ amount: 1953 }], rowCount: 1, fields: [{ name: "amount" }] };
+      },
+      release: () => {},
+    }),
+    query: async (sql: string) => {
+      executed.push(sql);
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  let generated = 0;
+  let answered = 0;
+  const deps = {
+    pool,
+    embedder: deadEmbedder,
+    repair: false,
+    llm: async () => {
+      answered++;
+      return "매출은 1953입니다.";
+    },
+    nl2sql: async () => {
+      generated++;
+      return "SELECT amount FROM companyx.sales";
+    },
+  };
+  const saved = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  try {
+    const r = await ask("매출 알려줘", deps);
+    ok(r.answer === vagueAnswer("매출") && generated === 0 && answered === 0 && executed.length === 0, `생성 모델, DB, 답 모델을 부르지 않고 되묻는다 (got ${r.answer})`);
+    ok(r.sql.text === null && r.sql.gate?.outcome === "refused" && r.sql.gate.vague === "매출" && r.audit.sql_gate?.vague === "매출", "retrieve 의 audit 에도 되물은 낱말이 남는다");
+    const rec = buildAuditRecord(r);
+    const gate = rec.policies.find((p) => p.policy === "sql-trust-gate");
+    ok(
+      gate?.verdict === "deny" && gate.detail.includes("측정 항목 한 낱말(「매출」)") && !rec.policies.some((p) => p.policy === "sql-read-only") && rec.retrieval.sql.text === null,
+      `감사는 기존 정책 이름(sql-trust-gate deny)으로 남는다 (got ${JSON.stringify(rec.policies)})`,
+    );
+    ok(rec.grounding?.outside_context.length === 0, `감사의 접지 검사에 근거 밖 개체가 없다 (got ${rec.grounding?.outside_context})`);
+    const total = await ask("매출 합계 알려줘", deps);
+    ok(generated === 1 && answered === 1 && !total.sql.gate && total.answer.startsWith("매출은 1953입니다."), "집계 낱말이 있으면 종전처럼 SQL 을 만들어 답한다");
+  } finally {
+    if (saved === undefined) delete process.env.DATASET;
+    else process.env.DATASET = saved;
+  }
+}
+
+// 순위 질문(「두 번째로 많이」)의 `ORDER BY … LIMIT 1 OFFSET k` 는 같은 순위의 행을 모두 돌려주는 DENSE_RANK 질의로 실행한다.
+// 「계약을 두 번째로 많이 담당한 직원」은 장미라, 김준혁, 안소연이 4건으로 같은데 OFFSET 1 이 김준혁 한 명만 골랐다.
+{
+  const { ordinalRanks, rankRewrite } = await import("./sqltrust.js");
+  const { executeWithRepair } = await import("./sqlrepair.js");
+  for (const [q, ranks] of [
+    ["계약을 두 번째로 많이 담당한 직원은 누구야?", [2]],
+    ["매출이 세번째로 높은 고객사는?", [3]],
+    ["셋째로 큰 계약", [3]],
+    ["2위 고객사는?", [2]],
+    ["12번째 직원", [12]],
+    ["첫 번째로 한 조치가 뭐였지?", []],
+    ["1위 고객사", []],
+    ["서울 지역 매출 상위 5개 고객사를 알려줘", []],
+    ["두 번 이상 계약한 고객사", []],
+    ["2026-08-18 위조 시험", []],
+  ] as const) ok(JSON.stringify(ordinalRanks(q)) === JSON.stringify(ranks), `질문의 순위(2 이상): ${q} → ${JSON.stringify(ranks)} (got ${JSON.stringify(ordinalRanks(q))})`);
+
+  const q2 = "계약을 두 번째로 많이 담당한 직원은 누구야?";
+  const second =
+    "SELECT e.name FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY COUNT(c.id) DESC LIMIT 1 OFFSET 1";
+  const ranked =
+    "SELECT * FROM (SELECT e.name, CAST(DENSE_RANK() OVER (ORDER BY COUNT(c.id) DESC) AS integer) AS rank FROM companyx.employees e " +
+    "JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY COUNT(c.id) DESC) AS ranked WHERE rank = 2";
+  ok(JSON.stringify(rankRewrite(second, q2)) === JSON.stringify({ text: ranked, rank: 2 }), `OFFSET 1 을 2위의 행 전부로 (got ${rankRewrite(second, q2)?.text})`);
+  ok(
+    rankRewrite(
+      "SELECT d.name, COUNT(e.id) AS employee_count FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY employee_count DESC OFFSET 1 LIMIT 1;",
+      "직원이 두 번째로 많은 부서는 어디야?",
+    )?.text ===
+      "SELECT * FROM (SELECT d.name, COUNT(e.id) AS employee_count, CAST(DENSE_RANK() OVER (ORDER BY COUNT(e.id) DESC) AS integer) AS rank " +
+        "FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY employee_count DESC) AS ranked WHERE rank = 2",
+    "출력 열 이름으로 정렬하면 그 식을 창 함수에 넣는다(OFFSET 이 앞, 끝 세미콜론)",
+  );
+  ok(
+    rankRewrite(
+      "SELECT c.name, SUM(s.amount) total FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY 2 DESC NULLS LAST OFFSET 2 ROWS FETCH FIRST 1 ROWS ONLY",
+      "매출이 세 번째로 높은 고객사는?",
+    )?.text ===
+      "SELECT * FROM (SELECT c.name, SUM(s.amount) total, CAST(DENSE_RANK() OVER (ORDER BY SUM(s.amount) DESC NULLS LAST) AS integer) AS rank " +
+        "FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY 2 DESC NULLS LAST) AS ranked WHERE rank = 3",
+    "자리 번호 정렬, NULLS LAST, OFFSET … FETCH FIRST 1 ROWS ONLY",
+  );
+  // 둘째 정렬 키(이름)는 같은 값을 늘어놓는 순서다. 순위에 넣으면 공동 순위가 갈라져 한 명만 남는다(PR #257 Codex P1).
+  ok(
+    rankRewrite(
+      "SELECT e.name, COUNT(c.id) AS contract_count FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id " +
+        "GROUP BY e.id, e.name ORDER BY contract_count DESC, e.name ASC LIMIT 1 OFFSET 1",
+      q2,
+    )?.text ===
+      "SELECT * FROM (SELECT e.name, COUNT(c.id) AS contract_count, CAST(DENSE_RANK() OVER (ORDER BY COUNT(c.id) DESC) AS integer) AS rank " +
+        "FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id GROUP BY e.id, e.name ORDER BY contract_count DESC, e.name ASC) AS ranked WHERE rank = 2",
+    "순위는 첫 정렬 키로만 매기고 둘째 키는 안쪽 ORDER BY 에 남는다",
+  );
+  for (const [q, sql] of [
+    ["계약을 많이 담당한 직원 목록", second], // 질문에 순위가 없다
+    ["계약을 세 번째로 많이 담당한 직원은 누구야?", second], // 질문의 순위(3)와 OFFSET 1 이 어긋난다
+    [q2, second.replace("LIMIT 1 OFFSET 1", "LIMIT 2 OFFSET 1")],
+    [q2, second.replace(" OFFSET 1", "")],
+    [q2, `WITH x AS (SELECT 1) ${second}`],
+    [q2, second.replace("SELECT e.name", "SELECT DISTINCT e.name")],
+    [q2, `${second} -- 2위`],
+    [q2, `SELECT * FROM (${second}) s`],
+    [q2, `SELECT name FROM companyx.employees UNION ${second}`],
+    [q2, second.replace("SELECT e.name", "SELECT e.name, RANK() OVER (ORDER BY e.id) AS rank")],
+    [q2, "SELECT e.name, d.name FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id ORDER BY name LIMIT 1 OFFSET 1"],
+    [q2, `${second} FOR UPDATE`],
+    [q2, "SELECT e.name FROM companyx.employees e ORDER BY e.salary DESC LIMIT 1 OFFSET $1"],
+  ] as const) ok(rankRewrite(sql, q) === null, `순위 질문의 꼴이 아니면 바꾸지 않는다: ${q} / ${sql}`);
+
+  // 실행: 바꾼 SQL 이 검사를 지나 행을 돌려주면 그것을 쓰고, 실행되지 않거나 0행이면 처음 SQL 을 그대로 실행한다.
+  const fkRows = [
+    { table_name: "contracts", column_name: "manager_id", ref_table: "employees", ref_column: "id" },
+    { table_name: "employees", column_name: "dept_id", ref_table: "departments", ref_column: "id" },
+  ];
+  const tied = [
+    { name: "장미라", rank: 2 },
+    { name: "김준혁", rank: 2 },
+    { name: "안소연", rank: 2 },
+  ];
+  const rankPool = (answer: (sql: string) => Record<string, unknown>[] | Error, executed: string[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (!/^\s*(select|with)\b/i.test(sql) || /pg_roles/.test(sql)) return { rows: [], rowCount: 0, fields: [] };
+          executed.push(sql);
+          const rows = answer(sql);
+          if (rows instanceof Error) throw rows;
+          return { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string) => (/pg_constraint/.test(sql) ? { rows: fkRows, rowCount: fkRows.length } : { rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const byRank = (rows: Record<string, unknown>[] | Error) => (sql: string) => (/DENSE_RANK/.test(sql) ? rows : [{ name: "김준혁" }]);
+
+  const ran: string[] = [];
+  const ex = await executeWithRepair(rankPool(byRank(tied), ran), q2, second, { repair: false });
+  ok(ex.text === ranked && ex.rank === 2 && ex.result?.rows.length === 3 && ran.join() === ranked && !ex.gate, `같은 순위 셋을 모두 돌려준다 (got ${JSON.stringify({ text: ex.text, ran })})`);
+  const failures: [string, Record<string, unknown>[] | Error][] = [
+    ["실행 오류", Object.assign(new Error('column "cnt" does not exist'), { code: "42703" })],
+    ["0행", []],
+  ];
+  for (const [why, rows] of failures) {
+    const log: string[] = [];
+    const back = await executeWithRepair(rankPool(byRank(rows), log), q2, second, { repair: false });
+    ok(back.text === second && back.rank === undefined && back.result?.rows.length === 1 && log.join(" | ") === `${ranked} | ${second}`, `바꾼 SQL 이 ${why}면 처음 SQL 을 그대로 실행한다 (got ${JSON.stringify(log)})`);
+  }
+  const plainLog: string[] = [];
+  const plain = await executeWithRepair(rankPool(byRank(tied), plainLog), "계약을 많이 담당한 직원 목록", second, { repair: false });
+  ok(plain.text === second && plain.rank === undefined && plainLog.join() === second, "순위를 묻지 않은 질문은 종전 그대로 실행한다");
+
+  // ask: 공동 순위는 7B 없이 이름을 모두 적는 결정론 문장, 한 행이면 종전처럼 7B 가 쓴다.
+  let llmCalls = 0;
+  const llm = async () => {
+    llmCalls++;
+    return "김준혁입니다.";
+  };
+  const askWith = (rows: Record<string, unknown>[]) =>
+    ask(q2, { pool: rankPool(byRank(rows), []), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => second });
+  const tie = await askWith(tied);
+  ok(
+    tie.answer.startsWith("공동 2위가 3건입니다: 장미라, 김준혁, 안소연.") && tie.answer.includes("[조회 결과 3건]\n- name: 장미라, rank: 2") && llmCalls === 0 && tie.sql.rank === 2 && tie.sql.text === ranked,
+    `공동 2위는 이름을 모두 적는다 (got ${tie.answer})`,
+  );
+  const one = await askWith([{ name: "조현우", rank: 2 }]);
+  ok(llmCalls === 1 && one.answer.startsWith("김준혁입니다.") && one.answer.includes("[조회 결과 1건]\n- name: 조현우, rank: 2"), "그 순위가 한 행이면 종전처럼 7B 가 문장을 쓴다");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

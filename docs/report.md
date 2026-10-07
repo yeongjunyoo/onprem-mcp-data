@@ -563,7 +563,7 @@ h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서
 | 종단 근거 포함, 접지 | 19/19, 20/20 (중앙값 10934ms) |
 | 벡터 hit@5 | 0.986 |
 | NL2SQL 실행 일치(사업자 10) | 스키마 카드 8/10(재시도 1회도 8/10, 수리 0회), 테이블명만 1/10(재시도 1회 5/10). 5회 반복 넷 다 매번 같은 값 |
-| 통합 테스트 | 143/143 |
+| 통합 테스트 | 152/152 |
 | **봉인 홀드아웃4 최종 답(1회)** | **27/59 = 45.8%** (정형 11/20, 벡터 2/19, 그래프 14/20, 채점 불가 1 은 분모에서 뺌, 라우트 일치 54/60) |
 
 봉인 세트의 벡터 2/19 는 결과를 본 뒤 하나씩 읽었다. 점수는 고치지 않는다. 독립 작성자가 정답 키워드를 원문 문장 조각으로 적었고(「초기 대응: 40분」), 채점기는 키워드가 답에 글자 그대로 들어 있어야 맞힌 것으로 본다. 틀리거나 채점 불가인 18개 중 값은 맞고 꼬리표나 문장만 다른 것이 9, 값은 맞고 둘째 키워드(기술 이름)를 빠뜨린 것이 3, 실제로 틀린 것이 4, 채점 불가가 1(정답 문서가 셋), 조회 실패가 1(벡터 질문이 SQL 갈래 오류로 통째로 실패)이다. 마지막 하나는 결함 후보로 남긴다. 정형과 그래프의 오답은 대부분 실제 오류다(기권, 목록 일부만, 정답 밖 개체). 이 세트는 이제 개발용이다.
@@ -666,7 +666,7 @@ h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 784(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 143(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **927단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 764. tsc strict clean.
+- **테스트:** 오프라인 1093(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 152(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **1245단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 1073. tsc strict clean.
 
 ---
 
@@ -897,7 +897,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 784단언(데이터셋 없는 CI 는 764), 전체 927단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 1093단언(데이터셋 없는 CI 는 1073), 전체 1245단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp** 2026-09-30 재측정, 사업자 NL2SQL 무재시도 Δ **+70pp** 2026-10-01 정본, 둘 다 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
