@@ -35,6 +35,7 @@ import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
 import { sqlQuery, tokenizeSql, type SqlToken } from "./sql.js";
+import { RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -598,6 +599,34 @@ export function checkMoney(sql: string, question: string, columns: readonly stri
   return reasons;
 }
 
+/** 기간 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const PERIOD_REASON = "기간 조건 ";
+/** 질문이 분기, 월, 반기를 말하는가. 말하면 한 분기를 고르는 조건이 맞을 수 있어 기간 검사를 하지 않는다. */
+const PART_OF_YEAR = /\d\s*분기|[일이삼사]\s*분기|사분기|분기별|Q[1-4]|\d{1,2}\s*월|상반기|하반기|반기/i;
+
+/** ⑤ 질문이 한 해(「2025년 매출」, 「작년 매출」)를 묻고 분기나 월을 말하지 않는데 생성 SQL 이 그해의 한 분기만
+ * (quarter = '2025-Q3') 고르면 기간이 다르다. 스키마 카드의 분기 예시가 '2025-Q3' 이라 7B 는 「2025년 매출은 얼마야?」,
+ * 「2025년 총 매출은 얼마야?」를 3분기 23,859 로 답했다(2025년 전체는 112,773, 2026-10-08 실측 각 1회). 「2024년 매출
+ * 합계」, 「2025년 전체 매출」은 맞게 한 해를 골랐다. 사유는 한 해 전체로 고르라고 말한다(수리 안내가 된다). 질문의 연도는
+ * 숫자 연도와 상대 연도(작년, 지난해, 재작년, 내년, 서울 기준)를 함께 본다. */
+export function checkPeriod(sql: string, question: string, now: Date = new Date()): string[] {
+  if (PART_OF_YEAR.test(question)) return [];
+  const years = new Set<number>([...question.matchAll(/(\d{4})\s*년/g)].map((m) => Number(m[1])));
+  const thisYear = seoulYear(now);
+  for (const m of question.matchAll(RELATIVE_YEAR_RE)) years.add(thisYear + RELATIVE_YEAR[m[1]]);
+  if (!years.size) return [];
+  const reasons: string[] = [];
+  for (const m of sql.matchAll(/(?<![A-Za-z0-9_$])((?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter\s*=\s*'(\d{4})-Q[1-4]')/gi)) {
+    const year = Number(m[2]);
+    if (!years.has(year)) continue;
+    reasons.push(
+      `${PERIOD_REASON}${m[1].replace(/\s+/g, " ")} 은 ${year}년의 한 분기만 고른다. 질문은 분기를 말하지 않고 ${year}년을 묻는다. ` +
+        `한 해 전체(quarter LIKE '${year}-%' 나 날짜의 연도)로 고른다`,
+    );
+  }
+  return reasons;
+}
+
 /** 질문에 없는 번호로 건 id 조건 가운데 그 행의 이름(name 열)이 질문에 그대로 있는 것은 거부하지 않는다.
  * 「Client-N에 메일 보내야 돼」에 c.id = 14 는 Client-N 을 가리키므로 추측이 아니다(qwen3.5:9b 홀드아웃3 h3-05,
  * 정답으로 채점된 SQL). 「연봉 알려줘」의 e.id = 1(윤소연)은 질문에 이름이 없어 그대로 거부한다. 표 이름은
@@ -690,7 +719,7 @@ export async function declaredColumns(pool: Pool, schema: string): Promise<Table
 }
 
 /** 생성 SQL(과 수리 SQL)을 실행하기 전의 검사 사유. 비었으면 실행해도 된다. executeWithRepair 가 부르고, 순서는 조인과 id
- * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout)이다. */
+ * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout), 기간(checkPeriod)이다. */
 export async function untrustedReasons(pool: Pool, schema: string, sql: string, question: string): Promise<string[]> {
   const fks = await declaredForeignKeys(pool, schema);
   const v = checkSql(sql, question, fks, await declaredColumns(pool, schema));
@@ -698,6 +727,7 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...(v.ok ? [] : await confirmNamedIds(pool, schema, v, question)),
     ...checkMoney(sql, question, moneyColumns(schema)),
     ...(await confirmFanout(pool, schema, fanoutJoins(sql, fks))),
+    ...checkPeriod(sql, question),
   ];
 }
 
@@ -783,7 +813,7 @@ export function untrustedAnswer(gate: SqlGate): string {
   const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
   const id = reasons
-    .find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON) && !r.startsWith(FANOUT_REASON))
+    .find((r) => !r.startsWith("조인 조건") && !r.startsWith(MONEY_REASON) && !r.startsWith(FANOUT_REASON) && !r.startsWith(PERIOD_REASON))
     ?.match(/^(.+?) 의 번호/)?.[1];
   const money = reasons
     .find((r) => r.startsWith(MONEY_REASON))
@@ -795,6 +825,15 @@ export function untrustedAnswer(gate: SqlGate): string {
       "이 질문의 금액 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
       `생성된 SQL 이 금액 조건(${cond})을 질문의 금액(${text} = ${want}만 원)과 다른 단위로 걸어서 실행하지 않았습니다. ` +
       `금액은 만원 단위 숫자로 바꿔 다시 물어봐 주세요. 예: 「${text}」 대신 「${want}만 원」`
+    );
+  }
+  const period = reasons.find((r) => r.startsWith(PERIOD_REASON))?.match(/^기간 조건 (.+?) 은 (\d{4})년의 한 분기만/);
+  if (!join && !id && !fan && !money && !missing && period) {
+    const [, cond, year] = period;
+    return (
+      "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
+      `생성된 SQL 이 ${year}년 전체가 아니라 한 분기(${cond})만 골라서 실행하지 않았습니다. ` +
+      `분기를 함께 물어봐 주세요. 예: 「${year}년 3분기 총 매출액은 얼마야?」`
     );
   }
   const why = missing

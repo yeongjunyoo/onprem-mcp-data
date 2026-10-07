@@ -974,6 +974,32 @@ const deadEmbedder: Embedder = {
   ok(checkMoney("SELECT name FROM companyx.employees WHERE salary >= 2000", "연봉 알려줘", cols).length === 0, "질문에 금액 표현이 없으면 보지 않는다");
   ok(moneyColumns("bench").length === 0 && moneyColumns("public").length === 0, "만원 단위를 모르는 스키마(bench, smoke)는 끈다");
 
+  // 실행 전 검사 ⑤: 한 해를 묻는데 그해의 한 분기만 고르면 기간이 다르다(「2025년 매출은 얼마야?」 → quarter = '2025-Q3').
+  {
+    const { checkPeriod, untrustedAnswer } = await import("./sqltrust.js");
+    const oct8 = new Date("2026-10-08T07:00:00+09:00");
+    const q3 = "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'";
+    const why = checkPeriod(q3, "2025년 매출은 얼마야?", oct8);
+    ok(why.length === 1 && why[0].startsWith("기간 조건 quarter = '2025-Q3' 은 2025년의 한 분기만 고른다") && why[0].includes("quarter LIKE '2025-%'"), `한 해를 묻는데 한 분기만 고름 (got ${why})`);
+    ok(checkPeriod(q3, "작년 매출은 얼마야?", oct8).length === 1, "상대 연도(작년 = 2025년, 서울 기준)도 본다");
+    ok(checkPeriod("SELECT SUM(s.amount) FROM companyx.sales s WHERE s.quarter = '2025-Q3'", "2025년 총 매출은?", oct8).length === 1, "별칭이 붙은 분기 열");
+    for (const [sql, q] of [
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "2025년 3분기 총 매출액은 얼마야?"], // TC-109(사업자 예시 2번)
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "서울물산의 2025년 3분기 총 매출액은 얼마야?"],
+      ["SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE EXTRACT(YEAR FROM sale_date) = 2023", "2023년 총 매출액은 얼마야?"], // TC-140
+      ["SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE quarter LIKE '2025-%'", "2025년 전체 매출은?"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q3'", "2024년 매출 합계는?"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q1'", "2025년 1분기 매출"],
+      ["SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q2'", "2025년 상반기 매출"],
+      ["SELECT COUNT(*) FROM companyx.clients WHERE EXTRACT(YEAR FROM registered_at) = 2024", "2024년에 등록된 고객사는 몇 개야?"],
+    ]) ok(checkPeriod(sql, q, oct8).length === 0, `분기를 말하거나 한 해 전체를 고르거나 다른 해면 보지 않는다: ${q}`);
+    ok(
+      untrustedAnswer({ outcome: "refused", rejected: [{ sql: q3, reasons: why }] }) ===
+        "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 2025년 전체가 아니라 한 분기(quarter = '2025-Q3')만 골라서 실행하지 않았습니다. 분기를 함께 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」",
+      "기간만 걸렸으면 기간 조건을 말하는 거절 문장",
+    );
+  }
+
   // 수리 경로: 단위 오류를 사유로 되먹여 한 번 고치고, 고친 것만 실행한다. 생성기와 풀은 가짜.
   const fakePool = (rows: (sql: string) => Record<string, unknown>[], executed: string[]) =>
     ({
