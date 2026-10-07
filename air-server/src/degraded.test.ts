@@ -444,5 +444,97 @@ const deadEmbedder: Embedder = {
   ok(Array.from(emojiCut).length === LLM_QUESTION_MAX_CHARS && emojiCut === "\u{1F600}".repeat(LLM_QUESTION_MAX_CHARS), "서로게이트 쌍을 가르지 않는다");
 }
 
+// 생성 SQL 의 실행 전 검사와 공동 순위(sqltrust.ts, 랜덤 테스트 사전 점검 D1·D3·D6). DB 와 모델 없이 잰다.
+{
+  const { withTies, checkSql, confirmNamedIds, clampK, entityIdError } = await import("./sqltrust.js");
+
+  // D1: 바깥 ORDER BY … LIMIT 1 만 WITH TIES 로 바꾼다.
+  const top = "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.id, d.name ORDER BY COUNT(e.id) DESC LIMIT 1";
+  ok(withTies(top) === top.replace(/LIMIT 1$/, "FETCH FIRST 1 ROWS WITH TIES"), `최상위 질문은 공동 1위를 모두 돌려주게 바꾼다 (got ${withTies(top)})`);
+  ok(withTies("SELECT name FROM t ORDER BY x DESC limit 1;") === "SELECT name FROM t ORDER BY x DESC FETCH FIRST 1 ROWS WITH TIES;", "소문자와 끝 세미콜론");
+  ok(withTies("SELECT name FROM t ORDER BY x LIMIT 1 -- 1위") === "SELECT name FROM t ORDER BY x FETCH FIRST 1 ROWS WITH TIES -- 1위", "끝 주석은 그대로 둔다");
+  for (const same of [
+    "SELECT name FROM t ORDER BY x DESC LIMIT 5",
+    "SELECT name FROM t LIMIT 1",
+    "SELECT name FROM t ORDER BY x LIMIT 1 OFFSET 1",
+    "SELECT name FROM t ORDER BY x OFFSET 1 LIMIT 1",
+    "SELECT * FROM (SELECT x FROM t ORDER BY x LIMIT 1) s",
+    "WITH a AS (SELECT x FROM t ORDER BY x LIMIT 1) SELECT * FROM a",
+    "SELECT x, rank() OVER (ORDER BY y) FROM t LIMIT 1",
+    "SELECT x FROM t WHERE n = 'ORDER BY a LIMIT 1'",
+    "SELECT $$a$$ FROM t ORDER BY 1 LIMIT 1",
+    "SELECT name FROM t ORDER BY x LIMIT 10",
+  ]) ok(withTies(same) === same, `LIMIT 2 이상, 하위 쿼리, ORDER BY 없음, OFFSET, 읽지 못하는 문장은 그대로: ${same}`);
+
+  // D3 ①: 조인 열 쌍은 선언된 외래키여야 한다(방향 무관).
+  const FKS = [
+    { table: "sales", column: "contract_id", refTable: "contracts", refColumn: "id" },
+    { table: "sales", column: "client_id", refTable: "clients", refColumn: "id" },
+    { table: "sales", column: "product_id", refTable: "products", refColumn: "id" },
+    { table: "contracts", column: "manager_id", refTable: "employees", refColumn: "id" },
+    { table: "employees", column: "dept_id", refTable: "departments", refColumn: "id" },
+    { table: "departments", column: "head_id", refTable: "employees", refColumn: "id" },
+  ];
+  const qaSales =
+    "SELECT s.id, s.amount, e.name AS manager_name\nFROM companyx.sales s\nJOIN companyx.clients c ON s.client_id = c.id\nJOIN companyx.products p ON s.product_id = p.id\nJOIN companyx.employees e ON s.contract_id = e.id";
+  const salesCheck = checkSql(qaSales, "매출 알려줘", FKS);
+  ok(!salesCheck.ok && salesCheck.reasons.length === 1 && salesCheck.reasons[0].includes("s.contract_id = e.id"), `매출 알려줘의 계약 id = 직원 id 조인을 거부 (got ${salesCheck.reasons})`);
+  ok(checkSql("SELECT e.name FROM companyx.sales s JOIN companyx.contracts c ON s.contract_id = c.id JOIN companyx.employees e ON c.manager_id = e.id", "q", FKS).ok, "외래키를 따라간 조인은 통과");
+  ok(checkSql("SELECT e.name FROM companyx.employees AS e JOIN companyx.contracts c ON e.id = c.manager_id AND c.status = 'active'", "q", FKS).ok, "방향이 반대여도, 값 조건이 붙어도 통과");
+  ok(checkSql("SELECT e.name FROM companyx.departments d JOIN companyx.employees e ON d.head_id = e.id", "q", FKS).ok, "ALTER TABLE 로 선언된 부서장 외래키도 통과");
+  ok(checkSql("WITH x AS (SELECT client_id FROM companyx.sales) SELECT c.name FROM x JOIN companyx.clients c ON x.client_id = c.id", "q", FKS).ok, "CTE 처럼 어느 표인지 모르는 쪽은 판정하지 않는다");
+  ok(checkSql(qaSales, "매출 알려줘", []).ok, "선언된 외래키가 없는 스키마면 조인 검사는 꺼진다");
+
+  // D3 ②: 질문에 없는 번호로 id 를 걸면 거부한다.
+  const salary = checkSql("SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = 1", "연봉 알려줘", FKS);
+  ok(!salary.ok && salary.ids.length === 1 && salary.ids[0].tables.join() === "employees", `연봉 알려줘의 e.id = 1 을 거부 (got ${JSON.stringify(salary.ids)})`);
+  ok(checkSql("SELECT id, resolved_at FROM companyx.support_tickets WHERE id = 7", "지원 티켓 7번은 언제 해결됐어?", FKS).ok, "질문에 있는 번호는 통과(TC 티켓 7번)");
+  ok(checkSql("SELECT name FROM companyx.employees e WHERE e.dept_id = 2 AND e.name = 'id = 3'", "q", FKS).ok, "id 가 아닌 열과 문자열 값은 보지 않는다");
+  const named = (name: string) => ({ query: async () => ({ rows: [{ name }], rowCount: 1 }) }) as unknown as Pool;
+  const n14 = checkSql("SELECT c.contact_name FROM companyx.clients AS c WHERE c.id = 14", "Client-N에 메일 보내야 돼", [...FKS, { table: "contracts", column: "client_id", refTable: "clients", refColumn: "id" }]);
+  ok((await confirmNamedIds(named("Client-N"), "companyx", n14, "Client-N에 메일 보내야 돼")).length === 0, "그 행의 이름이 질문에 있으면 번호가 질문에 없어도 통과(h3-05)");
+  ok((await confirmNamedIds(named("윤소연"), "companyx", salary, "연봉 알려줘")).length === 1, "이름도 질문에 없으면 거부 유지");
+
+  // D6: ontology.search 의 k 와 graph.expand 의 entityId.
+  ok(clampK(0) === 5 && clampK(-1) === 1 && clampK(1.5) === 1 && clampK(100) === 50 && clampK(undefined) === 5 && clampK(7) === 7, "k 는 vector.search 와 같은 범위로 맞춘다");
+  ok(entityIdError(1.5)?.includes("정수여야") === true && entityIdError(31) === undefined && entityIdError(-1) === undefined, "entityId 는 정수만 받는다");
+
+  // 파이프라인: 거부한 SQL 은 실행하지 않고 7B 도 부르지 않는다. 실행한 SQL 은 재작성된 문장이다.
+  const executed: string[] = [];
+  const fkRows = FKS.map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+  const gatePool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        if (/^\s*select/i.test(sql) && !/pg_roles/.test(sql)) executed.push(sql);
+        return { rows: [{ name: "영업팀" }, { name: "클라우드사업부" }], rowCount: 2, fields: [{ name: "name" }] };
+      },
+      release: () => {},
+    }),
+    query: async (sql: string) =>
+      /pg_constraint/.test(sql) ? { rows: fkRows, rowCount: fkRows.length } : /SELECT name::text/.test(sql) ? { rows: [{ name: "윤소연" }], rowCount: 1 } : { rows: [], rowCount: 0 },
+  } as unknown as Pool;
+  let llmCalls = 0;
+  const llm = async () => {
+    llmCalls++;
+    return "영업팀과 클라우드사업부입니다.";
+  };
+  const q = "기술지원팀 직원 목록과 연봉을 알려줘";
+  const refused = await ask(q, { pool: gatePool, embedder: deadEmbedder, repair: false, llm, nl2sql: async () => "SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = 1" });
+  ok(refused.answer.startsWith("이 질문으로는 믿을 수 있는 조회를 만들지 못해") && refused.answer.includes("e.id = 1") && refused.answer.includes("구체적으로"), `거부하면 정해진 문장으로 답한다 (got ${refused.answer})`);
+  ok(llmCalls === 0 && executed.length === 0 && refused.sql.text === null && refused.sql.gate?.outcome === "refused", "거부한 SQL 은 실행하지 않고 7B 도 부르지 않는다");
+  ok(refused.audit.sql_gate?.rejected[0]?.reasons[0]?.includes("e.id = 1") === true, "retrieve 의 audit 에도 거부 사유가 남는다(빈 컨텍스트를 조용히 돌려주지 않음)");
+  const tie = await ask(q, { pool: gatePool, embedder: deadEmbedder, repair: false, llm, nl2sql: async () => top });
+  ok(tie.sql.text?.endsWith("FETCH FIRST 1 ROWS WITH TIES") === true && executed.at(-1) === tie.sql.text && !tie.sql.gate, `감사에 남는 SQL 은 실제로 실행한 문장 (got ${tie.sql.text})`);
+  ok(tie.answer.startsWith("공동 1위가 2건입니다: 영업팀, 클라우드사업부.") && tie.answer.includes("[조회 결과 2건]") && llmCalls === 0, `공동 1위는 이름을 모두 적는 결정론 문장 (got ${tie.answer})`);
+  const one = await ask(q, {
+    pool: { ...gatePool, connect: async () => ({ query: async () => ({ rows: [{ name: "기술지원팀" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }) } as unknown as Pool,
+    embedder: deadEmbedder,
+    repair: false,
+    llm,
+    nl2sql: async () => top,
+  });
+  ok(llmCalls === 1 && one.answer.startsWith("영업팀과") && one.answer.includes("[조회 결과 1건]"), "단독 1위(1행)는 종전처럼 7B 가 문장을 쓴다");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

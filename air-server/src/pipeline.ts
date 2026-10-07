@@ -17,6 +17,7 @@ import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
 import { type NL2SQL } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
+import { tieAnswer, untrustedAnswer, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
@@ -50,7 +51,8 @@ export interface RetrieveDeps {
 export interface RetrieveResult {
   query: string;
   route: RouteDecision["route"];
-  sql: { text: string | null; result?: SqlResult; repaired?: boolean };
+  /** gate 는 실행 전 검사(sqltrust.ts)가 생성 SQL 을 거부했을 때만 붙는다. */
+  sql: { text: string | null; result?: SqlResult; repaired?: boolean; gate?: SqlGate };
   vector?: VectorResult;
   graph?: GraphLaneResult;
   fused: Fused<ContextItem>[];
@@ -70,6 +72,8 @@ export interface RetrieveResult {
     graph_truncated?: GraphTruncation;
     /** 탐색 계획을 시드 타입에 맞게 고쳤으면 무엇을 고쳤는지(시드마다 한 줄). */
     graph_fitted?: string[];
+    /** 생성 SQL 의 실행 전 검사가 무엇을 거부했는지(sqltrust.ts). 거부한 것이 있을 때만. */
+    sql_gate?: SqlGate;
   };
 }
 
@@ -330,7 +334,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
   // in one (e.g. NL2SQL throws) still yields the other's context (graceful degradation). ---
-  const sqlBranch = (async (): Promise<{ text: string | null; result?: SqlResult; repaired?: boolean }> => {
+  const sqlBranch = (async (): Promise<RetrieveResult["sql"]> => {
     if (!wantSql) return { text: null };
     const text = await nl2sql(query);
     if (!text) return { text: null };
@@ -340,7 +344,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       repair: deps.repair !== false,
       schema: profile().kgSchema === "companyx" ? "companyx" : "public",
     });
-    return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined };
+    return { text: ex.text, result: ex.result, repaired: ex.repaired || undefined, ...(ex.gate ? { gate: ex.gate } : {}) };
   })();
   const vecBranch: Promise<VectorResult | undefined> = wantVec
     ? vectorSearch(pool, embedder, query, k)
@@ -375,10 +379,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     graphBranch,
     keywordBranch,
   ]);
-  const sql =
-    sqlSettled.status === "fulfilled"
-      ? sqlSettled.value
-      : { text: null as string | null, result: undefined as SqlResult | undefined, repaired: undefined as boolean | undefined };
+  const sql: RetrieveResult["sql"] = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null };
   const sqlText = sql.text;
   const sqlResult = sql.result;
   const vecResult = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
@@ -459,7 +460,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   return {
     query,
     route: decision.route,
-    sql: { text: sqlText, result: sqlResult, repaired: sql.repaired },
+    sql: { text: sqlText, result: sqlResult, repaired: sql.repaired, ...(sql.gate ? { gate: sql.gate } : {}) },
     vector: vecResult,
     graph: graphResult,
     fused,
@@ -480,6 +481,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
       ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
+      ...(sql.gate ? { sql_gate: sql.gate } : {}),
     },
   };
 }
@@ -499,6 +501,9 @@ export async function ask(
   deps: RetrieveDeps & { llm?: AnswerFn },
 ): Promise<AskResult> {
   const r = await retrieve(query, deps);
+
+  // 실행 전 검사가 생성 SQL 을 모두 거부했다. 모델에게 쓰게 하지 않고 그 사실과 다시 물을 방법을 말한다.
+  if (r.sql.gate?.outcome === "refused") return { ...r, answer: untrustedAnswer(r.sql.gate) };
 
   // ★ 근거가 없는 것과 근거를 **가져올 수 없는** 것은 다르다.
   //
@@ -524,6 +529,10 @@ export async function ask(
   if (r.not_found) {
     return { ...r, answer: describeNotFound(r.not_found) };
   }
+
+  // 공동 1위(WITH TIES 로 2행 이상)는 이름을 모두 적는 결정론 문장으로 답한다(sqltrust.ts tieAnswer).
+  const tie = tieAnswer(r, renderValue);
+  if (tie) return { ...r, answer: withSqlRows(r, tie) };
 
   const gen = deps.llm ?? llmAnswer;
   try {

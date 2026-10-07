@@ -87,6 +87,31 @@ function main() {
   );
   ok(repaired.policies.some((p) => p.policy === "sql-repair" && p.verdict === "repair"), "교정을 기록한다");
 
+  // 실행 전 검사(sqltrust.ts). 거부한 것이 있을 때만 정책 줄이 붙고, 왜 거부했는지 SQL 과 함께 적는다.
+  const plain = buildAuditRecord(base());
+  ok(!plain.policies.some((p) => p.policy === "sql-trust-gate"), "검사가 거부한 것이 없으면 정책 줄도 없다");
+  const bad = "SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = 1";
+  const refused = buildAuditRecord(
+    base({
+      query: "연봉 알려줘",
+      sql: { text: null, gate: { outcome: "refused", rejected: [{ sql: bad, reasons: ["e.id = 1 의 번호 1 은 질문에 없다(질문에 없는 번호로 행을 고름)"] }] } },
+    } as Partial<RetrieveResult>),
+  );
+  const g = refused.policies.find((p) => p.policy === "sql-trust-gate");
+  ok(g?.verdict === "deny" && g.detail.includes("답하지 않았다") && g.detail.includes("WHERE e.id = 1") && g.detail.includes("질문에 없다"), `거부를 사유와 함께 기록 (got ${g?.detail})`);
+  ok(refused.retrieval.sql.text === null && !refused.policies.some((p) => p.policy === "sql-read-only"), "실행한 SQL 이 없으면 text 는 null 이고 읽기 전용 판정도 없다");
+  const fixedGate = buildAuditRecord(
+    base({
+      sql: {
+        text: "SELECT SUM(amount) FROM companyx.sales",
+        result: { ok: true, rows: [{ sum: 1 }], rowCount: 1, columns: ["sum"], truncated: false },
+        repaired: true,
+        gate: { outcome: "repaired", rejected: [{ sql: "SELECT 1 FROM companyx.sales s JOIN companyx.employees e ON s.contract_id = e.id", reasons: ["조인 조건 s.contract_id = e.id 은 스키마에 선언된 외래키가 아니다"] }] },
+      },
+    } as Partial<RetrieveResult>),
+  );
+  ok(fixedGate.policies.some((p) => p.policy === "sql-trust-gate" && p.verdict === "repair" && p.detail.includes("s.contract_id = e.id")), "거부 뒤 수리한 SQL 을 실행했으면 repair 로 기록");
+
   const gated = buildAuditRecord(
     base({
       route: "graph",

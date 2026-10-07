@@ -15,10 +15,11 @@
 import type { AskResult, RetrieveResult } from "./pipeline.js";
 import type { GraphTruncation } from "./graph.js";
 import type { NotFound } from "./notfound.js";
+import { sqlGatePolicy } from "./sqltrust.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
-  policy: "sql-read-only" | "sql-repair" | "graph-unresolved-gate" | "context-budget" | "branch-isolation";
+  policy: "sql-read-only" | "sql-repair" | "sql-trust-gate" | "graph-unresolved-gate" | "context-budget" | "branch-isolation";
   /** allow = 통과, deny = 차단, repair = 고쳐서 통과, degrade = 일부만 살림 */
   verdict: "allow" | "deny" | "repair" | "degrade";
   detail: string;
@@ -133,6 +134,10 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       });
     }
   }
+
+  // 1-1) 실행 전 검사(외래키 조인, 질문에 없는 id 번호). 거부한 것이 있을 때만.
+  const gate = sqlGatePolicy(r.sql.gate);
+  if (gate) policies.push(gate);
 
   // 2) 자기 수정 재시도
   if (r.sql.repaired) {
