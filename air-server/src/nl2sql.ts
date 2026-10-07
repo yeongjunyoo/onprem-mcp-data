@@ -538,22 +538,25 @@ export function companyxSchemaCard(): string {
   return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
 }
 
-/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). */
+/** 상대 연도 낱말과 오늘 연도와의 차. 재작년이 작년보다 먼저 맞아야 한다(정규식 대안의 순서). 뒤에 붙은 「도」(작년도)는
+ * 바꾼 말의 「년도」가 받는다. */
 const RELATIVE_YEAR: Record<string, number> = { 재작년: -2, 작년: -1, 지난해: -1, 올해: 0, 금년: 0, 내년: 1 };
-const RELATIVE_YEAR_RE = /재작년|작년|지난해|올해|금년|내년/g;
+const RELATIVE_YEAR_RE = /(재작년|작년|지난해|올해|금년|내년)도?/g;
 
 /** 서울 시각으로 오늘의 연도. */
 export function seoulYear(now: Date = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
 }
 
-/** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년, 재작년 → (올해 - 2)년, 올해, 금년 → 올해,
- * 내년 → (올해 + 1)년. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검 2차 R3,
- * 「작년에 새로 등록된 고객사는 몇 곳이야?」에 0곳, 2025년 등록은 14곳). 월과 분기를 가리키는 말(지난달, 이번 분기)은
- * 그대로 둔다. 상대 연도가 없는 질문은 받은 그대로 돌려준다. */
+/** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년도, 재작년 → (올해 - 2)년도, 올해, 금년 →
+ * 올해 연도, 내년 → (올해 + 1)년도. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검
+ * 2차 R3, 「작년에 새로 등록된 고객사는 몇 곳이야?」에 0곳, 2025년 등록은 14곳). 「년」이 아니라 「년도」인 까닭: 7B 는
+ * 「2025년 매출은 얼마야?」를 카드의 분기 예시 그대로 quarter = '2025-Q3' 로 썼고(3/3), 「2025년도 매출은 얼마야?」는 한 해
+ * 전체로 썼다(2026-10-08 실측, 같은 프롬프트에서 질문 줄만 바꿔). 월과 분기를 가리키는 말(지난달, 이번 분기)은 그대로 둔다.
+ * 상대 연도가 없는 질문은 받은 그대로 돌려준다. */
 export function absoluteYears(q: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  return q.replace(RELATIVE_YEAR_RE, (w) => `${year + RELATIVE_YEAR[w]}년`);
+  return q.replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`);
 }
 
 /** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 문맥 상한(questionForModel)을 지킨 뒤 상대 연도를 연도로 바꾸고
