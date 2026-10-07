@@ -1494,5 +1494,40 @@ const deadEmbedder: Embedder = {
   ok(llmCalls === 1 && one.answer.startsWith("김준혁입니다.") && one.answer.includes("[조회 결과 1건]\n- name: 조현우, rank: 2"), "그 순위가 한 행이면 종전처럼 7B 가 문장을 쓴다");
 }
 
+// G12: 개체를 지목한 hybrid 는 라우터가 그래프 도구까지 여는데 파이프라인은 route 가 graph 일 때만 그래프를 돌았다.
+// hybrid 의 그래프는 근거만 더하고, 못 찾았다는 판정은 답을 정하지 않는다.
+{
+  const { lanesFor, hybridGraph } = await import("./pipeline.js");
+  const lanes = (route: "structured" | "semantic" | "graph" | "hybrid", tools: string[]) => JSON.stringify(lanesFor({ route, tools }));
+  ok(lanes("hybrid", ["sql.query", "vector.search", "ontology.search", "graph.expand"]) === JSON.stringify({ sql: true, vector: true, graph: true }), "개체를 지목한 hybrid 는 세 레인");
+  ok(lanes("hybrid", ["sql.query", "vector.search"]) === JSON.stringify({ sql: true, vector: true, graph: false }), "앵커 없는 hybrid 는 종전대로 둘(TC-146)");
+  ok(lanes("graph", ["ontology.search", "graph.expand"]) === JSON.stringify({ sql: false, vector: false, graph: true }), "graph 는 그래프만");
+  ok(lanes("structured", ["sql.query"]) === JSON.stringify({ sql: true, vector: false, graph: false }), "structured 는 정형만");
+  ok(lanes("semantic", ["vector.search"]) === JSON.stringify({ sql: false, vector: true, graph: false }), "semantic 은 문서만");
+
+  const nf = { reason: "not_in_database" as const, query_entity: "서울물산", candidates: [] };
+  const edge = { canonicalKey: "edge#1", sourceKey: "graph#0", source: "graph" as const, text: "[그래프] 클라우드사업부의 부서장: 강현우", provenance: "kg:HEADS" };
+  const unresolved = hybridGraph({
+    seeds: [],
+    edgeCount: 0,
+    strategy: "unresolved",
+    not_found: nf,
+    items: [{ canonicalKey: "unresolved#서울물산", sourceKey: "graph#unresolved", source: "graph", text: "[그래프] 질문에 나온 개체(서울물산)를 …", provenance: "ontology:unresolved" }],
+  } as Parameters<typeof hybridGraph>[0]);
+  ok(unresolved.items.length === 0 && unresolved.not_found === undefined, "hybrid 에서 개체를 못 찾으면 그래프는 아무것도 더하지 않고 답을 정하지 않는다");
+  const partial = hybridGraph({
+    seeds: [{ entityId: 7, canonicalName: "클라우드사업부", type: "department" }],
+    edgeCount: 1,
+    strategy: "seeded",
+    missing: [nf],
+    answer_query: "클라우드사업부 부서장",
+    items: [{ canonicalKey: "missing#서울물산", sourceKey: "graph#missing", source: "graph", text: "[그래프] …", provenance: "ontology:missing" }, edge],
+  } as Parameters<typeof hybridGraph>[0]);
+  ok(
+    partial.items.length === 1 && partial.items[0] === edge && partial.missing === undefined && partial.answer_query === undefined && partial.edgeCount === 1,
+    "섞인 질문의 없는 개체 줄과 missing 은 빼고 찾은 개체의 엣지는 남긴다",
+  );
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

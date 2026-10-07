@@ -23,7 +23,7 @@
 
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
-import { route, audit as routeAuditLog, fitPlanToSeed, type RouteDecision, type GraphPlan } from "./router.js";
+import { route, audit as routeAuditLog, fitPlanToSeed, GRAPH_TOOL, type RouteDecision, type GraphPlan } from "./router.js";
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
@@ -414,6 +414,32 @@ function withSqlRows(r: RetrieveResult, text: string): string {
  * 「최고치에서 1문항 이내인 가장 작은 예산」이고 1024 만 해당한다. 봉인 홀드아웃4 는 따로 한 번 잰다. */
 export const DEFAULT_BUDGET = 1024;
 
+/** 라우팅 결정이 여는 레인. 개체를 지목했지만 신호가 모자라 hybrid 로 떨어진 질문은 라우터가 그래프 도구까지 연다
+ * (router.ts 「entity-anchored fan-out」, route 도구의 tools). 종전에는 route 가 graph 일 때만 그래프를 돌아 그 세 번째
+ * 레인이 실제로 돈 적이 없었다(G12, 홀드아웃3 의 「클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서」). */
+export function lanesFor(decision: Pick<RouteDecision, "route" | "tools">): { sql: boolean; vector: boolean; graph: boolean } {
+  const hybrid = decision.route === "hybrid";
+  return {
+    sql: decision.route === "structured" || hybrid,
+    vector: decision.route === "semantic" || hybrid,
+    graph: decision.route === "graph" || (hybrid && decision.tools.includes(GRAPH_TOOL)),
+  };
+}
+
+/** hybrid 에서 돈 그래프 레인은 찾은 개체의 근거만 더한다. 못 찾았다는 판정(unresolved 의 not_found, 섞인 질문의 missing)과
+ * 그 사유 줄은 그래프로 간 질문에서만 답을 정한다. hybrid 에서 쓰면 정형과 문서 레인에 답이 있어도 「찾지 못했습니다」로
+ * 답하게 된다. */
+export function hybridGraph(g: GraphLaneResult): GraphLaneResult {
+  const out: GraphLaneResult = {
+    ...g,
+    items: g.items.filter((it) => it.provenance !== "ontology:unresolved" && it.provenance !== "ontology:missing"),
+  };
+  delete out.not_found;
+  delete out.missing;
+  delete out.answer_query;
+  return out;
+}
+
 /** Run the retrieval spine for one query.
  * Deterministic parts: route (L3) + RRF merge + L4 curation. The structured
  * path's NL2SQL is the 7B by default (faithful to the brief; this is the path
@@ -427,9 +453,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
 
   // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
   const decision = await routeQuery(query, embedder);
-  const wantSql = decision.route === "structured" || decision.route === "hybrid";
-  const wantVec = decision.route === "semantic" || decision.route === "hybrid";
-  const wantGraph = decision.route === "graph";
+  const { sql: wantSql, vector: wantVec, graph: wantGraph } = lanesFor(decision);
 
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
@@ -499,7 +523,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const sqlText = sql.text;
   const sqlResult = sql.result;
   const vecResult = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
-  const graphResult = graphSettled.status === "fulfilled" ? graphSettled.value : undefined;
+  const graphLaneOut = graphSettled.status === "fulfilled" ? graphSettled.value : undefined;
+  const graphResult = graphLaneOut && decision.route === "hybrid" ? hybridGraph(graphLaneOut) : graphLaneOut;
   const kwResult = kwSettled.status === "fulfilled" ? kwSettled.value : undefined;
   const branchErrors: string[] = [];
   if (sqlSettled.status === "rejected") branchErrors.push(`sql: ${String(sqlSettled.reason)}`);
