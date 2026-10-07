@@ -299,6 +299,12 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
 // 왜 필요한가: 홀드아웃 2차(구어체)에서 knowledge_graph strict 1/10이 나왔고,
 // 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
 let ENTITY_LEXICON: { name: string; type: string }[] = [];
+let ENTITY_NAMES = new Set<string>();
+
+/** 이 이름(정본 이름이나 한 개체만 가리키는 별칭)이 설치된 온톨로지 사전에 있는가. 사전이 없으면 false. */
+export function isEntityName(name: string): boolean {
+  return ENTITY_NAMES.has(name);
+}
 
 /** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
  *
@@ -340,6 +346,7 @@ export function installOntology(
   }
   // 긴 이름부터 대조해 부분 일치를 막는다.
   ENTITY_LEXICON.sort((a, b) => b.name.length - a.name.length);
+  ENTITY_NAMES = new Set(seen);
 
   // 타입쌍 -> 엣지. 노드 id 접두사가 타입이다(client_7 -> client).
   const typeOf = new Map<string, string>();

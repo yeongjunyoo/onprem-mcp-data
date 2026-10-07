@@ -35,6 +35,7 @@ import {
 } from "./notfound.js";
 import { companyxSchemaCard } from "./nl2sql.js";
 import { ask, graphLane, withoutMissing } from "./pipeline.js";
+import { installOntology } from "./router.js";
 
 let passed = 0;
 let failed = 0;
@@ -276,6 +277,19 @@ const fakePool = {
   ok(joinSpacedIds("Which client is the biggest?") === "Which client is the biggest?", "「client is」는 식별자가 아니다");
   ok(seedTerms("Client 목록 보여줘").length === 0, "유형 낱말 단독은 시드가 아니다");
   ok(JSON.stringify(seedTerms("Client-A가 사용 중인 제품 목록은?")) === '["Client-A"]', "하이픈 이름은 그대로(TC-124)");
+
+  // 랜덤 테스트 2차 R10: 소문자로 띄어 쓴 것, 하이픈 없이 붙인 것, 밑줄로 이은 것은 합친 이름이 사전에 있을 때만 합친다.
+  const odd = ["client b 담당자 누구야?", "ClientA가 사용하는 제품은?", "Client_A 담당자는 누구야?", "productc1 쓰는 곳"];
+  ok(odd.every((q) => joinSpacedIds(q) === q), "사전이 없으면 합치지 않는다");
+  installOntology(["Client-A", "Client-B", "Client-S", "Product-C1"].map((name) => ({ name, type: name.startsWith("Client") ? "client" : "product" })), []);
+  ok(
+    JSON.stringify(odd.map((q) => seedTerms(q)[0])) === '["Client-B","Client-A","Client-A","Product-C1"]',
+    `사전에 있으면 합친다 (got ${JSON.stringify(odd.map((q) => seedTerms(q)[0]))})`,
+  );
+  for (const q of ["clients 목록", "CLIENTS", "client is big", "client_1 담당 직원은?", "client zz 담당자"]) {
+    ok(joinSpacedIds(q) === q, `복수형, 대문자 낱말, 영어 낱말, 외부 id, 사전에 없는 이름은 그대로: ${q}`);
+  }
+  installOntology([], []);
 
   // D5: 서수와 영어 기능어는 개체가 아니고, 못 찾은 개체로는 이름처럼 생긴 낱말을 먼저 댄다.
   ok(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?").length === 0, `「번째」를 개체로 읽지 않는다 (got ${JSON.stringify(seedTerms("계약을 두 번째로 많이 담당한 직원은 누구야?"))})`);

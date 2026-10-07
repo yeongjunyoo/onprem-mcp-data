@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases } from "./router.js";
+import { identifyingAliases, isEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -130,11 +130,20 @@ const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?
 /** 「Client A」, 「product c1」처럼 하이픈 대신 띄어 쓴 사업자 식별자를 「Client-A」, 「Product-C1」로.
  * 띄어 쓰면 한 글자 토큰(A)이 버려지고 남은 「Client」가 고객사 전부에 걸렸다(D4: 「Client A 담당 엔지니어」에
  * 담당자 둘 중 하나만 답함). 고객사 식별자는 대문자 한두 자, 제품 식별자는 영문 한 자와 숫자만 합친다
- * (「client is」는 합치지 않는다). */
+ * (「client is」는 합치지 않는다).
+ *
+ * 소문자로 띄어 쓴 것(「client b」), 하이픈 없이 붙인 것(「ClientA」), 밑줄로 이은 것(「Client_A」)은 합친 이름이
+ * 온톨로지 사전에 있을 때만 합친다(router.ts isEntityName). 「client b 담당자 누구야?」는 시드 낱말이 하나도 남지 않아
+ * 「알 수 없습니다」였고, 「ClientA」는 「찾지 못했습니다」였다(랜덤 테스트 사전 점검 2차 R10, 회색 F10). 붙여 쓴 고객사
+ * 식별자는 대문자일 때만 본다(「clients」가 Client-S 가 되지 않게). */
 export function joinSpacedIds(query: string): string {
-  return query.replace(/\b(client|product)\s+([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, id: string) => {
-    const ok = /^client$/i.test(type) ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id);
-    return ok ? `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}` : m;
+  return query.replace(/\b(client|product)([\s_]*)([A-Za-z]{1,2}\d{0,2})(?![A-Za-z0-9])/gi, (m, type: string, sep: string, id: string) => {
+    const client = /^client$/i.test(type);
+    const name = `${type[0].toUpperCase()}${type.slice(1).toLowerCase()}-${id.toUpperCase()}`;
+    const spaced = /^\s+$/.test(sep);
+    if (spaced && (client ? /^[A-Z]{1,2}$/.test(id) : /^[A-Za-z]\d{1,2}$/.test(id))) return name;
+    if (sep === "" && (client ? !/^[A-Z]{1,2}$/.test(id) || type === "CLIENT" : !/^[A-Za-z]\d{1,2}$/.test(id))) return m;
+    return isEntityName(name) ? name : m;
   });
 }
 
