@@ -734,8 +734,13 @@ export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number 
  * 「Client-Q의 사용 중인 제품: Product-C1 → 조현우의 담당 고객사: Client-Q」에 7B 는 「Product-C1 담당 엔지니어는
  * 누구야?」(사업자 graph/schema.md 의 예시 질의)를 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검 2차 R2, 3/3).
  * 그때는 답부터 적는다: 「조현우의 담당 고객사: Client-Q → Client-Q의 사용 중인 제품: Product-C1」. 답이 둘째 엣지의
- * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다. */
-export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
+ * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다.
+ *
+ * 세 홉(hops=3, 「Client-J 프로젝트를 이끄는 직원들은 어느 부서 소속이야?」)은 셋째 홉의 끝이 답이고, 시드에서부터 차례로
+ * 적는다: 「Client-J의 진행 프로젝트: P → 강현우의 이끄는 프로젝트: P → 강현우의 소속 부서: 클라우드사업부」. 같은 부서에
+ * 여러 직원이 닿으므로 줄의 정체는 답과 그 앞 개체의 쌍이다(답 하나로 모으면 한 직원의 줄만 남는다). */
+export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): Candidate[] {
+  if (hops === 3) return path3Candidates(edges, seedId);
   const viaMid = new Map<number, GraphEdge>();
   for (const e of edges) {
     if (e.depth !== 1) continue;
@@ -758,6 +763,43 @@ export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] 
         ? `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`
         : `[그래프 경로] ${line(e2)} → ${line(e1)} (${e2.relType}→${e1.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
+    });
+  });
+  return out;
+}
+
+/** 세 홉 경로(pathCandidates 의 hops=3). 홉마다 처음 닿게 한 엣지를 거슬러 올라가 경로 하나를 한 줄로 적는다. */
+function path3Candidates(edges: GraphEdge[], seedId: number): Candidate[] {
+  /** 앞 홉에서 닿은 개체에 붙은 쪽(near)과 새로 닿은 쪽(far). 앞 홉 개체에 붙지 않은 엣지는 undefined. */
+  const step = (e: GraphEdge, prev: (id: number) => boolean) =>
+    prev(e.srcId) ? { near: e.srcId, far: e.dstId } : prev(e.dstId) ? { near: e.dstId, far: e.srcId } : undefined;
+  const hop1 = new Map<number, GraphEdge>(); // 첫 홉에서 닿은 개체 → 그 엣지
+  const hop2 = new Map<number, GraphEdge>(); // 둘째 홉에서 닿은 개체 → 그 엣지
+  for (const e of edges) {
+    if (e.depth === 1) {
+      const s = step(e, (id) => id === seedId);
+      if (s && !hop1.has(s.far)) hop1.set(s.far, e);
+    } else if (e.depth === 2) {
+      const s = step(e, (id) => hop1.has(id));
+      if (s && s.far !== seedId && !hop1.has(s.far) && !hop2.has(s.far)) hop2.set(s.far, e);
+    }
+  }
+  const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
+  const out: Candidate[] = [];
+  edges.forEach((e3, i) => {
+    if (e3.depth !== 3) return;
+    const s3 = step(e3, (id) => hop2.has(id));
+    if (!s3 || s3.far === seedId || hop1.has(s3.far) || hop2.has(s3.far)) return;
+    const e2 = hop2.get(s3.near)!;
+    const e1 = hop1.get(step(e2, (id) => hop1.has(id))!.near)!;
+    const [ansType, nearType] = e3.srcId === s3.near ? [e3.dstType, e3.srcType] : [e3.srcType, e3.dstType];
+    const [ansId, near] = [s3.far, s3.near];
+    out.push({
+      canonicalKey: `${entityKey(ansType, ansId)}<${entityKey(nearType, near)}`,
+      sourceKey: `graph#p${i}`,
+      source: "graph" as const,
+      text: `[그래프 경로] ${line(e1)} → ${line(e2)} → ${line(e3)} (${e1.relType}→${e2.relType}→${e3.relType})`,
+      provenance: `path:${e1.relType}>${e2.relType}>${e3.relType}:${e3.provenance}`,
     });
   });
   return out;

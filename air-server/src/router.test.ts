@@ -236,6 +236,23 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
     [["USES"]],
     "같은 무리라도 그 무리를 이름으로 지목한 시드가 있으면 왕복하지 않는다",
   );
+  // 랜덤 테스트 사전 점검 2차 R5: 지목한 관계(LEADS)를 고객 담당(MANAGES_ACCOUNT)으로 바꾸거나 버리지 않는다.
+  // 시드 이름 바로 뒤의 「프로젝트」가 다리 타입이다. client -HAS_PROJECT- project -LEADS- employee (-BELONGS_TO- department).
+  eq(
+    fitPlanToSeed(["LEADS"], "client", "Client-A 프로젝트를 이끄는 직원은 누구야?"),
+    { hops: [["HAS_PROJECT"], ["LEADS"]], fitted: "LEADS 는 client 에 닿지 않아 project 를 거침: HAS_PROJECT 다음 LEADS" },
+    "고객사 프로젝트의 리드는 프로젝트를 거친다",
+  );
+  eq(hops(["LEADS"], "client", "Client-A의 프로젝트를 맡은 사람은 누구야?"), [["HAS_PROJECT"], ["LEADS"]], "「의」로 이어도 시드의 프로젝트다");
+  eq(
+    fitPlanToSeed(["BELONGS_TO", "LEADS"], "client", "Client-A 프로젝트를 이끄는 직원들은 어느 부서 소속이야?"),
+    { hops: [["HAS_PROJECT"], ["LEADS"], ["BELONGS_TO"]], fitted: "LEADS, BELONGS_TO 는 client 에 닿지 않아 project 를 거침: HAS_PROJECT 다음 LEADS 다음 BELONGS_TO" },
+    "리드의 부서는 세 홉: 계획의 두 엣지를 묻는 타입(부서)에서 끝나게 잇는다",
+  );
+  // 다리 타입이 시드 이름에 붙지 않으면 종전 규칙 그대로다.
+  eq(hops(["LEADS"], "client", "Client-A에서 직원이 이끄는 프로젝트는?"), [["HAS_PROJECT"]], "시드에 붙지 않은 직원은 다리가 아니다(규칙 2)");
+  eq(hops(["HAS_PROJECT"], "employee", "김지훈 직원이 관여하는 프로젝트는?"), [["LEADS"]], "고객사를 말하지 않으면 고객사를 거치지 않는다(규칙 2)");
+  eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["USES"], ["HAS_PROJECT"]], "계획이 질문의 관계어가 아니면(앵커) 종전 규칙 3(TC-129)");
   installOntology([], []);
   eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
 }

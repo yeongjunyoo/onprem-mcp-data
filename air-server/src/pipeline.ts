@@ -270,7 +270,7 @@ export async function graphLane(
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
-    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId));
+    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId, walk.hops.length));
     else {
       if (edgesAt < 0) edgesAt = items.length;
       edgeGroups.push({ edges: exp.edges, seedId: hit.entityId });

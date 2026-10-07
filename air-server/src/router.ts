@@ -454,12 +454,18 @@ export interface SeedWalk {
   fitted?: string;
 }
 
+/** 개체 이름을 같은 길이의 공백으로 가린 질문. 이름 속의 타입 어휘(「기술지원팀」의 팀)를 세지 않으려고 쓴다. */
+function withoutEntityNames(q: string): string {
+  let text = q;
+  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  return text;
+}
+
 /** 질문이 묻는 노드 타입. 한국어는 머리말이 끝에 오므로 마지막에 나온 타입 어휘다.
  * 「Product-S1 이슈를 올린 고객사의 프로젝트는?」은 고객사가 아니라 프로젝트를 묻는다.
  * 개체 이름 속의 타입 어휘(「기술지원팀」의 팀)는 세지 않는다. 시드 타입은 뺀다. */
 function askedType(q: string, except: string): string | undefined {
-  let text = q;
-  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  const text = withoutEntityNames(q);
   let best: { at: number; type: string } | undefined;
   for (const [re, type] of NODE_TYPE_TERMS) {
     if (type === except) continue;
@@ -468,6 +474,20 @@ function askedType(q: string, except: string): string | undefined {
     }
   }
   return best?.type;
+}
+
+/** 시드 타입 개체의 이름 바로 뒤(사이에 공백이나 「의」만)에 온 타입 어휘. 「Client-J 프로젝트」, 「Client-J의 프로젝트」는
+ * 그 고객사의 프로젝트라는 말이다. 「Client-J에서 직원이 이끄는 프로젝트」의 직원은 이름에 붙지 않아 세지 않는다. */
+function typesAfterSeedName(q: string, seedType: string): Set<string> {
+  const out = new Set<string>();
+  for (const e of ENTITY_LEXICON) {
+    if (e.type !== seedType) continue;
+    for (let at = q.indexOf(e.name); at >= 0; at = q.indexOf(e.name, at + 1)) {
+      const rest = q.slice(at + e.name.length).replace(/^\s*(?:의\s*)?/, "");
+      for (const [re, type] of NODE_TYPE_TERMS) if (new RegExp(`^(?:${re.source})`).test(rest)) out.add(type);
+    }
+  }
+  return out;
 }
 
 /** 탐색 계획을 시드 개체의 타입에 맞춘다.
@@ -487,6 +507,9 @@ function askedType(q: string, except: string): string | undefined {
  *      시드에서부터 한 홉씩 탄다(담당 직원 → 그 직원이 이끄는 프로젝트). 한 홉으로 묻는
  *      타입에 못 닿으면 그 타입으로 가는 엣지를 한 홉 더 잇는다(직원 → 담당 고객사 → 그
  *      고객사의 프로젝트).
+ *   2a. 닿지 않는 엣지를 질문이 관계어로 지목했고(named) 그 엣지들이 묻는 타입에서 끝나는 사슬이 되며, 사슬의 첫 타입을
+ *      시드 이름 바로 뒤에서 말하면(「Client-J 프로젝트를 이끄는 직원」) 시드에서 그 타입으로 다리를 놓고 사슬을 탄다
+ *      (client -HAS_PROJECT- project -LEADS- employee, 부서를 물으면 -BELONGS_TO- department 까지 세 홉).
  *   2. 닿지 않으면, 묻는 타입이 그 엣지의 끝이고 시드 타입과 그 타입을 바로 잇는 엣지가
  *      있을 때 그 엣지 한 홉으로 바꾼다(직원이 「관여하는 프로젝트」 = LEADS).
  *   3. 그것도 없으면 시드 타입과 그 엣지의 한쪽 끝을 잇는 다리 엣지를 찾아 두 홉으로 잇는다.
@@ -536,6 +559,27 @@ export function fitPlanToSeed(relTypes: string[], seedType: string, query: strin
       }
     }
     return { hops: [rels] };
+  }
+
+  // 2a. 질문이 지목한 엣지를 버리지 않는다. 규칙 2 는 「Client-J 프로젝트를 이끄는 직원은 누구야?」의 LEADS 를 고객 담당
+  //     (MANAGES_ACCOUNT)으로 바꿔 「알 수 없습니다」라고 답했고, 규칙 3 은 계획의 첫 엣지만 이어서 「… 직원들은 어느 부서
+  //     소속이야?」의 LEADS 를 버리고 고객 담당자의 부서를 답했다(랜덤 테스트 사전 점검 2차 R5). 다리 타입을 시드 이름 바로
+  //     뒤에서 말할 때만 쓴다. 말하지 않은 타입을 거치는 길은 지어낸 경로다(「김도윤이 관여하는 프로젝트」는 규칙 2 의 LEADS).
+  if (asked && rels.length <= 2 && rels.every((r) => named.includes(r))) {
+    const said = typesAfterSeedName(query, seedType);
+    const endsAt = (t: string, order: string[]): boolean =>
+      order.length ? across(order[0], t).some((n) => endsAt(n, order.slice(1))) : t === asked;
+    for (const order of rels.length === 2 ? [rels, [rels[1], rels[0]]] : [rels]) {
+      for (const start of [...new Set(ends(order[0]).flat())]) {
+        const bridge = TYPE_PAIR_EDGE.get(`${seedType}|${start}`);
+        if (!said.has(start) || !bridge?.length || !endsAt(start, order)) continue;
+        const b = pick(bridge);
+        return {
+          hops: [[b], ...order.map((r) => [r])],
+          fitted: `${order.join(", ")} 는 ${seedType} 에 닿지 않아 ${start} 를 거침: ${[b, ...order].join(" 다음 ")}`,
+        };
+      }
+    }
   }
 
   const rel = rels[0];
