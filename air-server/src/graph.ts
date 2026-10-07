@@ -688,7 +688,13 @@ export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number 
  *
  * 홉마다 따로 적으면 7B 가 「Client-Y 가 Product-D1 을 쓴다」와 「Client-Y 의 프로젝트」를
  * 스스로 이어 읽어야 한다. 한 줄에 경로 전체를 적어 잇는 일을 모델에 맡기지 않는다.
- * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다. */
+ * 다음 홉이 없는 중간 개체(프로젝트가 없는 고객사)는 답이 아니므로 싣지 않는다.
+ *
+ * 둘째 엣지를 거꾸로 타서 답이 그 엣지의 출발점이면(제품 ← 고객사 ← 담당 직원) 답이 줄 가운데에 묻힌다.
+ * 「Client-Q의 사용 중인 제품: Product-C1 → 조현우의 담당 고객사: Client-Q」에 7B 는 「Product-C1 담당 엔지니어는
+ * 누구야?」(사업자 graph/schema.md 의 예시 질의)를 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검 2차 R2, 3/3).
+ * 그때는 답부터 적는다: 「조현우의 담당 고객사: Client-Q → Client-Q의 사용 중인 제품: Product-C1」. 답이 둘째 엣지의
+ * 도착점인 줄(TC-129 「Client-Y의 사용 중인 제품: Product-D1 → Client-Y의 진행 프로젝트: …」)은 그대로다. */
 export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] {
   const viaMid = new Map<number, GraphEdge>();
   for (const e of edges) {
@@ -700,16 +706,17 @@ export function pathCandidates(edges: GraphEdge[], seedId: number): Candidate[] 
   const out: Candidate[] = [];
   edges.forEach((e2, i) => {
     if (e2.depth !== 2) return;
-    const [mid, ansType, ansId] = viaMid.has(e2.srcId)
-      ? [e2.srcId, e2.dstType, e2.dstId]
-      : [e2.dstId, e2.srcType, e2.srcId];
+    const forward = viaMid.has(e2.srcId);
+    const [mid, ansType, ansId] = forward ? [e2.srcId, e2.dstType, e2.dstId] : [e2.dstId, e2.srcType, e2.srcId];
     const e1 = viaMid.get(mid);
     if (!e1) return;
     out.push({
       canonicalKey: entityKey(ansType, ansId),
       sourceKey: `graph#p${i}`,
       source: "graph" as const,
-      text: `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`,
+      text: forward
+        ? `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`
+        : `[그래프 경로] ${line(e2)} → ${line(e1)} (${e2.relType}→${e1.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
     });
   });

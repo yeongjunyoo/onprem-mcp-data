@@ -175,6 +175,15 @@ ok(
   ok(/n2의 .*: n1 → n2의 .*: n3/.test(lines[0].text), `경로 전체가 한 줄에 있다 (got ${lines[0].text})`);
   const dead = await graphWalk(fakePool(g).pool, 1, [["USES"], ["LEADS"]], "synthetic");
   ok(pathCandidates(dead.edges, 1).length === 0, "다음 홉이 없는 중간 개체는 답이 아니다");
+  // 답이 둘째 엣지의 도착점이면 종전 글 그대로(TC-129), 출발점이면(제품 ← 고객사 ← 담당 직원) 답부터 적는다(랜덤 테스트 2차 R2).
+  ok(lines[0].text === "[그래프 경로] n2의 사용 중인 제품: n1 → n2의 진행 프로젝트: n3 (USES→HAS_PROJECT)", `정방향 경로 줄은 그대로 (got ${lines[0].text})`);
+  const back = await graphWalk(fakePool([...g, { id: 6, src: 6, dst: 2, rel: "MANAGES_ACCOUNT" }]).pool, 1, [["USES"], ["MANAGES_ACCOUNT"]], "synthetic");
+  const answerFirst = pathCandidates(back.edges, 1);
+  ok(
+    answerFirst.length === 1 && answerFirst[0].canonicalKey.endsWith("6") &&
+      answerFirst[0].text === "[그래프 경로] n6의 담당 고객사: n2 → n2의 사용 중인 제품: n1 (MANAGES_ACCOUNT→USES)",
+    `둘째 엣지를 거꾸로 탄 경로는 답(n6)부터 (got ${JSON.stringify(answerFirst.map((c) => c.text))})`,
+  );
 }
 
 // ── 4b) 여러 시드가 같은 답 개체에 닿으면 사실을 버리지 않고 한 줄로 모은다 ───
