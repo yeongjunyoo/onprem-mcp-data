@@ -318,12 +318,17 @@ export async function repairSql(
   failedSql: string,
   dbError: string,
   realColumns?: string,
-  kind: "error" | "empty" = "error",
+  kind: "error" | "empty" | "untrusted" = "error",
 ): Promise<string | null> {
   // 0행 수리는 거부가 아니라 필터 점검이다. 오류 전용 문장(「지목한 컬럼은 없다」)을 주면
-  // 멀쩡한 컬럼을 바꾸라는 뜻으로 읽힌다.
+  // 멀쩡한 컬럼을 바꾸라는 뜻으로 읽힌다. untrusted 는 실행 전 검사(sqltrust.ts)가 거부한 SQL 이다.
   const intro =
-    kind === "empty"
+    kind === "untrusted"
+      ? [
+          "아래 SQL은 실행하지 않았습니다. 안내를 보고 고친 SQL 한 문장만 출력하세요.",
+          "표는 스키마의 REFERENCES 로 이어진 열끼리만 조인하고, 질문에 없는 번호로 행을 고르지 않습니다.",
+        ]
+      : kind === "empty"
       ? [
           "아래 SQL은 실행됐지만 결과가 0행입니다. 아래 안내를 보고 조건을 고친 SQL 한 문장만 출력하세요.",
           "아래 실제 컬럼 목록에 있는 컬럼만 씁니다.",
@@ -343,7 +348,7 @@ export async function repairSql(
     "",
     `질문: ${questionForModel(query)}`,
     `실패한 SQL: ${failedSql}`,
-    `${kind === "empty" ? "안내" : "오류"}: ${dbError}`,
+    `${kind === "error" ? "오류" : "안내"}: ${dbError}`,
     "수정된 SQL:",
   ].join("\n");
   const raw = await generate(prompt);

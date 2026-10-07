@@ -23,6 +23,7 @@ import { sqlQuery } from "./sql.js";
 import { vectorSearch } from "./vector.js";
 import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
+import { clampK, entityIdError } from "./sqltrust.js";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -332,7 +333,8 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (alias/canonical match)
         tags: ["graph", "ontology", "kg", "pylon7:L3"], // Pylon-7 L3 Resource
-        handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, (k as number) ?? 5, kgSchema()),
+        // k 는 vector.search 와 같은 범위(1~50, 0 과 소수는 보정)로 맞춘다(sqltrust.ts clampK).
+        handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, clampK(k ?? 5), kgSchema()),
       }),
 
       defineTool("graph.expand", {
@@ -359,8 +361,13 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (indexed edge BFS)
         tags: ["graph", "expand", "kg", "pylon7:L3"], // Pylon-7 L3 Resource
-        handler: async ({ entityId, depth }) =>
-          graphExpand(getReadPool(), entityId as number, (depth as number) ?? 1, undefined, kgSchema()),
+        handler: async ({ entityId, depth }) => {
+          // 정수가 아니면 DB 오류 원문(22P02) 대신 한국어 문장으로 거절한다. int 범위 밖 정수는 없는 id 와 같다.
+          const bad = entityIdError(entityId);
+          if (bad) return { ok: false, edges: [], error: bad };
+          if (Math.abs(entityId as number) > 2147483647) return { ok: true, edges: [] };
+          return graphExpand(getReadPool(), entityId as number, (depth as number) ?? 1, undefined, kgSchema());
+        },
       }),
     ],
   });

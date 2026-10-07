@@ -172,6 +172,8 @@ export function buildResources() {
             policies: {
               "sql-read-only": "읽기 전용 트랜잭션과 최소권한 롤. deny면 사유를 함께 적는다",
               "sql-repair": "거부된 SQL을 데이터베이스 카탈로그와 함께 1회 되먹여 교정",
+              "sql-trust-gate":
+                "생성 SQL 을 실행 전에 검사: 조인 열 쌍이 선언된 외래키가 아니거나 질문에 없는 번호로 id 를 걸면 실행하지 않고 1회 수리. 수리도 거부되면 답하지 않음(deny)",
               "graph-unresolved-gate": "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단)",
               "context-budget": "토큰 예산으로 후보를 자름",
               "branch-isolation": "레인 하나가 실패해도 나머지로 응답",
