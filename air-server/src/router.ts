@@ -93,12 +93,18 @@ const DOC_SIGNALS: [RegExp, string][] = [
 // 된다. router.test.ts가 edges.json을 읽어 이 불변식을 강제한다.
 // HAS_PROJECT(354엣지 중 40)가 실제로 비어 있었고, 홀드아웃 오답 4건 중 2건이
 // 거기서 나왔다.
+/** 「맡은」, 「맡고 있는」 뒤 두 낱말 안에 고객이 오면 고객 담당이다(「황민수가 맡은 고객사들은」). 사이 낱말이 프로젝트, 제품 같은
+ * 다른 노드면(「맡은 프로젝트의 고객사」) 프로젝트 리드다. 「맡은」을 늘 LEADS 로 읽어 엣지 0건, 「알 수 없습니다」였다(랜덤 테스트
+ * 사전 점검 5차 P7). */
+const TAKEN_CLIENT = String.raw`\s+(?:(?![가-힣A-Za-z0-9-]*(?:프로젝트|과제|업무|제품|계약))[가-힣A-Za-z0-9-]+\s+)?(?:고객사|고객|거래처)`;
 const RELATION_VERBS: [RegExp, string][] = [
-  [/사용\s*(중|하는|중인)|사용하는|쓰고\s*있|도입한|이용\s*중/, "USES"],
+  // 「어떤 제품을 써?」, 「쓰는 제품」. 「보고서 쓰는 법」, 「써줘」는 쓰기라 제품 낱말에 붙은 꼴만 본다.
+  [/사용\s*(중|하는|중인)|사용하는|쓰고\s*있|도입한|이용\s*중|쓰는\s*(?:제품|솔루션|서비스)|(?:제품|솔루션|서비스)(?:을|를)?\s*(?:쓰는|써)(?![가-힣])/, "USES"],
   [/소속|속한|속해\s*있/, "BELONGS_TO"],
-  [/담당(하는|자|해|인)?/, "MANAGES_ACCOUNT"],
-  [/이끄는|이끌고|리드하는|맡고\s*있는|맡은/, "LEADS"],
-  [/팀장|부서장|본부장|책임자|수장/, "HEAD_IS"],
+  [new RegExp(`담당(하는|자|해|인)?|맡(?:은|는|고\\s*있는)${TAKEN_CLIENT}`), "MANAGES_ACCOUNT"],
+  [new RegExp(`이끄는|이끌고|리드하는|(?:맡고\\s*있는|맡은)(?!${TAKEN_CLIENT})`), "LEADS"],
+  // 「상사」는 직원의 소속 부서의 부서장이다(fitPlanToSeed 가 소속 부서를 거쳐 두 홉으로 탄다). 「클라우드사업부장」의 사업부장도 부서장이다.
+  [/팀장|부서장|사업부장|본부장|책임자|수장|상사/, "HEAD_IS"],
   // HAS_PROJECT — client→project 엣지. "관여/참여"는 컬럼도 문서도 아니고
   // 오직 엣지만이 답할 수 있는 질문이다. 주어가 직원이면 이 엣지가 닿지 않으므로
   // 그래프 레인이 시드 타입에 맞춰 employee→project 엣지(LEADS)로 바꾼다(fitPlanToSeed).
@@ -277,12 +283,17 @@ const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value
  * (규칙 오탐 검토 2026-10-08: 「완료되지 않은 프로젝트를 이끄는 직원 목록」에 완료 6명을 답했다). 그때는 거르지 않는다. */
 const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함|않|안\s*된|안된|없|예정)/;
 
+/** 그래프 집계만 보는 최상급의 다른 꼴: 「제일 많은」, 사이에 주어가 낀 「가장 문제가 많은」. 정형 신호(SUPERLATIVE)는 그대로 둔다.
+ * 「가장 문제가 많은 제품은?」은 시맨틱 폴백이 이슈 앵커로 그래프에 보냈는데 집계가 아니라 「문제」를 개체로 찾았다(5차 P7). */
+const GRAPH_SUPERLATIVE = /(?:가장|제일)\s*(?:[가-힣]+(?:이|가)\s+)?(많|적|높|낮|큰|작)/;
+
 export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
-  if (superlative && plan.relTypes.length) {
+  const loose = GRAPH_SUPERLATIVE.exec(q);
+  if ((superlative || loose) && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
     // 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위(3곳씩 맡은 둘)를 답했다(랜덤 테스트 사전 점검 2차 R6).
-    if (/^[적낮작]$/.test(SUPERLATIVE.exec(q)?.[1] ?? "")) plan.order = "asc";
+    if (/^[적낮작]$/.test(SUPERLATIVE.exec(q)?.[1] ?? loose?.[1] ?? "")) plan.order = "asc";
   }
   for (const [re, f] of PROPERTY_FILTERS) {
     const m = re.exec(q);
@@ -486,11 +497,18 @@ const DOC_KINDS: { re: RegExp; kind: string; tag?: string; words?: string }[] = 
   { re: /문서/, kind: "문서" },
 ];
 const DOC_COUNT = /몇\s*(?:건|개|편)|개수|갯수|건수/;
-/** 개체 이름, 문서 종류 낱말, 개수 말을 뺀 뒤 남아도 되는 말: 조사, 「관련」, 「모두」, 서술어 끝. */
+/** 문서 목록 질문(「2024년 장애 보고서 목록 알려줘」). 개수 질문과 같은 길로 제목을 적는다. 벡터 레인 상위 조각 다섯에 든 한 건만
+ * 목록 전부처럼 답했다(랜덤 테스트 사전 점검 5차 P5, 2024년 장애 보고서는 2건). */
+const DOC_LIST = /목록|리스트/;
+/** 해(「2025년에」, 「2024년도」). 제목의 날짜(YYYY-MM-DD)로 거른다(pipeline.ts documentCount). */
+const DOC_YEAR = /(?<!\d)(\d{4})\s*년(?:도)?(?:에|의|에서)?(?![가-힣])/;
+/** 개체 이름, 문서 종류 낱말, 개수 말을 뺀 뒤 남아도 되는 말: 조사, 「관련」, 「모두」, 서술어 끝. 해가 붙은 질문의 「작성된」,
+ * 「발생한」은 제목의 날짜를 묻는 말이다(「2025년에 작성된 장애 보고서는 몇 건이야?」를 티켓 70건으로 셌다, 5차 P5). */
 const DOC_COUNT_FILLER = new Set([
   "관련", "관련된", "관련한", "관한", "대한", "에", "의", "은", "는", "이", "가", "을", "를", "도", "와", "과",
   "모두", "전부", "다", "총", "전체", "있어", "있어요", "있나요", "있니", "있지", "있습니까", "이야", "야", "인가요", "인가",
   "이에요", "예요", "입니까", "돼", "되나요", "돼요", "됩니까", "알려줘", "알려", "줘", "알려주세요", "주세요",
+  "작성된", "작성한", "발생한", "나온", "등록된", "보여줘", "보여주세요",
 ]);
 
 export interface DocCountRequest {
@@ -502,13 +520,20 @@ export interface DocCountRequest {
   tag?: string;
   /** 제목에 든 말로 고르는 종류면 그 말. */
   words?: string;
+  /** 질문의 해. 제목의 날짜(YYYY-MM-DD)가 그 해인 문서만 센다. 날짜가 없는 제목은 세지 않고 답이 그렇다고 밝힌다. */
+  year?: number;
 }
 
 /** 문서 개수 질문이면 무엇을 셀지, 아니면 undefined. 결정론이다. */
 export function documentCountRequest(q: string): DocCountRequest | undefined {
-  const count = DOC_COUNT.exec(q);
+  const count = DOC_COUNT.exec(q) ?? DOC_LIST.exec(q);
   if (!count) return undefined;
   let rest = q.slice(0, count.index) + " " + q.slice(count.index + count[0].length);
+  const y = DOC_YEAR.exec(rest);
+  const year = y ? Number(y[1]) : undefined;
+  if (y) rest = rest.slice(0, y.index) + " " + rest.slice(y.index + y[0].length);
+  // 「작성된」, 「발생한」은 해와 함께일 때만 받는다(해 없이 「작성된 문서」는 다른 조건일 수 있다).
+  const fillerOk = (w: string) => DOC_COUNT_FILLER.has(w) && (year !== undefined || !/^(?:작성|발생|나온|등록)/.test(w));
   let entity: string | undefined;
   for (const e of ENTITY_LEXICON) {
     if (!rest.includes(e.name)) continue;
@@ -521,12 +546,13 @@ export function documentCountRequest(q: string): DocCountRequest | undefined {
   if (!kind) return undefined;
   rest = rest.replace(kind.re, " ");
   const left = rest.split(/[\s?？!.,~]+/).filter(Boolean);
-  if (!left.every((w) => DOC_COUNT_FILLER.has(w))) return undefined;
+  if (!left.every(fillerOk)) return undefined;
   return {
     ...(entity ? { entity } : {}),
     kind: kind.kind,
     ...(kind.tag ? { tag: kind.tag } : {}),
     ...(kind.words ? { words: kind.words } : {}),
+    ...(year !== undefined ? { year } : {}),
   };
 }
 
@@ -571,7 +597,19 @@ const BACK_REFERENCE =
  * 정해지지 않는다: 「그 고객사 매출은 얼마야?」에 생성 SQL 이 Client-A 를 지어 10,707 을 답했다(랜덤 테스트 사전 점검 4차 P3, 6회 중 3회).
  * 사전의 개체 이름이나 영문 식별자가 함께 있을 때만 대상이 있다. */
 const DEMONSTRATIVE =
-  /(?<![가-힣])(?:그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?=[은는이가을를의에도만과와랑들]|[\s?？.,!]|$)|위\s*(?:결과|표|내용|목록|답))/;
+  /(?<![가-힣])(?:그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?=[은는이가을를의에도만과와랑들]|[\s?？.,!]|$)|위\s*(?:결과|표|내용|목록|답)|(?:방금|아까|앞에서|위에서)\s*(?:말한|본|나온|얘기한|물어본)\s*(?:고객사|고객|회사|제품|직원|사람|프로젝트|부서|팀|문서|계약))/g;
+// 위 「방금 말한 + 명사」: 「방금 말한 고객사의 담당자는 누구야?」가 표 낱말(고객) 예외로 빠져 그래프가 「방금」을 개체로 찾았다(5차 P4).
+/** 같은 문장의 앞 명사구를 가리키는 「그 + 명사」(「직원 5명과 그 부서」, 「…의 그 담당자」). 앞 대화가 아니다. 「연봉이 가장 높은 직원
+ * 5명과 그 부서를 알려줘」에 앞 질문을 기억하지 않는다고 답했다(랜덤 테스트 사전 점검 5차 P4, 3/3). 앞 낱말이 가리키는 말(그거랑,
+ * 아까의)이면 그대로 앞 대화다. */
+const INNER_ANCHOR = /(?:^|\s)([가-힣A-Za-z0-9-]+?)(?:과|와|의|랑|이랑)\s+$|(?:^|\s)및\s+$/;
+const POINTER_WORD = /^(?:그거|그것|그건|그게|그걸|이거|이것|저거|저것|거|것|아까|방금|앞|위|그)$/;
+function innerDemonstrative(q: string, at: number, mark: string): boolean {
+  if (!/^그\s+/.test(mark)) return false;
+  const m = INNER_ANCHOR.exec(q.slice(0, at));
+  if (!m) return false;
+  return m[1] === undefined || !POINTER_WORD.test(m[1]);
+}
 /** 순위만 묻는 질문(「2위는?」, 「3위는 누구야?」, 「두 번째는?」). 무엇의 순위인지가 앞 대화에 있다(4차 P3: 「2위는?」에 「Client-I」). */
 const RANK_ONLY = /^\s*(?:\d+\s*(?:위|등)|(?:첫|두|세|네|다섯)\s*번째)(?:은|는|이|가)?\s*(?:누구\S*|뭐\S*|어디\S*)?\s*[?？.!]?\s*$/;
 /** 가리키는 말을 뺀 나머지가 이것뿐이면 대상이 없는 질문이다: 순위(2위, 두 번째, 다음), 되묻는 말(말한 거 다시 말해줘), 묻는 말
@@ -591,11 +629,12 @@ const TABLE_WORD = /매출|계약|프로젝트|티켓|이슈|제품|고객|직�
 export function backReferenceOnly(q: string): string | undefined {
   const rank = RANK_ONLY.exec(q);
   if (rank) return rank[0].trim();
-  const marks = q.match(BACK_REFERENCE);
-  if (!marks) return undefined;
-  const rest = q.replace(BACK_REFERENCE, " ");
+  // 같은 문장의 앞 명사구를 가리키는 「그 + 명사」는 가리키는 말로 세지 않는다(innerDemonstrative).
+  const marks = [...q.matchAll(BACK_REFERENCE)].filter((m) => !innerDemonstrative(q, m.index!, m[0])).map((m) => m[0]);
+  if (!marks.length) return undefined;
+  const rest = q.replace(BACK_REFERENCE, (m: string, at: number) => (innerDemonstrative(q, at, m) ? m : " "));
   if (/[A-Za-z]/.test(rest) || ENTITY_LEXICON.some((e) => rest.includes(e.name))) return undefined;
-  const pointed = DEMONSTRATIVE.exec(q);
+  const pointed = [...q.matchAll(DEMONSTRATIVE)].some((m) => !innerDemonstrative(q, m.index!, m[0]));
   if (pointed) return marks[0].trim();
   if (PERIOD_WORD.test(rest) || TABLE_WORD.test(rest)) return undefined;
   const words = rest.split(/[^가-힣0-9]+/).filter(Boolean);
@@ -686,6 +725,9 @@ function typesAfterSeedName(q: string, seedType: string): Set<string> {
   return out;
 }
 
+/** 직원의 상사(소속 부서의 부서장)를 묻는 말. */
+const BOSS = /상사(?=[은는이가을를의도]|\s|[?？.!]|$)/;
+
 /** 탐색 계획을 시드 개체의 타입에 맞춘다.
  *
  * 계획의 엣지는 질문의 말(관계어, 시맨틱 앵커)에서 나오고 시드는 개체 해소에서 나온다.
@@ -735,6 +777,17 @@ export function fitPlanToSeed(relTypes: string[], seedType: string, query: strin
   if (!rels.every((r) => ends(r).length)) return { hops: [rels] };
   /** 엣지 r 에서 타입 t 의 반대편 타입들. t 에 닿지 않으면 빈 배열. */
   const across = (r: string, t: string) => ends(r).flatMap(([a, b]) => (a === t ? [b] : b === t ? [a] : []));
+
+  // 「상사」는 직원의 소속 부서의 부서장이다: 직원에서 BELONGS_TO 다음 HEAD_IS(두 홉). 직원에 닿는 관계가 앞에 있으면(「Client-B를
+  // 담당하는 사람의 상사」) 그 관계로 직원에 닿은 뒤 같은 두 홉을 잇는다(세 홉). HEAD_IS 한 홉만 타 「알 수 없습니다」였다(5차 P7).
+  if (BOSS.test(query) && rels.includes("HEAD_IS") && across("BELONGS_TO", "employee").includes("department") && across("HEAD_IS", "department").includes("employee")) {
+    const toBoss = [["BELONGS_TO"], ["HEAD_IS"]];
+    const lead = rels.filter((r) => r !== "HEAD_IS");
+    if (seedType === "employee" && !lead.length) return { hops: toBoss, fitted: "상사: BELONGS_TO 다음 HEAD_IS" };
+    if (lead.length === 1 && across(lead[0], seedType).includes("employee")) {
+      return { hops: [[lead[0]], ...toBoss], fitted: `상사: ${lead[0]} 다음 BELONGS_TO 다음 HEAD_IS` };
+    }
+  }
   const asked = askedType(query, seedType);
 
   const touching = rels.filter((r) => across(r, seedType).length);
@@ -821,7 +874,9 @@ export function route(query: string): RouteDecision {
   // 계약, 티켓, 장애 같은 그래프 밖 항목의 「담당」은 고객 담당 관계가 아니다(TABLE_ONLY_NOUN).
   const tableNoun = tableOnlyNoun(q);
   const allVerbs = scan(q, RELATION_VERBS);
-  const verbs = tableNoun ? allVerbs.filter((v) => v !== "MANAGES_ACCOUNT") : allVerbs;
+  // 표 낱말과 함께 쓴 부서장(「각 부서장의 연봉을 알려줘」)도 그래프로 보내지 않는다. 그래프는 부서장 이름까지만 알고 연봉은
+  // 정형(departments.head_id 조인)에 있다. 그래프로 가 「개체(연봉)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 5차 P7).
+  const verbs = tableNoun ? allVerbs.filter((v) => v !== "MANAGES_ACCOUNT" && v !== "HEAD_IS") : allVerbs;
   const generic = scan(q, GENERIC_RELATION_VERBS);
   const nouns = scan(q, RELATION_NOUNS);
   const docs = scan(q, DOC_SIGNALS);
@@ -905,7 +960,11 @@ export function route(query: string): RouteDecision {
     // Ambiguous, 앵커도 없음 -> 기존대로 둘만. 앵커 없는 그래프 탐색은 낭비다.
     [route, tools, rationale] = ["hybrid", [SQL_TOOL, VECTOR_TOOL], "no decisive signal; default fan-out"];
   }
-  if (verbs.length < allVerbs.length) rationale += `; 담당 not counted as MANAGES_ACCOUNT (table noun ${tableNoun})`;
+  if (verbs.length < allVerbs.length) {
+    rationale += allVerbs.includes("MANAGES_ACCOUNT") && !allVerbs.includes("HEAD_IS")
+      ? `; 담당 not counted as MANAGES_ACCOUNT (table noun ${tableNoun})`
+      : `; ${allVerbs.filter((v) => !verbs.includes(v)).join(",")} not counted as graph relation (table noun ${tableNoun})`;
+  }
 
   const scores: Record<Lane, number> = {
     nl2sql: WEIGHT.structured * s.length,

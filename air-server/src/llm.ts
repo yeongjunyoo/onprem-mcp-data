@@ -198,22 +198,47 @@ export function replaceRelativeQuarters(q: string, now: Date, fn: (w: string, qu
   return QUARTER_ANCHOR.test(q) ? q : q.replace(RELATIVE_QUARTER_RE, (w: string, word: string) => fn(w, relativeQuarter(word, now)));
 }
 
+/** 한 기간으로 묻는 「작년 같은 분기」, 「지난해 같은 분기」, 「전년 동기」. 분기마다의 값이나 다른 연도, 분기를 함께 말하면(「분기별 … 전년 동기
+ * 대비」, 「2025년 3분기 … 전년 동기」) 기준이 오늘이 아니어서 그대로 둔다. */
+export const SAME_QUARTER_LAST_YEAR_RE = /(?:작년|지난해|전년)\s*(?:의\s*)?(?:같은\s*분기|동일\s*분기|동\s*분기|동기)/g;
+const SAME_QUARTER_ANCHOR = /\d{4}\s*년|\d\s*분기(?!\s*별)|분기\s*(?:별|마다)|각\s*분기|매\s*분기|월\s*별|달\s*별|월마다|재작년|내년|올해|금년/;
+
+/** 서울 시각으로 오늘이 든 분기의 1년 전 분기: 2026-10-08 → { year: 2025, quarter: 4 }. 질문에 그 낱말이 없거나 한 기간으로 묻지 않으면 null.
+ * 생성 SQL 의 질문 줄(nl2sql.ts absoluteYears), 실행 전 검사(sqltrust.ts checkPeriod), 답 프롬프트의 질문 줄(answerQuestionForModel)이 이
+ * 분기로 본다. */
+export function sameQuarterLastYear(question: string, now: Date = new Date()): { year: number; quarter: number } | null {
+  const plain = question.replace(SAME_QUARTER_LAST_YEAR_RE, " ");
+  if (plain === question || SAME_QUARTER_ANCHOR.test(plain.replace(/(?:지난|직전|이전|저번|이번|전)\s*분기/g, " "))) return null;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric", month: "numeric" }).formatToParts(now);
+  const part = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return { year: part("year") - 1, quarter: Math.floor((part("month") - 1) / 3) + 1 };
+}
+
 /** 답 프롬프트의 질문 줄. 상대 연도 뒤에 연도를, 금액 표현 뒤에 만원 값을 괄호로 덧붙인다: 「작년 매출」 → 「작년(2025년)
  * 매출」, 「1억 원」 → 「1억 원(=10000만 원)」. 생성 SQL 은 이미 2025년과 만원으로 조회하는데 답 모델은 그 연결을 몰라
  * 「작년 매출은 얼마야?」에 조회 행 112,773 을 두고 「알 수 없습니다」라고 했고(3/3), 계약 금액 11000(만원)을 「11,000 원」이라고
  * 썼다(랜덤 테스트 2차 뒤 실측, 2026-10-08). 반기, 분기, 월 앞의 올해와 상대 분기도 생성 SQL 쪽(absoluteYears)과 같이 읽어 그
  * 기간 뒤에 덧붙인다: 「올해 상반기(2026년 상반기)」, 「지난 분기(2026년 3분기)」. 「올해(2026년) 상반기」로 붙이면 조회 행
- * 58,753 을 「587,530」이라고 썼다(같은 컨텍스트에서 질문 줄만 바꿔 실측, 2026-10-08). 낱말은 지우지 않고 덧붙이기만 한다. 이런
- * 낱말과 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
+ * 58,753 을 「587,530」이라고 썼다(같은 컨텍스트에서 질문 줄만 바꿔 실측, 2026-10-08). 한 기간으로 묻는 「작년 같은 분기」는 그 분기를
+ * 덧붙인다: 「작년(2025년) 같은 분기(2025년 4분기)」. 생성 SQL 이 quarter = '2025-Q4' 로 31,795 를 가져와도 「작년(2025년) 같은 분기」만으로는
+ * 답 모델이 「알 수 없습니다」라고 썼다(랜덤 테스트 5차 P3 DT10, 3/3. 덧붙인 질문 줄로 같은 컨텍스트 2/2 31,795). 그 자리를 비운 채 상대 분기를
+ * 바꿔야 「이번 분기 … 작년 같은 분기 대비」의 이번 분기도 바뀐다(QUARTER_ANCHOR 가 작년을 본다). 낱말은 지우지 않고 덧붙이기만 한다.
+ * 이런 낱말과 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
 export function answerQuestionForModel(query: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  return fitAnnotated(query, (q) =>
-    annotateMoney(
-      replaceRelativeQuarters(q, now, (w, quarter) => `${w}(${quarter})`)
-        .replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`)
-        .replace(THIS_YEAR_PART_RE, (w: string, _word: string, part: string) => `${w}(${year}년 ${part})`),
-    ),
-  );
+  const relativeYears = (s: string) => s.replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`);
+  return fitAnnotated(query, (q) => {
+    const same = sameQuarterLastYear(q, now);
+    const kept: string[] = [];
+    const marked = same ? q.replace(SAME_QUARTER_LAST_YEAR_RE, (w: string) => (kept.push(w), "\u0000")) : q;
+    const out = annotateMoney(
+      relativeYears(replaceRelativeQuarters(marked, now, (w, quarter) => `${w}(${quarter})`)).replace(
+        THIS_YEAR_PART_RE,
+        (w: string, _word: string, part: string) => `${w}(${year}년 ${part})`,
+      ),
+    );
+    return same ? out.replace(/\u0000/g, () => `${relativeYears(kept.shift() ?? "")}(${same.year}년 ${same.quarter}분기)`) : out;
+  });
 }
 
 export async function answer(query: string, context: string, opts?: GenOptions): Promise<string> {

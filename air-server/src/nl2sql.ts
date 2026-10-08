@@ -44,6 +44,8 @@ import {
   RELATIVE_YEAR,
   RELATIVE_YEAR_RE,
   replaceRelativeQuarters,
+  SAME_QUARTER_LAST_YEAR_RE,
+  sameQuarterLastYear,
   seoulYear,
   SHORT_YEAR_RE,
   THIS_YEAR_PART_RE,
@@ -571,11 +573,17 @@ export { seoulYear };
  * 「3/15에 발생한 매출 있어?」를 sale_date = '2023-03-15' 로 조회했다(P14, 2026-03-15 에 1건이 있다). */
 export function absoluteYears(q: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  const out = replaceRelativeQuarters(q, now, (_w, quarter) => quarter)
+  // 한 기간으로 묻는 「작년 같은 분기」는 서울 기준 이번 분기의 1년 전 분기로 쓴다(2026년 4분기면 「2025년 4분기」). 「2025년도 같은 분기」로
+  // 넘기자 7B 가 quarter LIKE '2025-Q%' 로 한 해 합계 112,773 을 같은 분기 매출이라고 답했다(랜덤 테스트 사전 점검 5차 P3, DT10 3/3. 2025-Q4 는
+  // 31,795). 그 자리를 비운 채 상대 분기를 바꿔야 「이번 분기 … 작년 같은 분기 대비」의 이번 분기도 바뀐다(QUARTER_ANCHOR 가 작년을 본다).
+  const same = sameQuarterLastYear(q, now);
+  const marked = same ? q.replace(SAME_QUARTER_LAST_YEAR_RE, "\u0000") : q;
+  const out = replaceRelativeQuarters(marked, now, (_w, quarter) => quarter)
     .replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`)
     .replace(THIS_YEAR_PART_RE, (_w, _word: string, part: string) => `${year}년 ${part}`)
     .replace(SHORT_YEAR_RE, (_w, yy: string) => `20${yy}년`)
-    .replace(DOT_MONTH_RE, (_w, y: string, m: string) => `${y}년 ${Number(m)}월`);
+    .replace(DOT_MONTH_RE, (_w, y: string, m: string) => `${y}년 ${Number(m)}월`)
+    .replace(/\u0000/g, same ? `${same.year}년 ${same.quarter}분기` : "");
   return datesWithYear(out, year);
 }
 
@@ -600,7 +608,17 @@ function datesWithYear(q: string, year: number): string {
  * 지킨다(fitAnnotated). 카드의 환산 예시가 있어도 7B 는 「연봉이 2억 원 이상」을 salary >= 2000 으로 썼다(3/3). 상대 연도와
  * 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
 export function sqlQuestionForModel(query: string, now: Date = new Date()): string {
-  return fitAnnotated(query, (q) => annotateMoney(absoluteYears(q, now)));
+  return fitAnnotated(query, (q) => annotateMoney(absoluteYears(withoutJsonFormat(q), now)));
+}
+
+/** 답의 형식으로 JSON 을 요청하는 말(「JSON으로」, 「JSON 형식으로」). SQL 은 행을 고르고 형식은 답 단계가 만든다. 이 말을 그대로 넘기자 7B 가
+ * json_agg(json_build_object(…)) 한 값을 골랐고(랜덤 테스트 사전 점검 5차 P1, OS04 3/3), 열로 고르라는 사유를 받은 수리도 3/3 JSON 을 다시 썼다. */
+const JSON_FORMAT = /\s*(?:을|를)?\s*(?:json|제이슨)\s*(?:(?:형식|형태|포맷|구조|객체|배열)\s*)?(?:으로|로)?(?=\s|$|[?!.])/gi;
+
+export function withoutJsonFormat(q: string): string {
+  if (!/json|제이슨/i.test(q)) return q;
+  const out = q.replace(JSON_FORMAT, (w) => (/^\s*(?:을|를)/.test(w) ? "을 " : " ")).replace(/\s{2,}/g, " ").trim();
+  return out || q;
 }
 
 /** Company-X NL2SQL 프롬프트 원문.

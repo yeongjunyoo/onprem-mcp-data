@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases, isEntityName, looseEntityName } from "./router.js";
+import { entitiesIn, identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -129,6 +129,10 @@ const SEED_STOP = new Set([
   // 이끄는 직원 목록」에 「개체(이끄)」라고 답했다(랜덤 테스트 사전 점검 4차 P2). 어느 개체 이름에도 없는 낱말이다.
   "보류", "보류된", "완료", "완료된", "완료한", "계획", "계획된", "중단", "중단된", "취소", "취소된", "예정", "예정인", "활성", "비활성",
   "이끄", "이끈", "이끌", "맡", "맡긴", "맡겨진", "주어진", "만들어진",
+  // 표의 항목(연봉, 매출 …)과 보통 명사(문제), 앞 대화를 가리키는 말(방금, 아까), 「상사」. 「각 부서장의 연봉을 알려줘」에 「개체(연봉)」,
+  // 「가장 문제가 많은 제품은?」에 「개체(문제)」, 「방금 말한 고객사의 담당자는 누구야?」에 「개체(방금)를 찾지 못했습니다」라고 답했다
+  // (랜덤 테스트 사전 점검 5차 P4, P7). 어느 개체 이름에도 없는 낱말이다.
+  "연봉", "급여", "매출", "금액", "예산", "문제", "방금", "아까", "상사",
 ]);
 /** 구어 조사(「김준혁한테」, 「박소연이랑」, 「조현우하고」). 떼고 남은 이름이 사전에 있을 때만 뗀다(「무시하고」의 「무시」는 사전에
  * 없어 그대로). 「개체(김준혁한테)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 4차 P7). */
@@ -138,6 +142,16 @@ function withoutColloquialParticle(w: string): string {
   if (!m) return w;
   const base = w.slice(0, -m[0].length);
   return base.length >= 2 && isEntityName(base) ? base : w;
+}
+/** 부서 이름에 붙여 쓴 「장」, 「팀장」(「영업팀장」, 「클라우드사업부장」)이면 부서 이름. 부서장 관계는 라우터의 HEAD_IS(팀장)가 맡는다.
+ * 「영업팀장이 담당하는 고객사는?」에서 「영업팀장」을 한 낱말로 찾아 「개체(영업팀장)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전
+ * 점검 5차 P7). 띄어 쓴 「영업팀 팀장」은 맞았다. 사전에 있는 이름은 그대로 둔다. */
+function withoutHeadSuffix(w: string): string {
+  if (!/장$/.test(w) || isEntityName(w)) return w;
+  for (const base of [w.slice(0, -1), w.replace(/팀장$/, "")]) {
+    if (base !== w && base.length >= 2 && entitiesIn(base).some((e) => e.name === base && e.type === "department")) return base;
+  }
+  return w;
 }
 /** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
 const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
@@ -206,7 +220,7 @@ export function seedTerms(query: string): string[] {
   for (const m of text.matchAll(SEED_TOKEN)) {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) continue;
-    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
+    const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
@@ -242,7 +256,7 @@ export function mentionTerms(query: string): string[] {
   toks.forEach((m, i) => {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
-    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
+    const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
     if (entityLikeName(w) === null && !isEntityName(w)) {
       const prev = toks[i - 1];
@@ -912,7 +926,12 @@ export function seedEdgeCandidates(groups: { edges: GraphEdge[]; seedId: number 
  * 세 홉(hops=3, 「Client-J 프로젝트를 이끄는 직원들은 어느 부서 소속이야?」)은 셋째 홉의 끝이 답이고, 시드에서부터 차례로
  * 적는다: 「Client-J의 진행 프로젝트: P → 강현우의 이끄는 프로젝트: P → 강현우의 소속 부서: 클라우드사업부」. 같은 부서에
  * 여러 직원이 닿으므로 줄의 정체는 답과 그 앞 개체의 쌍이다(답 하나로 모으면 한 직원의 줄만 남는다). */
-export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): Candidate[] {
+/** 경로 줄과 그 경로 끝의 답 개체. 7B 가 경로를 받고도 모른다고 답하면 답 단계가 이 이름을 쓴다(pipeline.ts pathAnswer). */
+export interface PathCandidate extends Candidate {
+  answer: { name: string; type: string };
+}
+
+export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): PathCandidate[] {
   if (hops === 3) return path3Candidates(edges, seedId);
   const viaMid = new Map<number, GraphEdge>();
   for (const e of edges) {
@@ -921,11 +940,11 @@ export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): Ca
     if (!viaMid.has(mid)) viaMid.set(mid, e);
   }
   const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
-  const out: Candidate[] = [];
+  const out: PathCandidate[] = [];
   edges.forEach((e2, i) => {
     if (e2.depth !== 2) return;
     const forward = viaMid.has(e2.srcId);
-    const [mid, ansType, ansId] = forward ? [e2.srcId, e2.dstType, e2.dstId] : [e2.dstId, e2.srcType, e2.srcId];
+    const [mid, ansType, ansId, ansName] = forward ? [e2.srcId, e2.dstType, e2.dstId, e2.dstName] : [e2.dstId, e2.srcType, e2.srcId, e2.srcName];
     const e1 = viaMid.get(mid);
     if (!e1) return;
     out.push({
@@ -936,13 +955,14 @@ export function pathCandidates(edges: GraphEdge[], seedId: number, hops = 2): Ca
         ? `[그래프 경로] ${line(e1)} → ${line(e2)} (${e1.relType}→${e2.relType})`
         : `[그래프 경로] ${line(e2)} → ${line(e1)} (${e2.relType}→${e1.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}:${e2.provenance}`,
+      answer: { name: ansName, type: ansType },
     });
   });
   return out;
 }
 
 /** 세 홉 경로(pathCandidates 의 hops=3). 홉마다 처음 닿게 한 엣지를 거슬러 올라가 경로 하나를 한 줄로 적는다. */
-function path3Candidates(edges: GraphEdge[], seedId: number): Candidate[] {
+function path3Candidates(edges: GraphEdge[], seedId: number): PathCandidate[] {
   /** 앞 홉에서 닿은 개체에 붙은 쪽(near)과 새로 닿은 쪽(far). 앞 홉 개체에 붙지 않은 엣지는 undefined. */
   const step = (e: GraphEdge, prev: (id: number) => boolean) =>
     prev(e.srcId) ? { near: e.srcId, far: e.dstId } : prev(e.dstId) ? { near: e.dstId, far: e.srcId } : undefined;
@@ -958,7 +978,7 @@ function path3Candidates(edges: GraphEdge[], seedId: number): Candidate[] {
     }
   }
   const line = (e: GraphEdge) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName}`;
-  const out: Candidate[] = [];
+  const out: PathCandidate[] = [];
   edges.forEach((e3, i) => {
     if (e3.depth !== 3) return;
     const s3 = step(e3, (id) => hop2.has(id));
@@ -973,6 +993,7 @@ function path3Candidates(edges: GraphEdge[], seedId: number): Candidate[] {
       source: "graph" as const,
       text: `[그래프 경로] ${line(e1)} → ${line(e2)} → ${line(e3)} (${e1.relType}→${e2.relType}→${e3.relType})`,
       provenance: `path:${e1.relType}>${e2.relType}>${e3.relType}:${e3.provenance}`,
+      answer: { name: e3.srcId === s3.near ? e3.dstName : e3.srcName, type: ansType },
     });
   });
   return out;
