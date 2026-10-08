@@ -836,8 +836,8 @@ export const NO_TABLE_ANSWER =
 
 export interface AskResult extends RetrieveResult {
   answer: string;
-  /** 7B 답의 근거 밖 이름을 다룬 내역(withoutOutsideNames). 그런 이름이 있었을 때만. */
-  grounding_fix?: { removed: string[]; flagged: string[] };
+  /** 7B 답의 근거 밖 이름(withoutOutsideNames)과 자릿수가 틀린 SQL 값(scaleSlip)을 다룬 내역. 그런 것이 있었을 때만. */
+  grounding_fix?: { removed: string[]; flagged: string[]; value?: { from: string; to: string } };
 }
 
 /** 그래프 집계의 「가장 적은」(시드 없는 관계 스캔, 계획 order=asc)에서 공동 1위가 둘 이상일 때의 답 문장. 7B 를 부르지 않는다.
@@ -1014,6 +1014,55 @@ export function withoutOutsideNames(
   return { text, removed, flagged };
 }
 
+/** 답 문장의 수 하나. 천 단위 쉼표와 소수점을 받고, 영문자, 숫자, 하이픈, 슬래시, 콜론, 점, 쉼표에 붙은 수(Product-C1, 2025-Q3,
+ * 2026-06-27, 14:30)는 수로 보지 않는다. */
+const ANSWER_NUMBER = /(?<![\w.,\-/:])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?![\w\-/:]|[.,]\d)/g;
+/** 뒤에 오면 그 수를 고치지 않는 말: 때와 순서(2026년, 3분기, 2위), 비율(15%), 우리말 큰 수 단위(1억, 5천만). */
+const NOT_A_VALUE_AFTER = /^\s*(?:년|분기|월|일|시|분|초|주|위|번|차|호|회|개월|배|%|％|퍼센트|프로|억|만|천|백|십|조)/;
+/** 비율을 묻는 질문. 계산한 비율은 수의 자릿수가 바뀌는 것이 정상이라(0.155 → 15.5%) 보지 않는다. */
+const RATIO_QUESTION = /비율|비중|퍼센트|백분율|%|％|증감률|증가율|감소율|성장률|점유율|몇\s*배/;
+
+/** SQL 값 하나의 수. 숫자거나 숫자만 든 글(bigint, numeric 은 글로 온다)일 때만. */
+function sqlNumber(v: unknown): number | undefined {
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  if (typeof v === "string" && /^-?\d+(?:\.\d+)?$/.test(v.trim())) return Number(v);
+  return undefined;
+}
+
+/** 7B 답이 SQL 값 하나를 10배, 100배 … 틀리게 옮겨 적은 것을 그 값으로 되돌린다.
+ *
+ * 「올해 상반기 매출 합계 알려줘」는 조회 행이 total_sales: 58753 인데 답 문장이 「… 매출 합계는 587,530입니다.」였다(6회 중 2회,
+ * 답 프롬프트는 같음). 조회 결과가 한 행에 수 하나(V)이고, 답에 V 가 어떤 꼴(그대로, 쉼표, 답에 적힌 자릿수로 반올림)로도 없으며,
+ * 답의 수 N 이 V × 10^k(k = ±1~±4) 하나뿐일 때만 그 N 을 쉼표 꼴의 V 로 바꾼다. 때와 순서, 비율, 우리말 단위가 붙은 수, 해(2026)
+ * 같은 수, 만원을 원으로 바꿔 적은 수(V × 10^3, 10^4 뒤에 「원」)는 손대지 않는다. 그 밖에는 답을 그대로 둔다. */
+export function scaleSlip(text: string, rows: Record<string, unknown>[], query: string): { text: string; from?: string; to?: string } {
+  if (rows.length !== 1 || RATIO_QUESTION.test(query)) return { text };
+  const values = Object.values(rows[0]).map(sqlNumber).filter((v): v is number => v !== undefined);
+  if (values.length !== 1 || values[0] === 0) return { text };
+  const v = values[0];
+  const numbers = (s: string) => [...s.matchAll(ANSWER_NUMBER)].map((m) => ({ at: m.index!, raw: m[0], n: Number(m[0].replace(/,/g, "")) }));
+  const tokens = numbers(text);
+  // 답에 V 가 이미 있으면(답에 적힌 자릿수로 반올림해 같으면) 다른 수는 V 가 아니다.
+  const decimals = (raw: string) => Math.min(20, (raw.split(".")[1] ?? "").length);
+  if (tokens.some((t) => Number(Math.abs(v).toFixed(decimals(t.raw))) === t.n)) return { text };
+  const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b));
+  // 질문에 있는 수(「상위 50개」)를 답이 되풀이한 것은 옮겨 적은 값이 아니다.
+  const asked = new Set(numbers(query).map((t) => t.n));
+  const slips = tokens.filter((t) => {
+    const after = text.slice(t.at + t.raw.length);
+    if (!t.n || asked.has(t.n) || NOT_A_VALUE_AFTER.test(after) || /^(?:19|20)\d\d$/.test(t.raw)) return false;
+    const k = [1, 2, 3, 4, -1, -2, -3, -4].find((e) => close(t.n, Math.abs(v) * 10 ** e));
+    return k !== undefined && !(k >= 3 && /^\s*원/.test(after));
+  });
+  const plain = String(Math.abs(v));
+  if (!slips.length || new Set(slips.map((t) => t.n)).size !== 1 || /e/i.test(plain)) return { text };
+  const [int, frac] = plain.split(".");
+  const to = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (frac ? `.${frac}` : "");
+  let out = text;
+  for (const t of [...slips].reverse()) out = out.slice(0, t.at) + to + out.slice(t.at + t.raw.length);
+  return { text: out, from: slips[0].raw, to };
+}
+
 /** 문서 전체나 최근을 묻는 말. 「보고서들」의 「들」은 명사 뒤 복수일 때만(「들어온」, 「만들어」는 아니다). 「정리」는 정리해 달라는
  * 요청일 때만(「문서로 정리된 게 있나?」는 아니다). */
 const ALL_OR_RECENT = /[가-힣]들(?=[은는이가을를의에과와도만]|\s|$|[?？!.,])|모든|전부|전체|정리\s*(?:해|하여|좀)|요즘|최근/;
@@ -1117,14 +1166,19 @@ export async function ask(
   const gen = deps.llm ?? llmAnswer;
   try {
     const generated = await gen(r.answer_query ?? query, answerContext);
-    // 근거에도 질문에도 없는 이름은 사실로 남기지 않는다(withoutOutsideNames). 문서 레인이 상위 조각만 본 것은 밝힌다.
+    // 근거에도 질문에도 없는 이름은 사실로 남기지 않는다(withoutOutsideNames). 정형 레인의 값 하나를 10의 거듭제곱만큼 틀리게
+    // 옮겨 적었으면 조회 값으로 되돌린다(scaleSlip). 문서 레인이 상위 조각만 본 것은 밝힌다.
     const fix = withoutOutsideNames(generated, r.context, query);
+    const scaled = r.route === "structured" && r.sql.result?.ok ? scaleSlip(fix.text, r.sql.result.rows, query) : { text: fix.text };
     const note = documentScopeNote(r, query);
-    const answer = note ? `${fix.text.trimEnd()}\n\n${note}` : fix.text;
+    const answer = note ? `${scaled.text.trimEnd()}\n\n${note}` : scaled.text;
+    const value = scaled.from !== undefined && scaled.to !== undefined ? { value: { from: scaled.from, to: scaled.to } } : {};
     return {
       ...r,
       answer: head + withSqlRows(r, answer),
-      ...(fix.removed.length || fix.flagged.length ? { grounding_fix: { removed: fix.removed, flagged: fix.flagged } } : {}),
+      ...(fix.removed.length || fix.flagged.length || scaled.from !== undefined
+        ? { grounding_fix: { removed: fix.removed, flagged: fix.flagged, ...value } }
+        : {}),
     };
   } catch (e) {
     // ★ 생성 LLM 이 **기동 후** 죽는 경우.

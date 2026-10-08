@@ -1830,5 +1830,65 @@ const deadEmbedder: Embedder = {
   installOntology([], []);
 }
 
+// 정형 레인의 값 하나를 7B 가 10의 거듭제곱만큼 틀리게 옮겨 적은 것(「올해 상반기 매출 합계 알려줘」에 행은 58753, 답은 「587,530」,
+// 6회 중 2회)을 조회 값으로 되돌린다. 행이 하나이고 수가 하나일 때만, 그 밖에는 답을 그대로 둔다.
+{
+  const { scaleSlip } = await import("./pipeline.js");
+  const h1 = "올해 상반기 매출 합계 알려줘";
+  const fixed = scaleSlip("올해 상반기(2026년 상반기) 매출 합계는 587,530입니다.", [{ total_sales: "58753" }], h1);
+  ok(fixed.text === "올해 상반기(2026년 상반기) 매출 합계는 58,753입니다." && fixed.from === "587,530" && fixed.to === "58,753", `10배 (got ${fixed.text})`);
+  ok(scaleSlip("합계는 5,875.3입니다.", [{ total_sales: 58753 }], h1).text === "합계는 58,753입니다.", "10분의 1, 숫자 값");
+  ok(scaleSlip("월평균 매출은 5899.7입니다.", [{ avg: "589.9700000000000000" }], "security 제품의 월평균 매출").text === "월평균 매출은 589.97입니다.", "소수 값");
+  ok(scaleSlip("총 460개입니다.", [{ count: "46" }], "현재 활성 상태인 계약 수는 몇 개야?").text === "총 46개입니다.", "개수");
+  const same = (text: string, rows: Record<string, unknown>[], q = h1) => scaleSlip(text, rows, q).text === text;
+  ok(same("올해 상반기(2026년 상반기) 매출 합계는 58,753입니다.", [{ total_sales: "58753" }]), "맞는 답은 그대로");
+  ok(same("합계는 58753입니다.", [{ total_sales: "58753" }]) && same("월평균 약 590입니다.", [{ avg: "589.9700000000000000" }]), "그대로 적었거나 반올림해 적은 값");
+  ok(same("2026년 기준으로는 확인되지 않습니다.", [{ total: 202.6 }]) && same("2026 기준으로는 확인되지 않습니다.", [{ total: 202.6 }]), "해(2026)는 손대지 않는다");
+  ok(same("3분기 매출은 확인되지 않았습니다.", [{ total: 30 }]) && same("Q3 매출과 2025-Q3 비교", [{ total: 30 }]), "분기는 손대지 않는다");
+  ok(same("취소 계약은 15.53%입니다.", [{ ratio: "0.1553" }], "취소된 계약은 어느 정도야?"), "퍼센트로 적은 수");
+  ok(same("취소 비율은 15.53입니다.", [{ ratio: "0.1553" }], "전체 계약 중 취소된 계약의 비율은 몇 퍼센트야?"), "비율 질문");
+  ok(same("두 분기는 230과 300입니다.", [{ total: 23 }, { total: 30 }]), "행이 둘이면 그대로");
+  ok(same("합계 230, 건수 30", [{ total: 23, n: 3 }]), "한 행에 수가 둘이면 그대로");
+  ok(same("계약 금액은 110,000,000원입니다.", [{ amount: "11000" }], "가장 큰 계약 금액은?"), "만원 값을 원으로 바꿔 적은 수");
+  ok(same("1억 원 이상 계약은 없습니다.", [{ amount: 10000 }], "가장 큰 계약 금액은?"), "우리말 큰 수 단위");
+  ok(same("587,530 또는 5,875.3입니다.", [{ total_sales: "58753" }]), "다른 두 수가 걸리면 그대로");
+  ok(same("Product-C1 매출은 확인되지 않았습니다.", [{ total: 10 }]), "식별자 속 숫자");
+  ok(same("매출은 없습니다.", [{ total_sales: null }]), "값이 null 이면 그대로");
+  ok(same("상위 50개 고객사 가운데 서울은 없습니다.", [{ n: 5 }], "매출 상위 50개 고객사 중 서울 고객사는 몇 곳이야?"), "질문의 수를 되풀이한 것");
+
+  // ask: 정형 레인 답의 문장만 고치고, 행 블록과 감사 레코드에 고친 내역이 남는다.
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const salesRows = [{ total_sales: "23859" }];
+  const salesPool = {
+    connect: async () => ({
+      query: async (sql: string) =>
+        /FROM companyx\.sales/.test(sql) ? { rows: salesRows, rowCount: 1, fields: [{ name: "total_sales" }] } : { rows: [], rowCount: 0 },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  const r = await ask("2025년 3분기 총 매출액은 얼마야?", {
+    pool: salesPool,
+    embedder: deadEmbedder,
+    repair: false,
+    nl2sql: async () => "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'",
+    llm: async () => "2025년 3분기 총 매출액은 238,590입니다.",
+  });
+  const rec = buildAuditRecord(r);
+  ok(
+    r.route === "structured" && r.answer === "2025년 3분기 총 매출액은 23,859입니다.\n\n[조회 결과 1건]\n- total_sales: 23859",
+    `ask 의 답 (got ${r.route} ${JSON.stringify(r.answer)})`,
+  );
+  ok(rec.grounding?.fixed?.value?.from === "238,590" && rec.grounding.fixed.value.to === "23,859", `감사 레코드에 고친 값 (got ${JSON.stringify(rec.grounding)})`);
+  const right = await ask("2025년 3분기 총 매출액은 얼마야?", {
+    pool: salesPool,
+    embedder: deadEmbedder,
+    repair: false,
+    nl2sql: async () => "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'",
+    llm: async () => "2025년 3분기 총 매출액은 23859입니다.",
+  });
+  ok(right.answer.startsWith("2025년 3분기 총 매출액은 23859입니다.") && right.grounding_fix === undefined, "맞는 답은 그대로, 보정 내역 없음");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
