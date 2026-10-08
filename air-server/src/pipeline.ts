@@ -388,6 +388,7 @@ export const SQL_ROWS_MAX = 30;
  * 버전 운에 달리지 않게, 행을 답에 그대로 싣는다. 모델은 문장을 쓰고 값은 옮겨 적지 않는다.
  * 싣는 행은 큐레이션이 모델에게 넘긴 행이다. 그래서 답에 나오는 값은 전부 컨텍스트에 있다
  * (companyx:ask 의 answer_grounded 가 그대로 성립한다). 예산 밖으로 밀린 행은 건수만 적는다.
+ * 라우트는 묻지 않는다. hybrid 도 SQL 레인이 돌아 행을 돌려줬으면 붙인다(공동 1위 답 tieAnswer 와 같은 조건, 랜덤 테스트 사전 점검 3차 S06).
  * ANSWER_SQL_ROWS=0 은 검증용 제거 스위치다. */
 export function sqlRowsBlock(rows: Record<string, unknown>[], total = rows.length, max = SQL_ROWS_MAX): string {
   if (!rows.length) return "";
@@ -399,7 +400,7 @@ export function sqlRowsBlock(rows: Record<string, unknown>[], total = rows.lengt
 }
 
 function withSqlRows(r: RetrieveResult, text: string): string {
-  if (r.route !== "structured" || !r.sql.result?.ok || process.env.ANSWER_SQL_ROWS === "0") return text;
+  if (!r.sql.result?.ok || process.env.ANSWER_SQL_ROWS === "0") return text;
   const seen = new Set(r.curated.kept.filter((it) => it.source.startsWith("sql#")).map((it) => Number(it.source.slice(4))));
   const rows = r.sql.result.rows.filter((_, i) => seen.has(i));
   const block = sqlRowsBlock(rows, r.sql.result.rows.length);

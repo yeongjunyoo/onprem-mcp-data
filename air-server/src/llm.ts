@@ -170,15 +170,44 @@ export function seoulYear(now: Date = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" }).format(now));
 }
 
+/** 「올해, 금년」 바로 뒤에 반기, 분기, 월이 오는 자리(둘째 묶음이 그 기간). 이때만 연도로 읽는다(「올해 매출은 얼마야?」는 그대로,
+ * nl2sql.ts absoluteYears). */
+export const THIS_YEAR_PART_RE = /(올해|금년)\s*(상반기|하반기|[1-4]\s*분기|(?:1[0-2]|[1-9])\s*월)/g;
+/** 지금 분기와의 차. 지난, 전, 직전, 이전, 저번 분기 = 바로 앞 분기, 이번 분기 = 지금 분기. */
+export const RELATIVE_QUARTER: Record<string, number> = { 지난: -1, 전: -1, 직전: -1, 이전: -1, 저번: -1, 이번: 0 };
+export const RELATIVE_QUARTER_RE = /(?<![가-힣])(지난|직전|이전|저번|이번|전)\s*분기/g;
+/** 질문이 연도를 따로 말하거나(「2025년 3분기 매출은 전 분기 대비」, 「작년 이번 분기」) 분기마다의 값을 물으면(「분기별 … 전 분기
+ * 대비」) 상대 분기는 오늘 기준이 아니어서 바꾸지 않는다. */
+const QUARTER_ANCHOR = /\d{4}\s*년|재작년|작년|지난해|내년|올해|금년|분기별|분기마다|각\s*분기|매\s*분기/;
+
+/** 상대 분기 낱말이 가리키는 분기, 서울 시각 기준: 2026-10-08 의 「지난 분기」 → 「2026년 3분기」. */
+export function relativeQuarter(word: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric", month: "numeric" }).formatToParts(now);
+  const part = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const index = part("year") * 4 + Math.floor((part("month") - 1) / 3) + (RELATIVE_QUARTER[word] ?? 0);
+  return `${Math.floor(index / 4)}년 ${(index % 4) + 1}분기`;
+}
+
+/** 질문의 상대 분기마다 fn(낱말 전체, 가리키는 분기). 질문이 연도를 따로 말하거나 분기마다의 값을 물으면 그대로 둔다. */
+export function replaceRelativeQuarters(q: string, now: Date, fn: (w: string, quarter: string) => string): string {
+  return QUARTER_ANCHOR.test(q) ? q : q.replace(RELATIVE_QUARTER_RE, (w: string, word: string) => fn(w, relativeQuarter(word, now)));
+}
+
 /** 답 프롬프트의 질문 줄. 상대 연도 뒤에 연도를, 금액 표현 뒤에 만원 값을 괄호로 덧붙인다: 「작년 매출」 → 「작년(2025년)
  * 매출」, 「1억 원」 → 「1억 원(=10000만 원)」. 생성 SQL 은 이미 2025년과 만원으로 조회하는데 답 모델은 그 연결을 몰라
  * 「작년 매출은 얼마야?」에 조회 행 112,773 을 두고 「알 수 없습니다」라고 했고(3/3), 계약 금액 11000(만원)을 「11,000 원」이라고
- * 썼다(랜덤 테스트 2차 뒤 실측, 2026-10-08). 낱말은 지우지 않고 덧붙이기만 한다. 상대 연도와 금액 표현이 없는 질문은
- * questionForModel 결과 그대로다. */
+ * 썼다(랜덤 테스트 2차 뒤 실측, 2026-10-08). 반기, 분기, 월 앞의 올해와 상대 분기도 생성 SQL 쪽(absoluteYears)과 같이 읽어 그
+ * 기간 뒤에 덧붙인다: 「올해 상반기(2026년 상반기)」, 「지난 분기(2026년 3분기)」. 「올해(2026년) 상반기」로 붙이면 조회 행
+ * 58,753 을 「587,530」이라고 썼다(같은 컨텍스트에서 질문 줄만 바꿔 실측, 2026-10-08). 낱말은 지우지 않고 덧붙이기만 한다. 이런
+ * 낱말과 금액 표현이 없는 질문은 questionForModel 결과 그대로다. */
 export function answerQuestionForModel(query: string, now: Date = new Date()): string {
   const year = seoulYear(now);
   return fitAnnotated(query, (q) =>
-    annotateMoney(q.replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`)),
+    annotateMoney(
+      replaceRelativeQuarters(q, now, (w, quarter) => `${w}(${quarter})`)
+        .replace(RELATIVE_YEAR_RE, (w: string, word: string) => `${w}(${year + RELATIVE_YEAR[word]}년)`)
+        .replace(THIS_YEAR_PART_RE, (w: string, _word: string, part: string) => `${w}(${year}년 ${part})`),
+    ),
   );
 }
 
