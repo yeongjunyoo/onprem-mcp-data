@@ -807,6 +807,19 @@ function askedMonths(question: string, now: Date): AskedMonths[] {
     if (covered.some(([s, e]) => (m.index ?? 0) >= s && (m.index ?? 0) < e)) continue;
     const i = monthIndex(yearOf(m[1], m[2]), Number(m[3]));
     add(i, i);
+    covered.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+  }
+  // 연도 없이 뒤에 이어지는 달과 달 범위(「2025년 1월부터 3월까지와 4월부터 6월까지」의 4~6월)는 바로 앞 연도의 달이다. 앞에 연도가 없으면 보지 않는다.
+  const anchors = [...question.matchAll(/(?:(?<![\d.])(\d{4}|\d{2})\s*년|(재작년|작년|지난해|내년|올해|금년))/g)].map((m) => ({ at: m.index ?? 0, year: yearOf(m[1], m[2]) }));
+  const yearBefore = (at: number) => anchors.filter((a) => a.at < at).pop()?.year;
+  for (const m of question.matchAll(/(?<![\d.년])(1[0-2]|0?[1-9])\s*(?:(?:월\s*(?:부터|에서|~|～|〜|-)|~|～|〜|-)\s*(1[0-2]|0?[1-9])\s*)?월(?!\s*\d{1,2}\s*일)/g)) {
+    const at = m.index ?? 0;
+    if (covered.some(([s, e]) => at < e && at + m[0].length > s)) continue;
+    const year = yearBefore(at);
+    if (year === undefined) continue;
+    const from = monthIndex(year, Number(m[1]));
+    const to = m[2] ? monthIndex(year, Number(m[2])) : from;
+    if (to >= from) add(from, to);
   }
   for (const m of question.matchAll(DOT_MONTH_RE)) {
     const i = monthIndex(Number(m[1]), Number(m[2]));
@@ -846,6 +859,10 @@ function checkMonthPeriod(sql: string, question: string, now: Date): string[] {
   const picked = [...new Set(conds.map((c) => c[0].replace(/\s+/g, " ")))].join(", ");
   const date = `${conds[0][1]}sale_date`;
   const chosen = pickedQuarters(conds);
+  // 분기와 꼭 같은 달 범위들이 가리키는 분기 전체. 범위가 둘이면(「1월부터 3월까지와 4월부터 6월까지」) SQL 은 두 분기를 함께 고른다.
+  const quartersOf = (from: number, to: number) =>
+    from % 3 === 0 && to % 3 === 2 ? Array.from({ length: (to - from + 1) / 3 }, (_, k) => Math.floor(from / 3) + k) : [];
+  const askedQuarters = new Set(months.flatMap(({ from, to }) => quartersOf(from, to)));
   const reasons: string[] = [];
   for (const { from, to } of months) {
     if (sql.includes(`'${monthStart(from).slice(0, 7)}`)) continue; // 그 달(첫 달)의 날짜로도 고른다
@@ -859,9 +876,9 @@ function checkMonthPeriod(sql: string, question: string, now: Date): string[] {
     }
     // 달 범위가 분기 몇 개와 꼭 같으면(1~3월 = 1분기) 그 분기들을 고른 조건은 맞다. 「2025년 1월부터 3월까지」의 quarter = '2025-Q1' 은 30,403 으로
     // 맞았는데 1월만 고르게 수리했다(5차 P2, 1월은 6,820).
-    const whole = from % 3 === 0 && to % 3 === 2;
-    const want = whole ? Array.from({ length: (to - from + 1) / 3 }, (_, k) => Math.floor(from / 3) + k) : [];
-    if (whole && chosen && chosen.size === want.length && want.every((q) => chosen.has(q))) continue;
+    const want = quartersOf(from, to);
+    const whole = want.length > 0;
+    if (whole && chosen && want.every((q) => chosen.has(q)) && [...chosen].every((q) => askedQuarters.has(q))) continue;
     const span = `${monthLabel(from)}부터 ${Math.floor(to / 12) === Math.floor(from / 12) ? `${(to % 12) + 1}월` : monthLabel(to)}까지`;
     const quarters = want.map((q) => `'${Math.floor(q / 4)}-Q${(q % 4) + 1}'`);
     reasons.push(

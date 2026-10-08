@@ -3015,6 +3015,16 @@ const deadEmbedder: Embedder = {
   const jan = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q1'", "2025년 1월 매출 합계는?", now5);
   ok(jan.length === 1 && jan[0].includes("질문의 2025년 1월은 한 분기가 아니라 한 달이다"), "P2 한 달은 종전 사유 그대로");
   ok(q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE sale_date BETWEEN '2024-07-01' AND '2024-09-30'", "2024년 7월에서 9월까지 매출 합계 알려줘", now5).length === 0, "P2 날짜 범위는 보지 않는다");
+  ok(
+    q5.checkPeriod(
+      "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter IN ('2025-Q1', '2025-Q2') GROUP BY quarter",
+      "2025년 1월부터 3월까지와 4월부터 6월까지 매출을 비교해줘",
+      now5,
+    ).length === 0,
+    "P2 연도 없는 뒤 범위는 앞 연도를 따른다",
+  );
+  const dec = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q4'", "2025년 매출 중 12월 매출은?", now5);
+  ok(dec.length === 1 && dec[0].includes("질문의 2025년 12월은 한 분기가 아니라 한 달이다"), `P2 12월은 한 달(1~2월로 읽지 않는다) (got ${dec})`);
 
   // P3 ①: 「YYYY년 이후, 부터」는 그해를 넣는다(DT03 hire_date > '2025-12-31' 로 0명, 6명이 맞다).
   const since = q5.checkPeriod("SELECT COUNT(*) FROM companyx.employees WHERE hire_date > '2025-12-31'", "2025년 이후에 입사한 직원은 몇 명이야?", now5);
