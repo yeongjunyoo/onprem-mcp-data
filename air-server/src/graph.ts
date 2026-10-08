@@ -30,7 +30,7 @@ import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
 import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
-import { identifyingAliases, isEntityName, looseEntityName } from "./router.js";
+import { entitiesIn, identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 function safeSchema(schema: string): string {
@@ -129,6 +129,10 @@ const SEED_STOP = new Set([
   // 이끄는 직원 목록」에 「개체(이끄)」라고 답했다(랜덤 테스트 사전 점검 4차 P2). 어느 개체 이름에도 없는 낱말이다.
   "보류", "보류된", "완료", "완료된", "완료한", "계획", "계획된", "중단", "중단된", "취소", "취소된", "예정", "예정인", "활성", "비활성",
   "이끄", "이끈", "이끌", "맡", "맡긴", "맡겨진", "주어진", "만들어진",
+  // 표의 항목(연봉, 매출 …)과 보통 명사(문제), 앞 대화를 가리키는 말(방금, 아까), 「상사」. 「각 부서장의 연봉을 알려줘」에 「개체(연봉)」,
+  // 「가장 문제가 많은 제품은?」에 「개체(문제)」, 「방금 말한 고객사의 담당자는 누구야?」에 「개체(방금)를 찾지 못했습니다」라고 답했다
+  // (랜덤 테스트 사전 점검 5차 P4, P7). 어느 개체 이름에도 없는 낱말이다.
+  "연봉", "급여", "매출", "금액", "예산", "문제", "방금", "아까", "상사",
 ]);
 /** 구어 조사(「김준혁한테」, 「박소연이랑」, 「조현우하고」). 떼고 남은 이름이 사전에 있을 때만 뗀다(「무시하고」의 「무시」는 사전에
  * 없어 그대로). 「개체(김준혁한테)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 4차 P7). */
@@ -138,6 +142,16 @@ function withoutColloquialParticle(w: string): string {
   if (!m) return w;
   const base = w.slice(0, -m[0].length);
   return base.length >= 2 && isEntityName(base) ? base : w;
+}
+/** 부서 이름에 붙여 쓴 「장」, 「팀장」(「영업팀장」, 「클라우드사업부장」)이면 부서 이름. 부서장 관계는 라우터의 HEAD_IS(팀장)가 맡는다.
+ * 「영업팀장이 담당하는 고객사는?」에서 「영업팀장」을 한 낱말로 찾아 「개체(영업팀장)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전
+ * 점검 5차 P7). 띄어 쓴 「영업팀 팀장」은 맞았다. 사전에 있는 이름은 그대로 둔다. */
+function withoutHeadSuffix(w: string): string {
+  if (!/장$/.test(w) || isEntityName(w)) return w;
+  for (const base of [w.slice(0, -1), w.replace(/팀장$/, "")]) {
+    if (base !== w && base.length >= 2 && entitiesIn(base).some((e) => e.name === base && e.type === "department")) return base;
+  }
+  return w;
 }
 /** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
 const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
@@ -206,7 +220,7 @@ export function seedTerms(query: string): string[] {
   for (const m of text.matchAll(SEED_TOKEN)) {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) continue;
-    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
+    const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
@@ -242,7 +256,7 @@ export function mentionTerms(query: string): string[] {
   toks.forEach((m, i) => {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
-    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
+    const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
     if (entityLikeName(w) === null && !isEntityName(w)) {
       const prev = toks[i - 1];
