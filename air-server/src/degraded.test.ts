@@ -2994,6 +2994,7 @@ const deadEmbedder: Embedder = {
   const q5 = await import("./sqltrust.js");
   const q5n = await import("./nl2sql.js");
   const q5r = await import("./sqlrepair.js");
+  const q5l = await import("./llm.js");
   const E5 = q5.enumColumns("companyx");
   const now5 = new Date("2026-10-19T13:00:00+09:00"); // 서울 2026년 4분기
   const said5 = (sql: string, reasons: string[]) => q5.untrustedAnswer({ outcome: "refused", rejected: [{ sql, reasons }] });
@@ -3043,9 +3044,17 @@ const deadEmbedder: Embedder = {
   ok(q5n.absoluteYears("작년 동기 매출 합계는?", now5) === "2025년 4분기 매출 합계는?", "P3 작년 동기");
   ok(q5n.absoluteYears("이번 분기 매출은 작년 같은 분기 대비 몇 퍼센트야?", now5) === "2026년 4분기 매출은 2025년 4분기 대비 몇 퍼센트야?", "P3 이번 분기와 함께");
   for (const q of ["분기별 매출의 전년 동기 대비 증감률을 보여줘", "2025년 3분기 매출의 전년 동기 대비 증감률은?"]) {
-    ok(q5n.sameQuarterLastYear(q, now5) === null && !q5n.absoluteYears(q, now5).includes("4분기"), `P3 분기마다나 다른 기준의 전년 동기는 그대로: ${q}`);
+    ok(q5l.sameQuarterLastYear(q, now5) === null && !q5n.absoluteYears(q, now5).includes("4분기"), `P3 분기마다나 다른 기준의 전년 동기는 그대로: ${q}`);
+    ok(!q5l.answerQuestionForModel(q, now5).includes("4분기"), `P3 답 질문 줄도 그대로: ${q}`);
   }
   ok(q5n.absoluteYears("작년 매출은 얼마야?", now5) === "2025년도 매출은 얼마야?", "P3 작년만 쓴 질문은 종전 그대로");
+  // 답 프롬프트의 질문 줄도 그 분기를 덧붙인다(SQL 이 2025-Q4 31,795 를 가져와도 답 모델이 「알 수 없습니다」라고 썼다, DT10 3/3).
+  const sameA = q5l.answerQuestionForModel("작년 같은 분기 매출은 얼마였어?", now5);
+  ok(sameA === "작년(2025년) 같은 분기(2025년 4분기) 매출은 얼마였어?", `P3 답 질문 줄 (got ${sameA})`);
+  const sameB = q5l.answerQuestionForModel("이번 분기 매출은 작년 같은 분기 대비 몇 퍼센트야?", now5);
+  ok(sameB === "이번 분기(2026년 4분기) 매출은 작년(2025년) 같은 분기(2025년 4분기) 대비 몇 퍼센트야?", `P3 답 질문 줄, 이번 분기와 함께 (got ${sameB})`);
+  ok(q5l.answerQuestionForModel("전년 동기 매출 합계는?", now5) === "전년 동기(2025년 4분기) 매출 합계는?", "P3 답 질문 줄, 전년 동기");
+  ok(q5l.answerQuestionForModel("작년 매출은 얼마야?", now5) === "작년(2025년) 매출은 얼마야?", "P3 답 질문 줄, 작년만 쓴 질문은 종전 그대로");
   const sameQ = q5.checkPeriod("SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%'", "작년 같은 분기 매출은 얼마였어?", now5);
   ok(sameQ.length === 1 && sameQ[0].includes("quarter = '2025-Q4' 로 고른다"), `P3 한 해를 고른 SQL (got ${sameQ})`);
   ok(said5("SELECT 1", sameQ).includes("질문의 「작년 같은 분기」(2025년 4분기)와 다른 기간"), "P3 같은 분기 거절 문장");

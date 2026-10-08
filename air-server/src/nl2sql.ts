@@ -44,6 +44,8 @@ import {
   RELATIVE_YEAR,
   RELATIVE_YEAR_RE,
   replaceRelativeQuarters,
+  SAME_QUARTER_LAST_YEAR_RE,
+  sameQuarterLastYear,
   seoulYear,
   SHORT_YEAR_RE,
   THIS_YEAR_PART_RE,
@@ -583,21 +585,6 @@ export function absoluteYears(q: string, now: Date = new Date()): string {
     .replace(DOT_MONTH_RE, (_w, y: string, m: string) => `${y}년 ${Number(m)}월`)
     .replace(/\u0000/g, same ? `${same.year}년 ${same.quarter}분기` : "");
   return datesWithYear(out, year);
-}
-
-/** 한 기간으로 묻는 「작년 같은 분기」, 「지난해 같은 분기」, 「전년 동기」. 분기마다의 값이나 다른 연도, 분기를 함께 말하면(「분기별 … 전년 동기
- * 대비」, 「2025년 3분기 … 전년 동기」) 기준이 오늘이 아니어서 그대로 둔다. */
-export const SAME_QUARTER_LAST_YEAR_RE = /(?:작년|지난해|전년)\s*(?:의\s*)?(?:같은\s*분기|동일\s*분기|동\s*분기|동기)/g;
-const SAME_QUARTER_ANCHOR = /\d{4}\s*년|\d\s*분기(?!\s*별)|분기\s*(?:별|마다)|각\s*분기|매\s*분기|월\s*별|달\s*별|월마다|재작년|내년|올해|금년/;
-
-/** 서울 시각으로 오늘이 든 분기의 1년 전 분기: 2026-10-08 → { year: 2025, quarter: 4 }. 질문에 그 낱말이 없거나 한 기간으로 묻지 않으면 null.
- * 실행 전 검사(sqltrust.ts checkPeriod)도 이 분기로 본다. */
-export function sameQuarterLastYear(question: string, now: Date = new Date()): { year: number; quarter: number } | null {
-  const plain = question.replace(SAME_QUARTER_LAST_YEAR_RE, " ");
-  if (plain === question || SAME_QUARTER_ANCHOR.test(plain.replace(/(?:지난|직전|이전|저번|이번|전)\s*분기/g, " "))) return null;
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric", month: "numeric" }).formatToParts(now);
-  const part = (t: string) => Number(parts.find((p) => p.type === t)?.value);
-  return { year: part("year") - 1, quarter: Math.floor((part("month") - 1) / 3) + 1 };
 }
 
 /** 질문 속 연도 표현(네 자리 연도, 날짜, 기간이 아닌 두 자리 연도, 상대 연도). 하나라도 있으면 연도 없는 날짜도 그 연도를 뜻할 수

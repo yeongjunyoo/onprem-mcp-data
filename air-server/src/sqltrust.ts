@@ -45,8 +45,8 @@ import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
 import { sqlQuery, tokenizeSql, type SqlToken } from "./sql.js";
-import { DOT_MONTH_RE, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
-import { COMPANYX_SCHEMA_DDL, SAME_QUARTER_LAST_YEAR_RE, sameQuarterLastYear } from "./nl2sql.js";
+import { DOT_MONTH_RE, RELATIVE_YEAR, RELATIVE_YEAR_RE, SAME_QUARTER_LAST_YEAR_RE, sameQuarterLastYear, seoulYear } from "./llm.js";
+import { COMPANYX_SCHEMA_DDL } from "./nl2sql.js";
 import { SCHEMA_NAMES } from "./profile.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
