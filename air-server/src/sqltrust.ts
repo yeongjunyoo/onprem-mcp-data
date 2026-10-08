@@ -798,7 +798,11 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
   const masked = maskSql(sql);
   if (masked === null) return [];
   const col = `(?<![A-Za-z0-9_$])(?:[A-Za-z_][A-Za-z0-9_]*\\.)?quarter`;
-  if (new RegExp(`${col}\\s*(?:<|>|between\\b|i?like\\s*'(?!\\d{4}-(?:Q[1-4]|%)')[^']*')`, "i").test(sql)) return [];
+  // 한 해 안의 분기 범위(quarter BETWEEN '2024-Q3' AND '2024-Q4')는 그 분기들을 고른 것으로 읽는다. 그 밖의 크기 비교는 판정하지 않는다.
+  const ranges = [...sql.matchAll(new RegExp(`${col}\\s+between\\s+'(\\d{4})-Q([1-4])'\\s+and\\s+'(\\d{4})-Q([1-4])'`, "gi"))];
+  if (ranges.some((m) => m[1] !== m[3] || Number(m[2]) > Number(m[4]))) return [];
+  const rest = ranges.reduce((s, m) => s.replace(m[0], " "), sql);
+  if (new RegExp(`${col}\\s*(?:<|>|between\\b|i?like\\s*'(?!\\d{4}-(?:Q[1-4]|%)')[^']*')`, "i").test(rest)) return [];
   const spans = exprSpans(masked);
   const inExpr = (at: number) => spans.some(([s, e]) => at >= s && at < e);
   const inside = new Set<number>();
@@ -829,19 +833,34 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
   for (const m of sql.matchAll(new RegExp(`${col}\\s+in\\s*\\(([^()]*)\\)`, "gi"))) {
     for (const v of m[1].matchAll(/'(\d{4})-Q([1-4])'/g)) pick(m.index ?? 0, m[0], Number(v[1]), [Number(v[2])]);
   }
+  for (const m of ranges) {
+    const [from, to] = [Number(m[2]), Number(m[4])];
+    pick(m.index ?? 0, m[0], Number(m[1]), Array.from({ length: to - from + 1 }, (_, i) => from + i));
+  }
   const reasons: string[] = [];
   for (const [year, quarters] of want) {
     const iq = insideQ.get(year);
     const asked = [...quarters].sort();
+    const g = got.get(year);
+    const before = reasons.length;
     if (iq && halves.get(year)!.length === 1 && (asked.some((q) => !iq.quarters.has(q)) || [...iq.quarters].some((q) => !quarters.has(q)))) {
       const list = asked.map((q) => `'${year}-Q${q}'`).join(", ");
       reasons.push(
         `${PERIOD_REASON}${[...new Set(iq.conds)].join(", ")} 은 ${year}년 ${[...iq.quarters].sort().join(", ")}분기만 고른다. ` +
           `질문의 ${year}년 ${halves.get(year)!.join(", ")}는 ${asked.join(", ")}분기다. 식 안(CASE, FILTER)에서도 quarter IN (${list}) 로 그 분기를 모두 센다`,
       );
-      continue;
     }
-    const g = got.get(year);
+    // 그해 전체도 묻는데(「… 2024년 연간 매출의 몇 퍼센트야?」) WHERE 가 그해의 일부 분기만 남기면 전체를 셀 수 없다: quarter BETWEEN
+    // '2024-Q3' AND '2024-Q4' 안에서 4분기를 나눠 65.10% 를 답했다(하반기의 연간 비중은 48.79%. 4차 수정본 실측 R1). 하위 질의가 있으면
+    // 전체를 따로 셀 수 있어 보지 않는다.
+    if (g && (wholeAsked || whole.has(year)) && !g.wide && g.quarters.size > 0 && g.quarters.size < 4 && !/\(\s*select\b/i.test(masked)) {
+      const list = asked.map((q) => `'${year}-Q${q}'`).join(", ");
+      reasons.push(
+        `${PERIOD_REASON}${[...new Set(g.conds)].join(", ")} 은 ${year}년 ${[...g.quarters].sort().join(", ")}분기만 남긴다. 질문은 ${year}년 전체도 묻는다. ` +
+          `WHERE 는 ${year}년 전체(quarter LIKE '${year}-%' 나 sale_date 범위)로 고르고 ${halves.get(year)!.join(", ")}는 식 안(CASE, FILTER)에서 quarter IN (${list}) 로 센다`,
+      );
+    }
+    if (reasons.length > before) continue;
     if (!g || wholeAsked || whole.has(year) || inside.has(year)) continue;
     // 그해 전체(LIKE 'YYYY-%')와 그 안의 분기를 함께 고르면 행은 그 분기들이다.
     const picked = g.quarters.size ? [...g.quarters].sort() : g.wide ? [1, 2, 3, 4] : [];

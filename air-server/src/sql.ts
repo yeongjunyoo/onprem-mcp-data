@@ -217,6 +217,8 @@ async function readCapped(client: PoolClient, text: string): Promise<Read> {
  * 평가)는 종전처럼 한 번에 받는다. */
 export interface SqlQueryOpts {
   cursor?: boolean;
+  /** 실행하지 않고 계획만 세운다(EXPLAIN, ANALYZE 없음). 없는 열, 없는 표처럼 데이터베이스가 문장을 읽다가 내는 오류만 알고 싶을 때. */
+  explain?: boolean;
 }
 
 export async function sqlQuery(pool: Pool, sql: string, opts: SqlQueryOpts = {}): Promise<SqlResult> {
@@ -259,7 +261,7 @@ export async function sqlQuery(pool: Pool, sql: string, opts: SqlQueryOpts = {})
     // 가드(tokenizeSql)는 문자열을 이 설정으로 읽는다. 서버 기본값이 off 여도 가드와 데이터베이스가 같은 자리에서
     // 문자열을 끝내게 한다(`;` 가 문자열 안에 있다고 본 문장이 데이터베이스에서 두 문장으로 갈리지 않게).
     await client.query("SET LOCAL standard_conforming_strings = on");
-    const res: Read = opts.cursor ? await readCapped(client, text) : await client.query(text);
+    const res: Read = opts.explain ? await client.query(`EXPLAIN ${text}`) : opts.cursor ? await readCapped(client, text) : await client.query(text);
     await client.query("ROLLBACK");
     const all = res.rows;
     const truncated = all.length > MAX_ROWS;

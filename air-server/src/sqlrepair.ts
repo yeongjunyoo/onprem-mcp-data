@@ -31,6 +31,7 @@
 // 실행 전에는 sqltrust.ts 의 검사와 재작성을 거친다(생성 SQL 과 수리 SQL 모두).
 //   검사 — 외래키가 아닌 열로 조인하거나 질문에 없는 번호로 id 를 거는 SQL, 금액 열을 질문의 금액과 다른 단위로
 //          비교하는 SQL 은 실행하지 않고, 사유를 되먹여 한 번 고친다. 고친 것도 거부되면 실행할 SQL 이 없다(gate.outcome = refused).
+//          되먹일 때 그 SQL 의 계획만 세워 보고(EXPLAIN, 실행 없음) 없는 열 같은 오류가 있으면 사유에 붙인다.
 //   재작성 — 바깥 `ORDER BY … LIMIT 1` 은 `FETCH FIRST 1 ROWS WITH TIES` 로 실행한다(공동 1위를 다 보임).
 //          순위 질문(「두 번째로」)의 `ORDER BY … LIMIT 1 OFFSET k` 는 그 순위의 행을 모두 돌려주는 SQL(rankRewrite)로
 //          먼저 실행하고, 그 SQL 이 검사를 지나지 못하거나 실행되지 않거나 0행이면 종전처럼 처음 SQL 을 실행한다.
@@ -69,6 +70,14 @@ const EMPTY_FEEDBACK =
   "날짜와 기간은 범위로(해당 월의 첫날 이상, 다음 달 첫날 미만), 상태와 우선순위 같은 값은 스키마 카드의 " +
   "값 표기(소문자 등) 그대로, 이름은 정확한 값으로 비교했는지 확인하고 고친다.";
 
+/** 검사가 거부한 SQL 을 실행하지 않고 계획만 세워 본다(EXPLAIN). 없는 열, 없는 표처럼 데이터베이스가 읽다가 내는 오류(SQLSTATE 42 계열)가
+ * 있으면 그 오류 문장을, 없으면 "". 그 오류는 같은 1회 수리의 안내에 붙인다. 「계약 금액이 가장 큰 계약과 가장 작은 계약은?」의 처음 SQL 은
+ * contracts 에 없는 name 을 골랐는데, 두 끝 사유만 받은 수리가 name 을 그대로 써 42703 으로 끝났다(4차 수정본 실측 I8b). */
+async function engineError(pool: Pool, sql: string): Promise<string> {
+  const plan = await sqlQuery(pool, sql, { explain: true });
+  return !plan.ok && /\(42[0-9A-Z]{3}\)\s*$/.test(plan.error ?? "") ? (plan.error ?? "") : "";
+}
+
 export async function executeWithRepair(pool: Pool, query: string, generated: string, opts: RepairOpts = {}): Promise<Executed> {
   const schema = opts.schema ?? "companyx";
   const repair = opts.repairer ?? repairSql;
@@ -94,8 +103,9 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
   // 값으로 바꿨으면(「단종된 제품」의 'cancelled' → 'active') 뜻이 뒤집힌 것이라 받지 않고 처음 사유(그 열의 값 목록)로 답한다.
   if (!(await trusted(generated))) {
     const cols = opts.repair === false ? "" : await columnsForSql(pool, generated, schema).catch(() => "");
-    const fixed =
-      opts.repair === false ? null : await repair(query, generated, rejected[0].reasons.join(" "), cols, "untrusted");
+    const engine = opts.repair === false ? "" : await engineError(pool, generated);
+    const why = rejected[0].reasons.join(" ") + (engine ? ` 이 SQL 은 실행하면 오류도 난다: ${engine}` : "");
+    const fixed = opts.repair === false ? null : await repair(query, generated, why, cols, "untrusted");
     if (!fixed || !(await trusted(fixed))) return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
     const turned = repairTurnsValue(rejected[0].reasons, fixed, query, enumColumns(schema), schema);
     if (turned.length) {

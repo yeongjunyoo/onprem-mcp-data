@@ -2429,6 +2429,25 @@ const deadEmbedder: Embedder = {
   const r1Why = checkPeriod(r1, "2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?", oct8);
   ok(r1Why.length === 1 && r1Why[0].includes("2024년 3분기만 고른다") && r1Why[0].includes("quarter IN ('2024-Q3', '2024-Q4')"), `R1 식 안의 3분기만 (got ${r1Why})`);
   ok(refused(r1, r1Why).includes("2024년 하반기(3, 4분기) 가운데 3분기(quarter = '2024-Q3')만 골라서"), `R1 거절 문장 (got ${refused(r1, r1Why)})`);
+  // R1 의 다른 꼴: WHERE 가 하반기만 남기고 식 안은 4분기만(65.10%, 답은 48.79%). 두 사유를 함께 낸다.
+  const r1b = "SELECT (SUM(CASE WHEN quarter = '2024-Q4' THEN amount ELSE 0 END) * 100.0 / SUM(amount)) AS percentage FROM companyx.sales WHERE quarter BETWEEN '2024-Q3' AND '2024-Q4'";
+  const r1bWhy = checkPeriod(r1b, "2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?", oct8);
+  ok(
+    r1bWhy.length === 2 && r1bWhy[0].includes("2024년 4분기만 고른다") && r1bWhy[1].includes("quarter BETWEEN '2024-Q3' AND '2024-Q4' 은 2024년 3, 4분기만 남긴다. 질문은 2024년 전체도 묻는다"),
+    `R1 하반기만 남긴 WHERE 와 식 안의 4분기 (got ${r1bWhy})`,
+  );
+  ok(
+    checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter BETWEEN '2024-Q2' AND '2024-Q4'", "2024년 하반기 매출 알려줘", oct8)[0]?.includes("밖의 2분기도 고른다"),
+    "한 해 안의 분기 범위는 그 분기들을 고른 것으로 읽는다",
+  );
+  for (const [q, sql] of [
+    ["2024년 하반기 매출 알려줘", "SELECT SUM(amount) FROM companyx.sales WHERE quarter BETWEEN '2024-Q3' AND '2024-Q4'"],
+    ["2024년 하반기 매출 알려줘", "SELECT SUM(amount) FROM companyx.sales WHERE quarter BETWEEN '2024-Q3' AND '2025-Q1'"],
+    [
+      "2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?",
+      "SELECT SUM(amount) * 100.0 / (SELECT SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%') FROM companyx.sales WHERE quarter IN ('2024-Q3','2024-Q4')",
+    ],
+  ]) ok(checkPeriod(sql, q, oct8).length === 0, `반기 범위, 해를 넘는 범위, 전체를 하위 질의로 세는 SQL 은 보지 않는다: ${sql}`);
   ok(
     checkPeriod("SELECT SUM(amount) FILTER (WHERE quarter = '2024-Q4') AS h2 FROM companyx.sales WHERE quarter LIKE '2024-%'", "2024년 하반기 매출 알려줘", oct8).length === 1,
     "FILTER 안의 4분기만",
@@ -2760,6 +2779,32 @@ const deadEmbedder: Embedder = {
     repairer: async () => "SELECT title FROM companyx.support_tickets WHERE status = 'closed'",
   });
   ok(ticket.gate?.outcome === "refused" && ticket.gate.rejected.length === 2, "「취소」를 종결(closed)로 바꾼 수리도 받지 않는다");
+
+  // 검사가 거부한 SQL 은 실행하지 않고 계획만 세워(EXPLAIN) 없는 열 오류를 같은 수리 안내에 붙인다(4차 수정본 실측 I8b: contracts 에 없는 name).
+  const i8b = "SELECT id, name, amount FROM companyx.contracts ORDER BY amount DESC LIMIT 1";
+  const i8bFix = "(SELECT id, amount FROM companyx.contracts ORDER BY amount DESC LIMIT 1) UNION ALL (SELECT id, amount FROM companyx.contracts ORDER BY amount ASC LIMIT 1)";
+  const sent: string[] = [];
+  const planPool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        sent.push(sql);
+        if (/^EXPLAIN /.test(sql) && /\bname\b/.test(sql)) throw Object.assign(new Error('column "name" does not exist'), { code: "42703" });
+        const r = /^\s*\(?\s*select\b/i.test(sql) && !/pg_roles/.test(sql) ? [{ id: 1, amount: 11000 }] : [];
+        return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+      },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  let i8bHint = "";
+  const i8bRun = await executeWithRepair(planPool, "계약 금액이 가장 큰 계약과 가장 작은 계약은?", i8b, {
+    repairer: async (_q, _sql, why) => {
+      i8bHint = why;
+      return i8bFix;
+    },
+  });
+  ok(i8bHint.includes('이 SQL 은 실행하면 오류도 난다: column "name" does not exist (42703)') && i8bRun.text === i8bFix, `계획 오류를 수리 안내에 붙인다 (got ${i8bHint})`);
+  ok(!sent.includes(i8b) && sent.includes(`EXPLAIN ${i8b}`), "거부한 SQL 은 계획만 세우고 실행하지 않는다");
 
   // P6: 묶음마다 1위를 묻는데 전체 1위 한 행(AG02 「부서별 최고 연봉자」 → 박소연 한 명, 부서마다 1위는 6명).
   const ag02 = "SELECT d.name AS department, e.name AS employee, MAX(e.salary) AS max_salary FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id WHERE e.is_active = true GROUP BY d.name, e.name ORDER BY max_salary DESC LIMIT 1";
