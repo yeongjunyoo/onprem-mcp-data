@@ -36,6 +36,8 @@
 //   checkUnaskedEnum, checkGroupTop, checkBothEnds, checkSyntax: 질문에 없는 값 조건, 묶음마다 1위를 전체 1위 한 행으로, 두 끝을
 //               묻는데 한쪽 끝만, PostgreSQL 이 읽지 못하는 LIMIT a, b 와 자리표시 ?(4차 P13, P6, P4). checkPeriod 는 달도 본다(P1).
 //               값 어휘 수리가 질문의 상태를 뒤집으면 받지 않는다(repairTurnsValue, P12).
+//   checkHalfGroup — 반기를 묻는데 분기로 묶은 SQL(7B 가 분기 행을 반기로 읽음). checkUnaskedEnum 은 그 표에 없는 상태와 부정한 상태의
+//               나머지 일부도 본다(4차 수정본 실측 N5, R2, N3).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
@@ -915,9 +917,9 @@ interface EnumCondition {
   values: string[];
 }
 
-/** 생성 SQL 의 값 어휘 열 조건(=, IN). 표는 별칭이나 표 이름으로, 표를 붙이지 않은 열은 문장에 나온 표 가운데 그 열이 있는 표로
- * 정한다. 어느 표인지 모르는 열, 식, 확실히 읽지 못하는 문장은 넣지 않는다. */
-function enumConditions(sql: string, enums: TableEnums): EnumCondition[] {
+/** 생성 SQL 의 값 어휘 열 조건(=, IN. negative 면 <>, !=, NOT IN). 표는 별칭이나 표 이름으로, 표를 붙이지 않은 열은 문장에 나온 표
+ * 가운데 그 열이 있는 표로 정한다. 어느 표인지 모르는 열, 식, 확실히 읽지 못하는 문장은 넣지 않는다. */
+function enumConditions(sql: string, enums: TableEnums, negative = false): EnumCondition[] {
   if (!enums.size) return [];
   const masked = maskSql(sql);
   if (masked === null) return [];
@@ -935,11 +937,11 @@ function enumConditions(sql: string, enums: TableEnums): EnumCondition[] {
     const cond = sql.slice(m.index, (m.index ?? 0) + m[0].length).replace(/\s+/g, " ");
     out.push({ cond, col, tables, values: lits.map(([s, e]) => sql.slice(s, e).replace(/''/g, "'")) });
   };
-  for (const m of masked.matchAll(new RegExp(`${ref}\\s*=\\s*'( *)'`, "gi"))) {
+  for (const m of masked.matchAll(new RegExp(`${ref}\\s*${negative ? "(?:<>|!=)" : "="}\\s*'( *)'`, "gi"))) {
     const end = (m.index ?? 0) + m[0].length - 1;
     add(m, [[end - m[2].length, end]]);
   }
-  for (const m of masked.matchAll(new RegExp(`${ref}\\s+in\\s*\\(\\s*'( *)'(?:\\s*,\\s*'( *)')*\\s*\\)`, "gi"))) {
+  for (const m of masked.matchAll(new RegExp(`${ref}\\s+${negative ? "not\\s+in" : "in"}\\s*\\(\\s*'( *)'(?:\\s*,\\s*'( *)')*\\s*\\)`, "gi"))) {
     const open = (m.index ?? 0) + m[0].indexOf("(");
     const list = masked.slice(open + 1, (m.index ?? 0) + m[0].length - 1);
     add(m, [...list.matchAll(/'( *)'/g)].map((v) => [open + 2 + (v.index ?? 0), open + 2 + (v.index ?? 0) + v[1].length]));
@@ -1005,11 +1007,44 @@ const SAME_STATE = new Map<string, readonly (readonly string[])[]>([
   ["companyx", [["completed", "resolved", "closed"], ["active", "in_progress", "open"]]],
 ]);
 
+/** 값에 순서가 있어 「…하지 않은」이 나머지 값 모두를 뜻하지 않는 열(「중요하지 않은 티켓」은 critical 을 담지 않는다). */
+const ORDINAL_COLUMNS = new Map<string, ReadonlySet<string>>([["companyx", new Set(["priority"])]]);
+
 /** 질문이 그 값을 말하는가: 영문 값(밑줄은 띄어 써도) 또는 그 값의 우리말 낱말. value 가 "" 면 그 열 전체를 가리키는 낱말. */
 function saysValue(question: string, words: Readonly<Record<string, string>> | undefined, value: string): boolean {
   const ko = words?.[value];
   if (ko && new RegExp(ko, "i").test(question)) return true;
   return value !== "" && new RegExp(`(?<![A-Za-z])${value.replace(/_/g, "[_ ]?")}(?![A-Za-z])`, "i").test(question);
+}
+
+/** 값 낱말 바로 뒤의 부정: 「취소되지 않은」, 「완료 안 된」, 「끝나지 않은」, 「활성 상태가 아닌」, 「취소된 것 제외」. */
+const NEG_AFTER =
+  /^[가-힣]{0,2}\s*(?:지\s*(?:않|못)|안\s*(?:된|한))|^\s*(?:상태\s*)?(?:이|가)?\s*아닌|^[가-힣]{0,2}\s*(?:(?:것|건)\s*)?(?:을|를)?\s*(?:제외|빼고|말고|이외|외의)/;
+/** 값 낱말 바로 앞의 부정: 「안 끝난」, 「미완료」. */
+const NEG_BEFORE = /(?<![가-힣])(?:안|못)\s*$|(?<![가-힣])미$/;
+
+/** 질문이 그 열의 값을 긍정으로 말했는지(pos), 부정으로 말했는지(neg). 같은 이름의 열 모두의 낱말과 영문 값을 본다. */
+function valueMentions(
+  question: string,
+  words: Readonly<Record<string, Readonly<Record<string, string>>>>,
+  col: string,
+  vocab: readonly string[],
+): { pos: Set<string>; neg: Set<string> } {
+  const pos = new Set<string>();
+  const neg = new Set<string>();
+  const see = (value: string, re: RegExp) => {
+    for (const m of question.matchAll(re)) {
+      const at = m.index ?? 0;
+      const negated = NEG_AFTER.test(question.slice(at + m[0].length)) || NEG_BEFORE.test(question.slice(0, at));
+      (negated ? neg : pos).add(value);
+    }
+  };
+  for (const [tc, w] of Object.entries(words)) {
+    if (!tc.endsWith(`.${col}`)) continue;
+    for (const [value, ko] of Object.entries(w)) if (value !== "") see(value, new RegExp(ko, "gi"));
+  }
+  for (const value of vocab) see(value, new RegExp(`(?<![A-Za-z])${value.replace(/_/g, "[_ ]?")}(?![A-Za-z])`, "gi"));
+  return { pos, neg };
 }
 
 /** 질문에 없는 조건 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
@@ -1025,28 +1060,49 @@ export function checkUnaskedEnum(sql: string, question: string, enums: TableEnum
   const words = ENUM_WORDS.get(schema);
   if (!words) return [];
   const reasons: string[] = [];
-  for (const c of enumConditions(sql, enums)) {
+  const alike = (v: string) => [v, ...(SAME_STATE.get(schema) ?? []).filter((g) => g.includes(v)).flat()];
+  const conds = [...enumConditions(sql, enums).map((c) => ({ ...c, negative: false })), ...enumConditions(sql, enums, true).map((c) => ({ ...c, negative: true }))];
+  for (const c of conds) {
     const vocab = [...new Set([...enums.values()].flatMap((cols) => cols.get(c.col) ?? []))];
     if (c.values.some((v) => !c.tables.some((t) => enums.get(t)?.get(c.col)?.includes(v)))) continue;
-    // 질문이 말한 상태가 이 표의 열에 하나도 없으면(「취소되지 않은 프로젝트는 몇 개야?」의 취소는 계약 상태다) 질문이 말하지 않은 값을
-    // 고른 조건은 질문의 상태를 다른 상태로 바꾼 것이다. status = 'completed' 로 6개를 세고 「알 수 없습니다」라고 답했다(4차 수정본 실측 R2).
     const own = [...new Set(c.tables.flatMap((t) => enums.get(t)?.get(c.col) ?? []))];
-    const named = new Set([
-      ...Object.entries(words)
-        .filter(([tc]) => tc.endsWith(`.${c.col}`))
-        .flatMap(([, w]) => Object.keys(w).filter((v) => v !== "" && saysValue(question, w, v))),
-      ...vocab.filter((v) => saysValue(question, undefined, v)),
-    ]);
+    const tc = c.tables.map((t) => `${t}.${c.col}`).join(", ");
+    const { pos, neg } = valueMentions(question, words, c.col, vocab);
+    const named = new Set([...pos, ...neg]);
+    // 질문이 말한 상태가 이 표의 열에 하나도 없으면(「취소되지 않은 프로젝트는 몇 개야?」의 취소는 계약 상태다) 질문이 말하지 않은 값을
+    // 고르거나 빼는 조건은 질문의 상태를 다른 상태로 바꾼 것이다. status = 'completed' 로 6개를 세고 「알 수 없습니다」라고 답했고, 「이
+    // 조건을 빼고」라고 안내하자 수리가 status != 'completed' 로 34개를 셌다(프로젝트 40개 모두가 답이다. 4차 수정본 실측 R2).
     const ownSaid = c.values.some((v) => c.tables.some((t) => saysValue(question, words[`${t}.${c.col}`], v)));
-    const alike = (v: string) => [v, ...(SAME_STATE.get(schema) ?? []).filter((g) => g.includes(v)).flat()];
     if (named.size && [...named].every((v) => !alike(v).some((x) => own.includes(x))) && !ownSaid) {
+      const absent = [...(neg.size ? neg : named)];
       reasons.push(
-        `${UNASKED_REASON}${c.cond} 은 질문이 묻지 않은 조건이다(질문이 말한 상태 ${[...named].map((v) => `'${v}'`).join(", ")} 는 ` +
-          `${c.tables.map((t) => `${t}.${c.col}`).join(", ")} 에 없는 값이다. 쓸 수 있는 값: ${own.join(", ")}). ` +
-          "그 상태가 아닌 것을 물으면 이 조건을 빼고 모두 세고, 그 상태를 물으면 없는 값이라 0건이다",
+        `${UNASKED_REASON}${c.cond} 은 질문이 묻지 않은 조건이다(질문이 말한 상태 ${absent.map((v) => `'${v}'`).join(", ")} 는 ` +
+          `${tc} 에 없는 값이다. 쓸 수 있는 값: ${own.map((v) => `'${v}'`).join(", ")}). ` +
+          (neg.size
+            ? `질문은 그 상태가 아닌 것을 묻는다: ${c.col} <> '${absent[0]}' 로 거른다(그 값이 없으니 모든 행이다)`
+            : `질문은 그 상태를 묻는다: ${tc} 에 그 값이 없으니 조건에 맞는 행은 0건이다`),
       );
       continue;
     }
+    // 질문이 그 열의 값을 부정하면(「완료되지 않은 프로젝트」) 그 값이 아닌 값을 모두 골라야 한다. 남은 값 가운데 일부만 고르거나(status =
+    // 'on_hold' 로 10개, 답은 34개. 4차 수정본 실측 N3) 부정한 값을 고르면 질문과 다르다. 질문이 긍정으로 말한 값을 고르면 보지 않는다
+    // (「완료되지 않은 프로젝트 중 진행 중인 것」). 순서가 있는 열(우선순위)은 「중요하지 않은」이 여집합이 아니라 보지 않는다.
+    const negOwn = own.filter((x) => [...neg].some((v) => alike(v).includes(x)));
+    if (!c.negative && negOwn.length && !ORDINAL_COLUMNS.get(schema)?.has(c.col)) {
+      const rest = own.filter((x) => !negOwn.includes(x));
+      const picksNegated = c.values.some((v) => negOwn.includes(v));
+      const partial = rest.some((x) => !c.values.includes(x));
+      const posSaid = c.values.some((v) => [...pos].some((p) => alike(p).includes(v)));
+      if ((picksNegated || partial) && !posSaid) {
+        const not = negOwn.length === 1 ? `${c.col} <> '${negOwn[0]}'` : `${c.col} NOT IN (${negOwn.map((v) => `'${v}'`).join(", ")})`;
+        reasons.push(
+          `${UNASKED_REASON}${c.cond} 은 질문이 묻지 않은 조건이다(질문은 ${tc} 가 ${negOwn.map((v) => `'${v}'`).join(", ")} 이 아닌 행을 묻는데 ` +
+            `${picksNegated ? "이 조건은 그 값을 고른다" : `이 조건은 그 가운데 ${c.values.map((v) => `'${v}'`).join(", ")} 만 고른다`}). ${not} 로 거른다`,
+        );
+        continue;
+      }
+    }
+    if (c.negative) continue;
     const said = Object.entries(words)
       .filter(([tc]) => tc.endsWith(`.${c.col}`))
       .some(([, w]) => Object.keys(w).some((v) => saysValue(question, w, v)));
@@ -1266,6 +1322,31 @@ export function checkBothEnds(sql: string, question: string): string[] {
   ];
 }
 
+/** ⑧-5 반기(「2024년 상반기와 하반기 매출을 비교해줘」)를 묻는데 생성 SQL 의 바깥 질의가 분기(quarter)로 묶으면 7B 가 분기 행을 반기로
+ * 읽는다. 1, 2분기 두 행을 상반기와 하반기라고 답했다(31,960 대 36,412. 반기는 68,372 대 65,134. 4차 수정본 실측 N5). 반기로 묶거나
+ * (CASE … END, 그 별칭) 묶지 않고 합계 한 행을 내면 보지 않는다. 질문이 분기나 달을 따로 말하면(「하반기 분기별 매출」) 보지 않는다. */
+export function checkHalfGroup(sql: string, question: string): string[] {
+  if (!/[상하]반기/.test(question) || QUARTER_OR_MONTH.test(question) || /분기\s*(?:별|마다|단위)/.test(question)) return [];
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d) return [];
+  const group = [...masked.matchAll(/\bgroup\s+by\b/gi)].find((m) => d[m.index ?? 0] === 0);
+  if (!group) return [];
+  const from = (group.index ?? 0) + group[0].length;
+  const stop = [...masked.slice(from).matchAll(/\b(?:having|order\s+by|limit|offset|fetch|union|intersect|except|window)\b/gi)].find(
+    (m) => d[from + (m.index ?? 0)] === 0,
+  );
+  const to = stop ? from + (stop.index ?? 0) : masked.length;
+  const keys = sql.slice(from, to).replace(/\s+/g, " ").replace(/;\s*$/, "").trim();
+  if (/\bcase\b/i.test(masked.slice(from, to))) return [];
+  if (!/(?<![A-Za-z0-9_$'])(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter(?![A-Za-z0-9_$'])|date_trunc\s*\(\s*'quarter'|extract\s*\(\s*quarter\b/i.test(keys)) return [];
+  const year = /(\d{4})\s*년/.exec(question)?.[1] ?? "YYYY";
+  return [
+    `${UNIT_REASON}질문은 반기(상반기, 하반기)를 묻는데 SQL 이 분기(GROUP BY ${keys})로 묶는다. 반기마다 한 행이 되게 ` +
+      `CASE WHEN quarter IN ('${year}-Q1', '${year}-Q2') THEN '상반기' ELSE '하반기' END 로 묶어 합계를 구한다`,
+  ];
+}
+
 const COUNT_QUESTION = /몇\s*(?:명|개|건|곳)/;
 /** 그룹마다의 수를 묻는 말: 「부서별」, 「고객사마다」, 「각 부서」, 「영업팀과 기술지원팀」. */
 const PER_GROUP = /별|마다|각각|(?:^|\s)각\s|따라|[가-힣A-Za-z0-9](?:와|과|하고|이랑)\s|\s및\s/;
@@ -1406,6 +1487,7 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...checkMonthUnit(sql, question),
     ...checkGroupTop(sql, question),
     ...checkBothEnds(sql, question),
+    ...checkHalfGroup(sql, question),
     ...(await confirmCountUnit(pool, sql, question)),
     ...checkSyntax(sql),
   ];
@@ -1555,7 +1637,12 @@ export function untrustedAnswer(gate: SqlGate): string {
   }
   const value = reasons.map((r) => /^값 조건 .+? 의 (.+?) 은 (.+?) 에 없는 값이다\. 쓸 수 있는 값: (.+)$/.exec(r)).find((x) => x !== null);
   const unit = reasons.find((r) => r.startsWith(UNIT_REASON));
-  const unasked = reasons.find((r) => r.startsWith(UNASKED_REASON))?.match(/^질문에 없는 조건 (.+?) 은 질문이 묻지 않은 조건이다/)?.[1];
+  const unaskedWhy = reasons.find((r) => r.startsWith(UNASKED_REASON));
+  const unasked = unaskedWhy?.match(/^질문에 없는 조건 (.+?) 은 질문이 묻지 않은 조건이다/)?.[1];
+  // 질문이 말한 상태가 그 표에 없으면 그 사실과 그 열의 값을 함께 말한다(「취소되지 않은 프로젝트」: projects.status 에 cancelled 가 없다).
+  const absentState = reasons
+    .map((r) => /^질문에 없는 조건 .+? 은 질문이 묻지 않은 조건이다\(질문이 말한 상태 (.+?) 는 (\S+) 에 없는 값이다\. 쓸 수 있는 값: ([^)]+)\)/.exec(r))
+    .find((x) => x !== null);
   const syntax = reasons.find((r) => r.startsWith(SYNTAX_REASON));
   // 값 어휘에 없는 값이 있으면 그것부터 말한다. 질문이 데이터에 없는 상태를 물었다는 뜻이라 다른 사유(조인 열 따위)보다
   // 묻는 사람에게 가깝다(「취소된 프로젝트 목록을 알려줘」: projects.status 에 cancelled 가 없다. 종전 답은 dept_id 조인을 먼저 말함).
@@ -1570,7 +1657,8 @@ export function untrustedAnswer(gate: SqlGate): string {
       : fan
         ? `생성된 SQL 이 ${fan[2]} 의 값(${fan[1]})을 ${fan[3]} 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다. `
         : unasked
-          ? `생성된 SQL 이 질문에 없는 조건(${unasked})을 붙여서 실행하지 않았습니다. `
+          ? `생성된 SQL 이 질문에 없는 조건(${unasked})을 붙여서 실행하지 않았습니다. ` +
+            (absentState ? `질문이 말한 상태(${absentState[1]})는 ${absentState[2]} 에 없는 값입니다. ${absentState[2]} 의 값은 ${absentState[3]} 입니다. ` : "")
           : reasons.some((r) => r.startsWith(RATIO_REASON))
             ? "생성된 SQL 이 비율을 정수끼리 나눠 소수점 아래를 버려서 실행하지 않았습니다. "
             : unit
@@ -1580,7 +1668,9 @@ export function untrustedAnswer(gate: SqlGate): string {
                   ? "생성된 SQL 이 묶음마다 1위가 아니라 전체 1위만 골라서 실행하지 않았습니다. "
                   : unit.includes("가장 낮은 쪽을 함께")
                     ? "생성된 SQL 이 가장 높은 쪽과 가장 낮은 쪽 가운데 한쪽만 골라서 실행하지 않았습니다. "
-                    : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
+                    : unit.includes("반기(상반기, 하반기)를 묻는데")
+                      ? "생성된 SQL 이 반기가 아니라 분기로 묶어서 실행하지 않았습니다. "
+                      : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
               : syntax
                 ? syntax.includes("자리표시")
                   ? "생성된 SQL 이 값 대신 자리표시(?)를 써서 실행하지 않았습니다. "

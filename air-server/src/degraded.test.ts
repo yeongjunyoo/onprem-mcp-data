@@ -2684,7 +2684,40 @@ const deadEmbedder: Embedder = {
   const r2Why = checkUnaskedEnum(r2, "취소되지 않은 프로젝트는 몇 개야?", E, "companyx");
   ok(r2Why.length === 1 && r2Why[0].includes("'cancelled' 는 projects.status 에 없는 값이다"), `R2 다른 표의 상태 (got ${r2Why})`);
   ok(refused(r2, r2Why).includes("생성된 SQL 이 질문에 없는 조건(status = 'completed')을 붙여서 실행하지 않았습니다."), "R2 거절 문장");
+  ok(r2Why[0].includes("status <> 'cancelled' 로 거른다"), `R2 수리 안내는 빼라가 아니라 <> 로 (got ${r2Why})`);
+  ok(
+    refused(r2, r2Why).includes("질문이 말한 상태('cancelled')는 projects.status 에 없는 값입니다. projects.status 의 값은 'planning', 'in_progress', 'completed', 'on_hold' 입니다."),
+    `R2 거절 문장은 없는 상태와 그 열의 값을 말한다 (got ${refused(r2, r2Why)})`,
+  );
+  ok(
+    checkUnaskedEnum("SELECT COUNT(*) FROM companyx.projects WHERE status != 'completed'", "취소되지 않은 프로젝트는 몇 개야?", E, "companyx").length === 1,
+    "R2 수리의 status != 'completed'(34개, 답은 40개)도 질문이 말하지 않은 값이다",
+  );
+  ok(checkUnaskedEnum("SELECT COUNT(*) FROM companyx.projects WHERE status <> 'cancelled'", "취소되지 않은 프로젝트는 몇 개야?", E, "companyx").length === 0, "R2 의 status <> 'cancelled' 는 맞다");
+  ok(checkUnaskedEnum(r2, "취소된 프로젝트는 몇 개야?", E, "companyx")[0]?.includes("조건에 맞는 행은 0건이다"), "그 상태를 물으면 0건이라고 안내");
   ok(checkUnaskedEnum("SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'", "보류된 계약은 몇 건이야?", E, "companyx").length === 1, "계약에 없는 보류를 활성으로");
+  // 부정한 값의 나머지 일부만 고르면(4차 수정본 실측 N3 「완료되지 않은 프로젝트」 → status = 'on_hold', 10개. 답은 34개).
+  const n3q = "완료되지 않은 프로젝트는 몇 개야?";
+  const n3Why = checkUnaskedEnum("SELECT COUNT(*) FROM companyx.projects WHERE status = 'on_hold'", n3q, E, "companyx");
+  ok(n3Why.length === 1 && n3Why[0].includes("'on_hold' 만 고른다") && n3Why[0].includes("status <> 'completed' 로 거른다"), `N3 나머지 일부 (got ${n3Why})`);
+  for (const [q, sql] of [
+    [n3q, "SELECT COUNT(*) FROM companyx.projects WHERE status = 'completed'"],
+    ["해결되지 않은 티켓은 몇 개야?", "SELECT COUNT(*) FROM companyx.support_tickets WHERE status = 'open'"],
+    ["대기업이 아닌 고객사는 몇 곳이야?", "SELECT COUNT(*) FROM companyx.clients WHERE company_size = 'startup'"],
+    ["완료 안 된 프로젝트 목록", "SELECT name FROM companyx.projects WHERE status = 'in_progress'"],
+    ["아직 안 끝난 프로젝트는?", "SELECT name FROM companyx.projects WHERE status IN ('in_progress', 'planning')"],
+  ]) ok(checkUnaskedEnum(sql, q, E, "companyx").length === 1, `부정한 값을 고르거나 나머지 일부만 고른다: ${q} / ${sql}`);
+  for (const [q, sql] of [
+    [n3q, "SELECT COUNT(*) FROM companyx.projects WHERE status IN ('planning', 'in_progress', 'on_hold')"],
+    [n3q, "SELECT COUNT(*) FROM companyx.projects WHERE status <> 'completed'"],
+    [n3q, "SELECT COUNT(*) FROM companyx.projects WHERE status NOT IN ('completed')"],
+    ["해결되지 않은 티켓은 몇 개야?", "SELECT COUNT(*) FROM companyx.support_tickets WHERE status IN ('open', 'in_progress')"],
+    ["미해결 티켓 수", "SELECT COUNT(*) FROM companyx.support_tickets WHERE status NOT IN ('resolved', 'closed')"],
+    ["완료되지 않은 프로젝트 중 진행 중인 것은 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE status = 'in_progress'"],
+    ["중요하지 않은 티켓은 몇 개야?", "SELECT COUNT(*) FROM companyx.support_tickets WHERE priority IN ('medium', 'low')"],
+    ["대기업이 아닌 고객사는 몇 곳이야?", "SELECT COUNT(*) FROM companyx.clients WHERE company_size IN ('startup', 'mid')"],
+    ["완료된 프로젝트는 몇 개야?", r2],
+  ]) ok(checkUnaskedEnum(sql, q, E, "companyx").length === 0, `나머지를 모두 고르거나 다르다고 걸거나 긍정한 값이면 보지 않는다: ${q} / ${sql}`);
   for (const [q, sql] of [
     ["완료되지 않은 프로젝트는 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE status IN ('planning','in_progress','on_hold')"],
     ["취소되지 않은 계약은 몇 건이야?", "SELECT COUNT(*) FROM companyx.contracts WHERE status IN ('active','completed')"],
@@ -2776,6 +2809,23 @@ const deadEmbedder: Embedder = {
   ok(extractSql(union) === union && extractSql("```sql\n" + union + ";\n```") === union, `괄호로 여는 UNION 은 그대로 (got ${extractSql(union)})`);
   ok(extractSql("SELECT 1") === "SELECT 1" && extractSql("설명\nSELECT a FROM t") === "SELECT a FROM t", "괄호 없는 문장은 종전 그대로");
   ok(isReadOnly(union) && isReadOnly("((SELECT 1))") && !isReadOnly("(DELETE FROM companyx.sales)") && !isReadOnly("(SELECT 1); DROP TABLE companyx.sales"), "여는 괄호 뒤도 SELECT, WITH 만");
+
+  // 반기를 묻는데 분기로 묶으면 7B 가 분기 행을 반기로 읽는다(4차 수정본 실측 N5: 1, 2분기를 상반기와 하반기라고 답함).
+  const { checkHalfGroup } = await import("./sqltrust.js");
+  const n5q = "2024년 상반기와 하반기 매출을 비교해줘";
+  const n5 = "SELECT quarter, SUM(amount) AS total_sales FROM companyx.sales WHERE sale_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY quarter ORDER BY quarter";
+  const n5Why = checkHalfGroup(n5, n5q);
+  ok(n5Why.length === 1 && n5Why[0].includes("GROUP BY quarter)") && n5Why[0].includes("CASE WHEN quarter IN ('2024-Q1', '2024-Q2') THEN '상반기' ELSE '하반기' END"), `N5 분기로 묶음 (got ${n5Why})`);
+  ok(refused(n5, n5Why).includes("생성된 SQL 이 반기가 아니라 분기로 묶어서 실행하지 않았습니다."), "N5 거절 문장");
+  ok(checkHalfGroup("SELECT date_trunc('quarter', sale_date) AS q, SUM(amount) FROM companyx.sales GROUP BY date_trunc('quarter', sale_date)", "올해 상반기 매출 추이").length === 1, "date_trunc 분기");
+  for (const [q, sql] of [
+    [n5q, "SELECT CASE WHEN quarter IN ('2024-Q1','2024-Q2') THEN '상반기' ELSE '하반기' END AS half, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' GROUP BY CASE WHEN quarter IN ('2024-Q1','2024-Q2') THEN '상반기' ELSE '하반기' END"],
+    [n5q, "SELECT CASE WHEN quarter IN ('2024-Q1','2024-Q2') THEN '상반기' ELSE '하반기' END AS half, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' GROUP BY half"],
+    ["2024년 하반기 매출 알려줘", "SELECT SUM(amount) FROM companyx.sales WHERE quarter IN ('2024-Q3','2024-Q4')"],
+    ["2024년 하반기 분기별 매출은?", "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter IN ('2024-Q3','2024-Q4') GROUP BY quarter"],
+    ["2024년 하반기 중 4분기 매출은?", "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q4' GROUP BY quarter"],
+    ["2025년 분기별 매출은?", "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2025-%' GROUP BY quarter"],
+  ]) ok(checkHalfGroup(sql, q).length === 0, `반기로 묶거나 한 행이거나 분기를 묻는 질문은 보지 않는다: ${q}`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
