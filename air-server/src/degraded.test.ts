@@ -220,6 +220,14 @@ const deadEmbedder: Embedder = {
   ok(renderValue(PI("6 days 21:50:21")) === "6일 21시간 50분 21초", "interval 은 채점기와 같은 한국어 기간 표기");
   ok(renderValue(PI("00:00:00")) === "0초", "0 기간도 비우지 않는다");
   ok(renderValue(1234) === "1234" && renderValue("x") === "x" && renderValue(null) === "null", "나머지 값은 종전 그대로");
+  ok(
+    renderValue("6752.2500000000000000") === "6752.25" && renderValue("6000.0000000000000000") === "6000" && renderValue("-0.5000") === "-0.5",
+    "numeric 문자열 뒤의 0 은 지운다(TC-115 의 평균 연봉)",
+  );
+  ok(
+    renderValue("48.7873204200560274") === "48.7873204200560274" && renderValue("1.10") === "1.10" && renderValue("2025-Q3") === "2025-Q3" && renderValue("100") === "100",
+    "0 으로 끝나지 않거나 소수 셋째 자리까지인 글자 값은 그대로",
+  );
 }
 
 // 정형 레인의 답에는 조회 행이 그대로 붙는다. 7B 가 목록 일부나 열 하나를 빠뜨려도 값은 답에 있다.

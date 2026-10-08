@@ -479,6 +479,10 @@ export function renderValue(v: unknown): string {
     }
     return parts.length ? parts.join(" ") : "0초";
   }
+  // PostgreSQL numeric 은 문자열로 오고 AVG 같은 결과는 소수 뒤가 0 으로 찬다(「6752.2500000000000000」). 뒤의 0 만 지운다(값은 같다).
+  // 7B 가 그 문자열을 답에 그대로 옮겼다(「employees.salary 평균은 6000.6000000000000000입니다」, 4차 수정본 실측 R4). 소수 넷째 자리
+  // 아래까지 적힌 문자열만 본다. 「1.10」 같은 글자 값은 건드리지 않는다.
+  if (typeof v === "string" && /^-?\d+\.\d{4,}$/.test(v) && v.endsWith("0")) return v.replace(/0+$/, "").replace(/\.$/, "");
   return String(v);
 }
 
