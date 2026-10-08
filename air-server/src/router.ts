@@ -197,6 +197,8 @@ export interface RouteDecision {
   gate: RuleGate;
   /** 문서 개수 질문일 때만 붙는다(semroute.ts routeQuery). 문서 제목으로 센다(pipeline.ts documentCount). */
   docCount?: DocCountRequest;
+  /** 「A와 B는 무슨 관계야?」처럼 두 개체의 관계를 묻는 질문일 때만 붙는다(pairRelationRequest). 두 정본 이름. */
+  pair?: { a: string; b: string };
   /** 규칙이 확신하지 못해 시맨틱 폴백이 판단했을 때만 붙는다(semroute.ts). */
   semantic?: {
     lane: Lane;
@@ -522,6 +524,67 @@ export function documentCountRequest(q: string): DocCountRequest | undefined {
     ...(kind.tag ? { tag: kind.tag } : {}),
     ...(kind.words ? { words: kind.words } : {}),
   };
+}
+
+// ── 두 개체의 관계 질문 ──────────────────────────────────────────────
+//
+// 「Client-Q와 조현우는 무슨 관계야?」는 컨텍스트 첫 줄이 「조현우의 담당 고객사: Client-Q」인데 7B 가 「관계 없습니다」라고
+// 답했고, 「Client-D와 Product-D3는 어떤 관계야?」는 hybrid 로 가 「알 수 없습니다」였다(랜덤 테스트 사전 점검 3차 Q8). 두 이름이
+// 모두 개체면 두 개체 사이의 직접 엣지가 답이라 결정론으로 찾는다(pipeline.ts pairAnswer).
+const PAIR_RELATION =
+  /^\s*(.+?)\s*(?:와|과|하고|이랑|랑)\s+(.+?)\s*(은|는|이|가)?\s*(?:서로\s*)?(?:무슨|어떤|어떠한)\s*관계(?:야|예요|에요|이에요|이야|인가요|인가|입니까|일까|인지\s*알려\s*줘|가\s*있(?:어|어요|나요|니|습니까)|가\s*뭐야)?\s*[?？.!~]*\s*$/;
+
+/** 사전의 이름이면 그 개체의 정본 이름. 공백, 하이픈, 대소문자만 다른 표기도 한 개체만 가리키면 받는다. */
+function canonicalName(text: string): string | undefined {
+  const t = text.trim();
+  if (ENTITY_NAMES.has(t)) return CANONICAL_OF.get(t) ?? t;
+  return looseEntityName(t);
+}
+
+/** 「A와 B(는) 무슨/어떤 관계야?」이고 A, B 가 모두 다른 개체로 해소되면 두 정본 이름. 아니면 undefined. */
+export function pairRelationRequest(q: string): { a: string; b: string } | undefined {
+  const m = PAIR_RELATION.exec(q);
+  if (!m) return undefined;
+  const a = canonicalName(m[1]);
+  // 이름이 조사처럼 보이는 글자로 끝나면(「…이」) 조사를 뗀 이름이 없을 때 붙인 채로도 찾는다.
+  const b = canonicalName(m[2]) ?? (m[3] ? canonicalName(m[2] + m[3]) : undefined);
+  if (!a || !b || a === b) return undefined;
+  return { a, b };
+}
+
+// ── 앞 대화를 가리키는 질문 ──────────────────────────────────────────
+//
+// 서버는 호출마다 상태가 없다(Inspector 는 호출마다 서버를 새로 띄운다). 「그럼 2위는?」은 시맨틱 폴백이 문서 레인으로 보내 7B 가
+// 「Client-K」라고 답했고, 「위에서 말한 거 다시 말해줘」에는 아무 장애 서술이 나왔다(랜덤 테스트 사전 점검 3차 Q9). 앞 대화를 가리키는
+// 말만 있고 대상(개체, 기간, 표 낱말)이 없으면 조회하지 않고 다시 물어 달라고 답한다(pipeline.ts BACK_REFERENCE_ANSWER).
+const BACK_REFERENCE =
+  /^\s*(?:그럼|그러면|그렇다면|그래서)(?=[\s?？.,!]|$)|그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?![가-힣])|위에서|위의|아까|방금|앞에서|앞서|앞의|이전\s*(?:질문|답|대화)|전에\s*말한|다시\s*말해/g;
+const PERIOD_WORD =
+  /\d{4}|\d+\s*(?:분기|월|일|년)|상반기|하반기|작년|올해|금년|지난해|재작년|내년|이번\s*(?:달|주|분기|해)|지난\s*(?:달|주|분기)|최근|요즘|오늘|어제|내일/;
+const TABLE_WORD = /매출|계약|프로젝트|티켓|이슈|제품|고객|직원|부서|문서|보고서|장애|회의|제안서|매뉴얼|가이드|연봉|금액|예산|팀/;
+
+/** 질문이 앞 대화를 가리키는 말(그럼, 그거, 그 고객사, 위에서, 아까, 방금, 앞에서 …)만 있고 대상이 없으면 그 말. 아니면 undefined.
+ * 대상은 사전의 개체 이름, 영문 낱말(Client-ZZ, 표 이름), 기간 말, 표 낱말이다. 가리키는 말 자체(「그 고객사」)는 대상으로 세지 않는다. */
+export function backReferenceOnly(q: string): string | undefined {
+  const marks = q.match(BACK_REFERENCE);
+  if (!marks) return undefined;
+  const rest = q.replace(BACK_REFERENCE, " ");
+  if (/[A-Za-z]/.test(rest) || PERIOD_WORD.test(rest) || TABLE_WORD.test(rest)) return undefined;
+  if (ENTITY_LEXICON.some((e) => rest.includes(e.name))) return undefined;
+  return marks[0].trim();
+}
+
+/** 질문에 이름이 그대로 든 개체(정본 이름, 타입). 긴 이름부터 대조하고 겹친 자리는 한 번만 센다. */
+export function entitiesIn(q: string): { name: string; type: string }[] {
+  const out: { name: string; type: string }[] = [];
+  let rest = q;
+  for (const e of ENTITY_LEXICON) {
+    if (!rest.includes(e.name)) continue;
+    const name = CANONICAL_OF.get(e.name) ?? e.name;
+    if (!out.some((o) => o.name === name)) out.push({ name, type: e.type });
+    rest = rest.split(e.name).join(" ");
+  }
+  return out;
 }
 
 /** 질문에 등장하는 실재 개체의 타입들. */

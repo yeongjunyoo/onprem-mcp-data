@@ -35,6 +35,7 @@ import {
   buildGraphPlan,
   tableOnlyNoun,
   documentCountRequest,
+  pairRelationRequest,
   LANES,
   SQL_TOOL,
   VECTOR_TOOL,
@@ -192,6 +193,18 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   if (docCount) {
     const what = `${docCount.entity ? `${docCount.entity} ` : ""}${docCount.kind}`;
     return { ...d, route: "semantic", tools: [VECTOR_TOOL], graphPlan: undefined, rationale: `document count (${what}) -> count document titles`, docCount };
+  }
+  // 두 개체의 관계를 묻는 질문은 두 개체 사이의 직접 엣지로 답한다(router.ts pairRelationRequest, pipeline.ts pairAnswer).
+  const pair = pairRelationRequest(query.trim());
+  if (pair) {
+    return {
+      ...d,
+      route: "graph",
+      tools: [ONTOLOGY_TOOL, GRAPH_TOOL],
+      graphPlan: undefined,
+      rationale: `two-entity relation (${pair.a}, ${pair.b}) -> direct edges between them`,
+      pair,
+    };
   }
   if (d.gate.confident || !embedder || !semanticReady()) return d;
   const v = await semanticVerdict(query, embedder);

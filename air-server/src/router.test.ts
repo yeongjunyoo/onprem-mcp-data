@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, documentCountRequest, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, documentCountRequest, pairRelationRequest, backReferenceOnly, entitiesIn, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
 // 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
@@ -325,6 +325,50 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
     "2019년에 등록된 고객사는 몇 개야?", // 문서 아님(TC-142)
     "Product-C1 매출은 몇 건이야?",
   ]) eq(documentCountRequest(q), undefined, `문서 개수 질문이 아니다: ${q}`);
+  installOntology([], []);
+}
+
+// 랜덤 테스트 사전 점검 3차 Q8, Q9: 두 개체의 관계 질문과 앞 대화를 가리키는 질문.
+{
+  installOntology(
+    [
+      { id: "client_17", name: "Client-Q", type: "client" },
+      { id: "client_4", name: "Client-D", type: "client" },
+      { id: "product_12", name: "Product-D3", type: "product" },
+      { id: "employee_9", name: "조현우", type: "employee" },
+      { id: "department_3", name: "영업팀", type: "department" },
+    ] as { id: string; name: string; type: string }[],
+    [],
+  );
+  eq(pairRelationRequest("Client-Q와 조현우는 무슨 관계야?"), { a: "Client-Q", b: "조현우" }, "고객사와 직원");
+  eq(pairRelationRequest("Client-D와 Product-D3는 어떤 관계야?"), { a: "Client-D", b: "Product-D3" }, "고객사와 제품");
+  eq(pairRelationRequest("조현우랑 Client-Q는 서로 어떤 관계가 있어?"), { a: "조현우", b: "Client-Q" }, "「랑」, 「서로」, 「관계가 있어」");
+  eq(pairRelationRequest("Client Q와 조현우는 무슨 관계야?"), { a: "Client-Q", b: "조현우" }, "띄어 쓴 식별자");
+  for (const q of [
+    "Client-Q와 서울물산은 무슨 관계야?", // 없는 개체
+    "Client-Q와 Client-Q는 무슨 관계야?", // 같은 개체
+    "Client-Q와 조현우의 관계를 표로 정리하고 매출도 알려줘", // 꼴이 다르다
+    "Client-Q 담당자는 누구야?",
+  ]) eq(pairRelationRequest(q), undefined, `두 개체 관계 질문이 아니다: ${q}`);
+
+  for (const [q, mark] of [
+    ["그럼 2위는?", "그럼"],
+    ["위에서 말한 거 다시 말해줘", "위에서"],
+    ["그 고객사 담당자는?", "그 고객사"],
+    ["아까 그거 다시", "아까"],
+    ["방금 말한 사람 누구라고?", "방금"],
+  ]) eq(backReferenceOnly(q), mark, `앞 대화를 가리키는 말만: ${q}`);
+  for (const q of [
+    "그럼 2025년 매출은?", // 기간과 표 낱말
+    "아까 말한 Client-Q 담당자는?", // 개체
+    "그럼 조현우는?", // 사전의 이름
+    "방금 등록된 고객사는?", // 표 낱말
+    "그래프로 보여줘", // 「그래」로 시작하는 낱말
+    "진행 중인 프로젝트를 이끄는 직원 목록",
+    "Product-C3 이거 말썽 많이 나는 편이야?",
+  ]) eq(backReferenceOnly(q), undefined, `대상이 있거나 가리키는 말이 아니다: ${q}`);
+
+  eq(entitiesIn("영업팀 직원 중 Client-Q를 담당하지 않는 사람"), [{ name: "Client-Q", type: "client" }, { name: "영업팀", type: "department" }], "질문의 개체(긴 이름부터)");
   installOntology([], []);
 }
 

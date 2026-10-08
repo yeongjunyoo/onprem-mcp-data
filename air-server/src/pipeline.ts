@@ -23,7 +23,17 @@
 
 import type { Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
-import { route, audit as routeAuditLog, fitPlanToSeed, GRAPH_TOOL, type RouteDecision, type GraphPlan, type DocCountRequest } from "./router.js";
+import {
+  route,
+  audit as routeAuditLog,
+  fitPlanToSeed,
+  backReferenceOnly,
+  entitiesIn,
+  GRAPH_TOOL,
+  type RouteDecision,
+  type GraphPlan,
+  type DocCountRequest,
+} from "./router.js";
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
@@ -50,13 +60,19 @@ import {
   rankingCandidates,
   relLabel,
   kgSchema,
+  pairEdges,
+  membersWithout,
   GRAPH_LIMITS,
+  RELATION_SCAN_LIMIT,
   type GraphEdge,
+  type GraphResult,
   type GraphTruncation,
+  type NodeFilter,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
-import { absentAttribute, describeAbsentAttribute, describeNotFound, type NotFound } from "./notfound.js";
+import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, type NotFound } from "./notfound.js";
+import { outsideContextMentions } from "./auditrecord.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -89,6 +105,10 @@ export interface RetrieveResult {
   graph?: GraphLaneResult;
   /** 문서 개수 질문(router.ts documentCountRequest)일 때만. 제목으로 고른 문서와 전체 문서 수. */
   documents?: DocCountResult;
+  /** 두 개체의 관계 질문(router.ts pairRelationRequest)일 때만. 두 개체 사이의 직접 엣지. */
+  pair?: { a: string; b: string } & GraphResult;
+  /** 앞 대화를 가리키는 말만 있는 질문(router.ts backReferenceOnly)일 때만. 그 말. 라우팅도 조회도 하지 않았다. */
+  back_reference?: string;
   fused: Fused<ContextItem>[];
   /** RRF 입력 목록마다의 레인 이름. fused[].sources 의 번호가 이 배열의 위치다. */
   fusion_lanes?: string[];
@@ -124,10 +144,13 @@ function routeAudit(d: RouteDecision) {
 export interface GraphLaneResult {
   seeds: { entityId: number; canonicalName: string; type: string }[];
   edgeCount: number;
-  strategy: "seeded" | "relation-scan" | "seeded+relation-scan" | "unresolved" | "none";
+  strategy: "seeded" | "relation-scan" | "seeded+relation-scan" | "unresolved" | "none" | "pair";
   ranking?: { name: string; type: string; count: number }[];
   /** 「가장 적은」(계획 order=asc) 집계의 공동 1위 전부. 답 문장이 이름을 다 적는다(fewestAnswer). */
   fewest?: { relType: string; count: number; entries: { name: string; text: string }[] };
+  /** 속성 조건을 건 관계 스캔(「완료된 프로젝트를 이끈 직원 목록」)의 엣지. 답 문장이 조건과 이름을 적는다(filteredListAnswer).
+   * complete 는 스캔 상한에 걸리지 않고 조건이 SQL 에 걸렸다는 뜻이다. */
+  filtered?: { filter: NodeFilter; complete: boolean; entries: { relType: string; src: string; dst: string; text: string }[] };
   items: Candidate[];
   /** strategy 가 unresolved 일 때 왜 못 찾았는지. */
   not_found?: NotFound;
@@ -228,13 +251,15 @@ export async function graphLane(
   if (onto.hits.length === 0 && !(p?.aggregate || p?.filter)) {
     const terms = seedTerms(query);
     // 찾지 못한 대상으로는 이름을 지목한 낱말만 댄다(graph.ts mentionTerms). 「등록된」, 「어떤 데이터베이스」만 있으면 개체를
-    // 지목하지 않은 질문이라 「개체 이름으로 볼 낱말을 찾지 못해」 문장이다.
+    // 지목하지 않은 질문이라 「개체 이름으로 볼 낱말을 찾지 못해」 문장이다. 그 사유(no_entity_term)는 ontology.search 의 답에만
+    // 싣고 여기서는 종전처럼 사유 없이 그 줄만 남긴다(ask 는 7B 에게 넘긴다).
+    const nf = onto.not_found?.reason === "no_entity_term" ? undefined : onto.not_found;
     const mentions = mentionTerms(query);
     return {
       seeds: [],
       edgeCount: 0,
       strategy: "unresolved",
-      not_found: onto.not_found,
+      not_found: nf,
       items: [
         {
           canonicalKey: `unresolved#${terms.join("+")}`,
@@ -242,11 +267,11 @@ export async function graphLane(
           source: "graph" as const,
           // 질의어가 하나도 없으면(「ㅁㄴㅇㄹ」) 찾지 못한 대상의 이름도 없다. 종전 문장은
           // 「대상()」처럼 빈 괄호를 보였고, 없는 개체를 단정하는 문장도 맞지 않았다.
-          text: onto.not_found
-            ? `[그래프] ${describeNotFound(onto.not_found)}`
+          text: nf
+            ? `[그래프] ${describeNotFound(nf)}`
             : mentions.length
               ? `[그래프] 질의에 등장한 대상(${mentions.join(", ")})을 지식그래프에서 찾지 못했습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`
-              : "[그래프] 질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.",
+              : `[그래프] ${NO_ENTITY_TERM}`,
           provenance: "ontology:unresolved",
         },
       ],
@@ -291,6 +316,7 @@ export async function graphLane(
   // status-filtered listings), and harmless as an addition when it names both.
   let ranking: GraphLaneResult["ranking"];
   let fewest: GraphLaneResult["fewest"];
+  let filtered: GraphLaneResult["filtered"];
   const needScan = Boolean(p && p.relTypes.length && (p.aggregate || p.filter || expandFrom.length === 0));
   if (needScan) {
     const scan = await relationScan(
@@ -315,7 +341,16 @@ export async function graphLane(
         };
       }
     } else {
-      items.push(...edgeCandidates(scan.edges));
+      const lines = edgeCandidates(scan.edges);
+      items.push(...lines);
+      // 줄에는 거른 상태가 없어 7B 는 「완료된」을 확인할 근거가 없다며 거절했다. 답 문장을 위해 엣지를 따로 싣는다(컨텍스트는 그대로).
+      if (p!.filter) {
+        filtered = {
+          filter: p!.filter,
+          complete: Boolean(scan.filterApplied) && scan.edges.length < RELATION_SCAN_LIMIT,
+          entries: scan.edges.map((e, i) => ({ relType: e.relType, src: e.srcName, dst: e.dstName, text: lines[i].text })),
+        };
+      }
     }
   }
 
@@ -340,6 +375,7 @@ export async function graphLane(
     strategy,
     ranking,
     ...(fewest ? { fewest } : {}),
+    ...(filtered ? { filtered } : {}),
     items,
     ...(truncated ? { truncated } : {}),
     ...(fitted.length ? { fitted } : {}),
@@ -357,7 +393,7 @@ export async function sqlMissingNames(pool: Pool, query: string, schema = kgSche
     const name = entityLikeName(term);
     if (!name) continue;
     const o = await ontologySearch(pool, name, 1, schema);
-    if (o.ok && !o.hits.length && o.not_found) out.push(o.not_found);
+    if (o.ok && !o.hits.length && o.not_found && o.not_found.reason !== "no_entity_term") out.push(o.not_found);
   }
   return out;
 }
@@ -515,6 +551,28 @@ export function hybridGraph(g: GraphLaneResult): GraphLaneResult {
   return out;
 }
 
+/** 앞 대화를 가리키는 말만 있는 질문의 결과. 레인을 열지 않았으므로 감사의 도구는 비우고, 규칙 라우터의 판단은 근거로만 남긴다. */
+function backReferenceResult(query: string, mark: string, budget: number): RetrieveResult {
+  const d = route(query);
+  const curated = curate(query, [], budget);
+  return {
+    query,
+    route: d.route,
+    sql: { text: null },
+    back_reference: mark,
+    fused: [],
+    fusion_lanes: [],
+    curated,
+    context: "",
+    audit: {
+      route: routeAudit({ ...d, tools: [], rationale: `refers to a previous turn (${mark}) -> not routed; the server keeps no previous question` }),
+      candidates: { sql: 0, vector: 0, graph: 0, fused: 0 },
+      branch_errors: [],
+      curate: curateAudit(curated),
+    },
+  };
+}
+
 /** Run the retrieval spine for one query.
  * Deterministic parts: route (L3) + RRF merge + L4 curation. The structured
  * path's NL2SQL is the 7B by default (faithful to the brief; this is the path
@@ -526,14 +584,19 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const k = deps.k ?? 5;
   const budget = deps.budget ?? DEFAULT_BUDGET;
 
+  // 앞 대화를 가리키는 말만 있는 질문(「그럼 2위는?」)은 라우팅 전에 끝낸다(router.ts backReferenceOnly).
+  const backRef = backReferenceOnly(query);
+  if (backRef) return backReferenceResult(query, backRef, budget);
+
   // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
   const decision = await routeQuery(query, embedder);
-  // 문서 개수 질문은 벡터 검색 대신 문서 제목을 센다(documentCount).
+  // 문서 개수 질문은 벡터 검색 대신 문서 제목을 센다(documentCount). 두 개체의 관계 질문은 두 개체 사이의 엣지만 읽는다(pairEdges).
   const docCount = decision.docCount;
+  const pair = decision.pair;
   const lanes = lanesFor(decision);
-  const wantSql = !docCount && lanes.sql;
-  const wantVec = !docCount && lanes.vector;
-  const wantGraph = !docCount && lanes.graph;
+  const wantSql = !docCount && !pair && lanes.sql;
+  const wantVec = !docCount && !pair && lanes.vector;
+  const wantGraph = !docCount && !pair && lanes.graph;
 
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
@@ -596,15 +659,19 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     : Promise.resolve(undefined);
 
   const docBranch: Promise<DocCountResult | undefined> = docCount ? documentCount(pool, docCount) : Promise.resolve(undefined);
+  const pairBranch: Promise<GraphResult | undefined> = pair ? pairEdges(pool, pair.a, pair.b, kgSchema()) : Promise.resolve(undefined);
 
-  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled] = await Promise.allSettled([
+  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled, pairSettled] = await Promise.allSettled([
     sqlBranch,
     vecBranch,
     graphBranch,
     keywordBranch,
     docBranch,
+    pairBranch,
   ]);
   const docResult = docSettled.status === "fulfilled" ? docSettled.value : undefined;
+  const pairOut = pairSettled.status === "fulfilled" ? pairSettled.value : undefined;
+  const pairResult = pair && pairOut ? { ...pair, ...pairOut } : undefined;
   const sql: RetrieveResult["sql"] = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null };
   const sqlText = sql.text;
   const sqlResult = sql.result;
@@ -635,6 +702,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   }
   if (docSettled.status === "rejected") branchErrors.push(`documents: ${String(docSettled.reason)}`);
   if (docResult && !docResult.ok) branchErrors.push(`documents: ${docResult.error ?? "unknown"}`);
+  if (pairSettled.status === "rejected") branchErrors.push(`graph: ${String(pairSettled.reason)}`);
+  if (pairOut && !pairOut.ok) branchErrors.push(`graph: ${pairOut.error ?? "unknown"}`);
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];
@@ -696,6 +765,11 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     ]);
     listLanes.push("documents");
   }
+  const pairText = pairResult?.ok ? pairLines(pairResult) : [];
+  if (pairText.length) {
+    lists.push(pairText.map((text, i) => ({ key: `pair#${i}`, value: { kind: "chunk" as const, text, source: `graph#${i}` } })));
+    listLanes.push("graph");
+  }
 
   // --- RRF merge -> L4 curation ---
   const fused = rrfMerge(lists);
@@ -715,8 +789,9 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(sql.missing ? { missing: sql.missing } : {}),
     },
     vector: vecResult,
-    graph: graphResult,
+    graph: graphResult ?? (pairResult ? { seeds: [], edgeCount: pairResult.edges.length, strategy: "pair", items: [] } : undefined),
     ...(docResult ? { documents: docResult } : {}),
+    ...(pairResult ? { pair: pairResult } : {}),
     fused,
     fusion_lanes: listLanes,
     curated,
@@ -728,7 +803,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       candidates: {
         sql: sqlResult?.ok ? sqlResult.rows.length : 0,
         vector: vecResult?.ok ? vecResult.hits.length : 0,
-        graph: graphResult?.items.length ?? 0,
+        graph: graphResult?.items.length ?? pairText.length,
         fused: fused.length,
       },
       branch_errors: branchErrors,
@@ -761,6 +836,8 @@ export const NO_TABLE_ANSWER =
 
 export interface AskResult extends RetrieveResult {
   answer: string;
+  /** 7B 답의 근거 밖 이름을 다룬 내역(withoutOutsideNames). 그런 이름이 있었을 때만. */
+  grounding_fix?: { removed: string[]; flagged: string[] };
 }
 
 /** 그래프 집계의 「가장 적은」(시드 없는 관계 스캔, 계획 order=asc)에서 공동 1위가 둘 이상일 때의 답 문장. 7B 를 부르지 않는다.
@@ -780,6 +857,178 @@ export function fewestAnswer(r: RetrieveResult): string | undefined {
   );
 }
 
+/** 앞 대화를 가리키는 말만 있는 질문의 답(router.ts backReferenceOnly). 7B 를 부르지 않는다. */
+export const BACK_REFERENCE_ANSWER =
+  "이 서버는 앞 질문을 기억하지 않습니다. 대상(고객사, 제품, 기간)을 넣어 질문 전체를 다시 입력해 주세요.";
+
+/** 두 개체 사이에 엣지가 없을 때의 문장. */
+export const PAIR_NONE = "두 개체 사이에 직접 연결된 관계가 없습니다";
+
+/** 두 개체의 관계 질문의 컨텍스트 줄. 엣지는 그래프 레인과 같은 꼴, 없으면 그 사실 한 줄. */
+export function pairLines(p: { a: string; b: string; edges: GraphEdge[] }): string[] {
+  if (!p.edges.length) return [`[그래프] ${PAIR_NONE}(조회한 개체: ${p.a}, ${p.b}).`];
+  return [...new Set(edgeCandidates(p.edges).map((c) => c.text))];
+}
+
+/** 두 개체의 관계 질문의 답. 두 방향의 직접 엣지를 컨텍스트 줄과 같은 관계 이름으로 적는다. 7B 를 부르지 않는다. */
+export function pairAnswer(p: { a: string; b: string; edges: GraphEdge[] }): string {
+  if (!p.edges.length) return `${PAIR_NONE}(조회한 개체: ${p.a}, ${p.b}. 다른 개체를 거치는 관계는 보지 않았습니다).`;
+  const facts = [...new Set(p.edges.map((e) => `${e.srcName}의 ${relLabel(e.relType)}: ${e.dstName} (${e.relType})`))];
+  return `두 개체 사이에 직접 연결된 관계는 ${facts.length}건입니다: ${facts.join("; ")}.`;
+}
+
+/** 상태 조건을 건 관계 목록의 말. 조건은 도착 끝(프로젝트)에 걸리고 답은 출발 끝이다. asks 는 질문이 출발 끝을 묻는지 본다. */
+const FILTERED_LIST: Record<string, { tail: string; noun: string; counter: string; asks: RegExp }> = {
+  LEADS: { tail: "프로젝트를 이끄는", noun: "직원", counter: "명", asks: /직원|사람|누구|담당자|리더|팀원|사원/ },
+  HAS_PROJECT: { tail: "프로젝트가 있는", noun: "고객사", counter: "곳", asks: /고객사|고객|거래처|회사|어디/ },
+};
+const STATUS_KO: Record<string, string> = { in_progress: "진행 중", completed: "완료", planning: "계획 단계", on_hold: "보류" };
+
+/** 상태 조건을 건 관계 스캔의 답(「완료된 프로젝트를 이끈 직원 목록」). 7B 를 부르지 않는다.
+ *
+ * 컨텍스트 줄(「이지훈의 이끄는 프로젝트: Client-AB DevOps 전환」)에는 거른 상태가 없어 7B 는 「완료된」을 확인할 근거가
+ * 없다며 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검 3차 Q4, 정답 6줄이 컨텍스트에 있었다). 같은 길의 TC-130(진행 중,
+ * 11명)도 이 문장으로 답한다. 이름은 컨텍스트에 남은 줄의 순서로 적고, 예산에 잘린 줄에만 있는 이름은 수만 적는다. */
+export function filteredListAnswer(r: RetrieveResult, query: string): string | undefined {
+  const f = r.graph?.filtered;
+  if (r.route !== "graph" || r.graph?.strategy !== "relation-scan" || !f?.complete || f.filter.side !== "target") return undefined;
+  const rels = [...new Set(f.entries.map((e) => e.relType))];
+  const w = rels.length === 1 ? FILTERED_LIST[rels[0]] : undefined;
+  if (!w || !w.asks.test(query)) return undefined;
+  const kept = new Set(r.curated.kept.map((it) => it.text));
+  const all = [...new Set(f.entries.map((e) => e.src))];
+  const shown = [...new Set(f.entries.filter((e) => kept.has(e.text)).map((e) => e.src))];
+  const status = `${STATUS_KO[f.filter.value] ?? f.filter.value}(${f.filter.value})`;
+  const head = `상태가 ${status}인 ${w.tail} ${w.noun}`;
+  if (!all.length) return `${head}${topic(w.noun)} 없습니다.`;
+  const rest = all.length - shown.length;
+  return `${head}${topic(w.noun)} ${all.length}${w.counter}입니다: ${shown.join(", ")}${rest > 0 ? ` 외 ${rest}${w.counter}` : ""}.`;
+}
+
+/** 부정 조건(「담당하지 않는」, 「고객사가 없는」, 「안 맡은」). 「없는데」, 「기억 안 나는데」는 조건이 아니다. */
+const NEGATION = /지\s*않|없는(?![가-힣])|안\s*(?:맡|쓰|하|이끄|이끈|담당|사용|관리)[가-힣]*[는은](?![가-힣])/;
+/** 사람을 묻는 말. 부정 조건 뒤에 와야 「그 조건의 사람」을 묻는 것이다. */
+const PERSON_ASKED = /직원|사람|누구|팀원|사원|멤버/;
+/** 출발 끝이 직원인 관계(직원 → 고객사, 직원 → 프로젝트). 부서 소속 직원과 차집합을 낼 수 있다. */
+const MEMBER_RELATIONS = new Set(["MANAGES_ACCOUNT", "LEADS"]);
+export const NEGATION_ANSWER =
+  "이 서버는 부정 조건(「…하지 않는」, 「…이 없는」)을 계산하지 않습니다. 지식그래프는 있는 관계만 따라가므로 없는 관계를 찾는 질문에는 답하지 않았습니다.";
+export const THREE_HOP_ANSWER =
+  "이 서버는 세 단계 이상 이어지는 관계(예: 고객사 → 담당자 → 부서 → 같은 부서 직원)는 계산하지 않습니다. 중간 대상의 이름(예: 담당자 이름)을 넣어 다시 물어 주세요.";
+
+/** 그래프 레인이 답할 수 없는 꼴의 질문. 부정 조건과 세 단계 관계다. 「영업팀 직원 중 고객사를 담당하지 않는 사람은?」과 「Client-K
+ * 담당자와 같은 부서 사람은 누구야?」에 7B 는 「알 수 없습니다」라고 답했고, 데이터에 답이 없다는 뜻으로 읽혔다(랜덤 테스트 사전 점검
+ * 3차 Q11). 「부서 소속 직원 가운데 그 관계가 없는 사람」 꼴만 차집합으로 계산하고(membersWithout), 나머지는 계산하지 않는다고 답한다. */
+export async function graphLimitAnswer(pool: Pool, r: RetrieveResult, query: string): Promise<string | undefined> {
+  if (r.route !== "graph" || !r.graph || r.graph.strategy === "unresolved" || r.missing?.length) return undefined;
+  const named = entitiesIn(query);
+  const neg = NEGATION.exec(query);
+  if (neg) {
+    const dept = named.find((e) => e.type === "department");
+    const plan = (r.audit.route as { graph_plan?: GraphPlan | null }).graph_plan;
+    const rel = plan?.relTypes[0];
+    if (dept && rel && MEMBER_RELATIONS.has(rel) && PERSON_ASKED.test(query.slice(neg.index))) {
+      const m = await membersWithout(pool, dept.name, rel);
+      if (m.ok && m.members.length) {
+        const cond = `${relLabel(rel)}(${rel})`;
+        const head = `${dept.name} 소속 직원 ${m.members.length}명 가운데`;
+        return m.without.length
+          ? `${head} ${cond}가 없는 직원은 ${m.without.length}명입니다: ${m.without.join(", ")}.`
+          : `${head} ${cond}가 없는 직원은 없습니다.`;
+      }
+    }
+    return NEGATION_ANSWER;
+  }
+  if (/같은\s*(?:부서|팀|소속)/.test(query) && named.length && !named.some((e) => e.type === "employee")) return THREE_HOP_ANSWER;
+  return undefined;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** text[at] 를 품은 문장의 [시작, 끝). 소수점(「22.04」)은 문장 끝이 아니다. */
+function sentenceAround(text: string, at: number): [number, number] {
+  let s = at;
+  while (s > 0 && !/[\n!?]/.test(text[s - 1]) && !(text[s - 1] === "." && /\s/.test(text[s] ?? ""))) s--;
+  let e = at;
+  while (e < text.length && !/[\n!?]/.test(text[e])) {
+    if (text[e] === "." && /\s|$/.test(text[e + 1] ?? "")) return [s, e + 1];
+    e++;
+  }
+  return [s, e];
+}
+
+/** 7B 답이 근거(컨텍스트)에도 질문에도 없는 이름(auditrecord.ts outsideContextMentions)을 사실처럼 말하지 않게 한다.
+ *
+ * 「Product-T2 관련 고객 이슈 현황은?」에 근거 13곳에 없는 Client-L 을 더해 「총 14건」이라 답했고, 감사 레코드의 접지 검사가
+ * Client-L 을 잡고도 답은 그대로 나갔다(랜덤 테스트 사전 점검 3차 Q3, 3/3). 식별자(Client-L)가 쉼표 목록이나 머리표 줄의 한 항목이면
+ * 그 항목을 빼고, 그 목록을 센 수(「총 14건」)가 항목 수와 같으면 하나 줄인다. 목록이 아니라 문장 속에 있으면 빼면 문장이 깨지므로
+ * 답 끝에 그 이름이 근거에 없다는 줄을 붙인다. 근거 밖 이름이 없으면 답은 그대로다. */
+export function withoutOutsideNames(
+  answer: string,
+  context: string,
+  query: string,
+): { text: string; removed: string[]; flagged: string[] } {
+  const names = outsideContextMentions(answer, `${context}\n${query}`);
+  if (!names.length) return { text: answer, removed: [], flagged: [] };
+  let text = answer;
+  const removed: string[] = [];
+  const flagged: string[] = [];
+  for (const name of names) {
+    const n = escapeRe(name);
+    const isId = /^[A-Z][A-Za-z]*-[A-Z0-9]+$/.test(name);
+    const item = `${n}(?![A-Za-z0-9-])(?:\\s*\\([^)\\n]*\\))?`;
+    const bullet = new RegExp(`^[ \\t]*(?:[-*•]|\\d+[.)])[ \\t]*${item}[^\\n]*(?:\\n|$)`, "m");
+    const at = text.search(new RegExp(`(?<![A-Za-z0-9-])${n}(?![A-Za-z0-9-])`));
+    let done = false;
+    if (isId && bullet.test(text)) {
+      const count = (s: string) => (s.match(/^[ \t]*(?:[-*•]|\d+[.)])[ \t]*\S/gm) ?? []).length;
+      const before = count(text);
+      text = text.replace(bullet, "").replace(new RegExp(`(?<!\\d)${before}(\\s*(?:건|곳|개|명|군데))`), `${before - 1}$1`);
+      done = true;
+    } else if (isId && at >= 0) {
+      const [s, e] = sentenceAround(text, at);
+      const sentence = text.slice(s, e);
+      const prefix = name.slice(0, name.indexOf("-") + 1);
+      const ids = new Set(sentence.match(new RegExp(`(?<![A-Za-z0-9-])${escapeRe(prefix)}[A-Z0-9]+(?![A-Za-z0-9-])`, "g")) ?? []);
+      const patterns = [
+        new RegExp(`\\s*[,，、]\\s*${item}`),
+        new RegExp(`(?<![A-Za-z0-9-])${item}\\s*[,，、]\\s*`),
+        new RegExp(`(?:(?<=[A-Za-z0-9가-힣)])(?:와|과)|\\s+(?:및|그리고))\\s+${item}`),
+        new RegExp(`(?<![A-Za-z0-9-])${item}(?:와|과)\\s+`),
+      ];
+      const p = ids.size >= 2 ? patterns.find((re) => re.test(sentence)) : undefined;
+      if (p) {
+        const cut = sentence
+          .replace(p, "")
+          .replace(new RegExp(`(?<!\\d)${ids.size}(\\s*(?:건|곳|개|명|군데))`), `${ids.size - 1}$1`);
+        text = text.slice(0, s) + cut + text.slice(e);
+        done = true;
+      }
+    }
+    if (done) removed.push(name);
+    if (!done || new RegExp(`(?<![A-Za-z0-9-])${n}(?![A-Za-z0-9-])`).test(text)) flagged.push(name);
+  }
+  if (flagged.length) {
+    text = `${text.trimEnd()}\n\n근거에 없는 이름이 답에 섞여 있어 사실로 볼 수 없습니다: ${flagged.join(", ")}.`;
+  }
+  return { text, removed, flagged };
+}
+
+/** 문서 전체나 최근을 묻는 말. 「보고서들」의 「들」은 명사 뒤 복수일 때만(「들어온」, 「만들어」는 아니다). 「정리」는 정리해 달라는
+ * 요청일 때만(「문서로 정리된 게 있나?」는 아니다). */
+const ALL_OR_RECENT = /[가-힣]들(?=[은는이가을를의에과와도만]|\s|$|[?？!.,])|모든|전부|전체|정리\s*(?:해|하여|좀)|요즘|최근/;
+
+/** 문서 레인 답이 검색 상위 조각만 본 것을 밝히는 줄. 「장애 보고서들에 나온 장애 원인을 정리해줘」에 세 유형 가운데 하나만,
+ * 「요즘 서버 장애 난 거 원인이 뭐였어?」에 최근이 아닌 장애의 원인을 답했다(랜덤 테스트 사전 점검 3차 Q10). 질문이 전체, 정리,
+ * 최근을 물을 때만 붙인다. */
+export function documentScopeNote(r: RetrieveResult, query: string): string | undefined {
+  if (r.route !== "semantic" || r.documents || !r.vector?.ok || !ALL_OR_RECENT.test(query)) return undefined;
+  const n = r.curated.kept.filter((it) => it.source.startsWith("documents#")).length;
+  if (!n) return undefined;
+  const recent = /요즘|최근/.test(query);
+  return `이 답은 검색 상위 ${n}개 조각만 근거로 했습니다. 문서 전체를 다 ${recent ? "보거나 날짜순으로 고른" : "본"} 것은 아닙니다.`;
+}
+
 /** Full pipeline: deterministic retrieval spine + the on-prem 7B answer step.
  * `llm` is injectable so the eval / tests can substitute a stub. */
 export async function ask(
@@ -787,6 +1036,9 @@ export async function ask(
   deps: RetrieveDeps & { llm?: AnswerFn },
 ): Promise<AskResult> {
   const r = await retrieve(query, deps);
+
+  // 앞 대화를 가리키는 말만 있는 질문은 조회하지 않았다. 다시 물어 달라고 답한다.
+  if (r.back_reference) return { ...r, answer: BACK_REFERENCE_ANSWER };
 
   // 생성 모델이 쓰기 문장을 만들었다면 질문은 데이터를 바꾸라는 요청이다. 실행하지 않았고 이 서버는
   // 바꾸지 않으므로 그렇게 말한다. 종전에는 빈 컨텍스트로 7B 를 불러 「주어진 정보로는 알 수 없습니다」라고
@@ -823,6 +1075,8 @@ export async function ask(
 
   // 문서 개수 질문은 제목으로 센 수와 제목을 그대로 답한다. 7B 는 조각을 보고 수를 셌다(「2건」, 실제 1건).
   if (r.documents?.ok) return { ...r, answer: documentCountAnswer(r.documents) };
+  // 두 개체의 관계 질문은 두 개체 사이의 직접 엣지로 답한다.
+  if (r.pair?.ok) return { ...r, answer: pairAnswer(r.pair) };
 
   // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
   // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다.
@@ -846,6 +1100,11 @@ export async function ask(
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.
   const few = fewestAnswer(r);
   if (few) return { ...r, answer: few };
+  // 상태 조건을 건 관계 목록은 조건과 이름을 결정론으로 적는다. 부정 조건과 세 단계 관계는 계산하거나 계산하지 않는다고 말한다.
+  const listed = filteredListAnswer(r, query);
+  if (listed) return { ...r, answer: listed };
+  const limit = await graphLimitAnswer(deps.pool, r, query);
+  if (limit) return { ...r, answer: limit };
 
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
@@ -857,8 +1116,16 @@ export async function ask(
 
   const gen = deps.llm ?? llmAnswer;
   try {
-    const answer = await gen(r.answer_query ?? query, answerContext);
-    return { ...r, answer: head + withSqlRows(r, answer) };
+    const generated = await gen(r.answer_query ?? query, answerContext);
+    // 근거에도 질문에도 없는 이름은 사실로 남기지 않는다(withoutOutsideNames). 문서 레인이 상위 조각만 본 것은 밝힌다.
+    const fix = withoutOutsideNames(generated, r.context, query);
+    const note = documentScopeNote(r, query);
+    const answer = note ? `${fix.text.trimEnd()}\n\n${note}` : fix.text;
+    return {
+      ...r,
+      answer: head + withSqlRows(r, answer),
+      ...(fix.removed.length || fix.flagged.length ? { grounding_fix: { removed: fix.removed, flagged: fix.flagged } } : {}),
+    };
   } catch (e) {
     // ★ 생성 LLM 이 **기동 후** 죽는 경우.
     //

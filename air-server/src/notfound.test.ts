@@ -282,12 +282,36 @@ const fakePool = {
   ok(m("서울물산 담당 엔지니어는 누구야?") === '["서울물산"]' && m("클라우드사업팀 소속 직원들은 누구야?") === '["클라우드사업팀","직원들"]', "TC-134, TC-135 는 그대로");
   ok(m("어떤 서울물산 직원") === '["서울물산"]', "이름처럼 생긴 말은 관형사 뒤에서도 이름이다");
   // 찾지 못했을 때: 개체를 지목한 낱말이 없으면 사유를 만들지 않고, 그래프 레인은 「개체 이름으로 볼 낱말을 찾지 못해」라고 적는다.
+  // 「등록된」을 못 찾은 개체로 대지 않는다. 사유는 「개체 이름으로 볼 낱말이 없음」(no_entity_term, 랜덤 테스트 사전 점검 3차 Q13)이다.
   const reg = await ontologySearch(fakePool, "2019년에 등록된 고객사 목록을 보여줘", 5, "companyx");
-  ok(reg.ok && reg.hits.length === 0 && reg.not_found === undefined, `「등록된」으로 사유를 만들지 않는다 (got ${JSON.stringify(reg.not_found)})`);
+  ok(reg.ok && reg.hits.length === 0 && reg.not_found?.reason === "no_entity_term", `「등록된」으로 사유를 만들지 않는다 (got ${JSON.stringify(reg.not_found)})`);
   const lane = await graphLane(fakePool, "너는 어떤 데이터베이스를 쓰니?", 5, 2, "companyx");
   ok(lane.strategy === "unresolved" && lane.not_found === undefined && lane.items[0].text.includes("개체 이름으로 볼 낱말을 찾지 못해"), `개체(데이터베이스)라고 하지 않는다 (got ${lane.items[0]?.text})`);
   const kept = await graphLane(fakePool, "대한민국 대통령은 누구야?", 5, 2, "companyx");
   ok(kept.not_found?.reason === "not_in_database" && kept.not_found.query_entity === "대한민국", "TC-145 는 종전처럼 개체(대한민국)");
+}
+
+// ── 6c) 유형 낱말뿐인 ontology.search(랜덤 테스트 사전 점검 3차 Q13) ─────────────
+// 「Client」, 「Product」, 「고객사」는 빈 hits 만 돌려 사유가 없었다. 사유 no_entity_term 과 retrieve 의 그래프 줄과 같은 문장을 쓴다.
+// 그래프 레인(retrieve, ask)은 종전처럼 사유 없이 그 줄만 싣는다.
+{
+  for (const q of ["Client", "Product", "고객사"]) {
+    const o = await ontologySearch(fakePool, q, 50, "companyx");
+    ok(
+      o.ok && o.hits.length === 0 && o.not_found?.reason === "no_entity_term" && o.not_found.query_entity === q && o.not_found.candidates.length === 0,
+      `${q}: not_found no_entity_term (got ${JSON.stringify(o.not_found)})`,
+    );
+  }
+  const nf = (await ontologySearch(fakePool, "Client", 50, "companyx")).not_found!;
+  ok(describeNotFound(nf) === "질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.", "사유 문장");
+  const lane = await graphLane(fakePool, "고객사 목록", 5, 2, "companyx");
+  ok(
+    lane.strategy === "unresolved" && lane.not_found === undefined && lane.items[0].text === `[그래프] ${describeNotFound(nf)}`,
+    `그래프 레인의 줄은 같은 문장, 사유는 싣지 않는다 (got ${JSON.stringify(lane.not_found)} ${lane.items[0]?.text})`,
+  );
+  // TC-093~TC-096 처럼 낱말이 남는 질의는 그대로다.
+  ok((await ontologySearch(fakePool, "서울물산", 5, "companyx")).not_found?.reason === "not_in_database", "없는 이름은 종전 사유");
+  ok((await ontologySearch(fakePool, "클라우드사업팀", 5, "companyx")).not_found?.reason === "similar_name_mismatch", "비슷한 이름은 종전 사유");
 }
 
 // ── 7) 랜덤 테스트 사전 점검 D4·D5·D2 ─────────────────────────────────────

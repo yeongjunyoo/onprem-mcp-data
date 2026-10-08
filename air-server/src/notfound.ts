@@ -23,7 +23,8 @@
 // 유사도는 정규화 편집 거리 하나다. 모델도 임베딩도 부르지 않으므로 같은 질의와
 // 같은 개체 사전이면 사유와 후보가 항상 같다.
 
-export type NotFoundReason = "not_in_database" | "similar_name_mismatch";
+/** no_entity_term 은 질의에 개체 이름으로 볼 낱말이 없을 때(「Client」, 「고객사」처럼 유형 낱말뿐). ontology.search 만 돌려준다. */
+export type NotFoundReason = "not_in_database" | "similar_name_mismatch" | "no_entity_term";
 
 export interface NotFoundCandidate {
   name: string;
@@ -192,8 +193,12 @@ export function describeAbsentAttribute(label: string): string {
   return `질문에 나온 항목(${label})은 이 데이터에 없는 정보라 답할 수 없습니다. 다른 항목으로 바꿔 답하지 않았습니다.`;
 }
 
+/** 질의에 개체 이름으로 볼 낱말이 없을 때의 문장. retrieve 의 그래프 줄과 ontology.search 의 사유가 같은 말을 쓴다. */
+export const NO_ENTITY_TERM = "질의에서 개체 이름으로 볼 낱말을 찾지 못해 지식그래프를 탐색하지 않았습니다.";
+
 /** 사유를 한국어 한 문단으로. 그래프 컨텍스트와 ask 의 답이 같은 문장을 쓴다. */
 export function describeNotFound(nf: NotFound): string {
+  if (nf.reason === "no_entity_term") return NO_ENTITY_TERM;
   const head = `질문에 나온 개체(${nf.query_entity})를 데이터베이스에서 찾지 못했습니다.`;
   if (nf.reason === "not_in_database") {
     return `${head} 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.`;

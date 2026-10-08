@@ -248,6 +248,11 @@ export interface OntologyResult {
 
 export { entityLikeName } from "./notfound.js";
 
+/** 개체 이름으로 볼 낱말이 없는 질의의 사유. query_entity 는 질의 원문이다. */
+function noEntityTerm(query: string): NotFound {
+  return { reason: "no_entity_term", query_entity: query, candidates: [] };
+}
+
 /** 비슷한 이름 판정을 이름 후보로 쓰는 최소 길이. 두 글자 낱말(「재원」, 「현우」)은 세 글자 직원
  * 이름과 0.67 로 겹쳐 일반 낱말이 이름으로 잡힌다. notfound.ts 도 두 글자의 한 글자 차이는 넣지 않는다. */
 const SIMILAR_MIN_LEN = 3;
@@ -281,7 +286,8 @@ export async function ontologySearch(
   try {
     const s = safeSchema(schema);
     const terms = seedTerms(query);
-    if (terms.length === 0) return { ok: true, hits: [] };
+    // 유형 낱말뿐인 질의(「Client」, 「고객사」)는 빈 hits 만 돌려 사유가 없었다(랜덤 테스트 사전 점검 3차 Q13).
+    if (terms.length === 0) return { ok: true, hits: [], not_found: noEntityTerm(query) };
     const props = await hasProps(pool, s);
     const propsCol = props ? "e.properties" : "NULL::jsonb";
     // canonical exact (4) outranks alias exact (3). "경영지원팀" is the department's
@@ -351,7 +357,7 @@ export async function ontologySearch(
     if (hits.length === 0) {
       // 찾지 못한 개체로는 이름을 지목한 낱말만 댄다(mentionTerms). 그런 낱말이 없으면 사유를 만들지 않는다.
       const mentions = mentionTerms(query);
-      return mentions.length ? { ok: true, hits, not_found: classifyNotFound(mentions, await loadLexicon()) } : { ok: true, hits };
+      return { ok: true, hits, not_found: mentions.length ? classifyNotFound(mentions, await loadLexicon()) : noEntityTerm(query) };
     }
     // 섞인 질문: 「서울물산 담당 엔지니어와 Client-A가 사용 중인 제품」. Client-A 만 해소되고
     // 서울물산은 없는데, 종전에는 해소 0건일 때만 「없다」고 했다. 그래서 Client-A 의 담당자
@@ -602,8 +608,13 @@ export interface RelationScanResult {
   ok: boolean;
   edges: GraphEdge[];
   ranking: { entityId: number; name: string; type: string; count: number }[];
+  /** 속성 조건을 SQL 에 걸었는가. 개체 표에 속성 열이 없으면 조건 없이 훑는다. */
+  filterApplied?: boolean;
   error?: string;
 }
+
+/** relationScan 이 돌려주는 엣지의 기본 상한. */
+export const RELATION_SCAN_LIMIT = 60;
 
 export async function relationScan(
   pool: Pool,
@@ -612,7 +623,7 @@ export async function relationScan(
 ): Promise<RelationScanResult> {
   try {
     const s = safeSchema(schema);
-    const limit = Math.min(200, Math.max(1, Math.floor(opts.limit ?? 60)));
+    const limit = Math.min(200, Math.max(1, Math.floor(opts.limit ?? RELATION_SCAN_LIMIT)));
     const props = await hasProps(pool, s);
     const filterSql =
       opts.filter && props
@@ -682,9 +693,74 @@ export async function relationScan(
     }
     // 「가장 적은」의 공동 1위는 상한에서 자르지 않는다. 자르면 답 문장(pipeline.ts fewestAnswer)이 잘린 수를 공동 1위의 수로 말한다
     const ties = opts.order === "asc" && ranking.length ? ranking.filter((r) => r.count === ranking[0].count).length : 0;
-    return { ok: true, edges: edges.slice(0, limit), ranking: ranking.slice(0, Math.max(limit, ties)) };
+    return {
+      ok: true,
+      edges: edges.slice(0, limit),
+      ranking: ranking.slice(0, Math.max(limit, ties)),
+      ...(opts.filter ? { filterApplied: Boolean(filterSql) } : {}),
+    };
   } catch (err) {
     return { ok: false, edges: [], ranking: [], error: describeError(err) };
+  }
+}
+
+/** 정본 이름이 a, b 인 두 개체 사이의 직접 엣지(두 방향 모두). 「Client-Q와 조현우는 무슨 관계야?」의 답이다. */
+export async function pairEdges(pool: Pool, a: string, b: string, schema = kgSchema()): Promise<GraphResult> {
+  try {
+    const s = safeSchema(schema);
+    const res = await pool.query(
+      `SELECT r.src_entity_id, se.canonical_name AS src_name, se.type AS src_type, r.rel_type,
+              r.dst_entity_id, de.canonical_name AS dst_name, de.type AS dst_type, r.confidence, r.provenance
+         FROM ${s}.relations r
+         JOIN ${s}.entities se ON se.id = r.src_entity_id
+         JOIN ${s}.entities de ON de.id = r.dst_entity_id
+        WHERE (se.canonical_name = $1 AND de.canonical_name = $2) OR (se.canonical_name = $2 AND de.canonical_name = $1)
+        ORDER BY r.id`,
+      [a, b],
+    );
+    const edges: GraphEdge[] = res.rows.map((row) => ({
+      srcId: Number(row.src_entity_id),
+      srcName: String(row.src_name),
+      srcType: String(row.src_type),
+      relType: String(row.rel_type),
+      dstId: Number(row.dst_entity_id),
+      dstName: String(row.dst_name),
+      dstType: String(row.dst_type),
+      confidence: Number(row.confidence),
+      provenance: String(row.provenance),
+      depth: 1,
+    }));
+    return { ok: true, edges };
+  } catch (err) {
+    return { ok: false, edges: [], error: describeError(err) };
+  }
+}
+
+/** 부서(정본 이름 dept)에 소속된(BELONGS_TO) 직원 가운데 relType 엣지를 하나도 내지 않는 직원. 소속 순서(엣지 id)다.
+ * 「영업팀 직원 중 고객사를 담당하지 않는 사람」처럼 없는 엣지를 묻는 질문은 탐색으로 답할 수 없어 차집합으로 센다. */
+export async function membersWithout(
+  pool: Pool,
+  dept: string,
+  relType: string,
+  schema = kgSchema(),
+): Promise<{ ok: boolean; members: string[]; without: string[]; error?: string }> {
+  try {
+    const s = safeSchema(schema);
+    const res = await pool.query(
+      `SELECT e.canonical_name AS name,
+              EXISTS (SELECT 1 FROM ${s}.relations x WHERE x.rel_type = $2 AND x.src_entity_id = b.src_entity_id) AS has
+         FROM ${s}.relations b
+         JOIN ${s}.entities e ON e.id = b.src_entity_id
+         JOIN ${s}.entities d ON d.id = b.dst_entity_id
+        WHERE b.rel_type = 'BELONGS_TO' AND d.canonical_name = $1 AND d.type = 'department'
+        ORDER BY b.id`,
+      [dept, relType],
+    );
+    const members = res.rows.map((r) => String(r.name));
+    const without = res.rows.filter((r) => !r.has).map((r) => String(r.name));
+    return { ok: true, members, without };
+  } catch (err) {
+    return { ok: false, members: [], without: [], error: describeError(err) };
   }
 }
 
