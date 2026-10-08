@@ -87,6 +87,10 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
   },
 };
 
+/** 이 서버가 아는 SQL 스키마 이름(프로파일의 sqlSchema, kgSchema): public, bench, companyx. 질문의 「X.Y」를 스키마.표로 읽을지
+ * 정할 때 쓴다(sqltrust.ts alignQualifiedTables). 「employees.salary」의 employees 는 스키마가 아니다. */
+export const SCHEMA_NAMES: readonly string[] = [...new Set(Object.values(PROFILES).flatMap((p) => [p.sqlSchema, p.kgSchema]))];
+
 /** Active profile. DATASET wins; KG_SCHEMA stays supported for the older eval CLIs. */
 export const PROFILE_NAMES = ["companyx", "bench", "smoke"] as const;
 
