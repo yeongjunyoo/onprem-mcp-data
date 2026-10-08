@@ -33,12 +33,16 @@
 //               답 문장은 그 가운데 한 건의 값을 매출이라고 말했다(「매출은 1953입니다.」).
 //   checkEnum, checkRatio, checkMonthUnit, confirmCountUnit — 값 어휘에 없는 상태 값, 정수 나눗셈 비율, 질문과 다른 집계 단위
 //               (랜덤 테스트 사전 점검 3차 Q1, Q6, Q7). checkPeriod 는 반기도 본다(Q2).
+//   checkUnaskedEnum, checkGroupTop, checkBothEnds, checkSyntax: 질문에 없는 값 조건, 묶음마다 1위를 전체 1위 한 행으로, 두 끝을
+//               묻는데 한쪽 끝만, PostgreSQL 이 읽지 못하는 LIMIT a, b 와 자리표시 ?(4차 P13, P6, P4). checkPeriod 는 달도 본다(P1).
+//               값 어휘 수리가 질문의 상태를 뒤집으면 받지 않는다(repairTurnsValue, P12).
 import type { Pool } from "./db.js";
 import type { PolicyVerdict } from "./auditrecord.js";
 import { formatManwon, moneyMentions } from "./money.js";
 import { sqlQuery, tokenizeSql, type SqlToken } from "./sql.js";
-import { RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
+import { DOT_MONTH_RE, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
 import { COMPANYX_SCHEMA_DDL } from "./nl2sql.js";
+import { SCHEMA_NAMES } from "./profile.js";
 
 /** 문자열 값, 따옴표 이름, 주석을 같은 길이의 공백으로 가린다. 자리가 그대로라 가린 문자열에서 찾은 위치를
  * 원문에 그대로 쓴다. 달러 따옴표, E'' 문자열, 닫히지 않은 따옴표처럼 이 스캐너가 확실히 읽지 못하면 null. */
@@ -290,20 +294,29 @@ export function rankRewrite(sql: string, question: string): { text: string; rank
 }
 
 const QUALIFIED_NAME = /(?<![A-Za-z0-9_.])([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])/g;
+const KNOWN_SCHEMAS = new Set(SCHEMA_NAMES.map((s) => s.toLowerCase()));
 
 /** 질문이 표를 스키마까지 적어 지목하면(「bench.admin_secrets 테이블」) 생성 SQL 도 그 이름을 쓰게 맞춘다. 7B 는 같은 프롬프트에서도
  * Ollama 상태에 따라 스키마 카드의 companyx 를 붙여 「companyx.admin_secrets」로 쓰기도 했고(2026-10-08, 같은 질문 3회씩 bench 와
  * companyx 로 갈림), 그러면 TC-150 이 보는 권한 거부(42501) 대신 없는 표 오류가 났다. 질문에 적힌 이름이 사용자가 고른 표다.
  * 다른 스키마를 붙인 같은 표 이름, FROM 과 JOIN 바로 뒤의 스키마 없는 같은 표 이름을 그 이름으로 바꾼다. 문자열 값은 건드리지 않고,
- * 같은 표가 질문에 두 스키마로 적혔으면 바꾸지 않는다. 읽지 못하는 SQL 은 그대로 돌려준다. */
+ * 같은 표가 질문에 두 이름 아래 적혔으면 바꾸지 않는다. 읽지 못하는 SQL 은 그대로 돌려준다.
+ * 「X.Y」의 X 가 이 서버의 스키마 이름(프로파일이 선언한 SCHEMA_NAMES)일 때만 스키마.표로 읽는다. 「employees.salary 평균은 얼마야?」의
+ * employees.salary 는 표.열인데 스키마.표로 읽어 맞는 SQL 의 `AVG(e.salary) … employees e` 를 `AVG(employees.salary)` 로 바꿨다(별칭을
+ * 단 표를 표 이름으로 가리키면 PostgreSQL 이 거부한다). */
 export function alignQualifiedTables(sql: string, question: string): string {
-  const wanted = new Map<string, string>();
+  const named = new Map<string, Map<string, string>>(); // 표 → (적힌 이름의 소문자 → 적힌 그대로)
   for (const m of question.matchAll(QUALIFIED_NAME)) {
     const table = m[2].toLowerCase();
-    const prev = wanted.get(table);
-    wanted.set(table, prev !== undefined && prev.toLowerCase() !== m[1].toLowerCase() ? "" : m[1]);
+    if (!named.has(table)) named.set(table, new Map());
+    named.get(table)!.set(m[1].toLowerCase(), m[1]);
   }
-  if (![...wanted.values()].some(Boolean)) return sql;
+  const wanted = new Map<string, string>();
+  for (const [table, under] of named) {
+    const [only] = under.size === 1 ? [...under] : [];
+    if (only && KNOWN_SCHEMAS.has(only[0])) wanted.set(table, only[1]);
+  }
+  if (!wanted.size) return sql;
   const toks = tokenizeSql(sql);
   if (!toks) return sql;
   const edits: { at: number; end: number; text: string }[] = [];
@@ -652,6 +665,8 @@ const PART_OF_YEAR = /\d\s*분기|[일이삼사]\s*분기|사분기|분기별|Q[
  * 합계」, 「2025년 전체 매출」은 맞게 한 해를 골랐다. 사유는 한 해 전체로 고르라고 말한다(수리 안내가 된다). 질문의 연도는
  * 숫자 연도와 상대 연도(작년, 지난해, 재작년, 내년, 서울 기준)를 함께 본다. */
 export function checkPeriod(sql: string, question: string, now: Date = new Date()): string[] {
+  const month = checkMonthPeriod(sql, question, now);
+  if (month.length) return month;
   if (PART_OF_YEAR.test(question)) return checkHalfYear(sql, question, now);
   const years = new Set<number>([...question.matchAll(/(\d{4})\s*년/g)].map((m) => Number(m[1])));
   const thisYear = seoulYear(now);
@@ -669,6 +684,52 @@ export function checkPeriod(sql: string, question: string, now: Date = new Date(
   return reasons;
 }
 
+/** 질문이 연도와 함께 말한 달: 「2024년 3월」, 「24년 3월」, 「작년 3월」. 뒤에 날이 오면(「3월 15일」) 하루를 묻는 것이라 뺀다. */
+const YEAR_MONTH_RE =
+  /(?:(?<![\d.])(\d{4}|\d{2})\s*년\s*도?|(재작년|작년|지난해|내년|올해|금년)\s*도?)\s*(?:의\s*)?(1[0-2]|0?[1-9])\s*월(?!\s*\d{1,2}\s*일)/g;
+
+function askedMonths(question: string, now: Date): { year: number; month: number }[] {
+  const thisYear = seoulYear(now);
+  const out = new Map<string, { year: number; month: number }>();
+  const add = (year: number, month: number) => out.set(`${year}-${month}`, { year, month });
+  for (const m of question.matchAll(YEAR_MONTH_RE)) {
+    const year = m[1] ? (m[1].length === 2 ? 2000 + Number(m[1]) : Number(m[1])) : thisYear + (RELATIVE_YEAR[m[2]] ?? 0);
+    add(year, Number(m[3]));
+  }
+  for (const m of question.matchAll(DOT_MONTH_RE)) add(Number(m[1]), Number(m[2]));
+  return [...out.values()];
+}
+
+/** ⑤-3 질문이 한 달(「2024년 3월」, 「24년 3월」, 「2024.3」)을 묻는데 생성 SQL 이 그 달의 날짜 없이 분기 값(quarter =, LIKE, IN)으로
+ * 고르면 기간이 다르다. 「24년 3월 매출은 얼마야?」에 quarter = '2024-Q1' 로 1분기 합 31,960 을 3월 매출이라고 답했다(3월은 11,634.
+ * 랜덤 테스트 사전 점검 4차 P1, SF11 3/3). 「2024년 3월」은 '2024-Q2'(3월이 든 분기도 아님), 「2024.3」은 '2024-Q3' 이었다. 질문이
+ * 분기나 반기도 말하면(「3월이 든 분기」) 보지 않고, SQL 이 그 달의 날짜('2024-03-…')나 달 단위 식(EXTRACT(MONTH), date_trunc('month'))을
+ * 쓰면 보지 않는다. 사유는 그 달의 sale_date 범위를 적는다(수리 안내가 된다). */
+function checkMonthPeriod(sql: string, question: string, now: Date): string[] {
+  if (/분기|반기|Q[1-4]/i.test(question)) return [];
+  const months = askedMonths(question, now);
+  if (!months.length || maskSql(sql) === null || monthGrouped(sql)) return [];
+  const quarter = new RegExp(
+    `(?<![A-Za-z0-9_$])((?:[A-Za-z_][A-Za-z0-9_]*\\.)?)quarter(?:\\s*(?:=|i?like)\\s*'[^']*'|\\s+in\\s*\\([^()]*\\))`,
+    "gi",
+  );
+  const conds = [...sql.matchAll(quarter)];
+  if (!conds.length) return [];
+  const picked = [...new Set(conds.map((c) => c[0].replace(/\s+/g, " ")))].join(", ");
+  const date = `${conds[0][1]}sale_date`;
+  const reasons: string[] = [];
+  for (const { year, month } of months) {
+    const mm = String(month).padStart(2, "0");
+    if (sql.includes(`'${year}-${mm}`)) continue; // 그 달의 날짜로도 고른다
+    const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    reasons.push(
+      `${PERIOD_REASON}${picked} 은 분기를 고른다. 질문의 ${year}년 ${month}월은 한 분기가 아니라 한 달이다. ` +
+        `분기(quarter)가 아니라 그 달의 날짜 범위(${date} >= '${year}-${mm}-01' AND ${date} < '${next}')로 고른다`,
+    );
+  }
+  return reasons;
+}
+
 /** 반기의 분기. */
 const HALF: Readonly<Record<string, { name: string; quarters: readonly number[] }>> = {
   상: { name: "상반기", quarters: [1, 2] },
@@ -676,12 +737,41 @@ const HALF: Readonly<Record<string, { name: string; quarters: readonly number[] 
 };
 const HALF_RE = /(?:(\d{4})\s*년\s*도?|(재작년|작년|지난해|내년|올해|금년)\s*도?)\s*(?:의\s*)?(상|하)반기/g;
 const QUARTER_OR_MONTH = /\d\s*분기|[일이삼사]\s*분기|사분기|Q[1-4]|\d{1,2}\s*월/i;
+/** 질문의 연도 낱말. 바로 뒤에 반기가 오지 않으면 그해를 반기로 좁히지 않고 묻는다(「2024년 하반기 매출은 2024년 매출의 몇 %야?」). */
+const YEAR_WORD = /(\d{4})\s*년(?:\s*도)?|(재작년|작년|지난해|내년|올해|금년)(?:\s*도)?/g;
+/** 연도를 붙이지 않고 한 해 전체를 묻는 말: 연간, 한 해, 1년, 일 년, 연 매출, 그해, 전체. 「하반기 전체」의 전체는 반기 전체라 뺀다. */
+const WHOLE_YEAR_WORD =
+  /연간|한\s*해|(?<![\d.,])1\s*년(?!\s*(?:전|후|뒤|만))|(?<![가-힣\d])일\s*년|(?<![가-힣])연\s*(?:매출|실적|합계|총)|그\s*해(?![가-힣])|그해|(?<!반기\s*(?:의\s*)?)전체/;
+/** 날짜 열의 범위 조건이나 달 추출. 분기 값이 반기보다 넓어도 이것이 행을 더 좁힐 수 있다. */
+const DATE_NARROWING = /(?<![A-Za-z0-9_$])(?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*(?:_date|_at)\s*(?:<|>|between\b)|\bextract\s*\(\s*month\b|\bdate_part\s*\(\s*'month'/i;
+
+/** 가린 문장에서 CASE … END 와 FILTER ( … ) 의 범위. 그 안의 조건은 행을 고르지 않고 식 안에서 값을 가른다. */
+function exprSpans(masked: string): [number, number][] {
+  const spans: [number, number][] = [];
+  const open: number[] = [];
+  for (const m of masked.matchAll(/\b(case|end)\b/gi)) {
+    if (m[1].toLowerCase() === "case") open.push(m.index ?? 0);
+    else if (open.length) spans.push([open.pop()!, (m.index ?? 0) + 3]);
+  }
+  const d = depths(masked);
+  for (const m of d ? masked.matchAll(/\bfilter\s*\(/gi) : []) {
+    const at = (m.index ?? 0) + m[0].length - 1;
+    let end = at + 1;
+    while (end < masked.length && !(masked[end] === ")" && d![end] === d![at])) end++;
+    spans.push([at, end]);
+  }
+  return spans;
+}
 
 /** ⑤-2 질문이 반기(「2024년 하반기」, 「올해 상반기」)를 묻는데 생성 SQL 이 그해의 분기를 값으로 고르면서 그 반기의 두 분기와 다르게
  * 고르면 기간이 다르다. 「2024년 하반기 총 매출액은 얼마야?」에 7B 가 quarter = '2024-Q4' 만 골라 42,404 를 답했다(3분기 22,730 을
  * 뺌, 하반기는 65,134. 랜덤 테스트 사전 점검 3차 T01, 3/3). 분기 값은 =, LIKE, IN 과 그해 전체(LIKE 'YYYY-%')로 읽고, 분기를
  * 크기로 비교하면(>=, BETWEEN) 판정하지 않는다. 질문이 분기나 월을 따로 말하거나(「하반기 중 4분기」), 연도 없는 반기가 있거나
- * (「상반기와 하반기」), SQL 이 날짜 범위로 고르면 보지 않는다. */
+ * (「상반기와 하반기」), SQL 이 날짜 범위로 고르면 보지 않는다.
+ * 그해 전체도 함께 묻거나(「2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?」, 「… 2024년 전체 매출을 같이 보여줘」) 반기를
+ * WHERE 가 아니라 식 안(CASE, FILTER)에서 고르면 보지 않는다. 그 SQL 은 WHERE 로 한 해를 고르고 반기는 식 안에서 따로 셌는데
+ * 두 조건을 합쳐 「1, 2, 3, 4분기만 고른다」며 거부했다. 그해 전체(LIKE 'YYYY-%')와 그 안의 분기를 함께 고르면 분기 값으로 본다.
+ * 사유는 고른 분기가 반기를 모두 담으면 반기 밖의 분기만 적는다(반기를 담은 분기 묶음을 「만 고른다」고 적지 않는다). */
 function checkHalfYear(sql: string, question: string, now: Date): string[] {
   if (QUARTER_OR_MONTH.test(question)) return [];
   const thisYear = seoulYear(now);
@@ -695,32 +785,57 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
     for (const q of HALF[m[3]].quarters) want.get(year)!.add(q);
     halves.set(year, [...(halves.get(year) ?? []), HALF[m[3]].name]);
   }
-  if (!want.size) return [];
+  if (!want.size || WHOLE_YEAR_WORD.test(question)) return [];
+  // 반기가 붙지 않은 연도 낱말: 그해 전체를 묻는다.
+  const whole = new Set<number>();
+  for (const m of question.matchAll(YEAR_WORD)) {
+    if (/^\s*(?:의\s*)?[상하]반기/.test(question.slice((m.index ?? 0) + m[0].length))) continue;
+    whole.add(m[1] ? Number(m[1]) : thisYear + (RELATIVE_YEAR[m[2]] ?? 0));
+  }
+  const masked = maskSql(sql);
+  if (masked === null) return [];
   const col = `(?<![A-Za-z0-9_$])(?:[A-Za-z_][A-Za-z0-9_]*\\.)?quarter`;
   if (new RegExp(`${col}\\s*(?:<|>|between\\b|i?like\\s*'(?!\\d{4}-(?:Q[1-4]|%)')[^']*')`, "i").test(sql)) return [];
-  const got = new Map<number, { quarters: Set<number>; conds: string[] }>();
-  const pick = (cond: string, year: number, quarters: number[]) => {
-    if (!got.has(year)) got.set(year, { quarters: new Set(), conds: [] });
+  const spans = exprSpans(masked);
+  const inExpr = (at: number) => spans.some(([s, e]) => at >= s && at < e);
+  const inside = new Set<number>();
+  const got = new Map<number, { quarters: Set<number>; wide: boolean; conds: string[] }>();
+  const pick = (at: number, cond: string, year: number, quarters: number[] | null) => {
+    if (inExpr(at)) {
+      inside.add(year);
+      return;
+    }
+    if (!got.has(year)) got.set(year, { quarters: new Set(), wide: false, conds: [] });
     const g = got.get(year)!;
-    for (const q of quarters) g.quarters.add(q);
+    if (quarters) for (const q of quarters) g.quarters.add(q);
+    else g.wide = true;
     g.conds.push(cond.replace(/\s+/g, " "));
   };
   for (const m of sql.matchAll(new RegExp(`${col}\\s*(?:=|i?like)\\s*'(\\d{4})-(?:Q([1-4])|%)'`, "gi"))) {
-    pick(m[0], Number(m[1]), m[2] ? [Number(m[2])] : [1, 2, 3, 4]);
+    pick(m.index ?? 0, m[0], Number(m[1]), m[2] ? [Number(m[2])] : null);
   }
   for (const m of sql.matchAll(new RegExp(`${col}\\s+in\\s*\\(([^()]*)\\)`, "gi"))) {
-    for (const v of m[1].matchAll(/'(\d{4})-Q([1-4])'/g)) pick(m[0], Number(v[1]), [Number(v[2])]);
+    for (const v of m[1].matchAll(/'(\d{4})-Q([1-4])'/g)) pick(m.index ?? 0, m[0], Number(v[1]), [Number(v[2])]);
   }
   const reasons: string[] = [];
   for (const [year, quarters] of want) {
     const g = got.get(year);
+    if (!g || whole.has(year) || inside.has(year)) continue;
+    // 그해 전체(LIKE 'YYYY-%')와 그 안의 분기를 함께 고르면 행은 그 분기들이다.
+    const picked = g.quarters.size ? [...g.quarters].sort() : g.wide ? [1, 2, 3, 4] : [];
     const asked = [...quarters].sort();
-    const picked = [...(g?.quarters ?? [])].sort();
-    if (!g || picked.join() === asked.join()) continue;
+    const missing = asked.filter((q) => !picked.includes(q));
+    const extra = picked.filter((q) => !quarters.has(q));
+    if (!missing.length && (!extra.length || DATE_NARROWING.test(sql))) continue;
     const list = asked.map((q) => `'${year}-Q${q}'`).join(", ");
+    const conds = [...new Set(g.conds)].join(", ");
+    const name = halves.get(year)!.join(", ");
     reasons.push(
-      `${PERIOD_REASON}${[...new Set(g.conds)].join(", ")} 은 ${year}년 ${picked.join(", ")}분기만 고른다. ` +
-        `질문의 ${year}년 ${halves.get(year)!.join(", ")}는 ${asked.join(", ")}분기다. quarter IN (${list}) 이나 sale_date 범위로 그 분기를 모두 고른다`,
+      missing.length
+        ? `${PERIOD_REASON}${conds} 은 ${year}년 ${picked.join(", ")}분기만 고른다. ` +
+            `질문의 ${year}년 ${name}는 ${asked.join(", ")}분기다. quarter IN (${list}) 이나 sale_date 범위로 그 분기를 모두 고른다`
+        : `${PERIOD_REASON}${conds} 은 ${year}년 ${name}(${asked.join(", ")}분기) 밖의 ${extra.join(", ")}분기도 고른다. ` +
+            `질문의 ${year}년 ${name}는 ${asked.join(", ")}분기다. quarter IN (${list}) 이나 sale_date 범위로 그 분기만 고른다`,
     );
   }
   return reasons;
@@ -752,13 +867,38 @@ export function enumColumns(schema: string): TableEnums {
   return out;
 }
 
-/** ⑥ 값 어휘가 정해진 열(상태, 분류, 우선순위, 규모, 계약 유형)을 어휘에 없는 문자열과 비교하면(=, <>, !=, IN, NOT IN) 그 조건은
- * 행을 하나도 고르지 않는다(또는 모두 고른다). 「현재 진행 중인 계약 수는 몇 개야?」에 7B 가 프로젝트와 티켓의 값 'in_progress' 를
- * 계약에 써 「0개」를 답했다(계약 상태는 active, completed, cancelled 뿐. 랜덤 테스트 사전 점검 3차 V13, 3/3). 사유는 그 열에 쓸 수
- * 있는 값을 말한다(수리 안내가 된다). 열의 표는 별칭이나 표 이름으로 정하고, 표를 붙이지 않은 열은 문장에 나온 표 가운데 그 열이
- * 있는 표로 정한다(둘 이상이면 어느 표의 값이든 있으면 통과). 어느 표인지 모르는 열, 식(LOWER(status)), 확실히 읽지 못하는 문장,
- * 값 어휘를 모르는 스키마는 판정하지 않는다. */
+/** ⑥ 값 어휘가 정해진 열(상태, 분류, 우선순위, 규모, 계약 유형)을 어휘에 없는 문자열과 같다고 비교하면(=, IN) 그 조건은 행을
+ * 하나도 고르지 않는다. 「현재 진행 중인 계약 수는 몇 개야?」에 7B 가 프로젝트와 티켓의 값 'in_progress' 를 계약에 써 「0개」를
+ * 답했다(계약 상태는 active, completed, cancelled 뿐. 랜덤 테스트 사전 점검 3차 V13, 3/3). 사유는 그 열에 쓸 수 있는 값을 말한다
+ * (수리 안내가 된다). 열의 표는 별칭이나 표 이름으로 정하고, 표를 붙이지 않은 열은 문장에 나온 표 가운데 그 열이 있는 표로 정한다
+ * (둘 이상이면 어느 표의 값이든 있으면 통과). 어느 표인지 모르는 열, 식(LOWER(status)), 확실히 읽지 못하는 문장, 값 어휘를 모르는
+ * 스키마는 판정하지 않는다. 다르다는 비교(<>, !=, NOT IN)는 어휘 밖의 값이면 모든 행을 남겨 해가 없어 보지 않는다. 「취소되지 않은
+ * 프로젝트는 몇 개야?」의 status <> 'cancelled' 는 프로젝트 40개 그대로가 맞는 답인데 거부했다. */
 export function checkEnum(sql: string, enums: TableEnums): string[] {
+  const reasons: string[] = [];
+  for (const c of enumConditions(sql, enums)) {
+    const allowed = [...new Set(c.tables.flatMap((t) => enums.get(t)!.get(c.col)!))];
+    const bad = c.values.filter((v) => !allowed.includes(v));
+    if (!bad.length) continue;
+    reasons.push(
+      `${ENUM_REASON}${c.cond} 의 ${bad.map((v) => `'${v}'`).join(", ")} 은 ${c.tables.map((t) => `${t}.${c.col}`).join(", ")} 에 없는 값이다. ` +
+        `쓸 수 있는 값: ${allowed.map((v) => `'${v}'`).join(", ")}`,
+    );
+  }
+  return reasons;
+}
+
+/** 값 어휘 열에 건 같다는 조건(=, IN) 하나: 조건 원문(공백 하나로), 열, 그 열이 있을 수 있는 표, 문자열 값. */
+interface EnumCondition {
+  cond: string;
+  col: string;
+  tables: string[];
+  values: string[];
+}
+
+/** 생성 SQL 의 값 어휘 열 조건(=, IN). 표는 별칭이나 표 이름으로, 표를 붙이지 않은 열은 문장에 나온 표 가운데 그 열이 있는 표로
+ * 정한다. 어느 표인지 모르는 열, 식, 확실히 읽지 못하는 문장은 넣지 않는다. */
+function enumConditions(sql: string, enums: TableEnums): EnumCondition[] {
   if (!enums.size) return [];
   const masked = maskSql(sql);
   if (masked === null) return [];
@@ -766,30 +906,169 @@ export function checkEnum(sql: string, enums: TableEnums): string[] {
   const alias = aliasTables(masked, new Set(enums.keys()));
   const inSql = [...new Set([...alias.values()].flatMap((s) => [...s]))];
   const ref = `(?<![A-Za-z0-9_$.])((?:${IDENT}\\.){0,2}(?:${cols.join("|")}))(?![A-Za-z0-9_$])`;
-  const reasons: string[] = [];
-  const check = (m: RegExpMatchArray, lits: [number, number][]) => {
+  const out: EnumCondition[] = [];
+  const add = (m: RegExpMatchArray, lits: [number, number][]) => {
     const parts = m[1].toLowerCase().split(".");
     const col = parts[parts.length - 1];
     const owner = parts.length > 1 ? alias.get(parts[parts.length - 2]) : new Set(inSql);
     const tables = [...(owner ?? [])].filter((t) => enums.get(t)?.has(col));
     if (!tables.length) return;
-    const allowed = [...new Set(tables.flatMap((t) => enums.get(t)!.get(col)!))];
-    const bad = lits.map(([s, e]) => sql.slice(s, e).replace(/''/g, "'")).filter((v) => !allowed.includes(v));
-    if (!bad.length) return;
     const cond = sql.slice(m.index, (m.index ?? 0) + m[0].length).replace(/\s+/g, " ");
-    reasons.push(
-      `${ENUM_REASON}${cond} 의 ${bad.map((v) => `'${v}'`).join(", ")} 은 ${tables.map((t) => `${t}.${col}`).join(", ")} 에 없는 값이다. ` +
-        `쓸 수 있는 값: ${allowed.map((v) => `'${v}'`).join(", ")}`,
-    );
+    out.push({ cond, col, tables, values: lits.map(([s, e]) => sql.slice(s, e).replace(/''/g, "'")) });
   };
-  for (const m of masked.matchAll(new RegExp(`${ref}\\s*(?:=|<>|!=)\\s*'( *)'`, "gi"))) {
+  for (const m of masked.matchAll(new RegExp(`${ref}\\s*=\\s*'( *)'`, "gi"))) {
     const end = (m.index ?? 0) + m[0].length - 1;
-    check(m, [[end - m[2].length, end]]);
+    add(m, [[end - m[2].length, end]]);
   }
-  for (const m of masked.matchAll(new RegExp(`${ref}\\s+(?:not\\s+)?in\\s*\\(\\s*'( *)'(?:\\s*,\\s*'( *)')*\\s*\\)`, "gi"))) {
+  for (const m of masked.matchAll(new RegExp(`${ref}\\s+in\\s*\\(\\s*'( *)'(?:\\s*,\\s*'( *)')*\\s*\\)`, "gi"))) {
     const open = (m.index ?? 0) + m[0].indexOf("(");
     const list = masked.slice(open + 1, (m.index ?? 0) + m[0].length - 1);
-    check(m, [...list.matchAll(/'( *)'/g)].map((v) => [open + 2 + (v.index ?? 0), open + 2 + (v.index ?? 0) + v[1].length]));
+    add(m, [...list.matchAll(/'( *)'/g)].map((v) => [open + 2 + (v.index ?? 0), open + 2 + (v.index ?? 0) + v[1].length]));
+  }
+  return out;
+}
+
+/** 값 어휘마다 그 값을 가리키는 질문 낱말(정규식 조각, 카드의 대응과 랜덤 테스트 실측 문장). 열 이름이나 그 열 전체를 가리키는 낱말은
+ * "" 에 둔다. 영문 값 자체(「active인 것만」, 「Critical 우선순위」)는 따로 본다. 스키마마다 둔다(값 어휘 카드와 같은 방식). */
+const ENUM_WORDS = new Map<string, Readonly<Record<string, Readonly<Record<string, string>>>>>([
+  [
+    "companyx",
+    {
+      "clients.company_size": {
+        "": "규모|크기",
+        startup: "스타트업|신생|소규모|소기업|작은",
+        mid: "중견|중소|중형|중규모|중간\\s*규모|미드",
+        enterprise: "대기업|대형|대규모|엔터프라이즈|큰",
+      },
+      "products.category": { "": "분류|카테고리|종류|부문|분야|솔루션", cloud: "클라우드", security: "보안", data: "데이터", consulting: "컨설팅" },
+      "sales.category": { "": "분류|카테고리|종류|부문|분야|솔루션", cloud: "클라우드", security: "보안", data: "데이터", consulting: "컨설팅" },
+      "products.status": { "": "상태|현황|중인|현재|단종|판매\\s*중지|출시\\s*전", active: "활성|판매|출시|정식|사용|운영|서비스", beta: "베타|시범|테스트|시험" },
+      "contracts.contract_type": {
+        "": "유형|종류|형태|방식|타입",
+        subscription: "구독",
+        project: "프로젝트|구축|일회",
+        maintenance: "유지\\s*보수|유지\\s*관리|정비|보수",
+      },
+      "contracts.status": {
+        "": "상태|현황|중인|현재|보류|대기",
+        active: "활성|진행|유효|살아|유지\\s*중|운영\\s*중|계약\\s*중",
+        completed: "완료|종료|끝|만료|마친|마감|종결",
+        cancelled: "취소|해지|해약|철회|파기",
+      },
+      "projects.status": {
+        "": "상태|현황|중인|현재",
+        planning: "계획|기획|준비|예정|착수\\s*전",
+        in_progress: "진행|수행|작업\\s*중|하고\\s*있",
+        completed: "완료|종료|끝|마친|마무리|마감",
+        on_hold: "보류|중단|중지|멈|대기|홀드|정지",
+      },
+      "support_tickets.priority": {
+        "": "우선\\s*순위|중요도|긴급도",
+        critical: "긴급|치명|심각|크리티컬|최우선",
+        high: "높|하이|중요",
+        medium: "중간|보통|미디엄",
+        low: "낮|로우",
+      },
+      "support_tickets.status": {
+        "": "상태|현황|중인|현재|미해결|미처리|해결\\s*안|해결되지|처리\\s*안|처리되지|남은|남아",
+        open: "접수|열린|열려|오픈|신규|대기",
+        in_progress: "처리\\s*중|진행|작업\\s*중|대응\\s*중",
+        resolved: "해결|처리\\s*완료|처리된|처리됨",
+        closed: "종결|종료|닫힌|닫혀|완료|마감",
+      },
+    },
+  ],
+]);
+
+/** 질문이 그 값을 말하는가: 영문 값(밑줄은 띄어 써도) 또는 그 값의 우리말 낱말. value 가 "" 면 그 열 전체를 가리키는 낱말. */
+function saysValue(question: string, words: Readonly<Record<string, string>> | undefined, value: string): boolean {
+  const ko = words?.[value];
+  if (ko && new RegExp(ko, "i").test(question)) return true;
+  return value !== "" && new RegExp(`(?<![A-Za-z])${value.replace(/_/g, "[_ ]?")}(?![A-Za-z])`, "i").test(question);
+}
+
+/** 질문에 없는 조건 사유의 머리말. untrustedAnswer 가 이것으로 사유를 가른다. */
+const UNASKED_REASON = "질문에 없는 조건 ";
+
+/** ⑥-2 값 어휘 열에 건 같다는 조건(=, IN)인데 질문에 그 열을 가리키는 말(값, 값의 우리말, 열의 우리말)이 하나도 없으면 질문이
+ * 묻지 않은 조건이다. 「서울 고갱사는 몇 곳이야?」에 7B 가 company_size = 'mid' 를 붙여 1곳이라고 답했다(서울 고객사는 4곳. 랜덤
+ * 테스트 사전 점검 4차 P13, SF03 6회 모두 같은 조건). 사유는 그 조건을 빼라고 말한다(수리 안내가 된다). 열 전체를 보므로 부정과
+ * 여집합(「아직 해결되지 않은 건」의 status IN ('open', 'in_progress'))도 말한 것으로 친다. 같은 이름의 열(상태는 계약, 프로젝트,
+ * 제품, 티켓)의 낱말을 함께 보고, 어휘 밖의 값이 든 조건은 checkEnum 이 맡는다(「취소된 프로젝트 목록」의 status = 'cancelled' 는
+ * 질문이 말한 조건이다. 빼라고 하면 수리가 프로젝트 전체를 취소 목록처럼 낸다). 낱말을 두지 않은 스키마는 보지 않는다. */
+export function checkUnaskedEnum(sql: string, question: string, enums: TableEnums, schema: string): string[] {
+  const words = ENUM_WORDS.get(schema);
+  if (!words) return [];
+  const reasons: string[] = [];
+  for (const c of enumConditions(sql, enums)) {
+    const vocab = [...new Set([...enums.values()].flatMap((cols) => cols.get(c.col) ?? []))];
+    if (c.values.some((v) => !c.tables.some((t) => enums.get(t)?.get(c.col)?.includes(v)))) continue;
+    const said = Object.entries(words)
+      .filter(([tc]) => tc.endsWith(`.${c.col}`))
+      .some(([, w]) => Object.keys(w).some((v) => saysValue(question, w, v)));
+    if (said || vocab.some((v) => saysValue(question, undefined, v))) continue;
+    reasons.push(
+      `${UNASKED_REASON}${c.cond} 은 질문이 묻지 않은 조건이다(질문에 ${c.tables.map((t) => `${t}.${c.col}`).join(", ")} 을 가리키는 말이 없다). ` +
+        "그 조건을 빼고 질문이 말한 조건만 건다",
+    );
+  }
+  return reasons;
+}
+
+/** 부정과 여집합의 말. 이런 질문은 고친 값이 질문 낱말과 다를 수 있다(「완료되지 않은 프로젝트」의 IN ('planning', 'in_progress', …)). */
+const NEGATED = /지\s*않|않은|아닌|안\s*(?:된|한|끝난)|없는|제외|빼고|말고|이외|외의/;
+
+/** 값 어휘 사유로 거부한 SQL 을 고친 SQL 이 그 열의 값을 질문이 말하지 않은 값으로 바꿨으면 그 사유. 비면 받는다.
+ * 「단종된 제품 목록을 알려줘」는 products.status 에 없는 'cancelled' 를 거부한 뒤 수리가 'active' 로 바꿔 활성 제품 10개를 단종
+ * 목록처럼 붙였다(랜덤 테스트 사전 점검 4차 P12, KF07 3/3. 제품 상태는 active, beta 뿐). 이때는 수리를 받지 않고 처음 사유(그 열의
+ * 값 목록)로 답한다. 「현재 진행 중인 계약 수」의 'in_progress' → 'active' 는 질문의 「진행 중」이 active 를 가리켜 받는다. 부정이
+ * 든 질문, 낱말을 두지 않은 스키마는 보지 않는다. */
+export function repairTurnsValue(firstReasons: string[], repaired: string, question: string, enums: TableEnums, schema: string): string[] {
+  const words = ENUM_WORDS.get(schema);
+  if (!words || NEGATED.test(question)) return [];
+  const refused = new Set(
+    firstReasons.flatMap((r) => /^값 조건 .+? 은 (.+?) 에 없는 값이다\. 쓸 수 있는 값: /.exec(r)?.[1].split(", ") ?? []),
+  );
+  if (!refused.size) return [];
+  const reasons: string[] = [];
+  for (const c of enumConditions(repaired, enums)) {
+    const cols = c.tables.map((t) => `${t}.${c.col}`).filter((tc) => refused.has(tc));
+    if (!cols.length) continue;
+    const unsaid = c.values.filter((v) => !cols.some((tc) => saysValue(question, words[tc], v)));
+    if (!unsaid.length) continue;
+    reasons.push(
+      `${ENUM_REASON}${c.cond} 은 수리하며 바꾼 값(${unsaid.map((v) => `'${v}'`).join(", ")})이 질문이 말한 상태가 아니다. ` +
+        "질문의 상태가 그 열의 어휘에 없으면 데이터에 없는 상태를 물은 것이다",
+    );
+  }
+  return reasons;
+}
+
+/** 문법 사유의 머리말. */
+const SYNTAX_REASON = "문법 ";
+
+/** ⑨ PostgreSQL 이 읽지 못하는 생성 SQL 의 꼴. MySQL 의 `LIMIT a, b` 와 값 대신 쓴 자리표시 `?` 는 실행하면 42601 이라 「조회 자체가
+ * 실패했습니다」로 답했다(랜덤 테스트 사전 점검 4차 P4: 「2025년 분기 중 매출이 가장 높은 분기와 가장 낮은 분기는?」의 LIMIT 1, 1,
+ * 「그 고객사 매출은 얼마야?」의 client_id = ?, 「그 직원 연봉은 얼마야?」의 e.id = ?). 실행 전에 사유로 걸어 한 번 고치게 한다.
+ * 문자열 뒤의 ?(jsonb 의 `? 'key'`), ?|, ?& 는 연산자라 보지 않는다. */
+export function checkSyntax(sql: string): string[] {
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const reasons: string[] = [];
+  for (const m of masked.matchAll(/\blimit\s+(\d+)\s*,\s*(\d+)/gi)) {
+    const text = sql.slice(m.index, (m.index ?? 0) + m[0].length).replace(/\s+/g, " ");
+    reasons.push(`${SYNTAX_REASON}${text} 은 MySQL 꼴이라 PostgreSQL 이 읽지 못한다(42601). PostgreSQL 에서는 LIMIT ${m[2]} OFFSET ${m[1]} 로 쓴다`);
+  }
+  const holes = [...masked.matchAll(/\?(?![|&?])(?!\s*')/g)].map((m) => {
+    const at = m.index ?? 0;
+    const left = /((?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*\s*(?:<>|!=|<=|>=|=|<|>|\bin\s*\(|\blike)\s*)$/i.exec(masked.slice(0, at))?.[1];
+    return left ? `${sql.slice(at - left.length, at).replace(/\s+/g, " ")}?` : "?";
+  });
+  if (holes.length) {
+    reasons.push(
+      `${SYNTAX_REASON}자리표시 ?(${[...new Set(holes)].join(", ")}) 는 값이 아니다(PostgreSQL 이 읽지 못한다, 42601). 생성 모델이 그 값을 몰랐다는 뜻이다. ` +
+        "질문에 그 값이 있으면 그 값을 쓰고, 없으면 그 조건을 뺀다",
+    );
   }
   return reasons;
 }
@@ -855,18 +1134,86 @@ const UNIT_REASON = "묶음 단위 ";
 const MONTH_RANK =
   /(?:가장|제일)\s*(?:많|적|높|낮)[가-힣]*\s+(?:[가-힣]+\s+)?(?:달|월)(?=$|[^가-힣]|[은는이가을를에로인])|(?:몇\s*월|어느\s*(?:달|월)|무슨\s*달)[^?]*?(?:가장|제일)\s*(?:많|적|높|낮)/;
 const MONTH_GROUPING = /date_trunc\s*\(\s*'month'|to_char\s*\([^)]*'[^']*(?:MM|Mon)[^']*'|extract\s*\(\s*month\b|date_part\s*\(\s*'month'/i;
+/** 날짜를 글자로 바꿔 연월(앞 7자)이나 월(6번째부터 2자)을 잘라 묶는 꼴: LEFT(sale_date::text, 7), SUBSTRING(sale_date::text FROM 1
+ * FOR 7), SUBSTR(CAST(sale_date AS text), 6, 2). 자르는 값에 날짜 열(…_date, …_at)이 있어야 한다. */
+const MONTH_SLICE =
+  /\b(?:left\s*\(((?:[^()]|\([^()]*\))*?),\s*7\s*\)|substr(?:ing)?\s*\(((?:[^()]|\([^()]*\))*?)(?:\s+from\s+1\s+for\s+7|\s*,\s*1\s*,\s*7|\s+from\s+6\s+for\s+2|\s*,\s*6\s*,\s*2)\s*\))/gi;
+/** 한 건의 값을 견주는 질문: 「어느 달에 계약한 건이 금액이 가장 높아?」. 견주는 값이 그 건(계약, 직원 …)의 금액, 연봉, 예산이라 답은
+ * 그 한 건의 달이다(달마다 모은 값이 아니다). */
+const SINGLE_RECORD =
+  /(?:(?<![가-힣])건|것|계약|직원|사원|티켓|프로젝트|고객사|거래|주문)\s*(?:이|가|의|은|는|중에서|중에|중|가운데)\s+(?:금액|연봉|급여|월급|예산|가격|이용료|단가)\s*(?:이|가|은|는)?\s*(?:가장|제일)/;
 
-/** ⑧-1 달마다 모은 값을 견주는 질문인데 생성 SQL 이 달로 묶지 않으면(date_trunc('month'), to_char(…, 'YYYY-MM'), EXTRACT(MONTH)
- * 가 없음) 답이 달이 아니다. 「2024년에 매출이 가장 낮았던 달은 언제야?」에 매출 한 건을 금액 순으로 골라 그 건의 분기를 「2분기」라고
- * 답했다(월 합계 최저는 2024년 9월 3,860. 랜덤 테스트 사전 점검 3차 A14, 3/3). 「가장 큰 계약이 체결된 달」처럼 한 건을 고르는
- * 질문은 보지 않는다. */
+function monthGrouped(sql: string): boolean {
+  if (MONTH_GROUPING.test(sql)) return true;
+  return [...sql.matchAll(MONTH_SLICE)].some((m) => /[A-Za-z0-9](?:_date|_at)\b/i.test(m[1] ?? m[2] ?? ""));
+}
+
+/** ⑧-1 달마다 모은 값을 견주는 질문인데 생성 SQL 이 달로 묶지 않으면(date_trunc('month'), to_char(…, 'YYYY-MM'), EXTRACT(MONTH),
+ * LEFT(날짜::text, 7), SUBSTRING(날짜::text …) 이 없음) 답이 달이 아니다. 「2024년에 매출이 가장 낮았던 달은 언제야?」에 매출 한 건을
+ * 금액 순으로 골라 그 건의 분기를 「2분기」라고 답했다(월 합계 최저는 2024년 9월 3,860. 랜덤 테스트 사전 점검 3차 A14, 3/3).
+ * 「가장 큰 계약이 체결된 달」, 「어느 달에 계약한 건이 금액이 가장 높아?」처럼 한 건을 고르는 질문은 보지 않는다. 날짜를 글자로
+ * 잘라 묶은 `GROUP BY LEFT(sale_date::text, 7)` 과 한 건 질문의 `ORDER BY amount DESC LIMIT 1` 을 거부했었다. */
 export function checkMonthUnit(sql: string, question: string): string[] {
-  if (!MONTH_RANK.test(question) || MONTH_GROUPING.test(sql)) return [];
+  if (!MONTH_RANK.test(question) || SINGLE_RECORD.test(question) || monthGrouped(sql)) return [];
   // 수리 안내에 그 SQL 의 날짜 열을 그대로 적는다. 「날짜 열」로만 적었을 때 7B 는 분기(quarter)로 묶어 다시 냈다(A14 실측 1/2).
   const date = new RegExp(`(?<![A-Za-z0-9_$.])(?:${IDENT}\\.)?${IDENT}(?:_date|_at)(?![A-Za-z0-9_$])`, "i").exec(maskSql(sql) ?? "")?.[0] ?? "날짜 열";
   return [
     `${UNIT_REASON}질문은 달마다 모은 값을 견줘 달(월)을 묻는데 SQL 이 달로 묶지 않는다(한 건의 값이나 분기를 고른다). ` +
       `분기(quarter)가 아니라 date_trunc('month', ${date}) 로 GROUP BY 해 달마다 합계를 구한 뒤 견준다`,
+  ];
+}
+
+/** 묶음 낱말과 그 같은 말. 「X별 … 가장 …」에서 가장 뒤에 X 가 다시 나오면(「분기별 매출 중 가장 높은 분기」) 전체에서 1위인 X 를 묻는다. */
+const GROUP_NOUNS: Readonly<Record<string, string>> = {
+  부서: "부서|팀", 팀: "팀|부서", 고객사: "고객사|고객|회사", 고객: "고객|고객사|회사", 제품: "제품|상품", 상품: "상품|제품", 지역: "지역",
+  직급: "직급", 업종: "업종", 분기: "분기", 월: "월|달", 달: "달|월", 연도: "연도|해|년", 카테고리: "카테고리|분류", 분류: "분류|카테고리",
+  유형: "유형", 담당자: "담당자|직원", 직원: "직원|사람", 프로젝트: "프로젝트", 상태: "상태", 우선순위: "우선순위", 규모: "규모",
+};
+const PER_GROUP_TOP = new RegExp(
+  `(?<![가-힣])(${Object.keys(GROUP_NOUNS).join("|")})\\s*(?:별로?|마다)(?![가-힣])|(?:^|\\s)각\\s*(${Object.keys(GROUP_NOUNS).join("|")})(?=$|[^가-힣]|의|에서)`,
+);
+const TOP_WORD = /가장|제일|최고|최저|최대|최소|1위/;
+
+/** ⑧-3 묶음마다의 1위(「부서별 최고 연봉자는 누구야?」, 「지역별로 매출이 가장 높은 고객사」)를 묻는데 생성 SQL 의 바깥 질의가
+ * 전체에서 한 행(ORDER BY … LIMIT 1, FETCH FIRST 1 ROWS)만 고르고 PARTITION BY 나 DISTINCT ON 이 없으면 1위가 하나뿐이다.
+ * 「부서별 최고 연봉자는 누구야?」에 전체 1위 박소연 한 명을 답했다(부서마다 1위는 6명. 랜덤 테스트 사전 점검 4차 P6, AG02 3/3).
+ * 가장 뒤에 묶음 낱말이 다시 오면(「분기별 매출 중 가장 높은 분기는?」) 전체 1위를 묻는 것이라 보지 않는다. */
+export function checkGroupTop(sql: string, question: string): string[] {
+  const g = PER_GROUP_TOP.exec(question);
+  const top = g ? TOP_WORD.exec(question.slice(g.index + g[0].length)) : null;
+  if (!g || !top) return [];
+  const group = g[1] ?? g[2];
+  const after = question.slice(g.index + g[0].length + top.index + top[0].length);
+  if (new RegExp(GROUP_NOUNS[group]).test(after)) return [];
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d || /\bpartition\s+by\b|\bdistinct\s+on\b/i.test(masked)) return [];
+  const tail = /\b(?:limit\s+1|fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i.exec(masked);
+  if (!tail || d[tail.index] !== 0 || !/\border\s+by\b/i.test(masked.slice(0, tail.index))) return [];
+  return [
+    `${UNIT_REASON}질문은 ${group}마다 1위를 묻는데 SQL 이 전체에서 한 행(${sql.slice(tail.index).replace(/\s+/g, " ").trim()})만 고른다. ` +
+      `${group}마다 1위를 고른다(RANK() OVER (PARTITION BY ${group}의 열 ORDER BY …) = 1 인 행)`,
+  ];
+}
+
+const HIGH_END = /(?:가장|제일)\s*(?:높|많|크|큰|비싸|비싼|길|긴)|최고|최대|최댓값/;
+const LOW_END = /(?:가장|제일)\s*(?:낮|적|작|싸|싼|짧)|최저|최소|최솟값/;
+
+/** ⑧-4 가장 높은 쪽과 가장 낮은 쪽을 함께 묻는데(「2025년 분기 중 매출이 가장 높은 분기와 가장 낮은 분기는?」, 「계약 금액이 가장 큰
+ * 계약과 가장 작은 계약은?」) 생성 SQL 의 바깥 질의가 한쪽 끝 한 행(ORDER BY … LIMIT 1, FETCH FIRST 1 ROWS)만 고르면 다른 끝이 빠진다.
+ * 「계약 금액이 가장 큰 계약과 가장 작은 계약은?」에 가장 큰 계약(11,000)만 답하고 가장 작은 계약(480)을 빠뜨렸다(랜덤 테스트 사전 점검
+ * 4차 P6, AG08 6회 중 5회). 바깥에 UNION 이 있거나 MAX 와 MIN 처럼 한 행에 두 끝을 담는 SQL 은 바깥 LIMIT 이 없어 보지 않는다. */
+export function checkBothEnds(sql: string, question: string): string[] {
+  if (!HIGH_END.test(question) || !LOW_END.test(question)) return [];
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d) return [];
+  if ([...masked.matchAll(/\b(?:union|intersect|except)\b/gi)].some((m) => d[m.index ?? 0] === 0)) return [];
+  const tail = /\b(?:limit\s+1|fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i.exec(masked);
+  if (!tail || d[tail.index] !== 0 || !/\border\s+by\b/i.test(masked.slice(0, tail.index))) return [];
+  return [
+    `${UNIT_REASON}질문은 가장 높은 쪽과 가장 낮은 쪽을 함께 묻는데 SQL 이 한쪽 끝 한 행(${sql.slice(tail.index).replace(/\s+/g, " ").trim()})만 고른다. ` +
+      "두 끝을 함께 고른다: (SELECT … ORDER BY 값 DESC LIMIT 1) UNION ALL (SELECT … ORDER BY 값 ASC LIMIT 1)",
   ];
 }
 
@@ -994,7 +1341,8 @@ export async function declaredColumns(pool: Pool, schema: string): Promise<Table
 
 /** 생성 SQL(과 수리 SQL)을 실행하기 전의 검사 사유. 비었으면 실행해도 된다. executeWithRepair 가 부르고, 순서는 조인과 id
  * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout), 기간(checkPeriod),
- * 값 어휘(checkEnum), 비율의 정수 나눗셈(checkRatio), 집계 단위(checkMonthUnit, confirmCountUnit)다. */
+ * 값 어휘(checkEnum), 질문에 없는 값 조건(checkUnaskedEnum), 비율의 정수 나눗셈(checkRatio), 집계 단위(checkMonthUnit,
+ * checkGroupTop, checkBothEnds, confirmCountUnit), PostgreSQL 이 읽지 못하는 꼴(checkSyntax)이다. */
 export async function untrustedReasons(pool: Pool, schema: string, sql: string, question: string): Promise<string[]> {
   const fks = await declaredForeignKeys(pool, schema);
   const v = checkSql(sql, question, fks, await declaredColumns(pool, schema));
@@ -1004,9 +1352,13 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...(await confirmFanout(pool, schema, fanoutJoins(sql, fks))),
     ...checkPeriod(sql, question),
     ...checkEnum(sql, enumColumns(schema)),
+    ...checkUnaskedEnum(sql, question, enumColumns(schema), schema),
     ...checkRatio(sql, question),
     ...checkMonthUnit(sql, question),
+    ...checkGroupTop(sql, question),
+    ...checkBothEnds(sql, question),
     ...(await confirmCountUnit(pool, sql, question)),
+    ...checkSyntax(sql),
   ];
 }
 
@@ -1092,7 +1444,12 @@ export function untrustedAnswer(gate: SqlGate): string {
   const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
   const id = reasons
-    .find((r) => !["조인 조건", MONEY_REASON, FANOUT_REASON, PERIOD_REASON, ENUM_REASON, RATIO_REASON, UNIT_REASON].some((p) => r.startsWith(p)))
+    .find(
+      (r) =>
+        !["조인 조건", MONEY_REASON, FANOUT_REASON, PERIOD_REASON, ENUM_REASON, UNASKED_REASON, RATIO_REASON, UNIT_REASON, SYNTAX_REASON].some((p) =>
+          r.startsWith(p),
+        ),
+    )
     ?.match(/^(.+?) 의 번호/)?.[1];
   const money = reasons
     .find((r) => r.startsWith(MONEY_REASON))
@@ -1106,9 +1463,24 @@ export function untrustedAnswer(gate: SqlGate): string {
       `금액은 만원 단위 숫자로 바꿔 다시 물어봐 주세요. 예: 「${text}」 대신 「${want}만 원」`
     );
   }
+  const monthly = reasons.map((r) => /^기간 조건 (.+?) 은 분기를 고른다\. 질문의 (\d{4})년 (\d{1,2})월은/.exec(r)).find((x) => x !== null);
+  if (!join && !id && !fan && !money && !missing && monthly) {
+    const [, cond, year, month] = monthly;
+    const mm = month.padStart(2, "0");
+    const last = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate();
+    return (
+      "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
+      `생성된 SQL 이 ${year}년 ${month}월이 아니라 분기(${cond})로 골라서 실행하지 않았습니다. ` +
+      `날짜 범위로 함께 물어봐 주세요. 예: 「${year}-${mm}-01부터 ${year}-${mm}-${last}까지 매출 합계는?」`
+    );
+  }
   const period = reasons.find((r) => r.startsWith(PERIOD_REASON))?.match(/^기간 조건 (.+?) 은 (\d{4})년의 한 분기만/);
   const half = reasons
-    .map((r) => /^기간 조건 (.+?) 은 (\d{4})년 ([\d, ]+)분기만 고른다\. 질문의 \d{4}년 (.+?)는 ([\d, ]+)분기다/.exec(r))
+    .map(
+      (r) =>
+        /^기간 조건 (.+?) 은 (\d{4})년 ([\d, ]+)분기만 고른다\. 질문의 \d{4}년 (.+?)는 ([\d, ]+)분기다/.exec(r) ??
+        /^기간 조건 (.+?) 은 (\d{4})년 .+? 밖의 ([\d, ]+)분기도 고른다\. 질문의 \d{4}년 (.+?)는 ([\d, ]+)분기다/.exec(r),
+    )
     .find((x) => x !== null);
   if (!join && !id && !fan && !money && !missing && period) {
     const [, cond, year] = period;
@@ -1119,15 +1491,23 @@ export function untrustedAnswer(gate: SqlGate): string {
     );
   }
   if (!join && !id && !fan && !money && !missing && half) {
-    const [, cond, year, picked, name, asked] = half;
+    const [said, cond, year, picked, name, asked] = half;
+    const inHalf = picked.split(",").every((q) => asked.split(",").map((a) => a.trim()).includes(q.trim()));
+    const chose = said.includes(" 밖의 ")
+      ? `${name}(${asked}분기) 밖의 ${picked}분기(${cond})도 골라서`
+      : inHalf
+        ? `${name}(${asked}분기) 가운데 ${picked}분기(${cond})만 골라서`
+        : `${name}(${asked}분기)와 다른 ${picked}분기(${cond})를 골라서`;
     return (
       "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
-      `생성된 SQL 이 ${year}년 ${name}(${asked}분기) 가운데 ${picked}분기(${cond})만 골라서 실행하지 않았습니다. ` +
+      `생성된 SQL 이 ${year}년 ${chose} 실행하지 않았습니다. ` +
       `분기마다 나눠 물어봐 주세요. 예: 「${year}년 ${asked.split(",")[0].trim()}분기 총 매출액은 얼마야?」`
     );
   }
   const value = reasons.map((r) => /^값 조건 .+? 의 (.+?) 은 (.+?) 에 없는 값이다\. 쓸 수 있는 값: (.+)$/.exec(r)).find((x) => x !== null);
   const unit = reasons.find((r) => r.startsWith(UNIT_REASON));
+  const unasked = reasons.find((r) => r.startsWith(UNASKED_REASON))?.match(/^질문에 없는 조건 (.+?) 은 질문이 묻지 않은 조건이다/)?.[1];
+  const syntax = reasons.find((r) => r.startsWith(SYNTAX_REASON));
   // 값 어휘에 없는 값이 있으면 그것부터 말한다. 질문이 데이터에 없는 상태를 물었다는 뜻이라 다른 사유(조인 열 따위)보다
   // 묻는 사람에게 가깝다(「취소된 프로젝트 목록을 알려줘」: projects.status 에 cancelled 가 없다. 종전 답은 dept_id 조인을 먼저 말함).
   const why = value
@@ -1140,13 +1520,23 @@ export function untrustedAnswer(gate: SqlGate): string {
       ? `생성된 SQL 이 질문에 없는 번호(${id})로 한 건만 골라서 실행하지 않았습니다. `
       : fan
         ? `생성된 SQL 이 ${fan[2]} 의 값(${fan[1]})을 ${fan[3]} 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다. `
-        : reasons.some((r) => r.startsWith(RATIO_REASON))
+        : unasked
+          ? `생성된 SQL 이 질문에 없는 조건(${unasked})을 붙여서 실행하지 않았습니다. `
+          : reasons.some((r) => r.startsWith(RATIO_REASON))
             ? "생성된 SQL 이 비율을 정수끼리 나눠 소수점 아래를 버려서 실행하지 않았습니다. "
             : unit
               ? unit.includes("count(*)")
                 ? "생성된 SQL 이 수 하나 대신 그룹마다 수를 돌려줘서 실행하지 않았습니다. "
-                : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
-              : "";
+                : unit.includes("마다 1위")
+                  ? "생성된 SQL 이 묶음마다 1위가 아니라 전체 1위만 골라서 실행하지 않았습니다. "
+                  : unit.includes("가장 낮은 쪽을 함께")
+                    ? "생성된 SQL 이 가장 높은 쪽과 가장 낮은 쪽 가운데 한쪽만 골라서 실행하지 않았습니다. "
+                    : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
+              : syntax
+                ? syntax.includes("자리표시")
+                  ? "생성된 SQL 이 값 대신 자리표시(?)를 써서 실행하지 않았습니다. "
+                  : "생성된 SQL 이 PostgreSQL 이 읽지 못하는 꼴(LIMIT a, b)이라 실행하지 않았습니다. "
+                : "";
   return (
     "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
     why +
