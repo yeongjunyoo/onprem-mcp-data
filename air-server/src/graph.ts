@@ -194,9 +194,18 @@ function joinLooseNames(q: string): string {
   return out + q.slice(pos);
 }
 
+/** 「…지」 뒤에 「않」, 「못」, 「안」이 오면 부정의 동사(「완료되지 않은」, 「이끌지 않는」, 「맡지 못한」)라 이름이 아니다. 사전의 이름(「한은지」)은
+ * 그대로 둔다. 「완료되지 않은 프로젝트를 이끄는 직원 목록」에 「개체(완료되지)를 찾지 못했습니다」라고 답했다(4차 수정 실측 2026-10-08). */
+function negatedVerb(raw: string, after: string): boolean {
+  return /지$/.test(raw) && /^\s*(?:않|못|안\s)/.test(after) && !isEntityName(raw);
+}
+
 export function seedTerms(query: string): string[] {
   const out = new Set<string>();
-  for (const raw of joinSpacedIds(query).match(SEED_TOKEN) ?? []) {
+  const text = joinSpacedIds(query);
+  for (const m of text.matchAll(SEED_TOKEN)) {
+    const raw = m[0];
+    if (negatedVerb(raw, text.slice(m.index! + raw.length))) continue;
     const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
@@ -232,6 +241,7 @@ export function mentionTerms(query: string): string[] {
   const out = new Set<string>();
   toks.forEach((m, i) => {
     const raw = m[0];
+    if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
     const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
     if (entityLikeName(w) === null && !isEntityName(w)) {

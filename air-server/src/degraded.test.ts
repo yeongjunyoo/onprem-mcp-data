@@ -2133,7 +2133,10 @@ const deadEmbedder: Embedder = {
   ok((await graphLimitAnswer(memberPool, gr(), "박소연과 같은 부서에 있는 직원은 누구야?")) === undefined, "직원에서 출발하는 같은 부서(두 단계)는 종전 길");
   ok((await graphLimitAnswer(memberPool, gr(), "Client-S랑 진행한 건들 이름이 기억 안 나는데 프로젝트 쪽에 뭐가 올라가 있어?")) === undefined, "「기억 안 나는데」는 부정 조건이 아니다");
   ok((await graphLimitAnswer(memberPool, gr("MANAGES_ACCOUNT", "structured"), "영업팀 직원 중 고객사를 담당하지 않는 사람은?")) === undefined, "그래프 레인일 때만");
-  ok((await graphLimitAnswer(memberPool, gr("MANAGES_ACCOUNT", "graph", "unresolved"), "서울물산 직원 중 담당하지 않는 사람은?")) === undefined, "못 찾은 개체는 종전 사유 문장");
+  const unresolvedNamed = { ...gr("MANAGES_ACCOUNT", "graph", "unresolved"), not_found: { reason: "not_in_database", query_entity: "서울물산", candidates: [] } } as unknown as Parameters<typeof graphLimitAnswer>[1];
+  ok((await graphLimitAnswer(memberPool, unresolvedNamed, "서울물산 직원 중 담당하지 않는 사람은?")) === undefined, "못 찾은 개체는 종전 사유 문장");
+  ok((await graphLimitAnswer(memberPool, gr("LEADS", "graph", "unresolved"), "완료되지 않은 프로젝트를 이끄는 직원 목록")) === NEGATION_ANSWER, "이름 없이 탐색하지 않은 부정 조건도 그렇게 답한다");
+  ok((await graphLimitAnswer(memberPool, gr("LEADS", "graph", "unresolved"), "프로젝트를 이끄는 직원 목록")) === undefined, "부정 조건이 없으면 종전 길");
   installOntology([], []);
 }
 
@@ -2325,7 +2328,10 @@ const deadEmbedder: Embedder = {
   for (const q of ["Product-C1을 사용하지 않는 고객사는?", "완료 안 된 프로젝트를 이끄는 직원은 누구야?", "진행 중이 아닌 프로젝트를 이끄는 직원은?", "프로젝트가 없는 고객사는?"]) {
     ok((await graphLimitAnswer(pool, gr("LEADS"), q)) === NEGATION_ANSWER, `부정 조건: ${q}`);
   }
-  ok((await graphLimitAnswer(pool, gr("HEAD_IS"), "경영지원팀 팀장과 같은 부서 직원은 누구야?")) === undefined, "부서를 지목한 같은 부서는 세 단계가 아니다");
+  const deptPool = { query: async () => ({ rowCount: 2, rows: [{ name: "윤소연", has: true }, { name: "김지훈", has: false }] }) } as unknown as Pool;
+  const sameDept = await graphLimitAnswer(deptPool, gr("HEAD_IS"), "경영지원팀 팀장과 같은 부서 직원은 누구야?");
+  ok(sameDept === "경영지원팀 소속 직원은 2명입니다: 윤소연, 김지훈.", `부서를 지목한 같은 부서는 그 부서의 소속 직원 (got ${sameDept})`);
+  ok(seedTerms("완료되지 않은 프로젝트를 이끄는 직원 목록").length === 0 && mentionTerms("이끌지 않는 직원은?").length === 0, "부정의 동사(…지 않)는 개체가 아니다");
   ok((await graphLimitAnswer(pool, gr("MANAGES_ACCOUNT"), "Client-K 담당자와 같은 부서 사람은 누구야?")) === THREE_HOP_ANSWER, "고객사에서 출발하면 세 단계 그대로");
 
   // 근거 밖 이름: 표기만 다른 이름은 근거 안, 목록이 모두 근거 밖이면 빼지 않고 밝힌다.

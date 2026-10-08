@@ -937,9 +937,12 @@ export const THREE_HOP_ANSWER =
  * 담당자와 같은 부서 사람은 누구야?」에 7B 는 「알 수 없습니다」라고 답했고, 데이터에 답이 없다는 뜻으로 읽혔다(랜덤 테스트 사전 점검
  * 3차 Q11). 「부서 소속 직원 가운데 그 관계가 없는 사람」 꼴만 차집합으로 계산하고(membersWithout), 나머지는 계산하지 않는다고 답한다. */
 export async function graphLimitAnswer(pool: Pool, r: RetrieveResult, query: string): Promise<string | undefined> {
-  if (r.route !== "graph" || !r.graph || r.graph.strategy === "unresolved" || r.missing?.length) return undefined;
-  const named = entitiesIn(query);
+  if (r.route !== "graph" || !r.graph || r.not_found || r.missing?.length) return undefined;
   const neg = NEGATION.exec(query);
+  // 이름을 못 찾아 탐색하지 않은 질문(unresolved)도 부정 조건이면 그렇게 답한다. 「완료되지 않은 프로젝트를 이끄는 직원 목록」은 시드가
+  // 없어 탐색하지 않았고 7B 가 「알 수 없습니다」라고 답했다(4차 수정 실측 2026-10-08). 지목한 이름을 못 찾은 것은 위에서 not_found 로 끝난다.
+  if (r.graph.strategy === "unresolved" && !neg) return undefined;
+  const named = entitiesIn(query);
   if (neg) {
     const dept = named.find((e) => e.type === "department");
     const plan = (r.audit.route as { graph_plan?: GraphPlan | null }).graph_plan;
@@ -956,8 +959,14 @@ export async function graphLimitAnswer(pool: Pool, r: RetrieveResult, query: str
     }
     return NEGATION_ANSWER;
   }
-  // 부서를 이름으로 지목했으면(「경영지원팀 팀장과 같은 부서 직원」) 그 부서의 직원이라 세 단계가 아니다(규칙 오탐 검토 2026-10-08).
-  if (/같은\s*(?:부서|팀|소속)/.test(query) && named.length && !named.some((e) => e.type === "employee" || e.type === "department")) {
+  if (/같은\s*(?:부서|팀|소속)/.test(query) && named.length && !named.some((e) => e.type === "employee")) {
+    // 부서를 이름으로 지목했으면(「경영지원팀 팀장과 같은 부서 직원」, 「보안솔루션팀과 같은 팀 사람」) 그 부서의 소속 직원이 답이다.
+    // 세 단계 안내를 냈고(규칙 오탐 검토, 4차 P11), 7B 는 부서장 한 명만 답했다(4차 수정 실측 2026-10-08).
+    const dept = named.find((e) => e.type === "department");
+    if (dept) {
+      const m = await membersWithout(pool, dept.name, "HEAD_IS");
+      return m.ok && m.members.length ? `${dept.name} 소속 직원은 ${m.members.length}명입니다: ${m.members.join(", ")}.` : undefined;
+    }
     return THREE_HOP_ANSWER;
   }
   return undefined;
