@@ -559,7 +559,8 @@ export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[]
         if (pq !== aq) continue;
         const child = bind.get(cq);
         if (!child || !fks.some((f) => f.table === child && f.column === cc && f.refTable === parent && f.refColumn === pc)) continue;
-        if (isCount && ac !== pc) continue;
+        // 부모로 묶었으면(GROUP BY c.name) 묶음마다 센 부모 키는 자식 행 수이고 그것을 물었을 수 있다(「고객사별 계약 수」의 COUNT(c.id)).
+        if (isCount && (ac !== pc || new RegExp(`(?<![A-Za-z0-9_])${aq}\\.`).test(groupText))) continue;
         // AVG 는 부모의 키로 묶으면 맞다.
         const keyed = new RegExp(`(?<![A-Za-z0-9_])(?:${aq}|${parent})\\.${pc}(?![A-Za-z0-9_])`).test(groupText);
         if (a[1].toLowerCase() === "avg" && keyed) continue;
@@ -1379,12 +1380,18 @@ export function checkPeriodLength(sql: string, question: string): string[] {
         else if (masked[end] === ")" && --depth === 0) break;
       }
       const expr = sql.slice(at, end + 1).replace(/\s+/g, " ");
-      const date =
-        [...masked.slice(at, end + 1).matchAll(new RegExp(`(?:${IDENT}\\.)?${IDENT}(?:_date|_at)`, "gi"))].map((x) => x[0]).find((x) => !/^current_date$/i.test(x)) ??
-        "hire_date";
+      // AGE(끝, 시작) 이면 두 날짜의 차, AGE(날짜) 나 AGE(CURRENT_DATE, 날짜) 면 오늘까지의 차로 적는다.
+      const args = /\bage\s*\(\s*([^,()]+?)\s*(?:,\s*([^,()]+?)\s*)?\)/i.exec(sql.slice(at, end + 1));
+      const span = !args
+        ? "CURRENT_DATE - hire_date"
+        : args[2] === undefined
+          ? `CURRENT_DATE - ${args[1]}`
+          : /^current_date$/i.test(args[1])
+            ? `CURRENT_DATE - ${args[2]}`
+            : `${args[1]} - ${args[2]}`;
       reasons.push(
         `${LENGTH_REASON}${expr} 은 행마다 햇수를 내린 뒤(3년 11개월이 3년) 평균한다. 햇수를 내리지 말고 일 단위로 평균해 년으로 바꾼다: ` +
-          `AVG((CURRENT_DATE - ${date}) / 365.25)`,
+          `AVG((${span}) / 365.25)`,
       );
     }
   }
@@ -2092,6 +2099,14 @@ export function checkContradiction(sql: string, known: ReadonlySet<string>): str
   const masked = maskSql(sql);
   const d = masked === null ? null : depths(masked);
   if (masked === null || !d) return [];
+  // 바깥 집합 연산(UNION 등)의 가지는 서로 다른 행을 고르므로 가지마다 따로 본다(같은 별칭을 써도 다른 표 읽기다).
+  const setOps = [...masked.matchAll(/\b(?:union|intersect|except)\b(?:\s+(?:all|distinct)\b)?/gi)].filter((m) => d[m.index ?? 0] === 0);
+  if (setOps.length) {
+    const cuts = [0, ...setOps.flatMap((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length]), sql.length];
+    const out: string[] = [];
+    for (let k = 0; k < cuts.length; k += 2) out.push(...checkContradiction(sql.slice(cuts[k], cuts[k + 1]), known));
+    return out;
+  }
   const alias = aliasTables(masked, known);
   // LEFT(…), RIGHT(…) 같은 함수 호출은 절 키워드가 아니다.
   const top = [...masked.matchAll(/\b(where|on|group|having|order|limit|offset|fetch|union|intersect|except|window|join|left|right|full|inner|cross|natural)\b(?!\s*\()/gi)].filter(
@@ -2452,7 +2467,7 @@ const VAGUE_ASKS = new Map<string, readonly { pattern: string; detail: string; a
     [
       {
         pattern:
-          "((?:가장|제일|젤)\\s*(?:큰|중요한|좋은|대단한|핵심적인|핵심|주요한|큰손인|vip인|VIP인)\\s*(?:고객사|고객|회사|거래처))(?:은|는|이|가|를|을)?(?:\\s*(?:어디|어느\\s*곳|누구|뭐|무엇|어느\\s*고객사)(?:야|예요|에요|지|니|일까요?|인가요?|입니까|임)?|\\s*(?:알려|말해)\\s?(?:줘요?|주세요))?",
+          "((?:(?:가장|제일|젤)\\s*(?:큰|중요한|좋은|대단한|핵심적인|핵심|주요한|큰손인|vip인|VIP인)|최대의?|최고의?|1등|일등)\\s*(?:고객사|고객|회사|거래처))(?:은|는|이|가|를|을)?(?:\\s*(?:어디|어느\\s*곳|누구|뭐|무엇|어느\\s*고객사)(?:야|예요|에요|지|니|일까요?|인가요?|입니까|임)?|\\s*(?:알려|말해)\\s?(?:줘요?|주세요))?",
         detail: "무엇으로 견줄지(측정 항목) 없이",
         ask: "무엇으로 견줄지 정할 수 없어 조회하지 않았습니다. 매출, 계약 금액, 회사 규모 가운데 무엇으로 볼지 함께 물어봐 주세요.",
         examples: ["매출 합계가 가장 큰 고객사는 어디야?", "계약 금액 합계가 가장 큰 고객사는 어디야?"],

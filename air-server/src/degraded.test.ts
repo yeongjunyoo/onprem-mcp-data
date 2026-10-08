@@ -3047,6 +3047,10 @@ const deadEmbedder: Embedder = {
   const tenure = q5.checkPeriodLength("SELECT AVG(EXTRACT(YEAR FROM AGE(CURRENT_DATE, hire_date))) AS avg_tenure FROM companyx.employees WHERE is_active = true", "직원들의 평균 근속 기간은 몇 년이야?");
   ok(tenure.length === 1 && tenure[0].includes("AVG((CURRENT_DATE - hire_date) / 365.25)"), `P3 근속 평균 (got ${tenure})`);
   ok(q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.employees WHERE EXTRACT(YEAR FROM AGE(CURRENT_DATE, hire_date)) >= 5", "근속 연수가 5년 이상인 직원은 몇 명이야?").length === 0, "P3 근속 5년 이상(DT06)은 맞다");
+  ok(
+    q5.checkPeriodLength("SELECT AVG(EXTRACT(YEAR FROM AGE(end_date, start_date))) FROM companyx.contracts", "평균 계약 기간은 몇 년이야?")[0]?.includes("AVG((end_date - start_date) / 365.25)") === true,
+    "P3 두 날짜 AGE 는 두 날짜의 차로 안내",
+  );
   ok(q5.checkPeriodLength("SELECT AVG((CURRENT_DATE - hire_date) / 365.25) FROM companyx.employees", "직원들의 평균 근속 기간은 몇 년이야?").length === 0, "P3 일 단위 평균은 맞다");
   const span1y = q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.contracts WHERE end_date IS NOT NULL AND end_date < CURRENT_DATE + INTERVAL '1 year'", "계약 기간이 1년 넘는 계약은 몇 건이야?");
   ok(span1y.length === 1 && span1y[0].includes("「기간이 1년 넘는」") && span1y[0].includes("end_date - start_date > 365 로 고른다"), `P3 계약 기간 (got ${span1y})`);
@@ -3092,13 +3096,19 @@ const deadEmbedder: Embedder = {
     "SELECT c.name FROM companyx.clients c LEFT JOIN companyx.contracts co ON co.client_id = c.id AND co.status = 'active' WHERE c.region = '서울'",
     "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON e.id = d.head_id WHERE e.dept_id = (SELECT id FROM companyx.departments WHERE name = '영업팀') AND d.name = '영업팀'",
     "SELECT SUM(amount) FROM companyx.sales WHERE sale_date BETWEEN '2025-01-01' AND '2025-03-31' AND region = '서울'",
-  ]) ok(q5.checkContradiction(sql, tables5).length === 0, `P6 OR, IN, LEFT JOIN, 맞는 하위 질의, BETWEEN 은 모순이 아니다: ${sql}`);
+    "SELECT c.name FROM companyx.clients c WHERE c.region = '서울' UNION ALL SELECT c.name FROM companyx.clients c WHERE c.region = '부산'",
+  ]) ok(q5.checkContradiction(sql, tables5).length === 0, `P6 OR, IN, LEFT JOIN, 맞는 하위 질의, BETWEEN, UNION 가지는 모순이 아니다: ${sql}`);
+  ok(
+    q5.checkContradiction("SELECT 1 FROM companyx.clients c WHERE c.region = '서울' UNION SELECT 1 FROM companyx.clients c WHERE c.region = '부산' AND c.region = '서울'", tables5).length === 1,
+    "P6 UNION 가지 안의 모순은 본다",
+  );
 
   // P9: 측정 항목 없는 최상급과 「요즘 매출 어때?」는 되묻는다. 「제일 잘나가는 제품」, 「제일 바쁜 직원」은 그대로.
   ok(q5.vagueMeasure("가장 큰 고객사는 어디야?", "companyx") === "가장 큰 고객사", "P9 AM01");
   ok(q5.vagueMeasure("가장 중요한 고객사는 어디야?", "companyx") === "가장 중요한 고객사", "P9 AM04");
   ok(q5.vagueMeasure("요즘 매출 어때?", "companyx") === "요즘 매출", "P9 AM05");
   ok(q5.vagueMeasure("제일 큰 고객사가 어디야?", "companyx") === "제일 큰 고객사", "P9 다른 말");
+  ok(q5.vagueMeasure("최대 고객사는 어디야?", "companyx") === "최대 고객사" && q5.vagueMeasure("최고의 고객사는?", "companyx") === "최고의 고객사", "P9 최대, 최고의");
   for (const q of ["제일 잘나가는 제품은 뭐야?", "제일 바쁜 직원은 누구야?", "매출 합계가 가장 큰 고객사는 어디야?", "가장 큰 계약은?", "최근 6개월 매출 합계는 얼마야?"]) {
     ok(q5.vagueMeasure(q, "companyx") === null, `P9 측정 항목이 있거나 고객사 최상급이 아니면 되묻지 않는다: ${q}`);
   }
@@ -3133,7 +3143,12 @@ const deadEmbedder: Embedder = {
     jn04.replace("COUNT(co.id)", "COUNT(DISTINCT co.id)"),
     "SELECT c.name, COUNT(co.id) FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id GROUP BY c.name",
     "SELECT c.name, COUNT(s.id) FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id JOIN companyx.sales s ON co.id = s.contract_id GROUP BY c.name",
-  ]) ok(q5.fanoutJoins(sql, fks5).every((f) => !/^count/i.test(f.agg)), `P12 DISTINCT, 자식 쪽 COUNT 는 보지 않는다: ${sql}`);
+    "SELECT c.name, COUNT(c.id) AS contracts FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id GROUP BY c.name", // 부모로 묶은 자식 수
+  ]) ok(q5.fanoutJoins(sql, fks5).every((f) => !/^count/i.test(f.agg)), `P12 DISTINCT, 자식 쪽 COUNT, 부모로 묶은 COUNT 는 보지 않는다: ${sql}`);
+  ok(
+    q5.fanoutJoins("SELECT COUNT(c.id) FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id WHERE co.status = 'active'", fks5)[0]?.agg === "COUNT(c.id)",
+    "P12 묶지 않고 센 부모 키",
+  );
   const fanWhy = `집계 COUNT(co.id) 은 contracts 의 열인데 contracts 를 가리키는 sales 와 조인(co.id = s.contract_id)해 contracts 한 행이 sales 행 수만큼 겹쳐 세어진다. COUNT(co.id) 를 COUNT(DISTINCT co.id) 로 바꾼 SQL 전체를 쓴다`;
   ok(q5.countDistinctRewrite(jn04, [fanWhy]) === jn04.replace("COUNT(co.id)", "COUNT(DISTINCT co.id)"), "P12 결정론 수리");
   ok(q5.countDistinctRewrite(jn04, [fanWhy, "기간 조건 x"]) === null, "P12 다른 사유가 섞이면 7B 수리");
