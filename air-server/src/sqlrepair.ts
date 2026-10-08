@@ -38,7 +38,7 @@
 import type { Pool } from "./db.js";
 import { sqlQuery, columnsForSql, isReadOnly, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
-import { rankRewrite, untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
+import { enumColumns, rankRewrite, repairTurnsValue, untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
 
 export interface RepairOpts {
   /** 엔진 오류일 때 고친다. false 면 한 번만 실행한다. */
@@ -90,12 +90,18 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
     return { text, result: await sqlQuery(pool, text) };
   };
 
-  // 처음 SQL 부터 믿을 수 없으면 실행하지 않고 사유를 되먹여 한 번 고친다.
+  // 처음 SQL 부터 믿을 수 없으면 실행하지 않고 사유를 되먹여 한 번 고친다. 값 어휘 사유로 고친 SQL 이 그 열의 값을 질문이 말하지 않은
+  // 값으로 바꿨으면(「단종된 제품」의 'cancelled' → 'active') 뜻이 뒤집힌 것이라 받지 않고 처음 사유(그 열의 값 목록)로 답한다.
   if (!(await trusted(generated))) {
     const cols = opts.repair === false ? "" : await columnsForSql(pool, generated, schema).catch(() => "");
     const fixed =
       opts.repair === false ? null : await repair(query, generated, rejected[0].reasons.join(" "), cols, "untrusted");
     if (!fixed || !(await trusted(fixed))) return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
+    const turned = repairTurnsValue(rejected[0].reasons, fixed, query, enumColumns(schema), schema);
+    if (turned.length) {
+      rejected.push({ sql: fixed, reasons: turned });
+      return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
+    }
     const ran = await run(fixed);
     return {
       text: ran.text,

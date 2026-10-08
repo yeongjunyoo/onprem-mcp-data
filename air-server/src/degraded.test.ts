@@ -941,7 +941,7 @@ const deadEmbedder: Embedder = {
   ] as const) {
     ok(JSON.stringify(moneyMentions(q).map((m) => m.manwon)) === JSON.stringify(manwon), `금액 표현을 만원 값으로 읽는다: ${q} → ${manwon}`);
   }
-  for (const q of ["500만 명", "3000만", "1억 건", "2억 년", "1억 달러", "1억 2", "오천만 원", "연봉 4천", "Product-C1 가격", "1,5억", "2025년 3분기 총 매출액은 얼마야?"]) {
+  for (const q of ["500만 명", "3000만", "1억 건", "2억 년", "1억 달러", "1억 2", "오만 가지", "연봉 4천", "Product-C1 가격", "1,5억", "2025년 3분기 총 매출액은 얼마야?"]) {
     ok(moneyMentions(q).length === 0 && annotateMoney(q) === q, `금액이 아니거나 값이 갈리는 것은 읽지 않는다: ${q}`);
   }
   ok(annotateMoney("연봉이 2억 원 이상인 직원 목록을 알려줘") === "연봉이 2억 원(=20000만 원) 이상인 직원 목록을 알려줘", "금액 표현 바로 뒤에 만원 값을 적는다");
@@ -2391,6 +2391,206 @@ const deadEmbedder: Embedder = {
     ok(JSON.stringify(moneyMentions(q).map((m) => m.manwon)) === JSON.stringify(manwon), `조 금액은 그대로 읽는다: ${q} → ${manwon} (got ${JSON.stringify(moneyMentions(q).map((m) => m.manwon))})`);
   }
   ok(annotateMoney("계약 금액이 1조 원을 넘는 계약이 있어?") === "계약 금액이 1조 원(=100000000만 원)을 넘는 계약이 있어?", "U05 질문 줄은 그대로");
+}
+
+// 랜덤 테스트 사전 점검 4차의 SQL 쪽 결함(P1 달, P14 연도 없는 날짜, P9 한글 수와 M 금액, P4 LIMIT a, b 와 ?, P12 뜻을 뒤집은 수리,
+// P13 질문에 없는 조건, P6 묶음마다 1위). 입력과 SQL 은 qa_random4 원출력 그대로다. DB 와 모델 없이 함수와 가짜 풀, 가짜 수리기로 잰다.
+{
+  const { checkPeriod, checkSyntax, checkUnaskedEnum, checkGroupTop, checkMoney, moneyColumns, enumColumns, untrustedAnswer } = await import("./sqltrust.js");
+  const { executeWithRepair } = await import("./sqlrepair.js");
+  const { absoluteYears, sqlQuestionForModel } = await import("./nl2sql.js");
+  const { moneyMentions, annotateMoney } = await import("./money.js");
+  const oct8 = new Date("2026-10-08T15:00:00+09:00");
+  const E = enumColumns("companyx");
+  const refused = (sql: string, reasons: string[]) => untrustedAnswer({ outcome: "refused", rejected: [{ sql, reasons }] });
+
+  // P1: 달을 묻는데 분기 값으로 고름(SF11 「24년 3월」 → '2024-Q1' 의 1분기 합 31,960, 3월은 11,634).
+  const sf11 = "SELECT SUM(amount) AS total_sales\nFROM companyx.sales\nWHERE quarter = '2024-Q1'";
+  const sf11Why = checkPeriod(sf11, "24년 3월 매출은 얼마야?", oct8);
+  ok(
+    sf11Why.length === 1 &&
+      sf11Why[0] ===
+        "기간 조건 quarter = '2024-Q1' 은 분기를 고른다. 질문의 2024년 3월은 한 분기가 아니라 한 달이다. 분기(quarter)가 아니라 그 달의 날짜 범위(sale_date >= '2024-03-01' AND sale_date < '2024-04-01')로 고른다",
+    `달을 분기로 고르면 그 달의 날짜 범위를 사유로 적는다 (got ${sf11Why})`,
+  );
+  ok(
+    refused(sf11, sf11Why) ===
+      "이 질문의 기간 조건으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 2024년 3월이 아니라 분기(quarter = '2024-Q1')로 골라서 실행하지 않았습니다. 날짜 범위로 함께 물어봐 주세요. 예: 「2024-03-01부터 2024-03-31까지 매출 합계는?」",
+    `달 거절 문장 (got ${refused(sf11, sf11Why)})`,
+  );
+  for (const [q, sql] of [
+    ["2024년 3월 매출은 얼마야?", "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2024-Q2'"], // XA01
+    ["2025년 5월 매출 합계는?", "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q2'"], // XA02
+    ["2024.3 매출 합계 알려줘", "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2024-Q3'"], // SF10
+    ["작년 12월 매출은?", "SELECT SUM(s.amount) FROM companyx.sales s WHERE s.quarter LIKE '2025-Q4'"],
+  ]) ok(checkPeriod(sql, q, oct8).length === 1, `달을 묻는데 분기 값으로 고름: ${q} / ${sql}`);
+  ok(checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q4'", "작년 12월 매출은?", oct8)[0].includes("sale_date < '2026-01-01'"), "12월의 끝은 다음 해 1월 1일");
+  for (const [q, sql] of [
+    ["2024년 3월 매출은 얼마야?", "SELECT SUM(amount) FROM companyx.sales WHERE sale_date >= '2024-03-01' AND sale_date < '2024-04-01'"],
+    ["2024년 3월 매출은 얼마야?", "SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q1' AND sale_date BETWEEN '2024-03-01' AND '2024-03-31'"],
+    ["2024년 3월 매출은 얼마야?", "SELECT SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' AND EXTRACT(MONTH FROM sale_date) = 3"],
+    ["2024년 3월이 든 분기의 매출은?", "SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q1'"],
+    ["2024년 3월 15일 매출은?", "SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q1'"],
+    ["2025년 3분기 총 매출액은 얼마야?", "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE quarter = '2025-Q3'"], // TC-109, TC-113
+    ["서울물산의 2025년 3분기 총 매출액은 얼마야?", "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE client_id IN ( SELECT id FROM companyx.clients WHERE name = '서울물산' ) AND quarter = '2025-Q3'"], // TC-143
+    ["2025년 3분기 총 매출액은 얼마야? ".repeat(100), "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE quarter = '2025-Q3'"], // TC-157
+    ["버전 2024.3.1 출시 뒤 매출", "SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q1'"],
+  ]) ok(checkPeriod(sql, q, oct8).length === 0, `그 달의 날짜로 고르거나 분기를 묻거나 하루를 묻거나 연월이 아니면 보지 않는다: ${q.slice(0, 40)} / ${sql}`);
+  // P1, P14: 생성 모델의 질문 줄은 두 자리 연도와 점 연월을 네 자리 연도로, 연도가 없는 질문의 날짜에는 서울 기준 올해를 붙인다.
+  for (const [q, want] of [
+    ["24년 3월 매출은 얼마야?", "2024년 3월 매출은 얼마야?"],
+    ["2024.3 매출 합계 알려줘", "2024년 3월 매출 합계 알려줘"],
+    ["24년도 상반기 매출", "2024년도 상반기 매출"],
+    ["25년 4분기 매출", "2025년 4분기 매출"],
+    ["3/15에 발생한 매출 있어?", "2026년 3월 15일에 발생한 매출 있어?"], // SF12 은 sale_date = '2023-03-15' 로 0건
+    ["3월 15일에 접수된 티켓은?", "2026년 3월 15일에 접수된 티켓은?"],
+    ["10년 이상 근무한 직원은?", "10년 이상 근무한 직원은?"],
+    ["매출 2024.3만 원 넘는 고객사", "매출 2024.3만 원 넘는 고객사"],
+    ["버전 2024.3.1 매출", "버전 2024.3.1 매출"],
+    ["2025년 3/15 매출", "2025년 3/15 매출"],
+    ["작년 3/15 매출", "2025년도 3/15 매출"],
+    ["매출의 1/2 이상인 고객사", "매출의 1/2 이상인 고객사"],
+    ["1/4분기 매출", "1/4분기 매출"],
+    ["24/7 지원 티켓은 몇 건이야?", "24/7 지원 티켓은 몇 건이야?"],
+  ]) ok(absoluteYears(q, oct8) === want, `${q} → ${want} (got ${absoluteYears(q, oct8)})`);
+  ok(sqlQuestionForModel("2025년 3분기 총 매출액은 얼마야?", oct8) === "2025년 3분기 총 매출액은 얼마야?", "TC-109 질문 줄은 그대로");
+
+  // P9: 한글 수와 「M」 금액. 원문 표현 뒤에 만원 값을 적는다(「오천만 원(=5000만 원)」).
+  for (const [q, manwon, text] of [
+    ["연봉이 오천만 원 이상인 직원 수는?", [5000], "오천만 원"], // SF17 은 salary >= 1000 으로 45명(실제 32명)
+    ["예산이 삼억 넘는 프로젝트", [30000], "삼억"],
+    ["연봉 이천오백만 원 이하", [2500], "이천오백만 원"],
+    ["일억 오천만 원짜리 계약", [15000], "일억 오천만 원"],
+    ["1억 오천만 원 이상", [15000], "1억 오천만 원"],
+    ["백만 원 이하 매출", [100], "백만 원"],
+    ["십억 원 넘는 예산", [100000], "십억 원"],
+    ["계약 금액이 10M 이상인 계약은 몇 건이야?", [1000], "10M"], // SF08 은 amount >= 10000 으로 1건(실제 56건)
+    ["매출이 1.5M원 넘는 건", [150], "1.5M원"],
+  ] as const) {
+    const got = moneyMentions(q);
+    ok(JSON.stringify(got.map((m) => m.manwon)) === JSON.stringify(manwon) && got[0]?.text === text, `한글 수와 M 금액: ${q} → ${manwon} (got ${JSON.stringify(got.map((m) => [m.text, m.manwon]))})`);
+  }
+  ok(annotateMoney("연봉이 오천만 원 이상인 직원 수는?") === "연봉이 오천만 원(=5000만 원) 이상인 직원 수는?", "원문 표현 뒤에 만원 값");
+  ok(annotateMoney("계약 금액이 10M 이상인 계약은 몇 건이야?") === "계약 금액이 10M(=1000만 원) 이상인 계약은 몇 건이야?", "10M 뒤에 만원 값");
+  for (const q of ["오만 가지 방법", "이만큼 많은 계약", "일만 하는 직원", "천안 지점 매출", "10M 파일 업로드 오류 티켓", "기술지원 직원이 받은 10M 로그", "삼성 계약 목록", "일억 건의 로그"]) {
+    ok(moneyMentions(q).length === 0 && annotateMoney(q) === q, `금액이 아닌 한글 수와 M 은 읽지 않는다: ${q}`);
+  }
+  const sf08 = checkMoney("SELECT COUNT(*) FROM companyx.contracts WHERE amount >= 10000", "계약 금액이 10M 이상인 계약은 몇 건이야?", moneyColumns("companyx"));
+  ok(sf08.length === 1 && sf08[0].includes("「10M」(=1000만 원)") && sf08[0].includes("1000 이어야 한다"), `10M 을 1억으로 쓴 조건은 단위 오류 (got ${sf08})`);
+
+  // P4: PostgreSQL 이 읽지 못하는 꼴은 실행 전 사유로 걸어 수리에 넘긴다(종전에는 42601 로 「조회 자체가 실패」).
+  const ag15 = "SELECT quarter, SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%' GROUP BY quarter ORDER BY total_sales DESC, total_sales ASC LIMIT 1, 1";
+  const ag15Why = checkSyntax(ag15);
+  ok(ag15Why.length === 1 && ag15Why[0].includes("LIMIT 1, 1 은 MySQL 꼴") && ag15Why[0].includes("LIMIT 1 OFFSET 1"), `LIMIT a, b (got ${ag15Why})`);
+  const mq06 = "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE client_id = ?";
+  const mq06Why = checkSyntax(mq06);
+  ok(mq06Why.length === 1 && mq06Why[0].includes("자리표시 ?(client_id = ?)"), `값 자리의 ? (got ${mq06Why})`);
+  ok(checkSyntax("SELECT e.name, e.salary FROM companyx.employees e WHERE e.id = ?")[0]?.includes("e.id = ?"), "XA06 의 e.id = ?");
+  ok(refused(ag15, ag15Why).includes("PostgreSQL 이 읽지 못하는 꼴(LIMIT a, b)") && refused(mq06, mq06Why).includes("값 대신 자리표시(?)"), "문법 거절 문장");
+  for (const sql of [
+    "SELECT name FROM companyx.clients WHERE name = '?'",
+    "SELECT id FROM bench.entities WHERE properties ? 'region'",
+    "SELECT id FROM bench.entities WHERE properties ?| array['a']",
+    "SELECT name FROM companyx.clients LIMIT 1 OFFSET 1",
+    "SELECT name FROM companyx.clients -- 이름?\nLIMIT 5",
+  ]) ok(checkSyntax(sql).length === 0, `문자열, 주석 속 ?, jsonb 연산자, PostgreSQL 꼴은 보지 않는다: ${sql}`);
+
+  // P13: 질문에 없는 값 조건(SF03 「서울 고갱사」 → company_size = 'mid', 1곳. 서울 고객사는 4곳).
+  const sf03 = "SELECT COUNT(*) FROM companyx.clients WHERE region = '서울' AND company_size = 'mid'";
+  const sf03Why = checkUnaskedEnum(sf03, "서울 고갱사는 몇 곳이야?", E, "companyx");
+  ok(sf03Why.length === 1 && sf03Why[0].startsWith("질문에 없는 조건 company_size = 'mid' 은 질문이 묻지 않은 조건이다"), `질문에 없는 규모 조건 (got ${sf03Why})`);
+  ok(refused(sf03, sf03Why).includes("생성된 SQL 이 질문에 없는 조건(company_size = 'mid')을 붙여서 실행하지 않았습니다."), "질문에 없는 조건 거절 문장");
+  ok(checkUnaskedEnum("SELECT COUNT(*) FROM companyx.support_tickets WHERE assignee_id = 3 AND status = 'resolved'", "임우진 씨에게 배정된 티켓이 지금까지 총 몇 장인지 알려주시겠어요?", E, "companyx").length === 1, "h4-16 의 묻지 않은 해결 조건");
+  for (const [q, sql] of [
+    ["현재 활성 상태인 계약 수는 몇 개야?", "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'"], // TC-114
+    ["가장 많은 프로젝트를 진행 중인 고객사는?", "SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progress' GROUP BY c.name ORDER BY COUNT(p.id) DESC LIMIT 1"], // TC-116
+    ["Critical 우선순위 티켓 중 아직 해결되지 않은 건은?", "SELECT * FROM companyx.support_tickets WHERE priority = 'critical' AND status IN ('open','in_progress')"], // 사업자 7번
+    ["보안 솔루션 카테고리 제품들의 월 평균 매출은?", "SELECT AVG(amount) AS avg_amount FROM companyx.sales WHERE category = 'security'"], // 사업자 3번
+    ["critical인데 open으로 그대로 있는 티켓", "SELECT title FROM companyx.support_tickets t WHERE t.priority = 'critical' AND t.status = 'open'"],
+    ["중견 고객사는 몇 곳이야?", "SELECT COUNT(*) FROM companyx.clients WHERE company_size = 'mid'"],
+    ["대기업 고객사 목록", "SELECT name FROM companyx.clients WHERE company_size = 'enterprise'"],
+    ["스타트업 고객사 수", "SELECT COUNT(*) FROM companyx.clients WHERE company_size = 'startup'"],
+    ["완료된 프로젝트는 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE status = 'completed'"],
+    ["진행중인계약몇개", "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'"],
+    ["Client-A가 사용 중인 제품 목록은?", "SELECT p.name FROM companyx.products p WHERE p.status = 'active'"],
+    ["취소된 계약의 비율은?", "SELECT COUNT(*) FILTER (WHERE status = 'cancelled') * 100.0 / COUNT(*) FROM companyx.contracts"],
+    ["구독 계약만 보여줘", "SELECT * FROM companyx.contracts WHERE contract_type = 'subscription'"],
+    ["단종된 제품 목록을 알려줘", "SELECT name FROM companyx.products WHERE status = 'active'"],
+    ["취소된 프로젝트 목록을 알려줘", "SELECT p.name FROM companyx.projects p WHERE p.status = 'cancelled'"], // 어휘 밖의 값은 checkEnum 이 맡는다
+    ["보류 중인 계약 목록을 보여줘", "SELECT * FROM companyx.contracts WHERE status = 'on_hold'"],
+  ]) ok(checkUnaskedEnum(sql, q, E, "companyx").length === 0, `질문이 그 열을 말하면(값, 우리말, 부정, 다른 표의 상태 낱말) 보지 않는다: ${q}`);
+  ok(checkUnaskedEnum(sf03, "서울 고갱사는 몇 곳이야?", enumColumns("bench"), "bench").length === 0, "낱말을 두지 않은 스키마는 끈다");
+
+  // P12: 값 어휘 수리가 뜻을 뒤집으면 받지 않는다(KF07 「단종된 제품」 'cancelled' → 'active' 로 활성 제품 10개).
+  const ran: string[] = [];
+  const pool = (rows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles|AS grouped/.test(sql) ? (ran.push(sql), rows) : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const kf07 = "SELECT p.name AS product_name FROM companyx.products p WHERE p.status = 'cancelled'";
+  const kf07Fix = "SELECT p.name AS product_name FROM companyx.products p WHERE p.status = 'active'";
+  const turned = await executeWithRepair(pool([{ product_name: "Product-C1" }]), "단종된 제품 목록을 알려줘", kf07, { repairer: async () => kf07Fix });
+  ok(turned.text === null && turned.gate?.outcome === "refused" && !ran.includes(kf07Fix), `뜻을 뒤집은 수리는 실행하지 않는다 (got ${turned.gate?.outcome} ${turned.text})`);
+  ok(
+    turned.gate !== undefined &&
+      untrustedAnswer(turned.gate).includes("생성된 SQL 이 products.status 에 없는 값('cancelled')으로 조건을 걸어서 실행하지 않았습니다. products.status 의 값은 'active', 'beta' 입니다."),
+    `값 목록을 대며 답한다 (got ${turned.gate && untrustedAnswer(turned.gate)})`,
+  );
+  for (const [q, first, fix] of [
+    ["진행중인계약몇개", "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'in_progress'", "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'"], // SF01(46, 맞음)
+    ["Critical 우선순위 티켓 중 아직 해결되지 않은 건은?", "SELECT * FROM companyx.support_tickets WHERE priority = 'Critical'", "SELECT * FROM companyx.support_tickets WHERE priority = 'critical'"],
+    ["완료되지 않은 프로젝트 목록", "SELECT name FROM companyx.projects WHERE status = 'incomplete'", "SELECT name FROM companyx.projects WHERE status IN ('planning', 'in_progress', 'on_hold')"],
+  ]) {
+    const r = await executeWithRepair(pool([{ n: 1 }]), q, first, { repairer: async () => fix });
+    ok(r.gate?.outcome === "repaired" && r.text === fix, `질문 낱말에 맞는 수리나 부정 질문의 수리는 받는다: ${q} (got ${r.gate?.outcome})`);
+  }
+  const ticket = await executeWithRepair(pool([{ title: "x" }]), "취소된 티켓 목록을 알려줘", "SELECT title FROM companyx.support_tickets WHERE status = 'cancelled'", {
+    repairer: async () => "SELECT title FROM companyx.support_tickets WHERE status = 'closed'",
+  });
+  ok(ticket.gate?.outcome === "refused" && ticket.gate.rejected.length === 2, "「취소」를 종결(closed)로 바꾼 수리도 받지 않는다");
+
+  // P6: 묶음마다 1위를 묻는데 전체 1위 한 행(AG02 「부서별 최고 연봉자」 → 박소연 한 명, 부서마다 1위는 6명).
+  const ag02 = "SELECT d.name AS department, e.name AS employee, MAX(e.salary) AS max_salary FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id WHERE e.is_active = true GROUP BY d.name, e.name ORDER BY max_salary DESC LIMIT 1";
+  const ag02Why = checkGroupTop(ag02, "부서별 최고 연봉자는 누구야?");
+  ok(ag02Why.length === 1 && ag02Why[0].startsWith("묶음 단위 질문은 부서마다 1위를 묻는데 SQL 이 전체에서 한 행(LIMIT 1)만 고른다"), `묶음마다 1위 (got ${ag02Why})`);
+  ok(refused(ag02, ag02Why).includes("묶음마다 1위가 아니라 전체 1위만 골라서"), "묶음마다 1위 거절 문장");
+  ok(checkGroupTop(ag02.replace("LIMIT 1", "FETCH FIRST 1 ROWS WITH TIES"), "지역별로 연봉이 가장 높은 직원은?").length === 1, "WITH TIES 로 바꾼 꼴과 「X별로 … 가장」");
+  for (const [q, sql] of [
+    ["분기별 매출 중 가장 높은 분기는?", "SELECT quarter, SUM(amount) FROM companyx.sales GROUP BY quarter ORDER BY 2 DESC LIMIT 1"],
+    ["월별 매출이 가장 낮은 달은?", "SELECT date_trunc('month', sale_date), SUM(amount) FROM companyx.sales GROUP BY 1 ORDER BY 2 LIMIT 1"],
+    ["부서별 평균 연봉이 가장 높은 부서는?", "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1"],
+    ["평균 연봉이 가장 높은 부서는 어디야?", "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1"], // 사업자 4번
+    ["제품별 총 계약 금액을 큰 순서로 보여줘", "SELECT p.name, SUM(c.amount) FROM companyx.contracts c JOIN companyx.products p ON p.id = c.product_id GROUP BY p.name ORDER BY 2 DESC"],
+    ["부서별 최고 연봉자는 누구야?", "SELECT department, employee FROM (SELECT d.name AS department, e.name AS employee, RANK() OVER (PARTITION BY d.name ORDER BY e.salary DESC) AS r FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id) t WHERE r = 1"],
+    ["개별 계약 중 가장 큰 계약은?", "SELECT id FROM companyx.contracts ORDER BY amount DESC LIMIT 1"],
+  ]) ok(checkGroupTop(sql, q).length === 0, `전체 1위를 묻거나 묶음마다 고른 SQL 은 보지 않는다: ${q}`);
+
+  // 두 끝을 묻는데 한쪽 끝만(AG08 「가장 큰 계약과 가장 작은 계약」 → 11,000 만, 가장 작은 계약 480 빠짐. AG15 는 수리 뒤 4분기만).
+  const { checkBothEnds } = await import("./sqltrust.js");
+  const ag08 = "SELECT id, contract_type, amount FROM companyx.contracts ORDER BY amount DESC LIMIT 1";
+  const ag08Why = checkBothEnds(ag08, "계약 금액이 가장 큰 계약과 가장 작은 계약은?");
+  ok(ag08Why.length === 1 && ag08Why[0].includes("(SELECT … ORDER BY 값 DESC LIMIT 1) UNION ALL (SELECT … ORDER BY 값 ASC LIMIT 1)"), `두 끝 가운데 한쪽만 (got ${ag08Why})`);
+  ok(refused(ag08, ag08Why).includes("가장 높은 쪽과 가장 낮은 쪽 가운데 한쪽만 골라서"), "두 끝 거절 문장");
+  const ag15q = "2025년 분기 중 매출이 가장 높은 분기와 가장 낮은 분기는?";
+  ok(
+    checkBothEnds("SELECT quarter, SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%' GROUP BY quarter ORDER BY total_sales DESC FETCH FIRST 1 ROWS WITH TIES", ag15q).length === 1,
+    "AG15 의 4분기 한 행",
+  );
+  for (const [q, sql] of [
+    [ag15q, "(SELECT quarter, SUM(amount) AS s FROM companyx.sales WHERE quarter LIKE '2025-%' GROUP BY quarter ORDER BY s DESC LIMIT 1) UNION ALL (SELECT quarter, SUM(amount) AS s FROM companyx.sales WHERE quarter LIKE '2025-%' GROUP BY quarter ORDER BY s ASC LIMIT 1)"],
+    ["계약 금액이 가장 큰 계약과 가장 작은 계약은?", "SELECT (SELECT id FROM companyx.contracts ORDER BY amount DESC LIMIT 1) AS max_id, (SELECT id FROM companyx.contracts ORDER BY amount ASC LIMIT 1) AS min_id"],
+    ["최고 연봉과 최저 연봉의 차이는?", "SELECT MAX(salary) - MIN(salary) FROM companyx.employees"],
+    [ag15q, "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2025-%' GROUP BY quarter ORDER BY 2 DESC"],
+    ["계약 금액이 가장 큰 계약은?", ag08],
+    ["평균 연봉이 가장 높은 부서는 어디야?", "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1"], // 사업자 4번
+  ]) ok(checkBothEnds(sql, q).length === 0, `두 끝을 함께 고르거나 한쪽 끝만 묻는 질문은 보지 않는다: ${q}`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

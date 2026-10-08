@@ -26,9 +26,11 @@
 //   억이 있는 것(「2억 원」, 「2억원」, 「1.5억」, 「1억 5천만 원」, 만을 줄인 「1억 5천」, 원 단위가 붙은 「1억 5천 원」),
 //   천만, 백만, 십만인 것(「5천만 원」, 「5천만 이상」),
 //   원으로 끝나는 만 단위(「3,000만 원」, 「500만원」).
+// 한글 수(「오천만 원」, 「삼억」, 「이천오백만 원」)와 백만 원 단위 「10M」(질문에 금액 낱말이 있을 때)은 아라비아 숫자 꼴로 바꿔
+// 같은 규칙으로 읽는다(normalized). 자리와 text 는 원문의 것이다.
 // 읽지 않는 것: 원이 없는 만 단위(「500만 명」, 「3000만」), 뒤에 세는 말이나 다른 통화가 오는 것(「1억 건」, 「2억 년」,
 // 「1억 달러」), 단위 없는 숫자가 억이나 조 뒤에 붙어 값이 갈리는 것(「1억 2」, 「1조 2」), 조항 번호(「제1조」, 「제 3조」),
-// 숫자와 띄어 쓴 조나 뒤에 다른 한글이 붙은 조(「08 조현우」, 「1조각」), 한글 숫자(「오천만」).
+// 숫자와 띄어 쓴 조나 뒤에 다른 한글이 붙은 조(「08 조현우」, 「1조각」), 낱말의 일부인 한글 수(「오만하다」, 「이만큼」).
 
 /** 질문 속 금액 표현 하나. text 는 질문에 쓰인 그대로(원까지), manwon 은 만원 단위 값. */
 export interface MoneyMention {
@@ -132,21 +134,104 @@ function readMoney(q: string, i: number): MoneyMention | null {
   return { text: q.slice(i, end), start: i, end, manwon: Math.round(manwon * 10000) / 10000 };
 }
 
-/** 질문 속 금액 표현을 앞에서부터. 다른 숫자나 영문자에 붙은 숫자(「C1」, 「1,5」)와 이미 단 주석 「(=…)」 안은 읽지 않는다. */
+const KO_DIGIT: Readonly<Record<string, number>> = { 일: 1, 이: 2, 삼: 3, 사: 4, 오: 5, 육: 6, 칠: 7, 팔: 8, 구: 9 };
+const KO_SMALL: Readonly<Record<string, number>> = { 십: 10, 백: 100, 천: 1000 };
+/** 한글 수 뒤에 올 수 있는 것: 끝, 한글 아닌 글자, 원, 비교와 어림의 말, 조사. 이 밖의 한글이 붙으면 낱말의 일부다(「오만하다」, 「이만큼」). */
+const KO_FOLLOW = /^(?:$|[^가-힣]|원|이상|이하|초과|미만|넘|짜리|대|선|정도|가량|쯤|의|을|를|이|가|은|는|으로|로|보다|까지|부터|에|도|씩)/;
+/** 「10M」, 「1.5M」: 백만 원 단위. 질문에 금액 낱말이 있을 때만 금액으로 읽는다. */
+const MILLION = /(?<![A-Za-z0-9_$₩.,])(\d+(?:\.\d+)?)\s?[Mm](?![A-Za-z0-9])/g;
+const MONEY_WORD = /금액|연봉|급여|월급|예산|매출|가격|이용료|비용|단가|(?<![가-힣])원(?![가-힣])/;
+
+/** q[i] 에서 시작하는 한글 수 금액(「오천만」, 「삼억」, 「이천오백만」, 「일억 오천만」, 「백만」)의 아라비아 숫자 꼴. 숫자 낱말 뒤에 만, 억,
+ * 조가 있어야 하고 뒤에 다른 한글이 붙으면 낱말의 일부라 읽지 않는다. 만 자리가 「N천」 하나면 「5천만」처럼 천을 남긴다(아라비아
+ * 「5천만」과 같이 원이 없어도 금액이다). 만, 억, 조로 끝나지 않는 꼬리(「일억 오천」의 오천)는 읽지 않는다. */
+function koreanMoney(q: string, i: number): { end: number; text: string } | null {
+  let text = "";
+  let end = i;
+  let section = 0;
+  let digit: number | null = null;
+  let terms = 0;
+  let small = "";
+  for (let j = i; j < q.length; j++) {
+    const c = q[j];
+    if (KO_DIGIT[c] !== undefined && digit === null) digit = KO_DIGIT[c];
+    else if (KO_SMALL[c] !== undefined) {
+      section += (digit ?? 1) * KO_SMALL[c];
+      digit = null;
+      terms++;
+      small = c;
+    } else if ((c === "만" || c === "억" || c === "조") && section + (digit ?? 0) > 0) {
+      const value = section + (digit ?? 0);
+      text += c === "만" && terms === 1 && digit === null ? `${value / KO_SMALL[small]}${small}만` : `${value}${c}`;
+      end = j + 1;
+      section = 0;
+      digit = null;
+      terms = 0;
+      if (q[j + 1] === " " && (KO_DIGIT[q[j + 2]] !== undefined || KO_SMALL[q[j + 2]] !== undefined)) {
+        text += " ";
+        j++;
+      }
+    } else break;
+  }
+  if (end === i || !KO_FOLLOW.test(q.slice(end))) return null;
+  return { end, text: text.trimEnd() };
+}
+
+/** 금액 해석 앞에 한글 수와 「M」을 아라비아 숫자 꼴로 바꾼 글, 그리고 바꾼 글의 자리마다 원문에서 시작과 끝 자리. 「연봉이 오천만 원
+ * 이상」은 7B 가 salary >= 1000 으로 써 45명을 답했고(실제 32명), 「계약 금액이 10M 이상」은 amount >= 10000(1억)으로 1건을
+ * 답했다(10M 원 = 1,000만 원 이상은 56건. 랜덤 테스트 사전 점검 4차 P9). 바꾼 것이 없으면 원문 그대로다. */
+function normalized(q: string): { text: string; start: number[]; end: number[] } {
+  const start: number[] = [];
+  const end: number[] = [0];
+  let text = "";
+  // 그대로 둔 글자는 제자리, 바꾼 글자는 모두 바꾼 원문 조각의 시작과 끝을 가리킨다.
+  const put = (from: number, to: number, by: string) => {
+    const kept = by === q.slice(from, to);
+    for (let k = 0; k < by.length; k++) {
+      start.push(kept ? from + k : from);
+      end.push(kept ? from + k + 1 : to);
+    }
+    text += by;
+  };
+  const millions = new Map(MONEY_WORD.test(q) ? [...q.matchAll(MILLION)].map((m) => [m.index ?? 0, m] as const) : []);
+  for (let i = 0; i < q.length; ) {
+    const m = millions.get(i);
+    const k = m || /[가-힣\d.,]/.test(q[i - 1] ?? "") ? null : koreanMoney(q, i);
+    if (m) {
+      const to = i + m[0].length;
+      put(i, to, `${formatManwon(Number(m[1]) * 100)}만${q[sp(q, to)] === "원" ? "" : " 원"}`);
+      i = to;
+    } else if (k) {
+      put(i, k.end, k.text);
+      i = k.end;
+    } else {
+      put(i, i + 1, q[i]);
+      i++;
+    }
+  }
+  return { text, start, end };
+}
+
+/** 질문 속 금액 표현을 앞에서부터. 다른 숫자나 영문자에 붙은 숫자(「C1」, 「1,5」)와 이미 단 주석 「(=…)」 안은 읽지 않는다.
+ * 한글 수(「오천만 원」)와 「10M」은 아라비아 숫자 꼴로 바꿔 읽고(normalized), 자리와 text 는 원문의 것이다. */
 export function moneyMentions(q: string): MoneyMention[] {
+  const n = normalized(q);
+  const t = n.text;
   const out: MoneyMention[] = [];
   let i = 0;
-  while (i < q.length) {
-    if (!/\d/.test(q[i]) || /[\d.,A-Za-z_]/.test(q[i - 1] ?? "") || q.slice(Math.max(0, i - 2), i) === "(=") {
+  while (i < t.length) {
+    if (!/\d/.test(t[i]) || /[\d.,A-Za-z_]/.test(t[i - 1] ?? "") || t.slice(Math.max(0, i - 2), i) === "(=") {
       i++;
       continue;
     }
-    const m = readMoney(q, i);
+    const m = readMoney(t, i);
     if (m) {
-      out.push(m);
+      const start = n.start[m.start];
+      const end = n.end[m.end];
+      out.push({ text: q.slice(start, end), start, end, manwon: m.manwon });
       i = m.end;
     } else {
-      while (i < q.length && /[\d.,]/.test(q[i])) i++;
+      while (i < t.length && /[\d.,]/.test(t[i])) i++;
     }
   }
   return out;
