@@ -104,7 +104,9 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
   if (!(await trusted(generated))) {
     const cols = opts.repair === false ? "" : await columnsForSql(pool, generated, schema).catch(() => "");
     const engine = opts.repair === false ? "" : await engineError(pool, generated);
-    const why = rejected[0].reasons.join(" ") + (engine ? ` 이 SQL 은 실행하면 오류도 난다: ${engine}` : "");
+    // 오류를 사유 앞에 둔다. 사유 뒤에 「이 SQL 은 실행하면 오류도 난다」로 붙였을 때 7B 는 3/3 name 을 그대로 썼고, 앞에 두고 바꾸라고
+    // 하자 3/3 실제 열로 바꿨다(I8b 수리 실측 2026-10-08).
+    const why = (engine ? `이 SQL 은 실행하면 오류가 난다: ${engine}. 오류가 지목한 열은 그 표에 없으니 빼거나 실제 컬럼 목록의 열로 바꾼다. 그리고 ` : "") + rejected[0].reasons.join(" ");
     const fixed = opts.repair === false ? null : await repair(query, generated, why, cols, "untrusted");
     if (!fixed || !(await trusted(fixed))) return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
     const turned = repairTurnsValue(rejected[0].reasons, fixed, query, enumColumns(schema), schema);

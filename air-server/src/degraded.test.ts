@@ -2803,7 +2803,12 @@ const deadEmbedder: Embedder = {
       return i8bFix;
     },
   });
-  ok(i8bHint.includes('이 SQL 은 실행하면 오류도 난다: column "name" does not exist (42703)') && i8bRun.text === i8bFix, `계획 오류를 수리 안내에 붙인다 (got ${i8bHint})`);
+  ok(
+    i8bHint.startsWith('이 SQL 은 실행하면 오류가 난다: column "name" does not exist (42703). 오류가 지목한 열은 그 표에 없으니') &&
+      i8bHint.includes("그리고 묶음 단위 질문은 가장 높은 쪽과 가장 낮은 쪽을 함께 묻는데") &&
+      i8bRun.text === i8bFix,
+    `계획 오류를 수리 안내 앞에 붙인다 (got ${i8bHint})`,
+  );
   ok(!sent.includes(i8b) && sent.includes(`EXPLAIN ${i8b}`), "거부한 SQL 은 계획만 세우고 실행하지 않는다");
 
   // P6: 묶음마다 1위를 묻는데 전체 1위 한 행(AG02 「부서별 최고 연봉자」 → 박소연 한 명, 부서마다 1위는 6명).
@@ -2842,7 +2847,7 @@ const deadEmbedder: Embedder = {
     ["평균 연봉이 가장 높은 부서는 어디야?", "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1"], // 사업자 4번
   ]) ok(checkBothEnds(sql, q).length === 0, `두 끝을 함께 고르거나 한쪽 끝만 묻는 질문은 보지 않는다: ${q}`);
   // OFFSET 이 붙어도 한 행이다(4차 수정본 실측 I8a: 수리 SQL 의 LIMIT 1 OFFSET 1 이 두 번째로 높은 분기를 가장 높은 분기로 답했다).
-  for (const tail of ["LIMIT 1 OFFSET 1", "OFFSET 1 LIMIT 1", "OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY", "LIMIT 1 OFFSET 1;"]) {
+  for (const tail of ["LIMIT 1 OFFSET 1", "OFFSET 1 LIMIT 1", "OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY", "LIMIT 1 OFFSET 1;", "LIMIT 1, 1", "LIMIT 0,1"]) {
     const sql = `SELECT quarter, SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%' GROUP BY quarter ORDER BY total_sales DESC, total_sales ASC ${tail}`;
     ok(checkBothEnds(sql, ag15q).length === 1, `두 끝 질문의 ${tail}`);
     ok(checkGroupTop(sql.replace("ORDER BY", "ORDER BY quarter,"), "분기별로 가장 높은 매출은?").length === 1, `묶음마다 1위 질문의 ${tail}`);

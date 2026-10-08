@@ -1294,9 +1294,9 @@ const PER_GROUP_TOP = new RegExp(
 const TOP_WORD = /가장|제일|최고|최저|최대|최소|1위/;
 /** 바깥 질의 끝에서 한 행만 고르는 꼴. OFFSET 이 붙어도 한 행이다: 「2025년 분기 중 매출이 가장 높은 분기와 가장 낮은 분기는?」의 수리 SQL
  * `ORDER BY total_sales DESC, total_sales ASC LIMIT 1 OFFSET 1` 이 검사를 지나 두 번째로 높은 분기 하나를 가장 높은 분기로 답했다
- * (랜덤 테스트 4차 수정본 실측 I8a). */
+ * (랜덤 테스트 4차 수정본 실측 I8a). MySQL 꼴 `LIMIT 1, 1` 도 한 행이다. 문법 사유만 받은 수리가 LIMIT 1 OFFSET 1 로 고쳐 다시 거부됐다. */
 const ONE_ROW_TAIL =
-  /\b(?:(?:offset\s+\d+\s+(?:rows?\s+)?)?limit\s+1(?:\s+offset\s+\d+(?:\s+rows?)?)?|(?:offset\s+\d+\s+rows?\s+)?fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i;
+  /\b(?:(?:offset\s+\d+\s+(?:rows?\s+)?)?limit\s+(?:\d+\s*,\s*)?1(?:\s+offset\s+\d+(?:\s+rows?)?)?|(?:offset\s+\d+\s+rows?\s+)?fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i;
 
 /** ⑧-3 묶음마다의 1위(「부서별 최고 연봉자는 누구야?」, 「지역별로 매출이 가장 높은 고객사」)를 묻는데 생성 SQL 의 바깥 질의가
  * 전체에서 한 행(ORDER BY … LIMIT 1, FETCH FIRST 1 ROWS)만 고르고 PARTITION BY 나 DISTINCT ON 이 없으면 1위가 하나뿐이다.
