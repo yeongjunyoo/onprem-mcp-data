@@ -3688,7 +3688,14 @@ const deadEmbedder: Embedder = {
   const hints6 = (q: string) => q6.shapeHints(q).join(" ");
   ok(hints6("high 우선순위 티켓은 low 우선순위 티켓의 몇 배야?").includes("::numeric / NULLIF((SELECT COUNT(*)"), "P3 몇 배 안내");
   ok(hints6("경영지원팀 평균 연봉이 영업팀보다 얼마나 낮아?").includes("AVG(e.salary) FILTER (WHERE d.name = '경영지원팀') - AVG(e.salary) FILTER (WHERE d.name = '영업팀')"), "P3 두 부서 차 안내");
-  ok(hints6("Client-Q의 매출은 Client-Y보다 얼마나 많아?").includes("SUM(값) FILTER (WHERE 열 = 'A')") && !hints6("Client-Q의 매출은 Client-Y보다 얼마나 많아?").includes("employees"), "P3 부서가 아닌 차는 일반 안내");
+  ok(hints6("Client-Q의 매출은 Client-Y보다 얼마나 많아?").includes("SUM(amount) FILTER (WHERE 열 = 'A')") && !hints6("Client-Q의 매출은 Client-Y보다 얼마나 많아?").includes("employees"), "P3 부서가 아닌 차는 일반 안내");
+  ok(hints6("critical 티켓이 low 티켓보다 몇 건 더 많아?").includes("AS diff FROM companyx.support_tickets."), "P3 차 안내에 FROM 을 적는다(5차 CG10)");
+  ok(
+    hints6("스타트업 고객사의 평균 계약 금액은 대기업 고객사보다 얼마나 적어?").includes("AVG(amount) FILTER (WHERE company_size = 'startup') - AVG(amount) FILTER (WHERE company_size = 'enterprise')"),
+    "P3 평균의 차는 AVG 와 견주는 두 값으로(CP09 를 SUM 으로 바꾼 수리)",
+  );
+  ok(hints6("critical 티켓이 low 티켓보다 몇 건 더 많아?").includes("COUNT(*) FILTER (WHERE priority = 'critical') - COUNT(*) FILTER (WHERE priority = 'low')"), "P3 건수의 차는 COUNT(*)");
+  ok(!hints6("2025년 4분기 매출은 3분기보다 몇 퍼센트 늘었어?").includes("두 값의 차"), "P3 퍼센트는 차 안내가 아니다");
   ok(
     hints6("2025년 상반기 계약 금액은 2024년 상반기보다 얼마나 많아?").includes(
       "SUM(amount) FILTER (WHERE start_date >= '2025-01-01' AND start_date < '2025-07-01') - SUM(amount) FILTER (WHERE start_date >= '2024-01-01' AND start_date < '2024-07-01') AS diff FROM companyx.contracts",

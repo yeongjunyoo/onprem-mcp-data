@@ -1933,7 +1933,7 @@ export function shapeHints(question: string): string[] {
   const halves = halfPeriods(question);
   if (/몇\s*배/.test(question)) hints.push(`질문은 두 값의 비(몇 배)를 묻는다. ${RATIO_SHAPE_HINT}`);
   if (halves.length >= 2) hints.push(`질문은 두 기간의 값을 견준다. ${halfDiffHint(question, halves[0], halves[1])}`);
-  else if (/보다\s*(?:얼마나|몇)/.test(question)) hints.push(`질문은 두 값의 차를 묻는다. ${diffShapeHint(question)}`);
+  else if (/보다\s*(?:얼마나|몇\s*(?:만\s*원|원|건|명|개|곳))/.test(question) && !RATIO_WORDS.test(question)) hints.push(`질문은 두 값의 차를 묻는다. ${diffShapeHint(question)}`);
   // 6차 P11: 「최근 매출 추이는 어때?」는 끝난 분기 네 개로 본다(SP08).
   if (RECENT_TREND.test(question) && /매출|실적/.test(question)) hints.push(`질문은 최근 추이를 묻는다. ${recentQuartersHint()}`);
   return hints;
@@ -1957,10 +1957,45 @@ function diffShapeHint(question: string): string {
       "FROM companyx.employees e JOIN companyx.departments d ON d.id = e.dept_id. 같은 표를 두 번 JOIN 하지 않는다"
     );
   }
+  // 질문의 집계(평균이면 AVG)와 값 열, 견주는 두 값(COMPARE_FAMILIES)을 넣는다. 「SUM(값) FILTER …」 꼴만 주자 7B 가 「스타트업 고객사의 평균 계약 금액은
+  // 대기업 고객사보다 얼마나 적어?」를 SUM 으로 바꿔 2280 을 냈다(6차 수정본 실측, 종전 수리는 AVG 로 520).
+  const counted = /몇\s*(?:건|명|개|곳)|건수|개수/.test(question);
+  const agg = /평균/.test(question) ? "AVG" : "SUM";
+  const measure = /연봉|급여|월급/.test(question) ? "salary" : /이용료|가격/.test(question) ? "price_monthly" : /예산/.test(question) ? "budget" : /금액|매출|실적/.test(question) ? "amount" : "값";
+  const of = counted ? "COUNT(*)" : `${agg}(${measure})`;
+  const pair = comparedPair(question);
+  if (!pair) {
+    return (
+      `한 FROM 에서 값마다 FILTER 로 따로 집계해 뺀다(${of} FILTER (WHERE 열 = 'A') - ${of} FILTER (WHERE 열 = 'B'), A 는 질문의 앞 값, B 는 「보다」 앞의 값). ` +
+      "FROM 에 그 값이 든 표를 쓰고, FILTER 안에는 조건만 두고 CASE … ELSE 0 을 쓰지 않는다. 같은 표를 두 번 JOIN 하지 않는다"
+    );
+  }
+  // FROM 을 적는다. 「critical 티켓이 low 티켓보다 몇 건 더 많아?」에 FROM 없는 안내를 주자 7B 가 그대로 옮겨 42703 으로 끝났다(6차 수정본 실측, 5차 빌드는 5건).
+  const col = pair.col.split(".").pop()!;
+  const joined = measure !== "값" && !counted && (pair.table === "clients" || pair.table === "departments");
   return (
-    "한 FROM 에서 값마다 FILTER 로 따로 집계해 뺀다: SELECT SUM(값) FILTER (WHERE 열 = 'A') - SUM(값) FILTER (WHERE 열 = 'B') AS diff FROM 표 " +
-    "(평균이면 AVG). A 는 질문의 앞 값, B 는 「보다」 앞의 값이다. 같은 표를 두 번 JOIN 하지 않는다"
+    `한 FROM 에서 값마다 FILTER 로 따로 집계해 뺀다: SELECT ${of} FILTER (WHERE ${col} = '${pair.a}') - ${of} FILTER (WHERE ${col} = '${pair.b}') AS diff ` +
+    `FROM companyx.${pair.table}${joined ? `(${measure} 이 다른 표에 있으면 그 표를 외래키로 조인)` : ""}. FILTER 안에는 조건만 두고 CASE … ELSE 0 을 쓰지 않는다. ` +
+    "같은 표를 두 번 JOIN 하지 않는다"
   );
+}
+
+/** 질문이 한 열의 두 값을 견주면(COMPARE_FAMILIES, 질문에 나온 차례) 그 열과 두 값과 그 열의 표. 부서 이름은 분류 낱말보다 먼저 지운다(checkCompareGroups 와 같은 읽기). */
+function comparedPair(question: string): { col: string; table: string; a: string; b: string } | null {
+  let rest = question;
+  for (const f of COMPARE_FAMILIES.get("companyx") ?? []) {
+    const hits: [number, string][] = [];
+    for (const [value, words] of f.values) {
+      const m = new RegExp(`(?:${words})${VALUE_TAIL}`).exec(rest);
+      if (m) hits.push([m.index ?? 0, value]);
+      if (f.col === "departments.name") rest = rest.replace(new RegExp(words, "g"), (w) => " ".repeat(w.length));
+    }
+    if (hits.length === 2) {
+      const [x, y] = hits.sort((p, q) => p[0] - q[0]);
+      return { col: f.col, table: f.keys[0].split(".")[0], a: x[1], b: y[1] };
+    }
+  }
+  return null;
 }
 
 /** 질문의 연도가 붙은 반기(「2025년 상반기」, 「작년 하반기」). */
