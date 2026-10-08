@@ -1925,11 +1925,12 @@ const deadEmbedder: Embedder = {
   const sumSql = (name: string) => `SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE client_id IN (SELECT id FROM companyx.clients WHERE name = '${name}') AND quarter = '2025-Q3'`;
   const llm = async () => "서울물산의 2025년 3분기 총 매출액은 없습니다.";
   const r = await ask(tc143, { pool: ontoPool([{ total_sales: null }]), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => sumSql("서울물산") });
+  // 사유 뒤는 7B 문장 그대로다. 명세 TC-143 의 비고가 그 문장을 인용한다(null 집계의 결정론 문장은 사유가 붙지 않을 때만).
   ok(
     r.answer ===
       "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.\n\n" +
-        "이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null).\n\n[조회 결과 1건]\n- total_sales: null",
-    `없는 개체의 사유를 답 앞에 붙이고 null 한 행은 값이 없다는 문장과 행 블록 (got ${JSON.stringify(r.answer)})`,
+        "서울물산의 2025년 3분기 총 매출액은 없습니다.\n\n[조회 결과 1건]\n- total_sales: null",
+    `없는 개체의 사유를 답 앞에 붙이고 7B 답과 행 블록은 그대로 (got ${JSON.stringify(r.answer)})`,
   );
   ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
   const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });

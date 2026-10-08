@@ -1244,9 +1244,11 @@ export async function ask(
     return { ...r, answer: missingSqlHead + ZERO_ROWS_ANSWER };
   }
   // 정형 레인의 합계, 평균, 최댓값, 최솟값 집계가 값이 모두 null 인 한 행이면 7B 없이 값이 없다고 말한다(NULL_ROW_ANSWER).
+  // 못 찾은 개체 사유를 앞에 붙이는 답은 7B 문장을 그대로 둔다. 제출한 명세 TC-143 의 비고가 그 문장(「서울물산의 2025년 3분기 총
+  // 매출액은 없습니다.」)을 인용해, 결정론 문장으로 바꾸면 인용한 값이 화면에서 사라졌다(10-08 네 번째 릴리스 리허설, G13).
   const onlyRow = r.route === "structured" && r.sql.result?.ok && r.sql.result.rows.length === 1 ? r.sql.result.rows[0] : undefined;
   const aggregate = /\b(?:sum|avg|min|max)\s*\(/i.test(r.sql.text ?? "");
-  if (onlyRow && aggregate && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
+  if (onlyRow && aggregate && !missingSqlHead && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
     return { ...r, answer: missingSqlHead + withSqlRows(r, NULL_ROW_ANSWER) };
   }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
