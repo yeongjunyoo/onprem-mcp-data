@@ -2884,6 +2884,54 @@ const deadEmbedder: Embedder = {
     ["2024년 하반기 중 4분기 매출은?", "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q4' GROUP BY quarter"],
     ["2025년 분기별 매출은?", "SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2025-%' GROUP BY quarter"],
   ]) ok(checkHalfGroup(sql, q).length === 0, `반기로 묶거나 한 행이거나 분기를 묻는 질문은 보지 않는다: ${q}`);
+
+  // 랜덤 테스트 4차 P6 의 남은 셋: 누적(AG05), 묶음당 평균(AG11), 전년 동기(AG04).
+  const { checkCumulative, checkYearOverYear, confirmAverageUnit } = await import("./sqltrust.js");
+  const monthly = "SELECT date_trunc('month', sale_date) AS m, SUM(amount) AS s FROM companyx.sales WHERE sale_date >= '2025-01-01' AND sale_date < '2026-01-01' GROUP BY 1 ORDER BY 1";
+  const cumWhy = checkCumulative(monthly, "2025년 월별 누적 매출을 보여줘");
+  ok(cumWhy.length === 1 && cumWhy[0].includes("SUM(합계) OVER (ORDER BY 기간)"), `AG05 누적을 7B 가 더함 (got ${cumWhy})`);
+  ok(refused(monthly, cumWhy).includes("생성된 SQL 이 누적을 세지 않아서 실행하지 않았습니다."), "누적 거절 문장");
+  for (const [q, sql] of [
+    ["2025년 월별 누적 매출을 보여줘", "SELECT m, SUM(s) OVER (ORDER BY m) FROM (SELECT date_trunc('month', sale_date) AS m, SUM(amount) AS s FROM companyx.sales GROUP BY 1) t"],
+    ["2025년 누적 매출은?", "SELECT SUM(amount) FROM companyx.sales WHERE sale_date >= '2025-01-01' AND sale_date < '2026-01-01'"],
+  ]) ok(checkCumulative(sql, q).length === 0, `창 합계가 있거나 누적 합계 하나를 묻는 질문은 보지 않는다: ${q}`);
+  const ag04 = "SELECT quarter, amount, (amount - LAG(amount) OVER (ORDER BY sale_date)) * 100.0 / LAG(amount) OVER (ORDER BY sale_date) AS yoy FROM companyx.sales";
+  const yoyWhy = checkYearOverYear(ag04, "분기별 매출의 전년 동기 대비 증감률을 보여줘");
+  ok(yoyWhy.length === 1 && yoyWhy[0].includes("LAG(합계, 4) OVER (ORDER BY 기간)"), `AG04 바로 앞 행과 견줌 (got ${yoyWhy})`);
+  ok(refused(ag04, yoyWhy).includes("생성된 SQL 이 1년 전 같은 기간과 견주지 못해서 실행하지 않았습니다."), "전년 동기 거절 문장");
+  ok(checkYearOverYear("SELECT m, s, LAG(s, 1) OVER (ORDER BY m) FROM t", "월별 매출의 전년 동월 대비 증감은?")[0]?.includes("LAG(합계, 12)"), "달이면 12칸");
+  const ag04real =
+    "SELECT quarter, (amount - LAG(amount) OVER (PARTITION BY quarter ORDER BY quarter)) / LAG(amount) OVER (PARTITION BY quarter ORDER BY quarter) * 100 AS growth_rate FROM companyx.sales ORDER BY quarter";
+  ok(checkYearOverYear(ag04real, "분기별 매출의 전년 동기 대비 증감률을 보여줘").length === 1, "AG04 실측 SQL: 묶지 않은 매출 행을 분기 값으로 나눈 LAG");
+  ok(
+    checkYearOverYear(
+      "WITH q AS (SELECT quarter, SUM(amount) AS s FROM companyx.sales GROUP BY quarter) SELECT quarter, LAG(s) OVER (PARTITION BY quarter ORDER BY quarter) FROM q",
+      "분기별 매출의 전년 동기 대비 증감률을 보여줘",
+    ).length === 1,
+    "합계를 냈어도 분기 값 그대로 나누면 1년 전에 닿지 않는다",
+  );
+  for (const sql of [
+    "WITH q AS (SELECT quarter, SUM(amount) AS s FROM companyx.sales GROUP BY quarter) SELECT quarter, (s - LAG(s, 4) OVER (ORDER BY quarter)) * 100.0 / LAG(s, 4) OVER (ORDER BY quarter) FROM q",
+    "WITH q AS (SELECT quarter, SUM(amount) AS s FROM companyx.sales GROUP BY quarter) SELECT quarter, LAG(s) OVER (PARTITION BY RIGHT(quarter, 2) ORDER BY quarter) FROM q",
+    "SELECT a.quarter, a.s, b.s FROM q a JOIN q b ON b.quarter = (CAST(LEFT(a.quarter, 4) AS int) - 1) || RIGHT(a.quarter, 3)",
+  ]) ok(checkYearOverYear(sql, "분기별 매출의 전년 동기 대비 증감률을 보여줘").length === 0, `네 칸 LAG, 같은 분기 번호 PARTITION, 조인은 보지 않는다: ${sql}`);
+  ok(checkYearOverYear(ag04, "2025년 4분기의 3분기 대비 매출 증가율은?").length === 0, "전년 동기가 아닌 비교는 보지 않는다");
+  const countPool = (n: number) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => (/AS grouped/.test(sql) ? { rows: [{ n }], rowCount: 1, fields: [{ name: "n" }] } : { rows: [], rowCount: 0, fields: [] }),
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  const ag11 = "SELECT c.name, COUNT(*) AS n FROM companyx.contracts ct JOIN companyx.clients c ON c.id = ct.client_id GROUP BY c.name";
+  const avgWhy = await confirmAverageUnit(countPool(27), ag11, "고객사당 평균 계약 건수는?");
+  ok(avgWhy.length === 1 && avgWhy[0].includes("(27행)") && avgWhy[0].includes("바깥에서 AVG 하나를 구한다"), `AG11 묶음마다 값 (got ${avgWhy})`);
+  ok(refused(ag11, avgWhy).includes("생성된 SQL 이 평균 하나 대신 묶음마다 값을 돌려줘서 실행하지 않았습니다."), "묶음당 평균 거절 문장");
+  ok((await confirmAverageUnit(countPool(1), ag11, "고객사당 평균 계약 건수는?")).length === 0, "한 행이면 보지 않는다");
+  for (const q of ["고객사별 평균 계약 건수는?", "평균 계약 금액은 얼마야?", "고객사당 계약 건수 목록"]) {
+    ok((await confirmAverageUnit(countPool(27), ag11, q)).length === 0, `묶음마다의 평균, 「당」이 없는 평균, 평균이 아닌 질문은 보지 않는다: ${q}`);
+  }
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

@@ -1397,6 +1397,77 @@ export async function confirmCountUnit(pool: Pool, sql: string, question: string
   ];
 }
 
+/** 묶음 하나마다의 평균을 묻는 말: 「고객사당」, 「직원 1인당」, 「부서당」. */
+const PER_UNIT_AVERAGE = /(?:고객사|고객|직원|사람|부서|팀|제품|프로젝트|계약|티켓)\s*(?:1\s*인\s*)?당(?![가-힣])|1\s*인\s*당/;
+
+/** ⑧-6 묶음 하나마다의 평균 하나를 묻는데(「고객사당 평균 계약 건수는?」) 생성 SQL 의 바깥 질의가 GROUP BY 로 묶어 묶음마다 값을 내면
+ * 7B 가 그 행들을 보고 평균을 지어낸다. 고객사별 30행에 「3입니다」라고 답했다(계약이 있는 27곳 평균 2.41. 랜덤 테스트 사전 점검 4차
+ * AG11). 실제로 여러 행이 나오는지는 confirmCountUnit 과 같이 읽기 전용 거래에서 센다. 묶음마다의 평균을 묻는 질문은 보지 않는다. */
+export async function confirmAverageUnit(pool: Pool, sql: string, question: string): Promise<string[]> {
+  if (!/평균/.test(question) || !PER_UNIT_AVERAGE.test(question) || PER_GROUP.test(question)) return [];
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d) return [];
+  const top = (re: RegExp) => [...masked.matchAll(re)].filter((m) => d[m.index ?? 0] === 0).map((m) => m.index ?? 0);
+  const group = top(/\bgroup\s+by\b/gi)[0];
+  if (group === undefined || top(/\bselect\b/gi).length !== 1) return [];
+  const r = await sqlQuery(pool, `SELECT count(*) AS n FROM (${sql.replace(/[\s;]+$/, "")}) AS grouped`);
+  const n = r.ok ? Number((r.rows[0] as { n?: unknown } | undefined)?.n) : NaN;
+  if (!(n > 1)) return [];
+  const stop = top(/\b(?:having|order|limit|offset|fetch|window)\b/gi).find((at) => at > group) ?? sql.length;
+  return [
+    `${UNIT_REASON}${sql.slice(group, stop).replace(/\s+/g, " ").trim()} 로 묶어 묶음마다 값을 하나씩(${n}행) 돌려준다. 질문은 평균 하나를 묻는다. ` +
+      "묶음마다 센 값을 하위 질의로 두고 바깥에서 AVG 하나를 구한다: SELECT AVG(n) FROM (SELECT …, COUNT(*) AS n … GROUP BY …) AS t",
+  ];
+}
+
+/** ⑧-7 기간마다의 누적(「2025년 월별 누적 매출을 보여줘」)을 묻는데 생성 SQL 에 창 합계(SUM(…) OVER (ORDER BY …))가 없으면 누적은 7B 가
+ * 행을 더해 낸다. 월 합계 12행을 받아 2월부터 누적을 틀렸다(2월 15,325, 실제 22,145 … 112,773. 랜덤 테스트 사전 점검 4차 AG05). 기간 낱말
+ * 없이 「누적 매출」 하나를 묻는 질문(합계 하나)은 보지 않는다. */
+export function checkCumulative(sql: string, question: string): string[] {
+  if (!/누적/.test(question) || !/(?:월|달|분기|연도|해|일|주)\s*(?:별|마다)|추이|흐름/.test(question)) return [];
+  const masked = maskSql(sql);
+  if (masked === null || /\bover\s*\(/i.test(masked)) return [];
+  return [
+    `${UNIT_REASON}질문은 기간마다의 누적을 묻는데 SQL 이 누적을 세지 않는다(창 합계가 없다). ` +
+      "기간마다 합계를 구한 뒤 SUM(합계) OVER (ORDER BY 기간) 으로 SQL 이 누적을 센다",
+  ];
+}
+
+/** ⑧-8 전년 동기 대비(「분기별 매출의 전년 동기 대비 증감률을 보여줘」)를 묻는데 생성 SQL 의 LAG 가 1년 전 같은 기간에 닿지 않으면 다른
+ * 행과 견준다. 기간마다 합계를 내지 않은 매출 500행에 LAG(amount) OVER (PARTITION BY quarter …) 를 걸어 「2024년 Q1 … 600%」라고
+ * 답했다(같은 분기 안의 매출 건끼리 견줌. 2024년은 견줄 전년이 없다. 실제 2025-Q1 -4.87% … 랜덤 테스트 사전 점검 4차 AG04). 묶지 않은 행의
+ * LAG, 분기 값 그대로('2024-Q1')로 나눈 PARTITION, 나누지 않은 한 칸 LAG 를 본다. LAG 없이 연도를 하나 빼 조인한 SQL 은 보지 않는다. */
+export function checkYearOverYear(sql: string, question: string): string[] {
+  if (!/전년\s*(?:동기|동월|동분기|대비|같은)|작년\s*같은\s*(?:분기|달|기간|때)|\byoy\b|year\s*over\s*year/i.test(question)) return [];
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const lags = [...masked.matchAll(/\blag\s*\(/gi)];
+  if (!lags.length) return [];
+  const grouped = /\bgroup\s+by\b/i.test(masked);
+  const partitioned = /\bpartition\s+by\b/i.test(masked);
+  const byQuarterValue = /\bpartition\s+by\s+(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter\s*(?:\)|\border\b|,)/i.test(masked);
+  const step = /월|달/.test(question) && !/분기/.test(question) ? 12 : 4;
+  const one = lags.some((m) => {
+    let depth = 0;
+    let comma = false;
+    for (let i = (m.index ?? 0) + m[0].length; i < masked.length; i++) {
+      const c = masked[i];
+      if (c === "(") depth++;
+      else if (c === ")") {
+        if (depth === 0) return !comma || /,\s*1\s*$/.test(masked.slice((m.index ?? 0) + m[0].length, i));
+        depth--;
+      } else if (c === "," && depth === 0) comma = true;
+    }
+    return false;
+  });
+  if (grouped && !byQuarterValue && (partitioned || !one)) return [];
+  return [
+    `${UNIT_REASON}질문은 전년 동기와 견주는데 SQL 의 LAG 는 1년 전 같은 기간에 닿지 않는다. 기간마다 합계를 먼저 구하고(GROUP BY) ` +
+      `LAG(합계, ${step}) OVER (ORDER BY 기간) 로 1년 전 같은 ${step === 12 ? "달" : "분기"}와 견준다`,
+  ];
+}
+
 /** 질문에 없는 번호로 건 id 조건 가운데 그 행의 이름(name 열)이 질문에 그대로 있는 것은 거부하지 않는다.
  * 「Client-N에 메일 보내야 돼」에 c.id = 14 는 Client-N 을 가리키므로 추측이 아니다(qwen3.5:9b 홀드아웃3 h3-05,
  * 정답으로 채점된 SQL). 「연봉 알려줘」의 e.id = 1(윤소연)은 질문에 이름이 없어 그대로 거부한다. 표 이름은
@@ -1507,7 +1578,10 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...checkGroupTop(sql, question),
     ...checkBothEnds(sql, question),
     ...checkHalfGroup(sql, question),
+    ...checkCumulative(sql, question),
+    ...checkYearOverYear(sql, question),
     ...(await confirmCountUnit(pool, sql, question)),
+    ...(await confirmAverageUnit(pool, sql, question)),
     ...checkSyntax(sql),
   ];
 }
@@ -1689,7 +1763,13 @@ export function untrustedAnswer(gate: SqlGate): string {
                     ? "생성된 SQL 이 가장 높은 쪽과 가장 낮은 쪽 가운데 한쪽만 골라서 실행하지 않았습니다. "
                     : unit.includes("반기(상반기, 하반기)를 묻는데")
                       ? "생성된 SQL 이 반기가 아니라 분기로 묶어서 실행하지 않았습니다. "
-                      : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
+                      : unit.includes("질문은 평균 하나를 묻는다")
+                        ? "생성된 SQL 이 평균 하나 대신 묶음마다 값을 돌려줘서 실행하지 않았습니다. "
+                        : unit.includes("누적을 묻는데")
+                          ? "생성된 SQL 이 누적을 세지 않아서 실행하지 않았습니다. "
+                          : unit.includes("전년 동기와 견주는데")
+                            ? "생성된 SQL 이 1년 전 같은 기간과 견주지 못해서 실행하지 않았습니다. "
+                            : "생성된 SQL 이 달로 묶지 않아 달을 고를 수 없어서 실행하지 않았습니다. "
               : syntax
                 ? syntax.includes("자리표시")
                   ? "생성된 SQL 이 값 대신 자리표시(?)를 써서 실행하지 않았습니다. "
