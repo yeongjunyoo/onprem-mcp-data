@@ -39,7 +39,7 @@
 import type { Pool } from "./db.js";
 import { sqlQuery, columnsForSql, isReadOnly, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
-import { enumColumns, rankRewrite, repairTurnsValue, untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
+import { enumColumns, rankRewrite, repairTurnsValue, shapeHints, untrustedReasons, withTies, type SqlGate } from "./sqltrust.js";
 
 export interface RepairOpts {
   /** 엔진 오류일 때 고친다. false 면 한 번만 실행한다. */
@@ -81,6 +81,9 @@ async function engineError(pool: Pool, sql: string): Promise<string> {
 export async function executeWithRepair(pool: Pool, query: string, generated: string, opts: RepairOpts = {}): Promise<Executed> {
   const schema = opts.schema ?? "companyx";
   const repair = opts.repairer ?? repairSql;
+  /** 수리 안내 끝에 질문 모양의 SQL 안내(shapeHints)를 붙인다. 사유에 같은 안내가 이미 있으면 다시 붙이지 않는다. */
+  const withShape = (feedback: string) =>
+    [feedback, ...shapeHints(query).filter((h) => !feedback.includes(h.slice(h.indexOf(". ") + 2)))].join(" ");
   const rejected: SqlGate["rejected"] = [];
   const trusted = async (sql: string) => {
     const reasons = await untrustedReasons(pool, schema, sql, query);
@@ -106,7 +109,7 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
     const engine = opts.repair === false ? "" : await engineError(pool, generated);
     // 오류를 사유 앞에 둔다. 사유 뒤에 「이 SQL 은 실행하면 오류도 난다」로 붙였을 때 7B 는 3/3 name 을 그대로 썼고, 앞에 두고 바꾸라고
     // 하자 3/3 실제 열로 바꿨다(I8b 수리 실측 2026-10-08).
-    const why = (engine ? `이 SQL 은 실행하면 오류가 난다: ${engine}. 오류가 지목한 열은 그 표에 없으니 빼거나 실제 컬럼 목록의 열로 바꾼다. 그리고 ` : "") + rejected[0].reasons.join(" ");
+    const why = withShape((engine ? `이 SQL 은 실행하면 오류가 난다: ${engine}. 오류가 지목한 열은 그 표에 없으니 빼거나 실제 컬럼 목록의 열로 바꾼다. 그리고 ` : "") + rejected[0].reasons.join(" "));
     const fixed = opts.repair === false ? null : await repair(query, generated, why, cols, "untrusted");
     if (!fixed || !(await trusted(fixed))) return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
     const turned = repairTurnsValue(rejected[0].reasons, fixed, query, enumColumns(schema), schema);
@@ -137,8 +140,8 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
 
   const cols = await columnsForSql(pool, text, schema).catch(() => "");
   const fixed = failed
-    ? await repair(query, text, first.error ?? "unknown error", cols, "error")
-    : await repair(query, text, EMPTY_FEEDBACK, cols, "empty");
+    ? await repair(query, text, withShape(first.error ?? "unknown error"), cols, "error")
+    : await repair(query, text, withShape(EMPTY_FEEDBACK), cols, "empty");
   if (!fixed) return { text, result: first, repaired: false };
   // 수리한 SQL 도 같은 검사를 거친다. 오류를 고치려다 없는 관계로 조인한 것이면(「매출 알려줘」) 믿을 만한
   // SQL 이 없는 것이고, 0행을 고치려다 그랬으면 처음 SQL 의 0행이 답이다.

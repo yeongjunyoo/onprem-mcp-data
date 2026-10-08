@@ -1399,6 +1399,38 @@ export async function confirmCountUnit(pool: Pool, sql: string, question: string
 
 /** 묶음 하나마다의 평균을 묻는 말: 「고객사당」, 「직원 1인당」, 「부서당」. */
 const PER_UNIT_AVERAGE = /(?:고객사|고객|직원|사람|부서|팀|제품|프로젝트|계약|티켓)\s*(?:1\s*인\s*)?당(?![가-힣])|1\s*인\s*당/;
+const PER_UNIT_AVERAGE_HINT =
+  "묶음마다 센 값을 하위 질의로 두고 바깥에서 AVG 하나를 구한다: SELECT AVG(n)::numeric(10,2) FROM (SELECT 묶음.id, COUNT(센 표.id) AS n " +
+  "FROM 묶음 표 LEFT JOIN 센 표 ON … GROUP BY 묶음.id) AS t. 묶음 표(고객사면 clients)에서 LEFT JOIN 으로 세어 값이 없는 묶음도 0 으로 넣는다. " +
+  "AVG(COUNT(…)) 처럼 집계를 겹쳐 쓰지 않는다";
+const CUMULATIVE_ASKED = /(?:월|달|분기|연도|해|일|주)\s*(?:별|마다)|추이|흐름/;
+const CUMULATIVE_HINT =
+  "기간마다 합계를 하위 질의(WITH)로 먼저 구한 뒤 바깥에서 SUM(합계) OVER (ORDER BY 기간) 으로 누적을 센다. 창의 ORDER BY 에는 같은 단계의 별칭을 쓰지 않는다";
+/** 기간마다 1년 전 같은 기간과 견주는 질문: 「전년 동기」, 「작년 같은 분기」, 「분기별 … 전년 대비」. 기간 낱말 없는 「2025년 매출은 전년 대비
+ * 몇 퍼센트 감소했어?」는 한 해끼리 견주는 질문이라 넣지 않는다(LAG 를 연도로 한 칸 걸면 맞다). */
+const yoyAsked = (question: string) =>
+  /전년\s*(?:동기|동월|동분기)|작년\s*같은\s*(?:분기|달|월|기간|때)|\byoy\b|year\s*over\s*year/i.test(question) ||
+  (/(?:분기|월|달)\s*(?:별|마다)|매\s*(?:분기|달|월)/.test(question) && /전년\s*(?:대비|같은)/.test(question));
+/** 꼴을 그대로 적는다. 「분자를 ::numeric 으로」만 덧붙였을 때 7B 는 LAG(SUM(amount), 4) 까지 맞히고 정수 나눗셈을 3/3 그대로 두었다. */
+const yoyHint = (question: string) => {
+  const step = /월|달/.test(question) && !/분기/.test(question) ? 12 : 4;
+  return (
+    `기간마다 합계를 먼저 구하고(GROUP BY 기간) 1년 전 같은 ${step === 12 ? "달" : "분기"}와 견준다. 증감률은 분자를 ::numeric 으로 바꿔 나눈다: ` +
+    `(SUM(값) - LAG(SUM(값), ${step}) OVER (ORDER BY 기간))::numeric * 100 / LAG(SUM(값), ${step}) OVER (ORDER BY 기간)`
+  );
+};
+
+/** 질문 모양에 맞춘 SQL 안내(묶음당 평균, 기간별 누적, 전년 동기). 수리 프롬프트마다(오류, 0행, 실행 전 검사) 붙인다. 실행 전 검사 사유만
+ * 안내하던 때는 오류 수리가 그 모양을 몰라 「고객사당 평균 계약 건수는?」의 AVG(COUNT(…)) 오류를 고객사별 30행으로 고쳤고, 전년 동기 수리는
+ * LAG(SUM(amount), 4) 까지 맞히고 정수 나눗셈으로, 누적 수리는 창 ORDER BY 에 별칭을 써 42703 으로 끝났다(4차 P6 수정본 실측 2026-10-08).
+ * 시험항목 질문에는 「당 … 평균」, 「누적」, 「전년」이 없다. */
+export function shapeHints(question: string): string[] {
+  const hints: string[] = [];
+  if (/평균/.test(question) && PER_UNIT_AVERAGE.test(question) && !PER_GROUP.test(question)) hints.push(`질문은 묶음 하나마다의 평균 하나를 묻는다. ${PER_UNIT_AVERAGE_HINT}`);
+  if (/누적/.test(question) && CUMULATIVE_ASKED.test(question)) hints.push(`질문은 기간마다의 누적을 묻는다. ${CUMULATIVE_HINT}`);
+  if (yoyAsked(question)) hints.push(`질문은 전년 동기와 견준다. ${yoyHint(question)}`);
+  return hints;
+}
 
 /** ⑧-6 묶음 하나마다의 평균 하나를 묻는데(「고객사당 평균 계약 건수는?」) 생성 SQL 의 바깥 질의가 GROUP BY 로 묶어 묶음마다 값을 내면
  * 7B 가 그 행들을 보고 평균을 지어낸다. 고객사별 30행에 「3입니다」라고 답했다(계약이 있는 27곳 평균 2.41. 랜덤 테스트 사전 점검 4차
@@ -1417,7 +1449,7 @@ export async function confirmAverageUnit(pool: Pool, sql: string, question: stri
   const stop = top(/\b(?:having|order|limit|offset|fetch|window)\b/gi).find((at) => at > group) ?? sql.length;
   return [
     `${UNIT_REASON}${sql.slice(group, stop).replace(/\s+/g, " ").trim()} 로 묶어 묶음마다 값을 하나씩(${n}행) 돌려준다. 질문은 평균 하나를 묻는다. ` +
-      "묶음마다 센 값을 하위 질의로 두고 바깥에서 AVG 하나를 구한다: SELECT AVG(n) FROM (SELECT …, COUNT(*) AS n … GROUP BY …) AS t",
+      PER_UNIT_AVERAGE_HINT,
   ];
 }
 
@@ -1425,13 +1457,10 @@ export async function confirmAverageUnit(pool: Pool, sql: string, question: stri
  * 행을 더해 낸다. 월 합계 12행을 받아 2월부터 누적을 틀렸다(2월 15,325, 실제 22,145 … 112,773. 랜덤 테스트 사전 점검 4차 AG05). 기간 낱말
  * 없이 「누적 매출」 하나를 묻는 질문(합계 하나)은 보지 않는다. */
 export function checkCumulative(sql: string, question: string): string[] {
-  if (!/누적/.test(question) || !/(?:월|달|분기|연도|해|일|주)\s*(?:별|마다)|추이|흐름/.test(question)) return [];
+  if (!/누적/.test(question) || !CUMULATIVE_ASKED.test(question)) return [];
   const masked = maskSql(sql);
   if (masked === null || /\bover\s*\(/i.test(masked)) return [];
-  return [
-    `${UNIT_REASON}질문은 기간마다의 누적을 묻는데 SQL 이 누적을 세지 않는다(창 합계가 없다). ` +
-      "기간마다 합계를 구한 뒤 SUM(합계) OVER (ORDER BY 기간) 으로 SQL 이 누적을 센다",
-  ];
+  return [`${UNIT_REASON}질문은 기간마다의 누적을 묻는데 SQL 이 누적을 세지 않는다(창 합계가 없다). ${CUMULATIVE_HINT}`];
 }
 
 /** ⑧-8 전년 동기 대비(「분기별 매출의 전년 동기 대비 증감률을 보여줘」)를 묻는데 생성 SQL 의 LAG 가 1년 전 같은 기간에 닿지 않으면 다른
@@ -1439,7 +1468,7 @@ export function checkCumulative(sql: string, question: string): string[] {
  * 답했다(같은 분기 안의 매출 건끼리 견줌. 2024년은 견줄 전년이 없다. 실제 2025-Q1 -4.87% … 랜덤 테스트 사전 점검 4차 AG04). 묶지 않은 행의
  * LAG, 분기 값 그대로('2024-Q1')로 나눈 PARTITION, 나누지 않은 한 칸 LAG 를 본다. LAG 없이 연도를 하나 빼 조인한 SQL 은 보지 않는다. */
 export function checkYearOverYear(sql: string, question: string): string[] {
-  if (!/전년\s*(?:동기|동월|동분기|대비|같은)|작년\s*같은\s*(?:분기|달|기간|때)|\byoy\b|year\s*over\s*year/i.test(question)) return [];
+  if (!yoyAsked(question)) return [];
   const masked = maskSql(sql);
   if (masked === null) return [];
   const lags = [...masked.matchAll(/\blag\s*\(/gi)];
@@ -1447,7 +1476,6 @@ export function checkYearOverYear(sql: string, question: string): string[] {
   const grouped = /\bgroup\s+by\b/i.test(masked);
   const partitioned = /\bpartition\s+by\b/i.test(masked);
   const byQuarterValue = /\bpartition\s+by\s+(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter\s*(?:\)|\border\b|,)/i.test(masked);
-  const step = /월|달/.test(question) && !/분기/.test(question) ? 12 : 4;
   const one = lags.some((m) => {
     let depth = 0;
     let comma = false;
@@ -1462,10 +1490,7 @@ export function checkYearOverYear(sql: string, question: string): string[] {
     return false;
   });
   if (grouped && !byQuarterValue && (partitioned || !one)) return [];
-  return [
-    `${UNIT_REASON}질문은 전년 동기와 견주는데 SQL 의 LAG 는 1년 전 같은 기간에 닿지 않는다. 기간마다 합계를 먼저 구하고(GROUP BY) ` +
-      `LAG(합계, ${step}) OVER (ORDER BY 기간) 로 1년 전 같은 ${step === 12 ? "달" : "분기"}와 견준다`,
-  ];
+  return [`${UNIT_REASON}질문은 전년 동기와 견주는데 SQL 의 LAG 는 1년 전 같은 기간에 닿지 않는다. ${yoyHint(question)}`];
 }
 
 /** 질문에 없는 번호로 건 id 조건 가운데 그 행의 이름(name 열)이 질문에 그대로 있는 것은 거부하지 않는다.

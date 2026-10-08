@@ -2898,9 +2898,9 @@ const deadEmbedder: Embedder = {
   ]) ok(checkCumulative(sql, q).length === 0, `창 합계가 있거나 누적 합계 하나를 묻는 질문은 보지 않는다: ${q}`);
   const ag04 = "SELECT quarter, amount, (amount - LAG(amount) OVER (ORDER BY sale_date)) * 100.0 / LAG(amount) OVER (ORDER BY sale_date) AS yoy FROM companyx.sales";
   const yoyWhy = checkYearOverYear(ag04, "분기별 매출의 전년 동기 대비 증감률을 보여줘");
-  ok(yoyWhy.length === 1 && yoyWhy[0].includes("LAG(합계, 4) OVER (ORDER BY 기간)"), `AG04 바로 앞 행과 견줌 (got ${yoyWhy})`);
+  ok(yoyWhy.length === 1 && yoyWhy[0].includes("LAG(SUM(값), 4) OVER (ORDER BY 기간))::numeric * 100"), `AG04 바로 앞 행과 견줌 (got ${yoyWhy})`);
   ok(refused(ag04, yoyWhy).includes("생성된 SQL 이 1년 전 같은 기간과 견주지 못해서 실행하지 않았습니다."), "전년 동기 거절 문장");
-  ok(checkYearOverYear("SELECT m, s, LAG(s, 1) OVER (ORDER BY m) FROM t", "월별 매출의 전년 동월 대비 증감은?")[0]?.includes("LAG(합계, 12)"), "달이면 12칸");
+  ok(checkYearOverYear("SELECT m, s, LAG(s, 1) OVER (ORDER BY m) FROM t", "월별 매출의 전년 동월 대비 증감은?")[0]?.includes("LAG(SUM(값), 12)"), "달이면 12칸");
   const ag04real =
     "SELECT quarter, (amount - LAG(amount) OVER (PARTITION BY quarter ORDER BY quarter)) / LAG(amount) OVER (PARTITION BY quarter ORDER BY quarter) * 100 AS growth_rate FROM companyx.sales ORDER BY quarter";
   ok(checkYearOverYear(ag04real, "분기별 매출의 전년 동기 대비 증감률을 보여줘").length === 1, "AG04 실측 SQL: 묶지 않은 매출 행을 분기 값으로 나눈 LAG");
@@ -2933,6 +2933,45 @@ const deadEmbedder: Embedder = {
   for (const q of ["고객사별 평균 계약 건수는?", "평균 계약 금액은 얼마야?", "고객사당 계약 건수 목록"]) {
     ok((await confirmAverageUnit(countPool(27), ag11, q)).length === 0, `묶음마다의 평균, 「당」이 없는 평균, 평균이 아닌 질문은 보지 않는다: ${q}`);
   }
+
+  // 질문 모양의 안내는 수리마다 붙는다. 오류 수리가 모양을 몰라 AG11 의 AVG(COUNT(…)) 오류를 고객사별 30행으로 고쳤다(수정본 실측).
+  const { shapeHints } = await import("./sqltrust.js");
+  ok(shapeHints("고객사당 평균 계약 건수는?")[0]?.includes("AVG(COUNT(…)) 처럼 집계를 겹쳐 쓰지 않는다"), "묶음당 평균 안내");
+  ok(shapeHints("2025년 월별 누적 매출을 보여줘")[0]?.includes("창의 ORDER BY 에는 같은 단계의 별칭을 쓰지 않는다"), "누적 안내");
+  ok(shapeHints("분기별 매출의 전년 동기 대비 증감률을 보여줘")[0]?.includes("분자를 ::numeric 으로"), "전년 동기 안내");
+  ok(shapeHints("월별 매출의 전년 대비 증감을 보여줘")[0]?.includes("LAG(SUM(값), 12)"), "월별 전년 대비는 12칸");
+  for (const q of [
+    "2025년 매출은 전년 대비 몇 퍼센트 감소했어?", // 한 해끼리(LAG 를 연도로 한 칸 걸면 맞다)
+    "2025년 누적 매출은?",
+    "평균 연봉이 가장 높은 부서는 어디야?",
+    "부서별 평균 연봉은?",
+    "2025년 3분기 총 매출액은 얼마야?",
+    "Client-A 담당 직원은 누구야?",
+  ]) ok(shapeHints(q).length === 0, `모양 안내가 붙지 않는다: ${q}`);
+  ok(
+    checkYearOverYear("SELECT y, SUM(amount), LAG(SUM(amount)) OVER (ORDER BY y) FROM (SELECT EXTRACT(YEAR FROM sale_date) AS y, amount FROM companyx.sales) s GROUP BY y", "2025년 매출은 전년 대비 몇 퍼센트 감소했어?").length === 0,
+    "한 해끼리 견주는 질문의 연도 LAG 는 보지 않는다",
+  );
+  let errHint = "";
+  const nested = "SELECT c.name, AVG(COUNT(ct.id)) FROM companyx.clients c LEFT JOIN companyx.contracts ct ON c.id = ct.client_id GROUP BY c.name";
+  const errPool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        if (/AVG\(COUNT/.test(sql) && !/pg_roles/.test(sql)) throw Object.assign(new Error("aggregate function calls cannot be nested"), { code: "42803" });
+        const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles|AS grouped/.test(sql) ? [{ avg: "2.17" }] : /AS grouped/.test(sql) ? [{ n: 1 }] : [];
+        return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+      },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  await executeWithRepair(errPool, "고객사당 평균 계약 건수는?", nested, {
+    repairer: async (_q, _sql, why, _cols, kind) => {
+      if (kind === "error") errHint = why;
+      return "SELECT AVG(n)::numeric(10,2) AS avg FROM (SELECT c.id, COUNT(ct.id) AS n FROM companyx.clients c LEFT JOIN companyx.contracts ct ON c.id = ct.client_id GROUP BY c.id) AS t";
+    },
+  });
+  ok(errHint.startsWith("aggregate function calls cannot be nested") && errHint.includes("질문은 묶음 하나마다의 평균 하나를 묻는다"), `오류 수리 안내에도 모양 안내 (got ${errHint})`);
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
