@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { formatParam, installInputErrorMessages, queryParam } from "./queryinput.js";
+import { budgetParam, formatParam, installInputErrorMessages, queryParam, sqlParam } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -130,8 +130,11 @@ const PACKAGE_VERSION: string = JSON.parse(
  * 그 규칙(`/<[^>]*>/`)이 SQL 비교 연산자를 태그로 읽어 지운다. `salary < 5000 AND
  * salary > 3000` 이 `salary  3000` 으로, `status <> 'closed'` 가 `status  'closed'` 로
  * 바뀌어 sql.query 가 문법 오류를 낸다. 이 서버는 입력을 HTML 로 그리지 않으니 지울
- * 이유가 없다. 제어 문자 제거와 길이 상한(10,000자)은 air 기본값 그대로 둔다. */
-export const SANITIZER_OPTIONS = { stripHtml: false } as const;
+ * 이유가 없다. 제어 문자 제거는 air 기본값 그대로 둔다.
+ *
+ * 길이 상한에서 자르는 것도 끈다. air 기본값은 문자열을 10,000자에서 말없이 잘라, 긴 SQL 이 다른 질의로 실행됐다(랜덤 테스트
+ * 사전 점검 3차 G20, G24). 길이는 입력 검증이 같은 상한으로 거절한다(queryinput.ts MAX_INPUT_CHARS). */
+export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POSITIVE_INFINITY } as const;
 
 export function buildServer(): AirServer {
   const ds = profile();
@@ -210,7 +213,7 @@ export function buildServer(): AirServer {
           "READ ONLY 트랜잭션(mcp_ro 롤이 있으면 그 롤)에서 돌고 쓰기·DDL·여러 문장 연결은 거부된다. " +
           "쓰지 말 것: 자연어 질문을 그대로 넣을 때(→ retrieve·ask 가 SQL 을 만든다), 문서 내용(→ vector.search), " +
           "개체 사이 관계 탐색(→ graph.expand).",
-        params: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } },
+        params: { sql: sqlParam("실행할 단일 SELECT/WITH 쿼리") },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (DB read, no model)
         tags: ["sql", "postgres", "read-only", "pylon7:L3"], // Pylon-7 L3 Resource
@@ -250,7 +253,7 @@ export function buildServer(): AirServer {
           "쓰지 말 것: 완성된 한국어 답이 필요할 때(→ ask), SQL 이 이미 있을 때(→ sql.query).",
         params: {
           query: queryParam("사용자의 한국어 질의"),
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
+          budget: budgetParam("큐레이터 토큰 예산 (기본 1024)"),
         },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 7, // air Meter: orchestrates several tools in one call
@@ -280,7 +283,7 @@ export function buildServer(): AirServer {
           "답의 근거와 판정만 필요할 때(→ audit.explain).",
         params: {
           query: queryParam("사용자의 한국어 질의"),
-          budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)", optional: true },
+          budget: budgetParam("큐레이터 토큰 예산 (기본 1024)"),
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
         layer: 7, // air Meter: agent chain (retrieval + generation)
