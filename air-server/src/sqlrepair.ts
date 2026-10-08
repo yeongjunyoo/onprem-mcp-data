@@ -43,14 +43,25 @@ import { sqlQuery, columnsForSql, isReadOnly, type SqlResult } from "./sql.js";
 import { repairSql } from "./nl2sql.js";
 import {
   countDistinctRewrite,
+  declaredColumns,
+  declaredForeignKeys,
+  dropMissingSelectColumns,
+  dropSelfJoinConditions,
   enumColumns,
   groupTopRewrite,
+  lastSameQuarterSql,
+  noCurrentQuarterReason,
+  openStatusRewrite,
+  plainListSql,
   rankRewrite,
+  realiasSql,
   repairTurnsValue,
+  sameQuarterCompare,
   shapeHints,
   untrustedReasons,
   withTies,
   type SqlGate,
+  type TableColumns,
 } from "./sqltrust.js";
 
 export interface RepairOpts {
@@ -90,7 +101,38 @@ async function engineError(pool: Pool, sql: string): Promise<string> {
   return !plan.ok && /\(42[0-9A-Z]{3}\)\s*$/.test(plan.error ?? "") ? (plan.error ?? "") : "";
 }
 
+/** FROM 에 없는 별칭(c.industry 의 c)은 생성 SQL 과 수리 SQL 모두 검사 전에 그 열이 있는 표의 별칭으로 바로잡는다(sqltrust.ts realiasSql). 「업종별 고객사 수와
+ * 계약 금액 합계는?」의 GROUP BY c.industry(별칭은 cl)가 42P01 로 끝났고 수리도 같은 별칭을 남겼다(랜덤 테스트 사전 점검 6차 P10, CJ05 3/3). 바꾼 것은 게이트의
+ * rejected 앞에 남긴다(다른 사유가 없으면 rewritten = alias). */
 export async function executeWithRepair(pool: Pool, query: string, generated: string, opts: RepairOpts = {}): Promise<Executed> {
+  const schema = opts.schema ?? "companyx";
+  const notes: SqlGate["rejected"] = [];
+  const fks = await declaredForeignKeys(pool, schema);
+  const known = new Set((fks ?? []).flatMap((f) => [f.table, f.refTable]));
+  const columns = known.size ? await declaredColumns(pool, schema) : null;
+  const realias = (sql: string) => {
+    const r = realiasSql(sql, columns, known);
+    if (!r) return sql;
+    notes.push({ sql, reasons: [r.reason] });
+    return r.text;
+  };
+  const base = opts.repairer ?? repairSql;
+  const repairer: typeof repairSql = async (...args) => {
+    const out = await base(...args);
+    return out ? realias(out) : out;
+  };
+  const ex = await execute(pool, query, realias(generated), { ...opts, schema, repairer }, { columns, known });
+  if (!notes.length) return ex;
+  return { ...ex, gate: ex.gate ? { ...ex.gate, rejected: [...notes, ...ex.gate.rejected] } : { outcome: "repaired", rejected: notes, rewritten: "alias" } };
+}
+
+async function execute(
+  pool: Pool,
+  query: string,
+  generated: string,
+  opts: RepairOpts,
+  ctx: { columns: TableColumns | null; known: ReadonlySet<string> },
+): Promise<Executed> {
   const schema = opts.schema ?? "companyx";
   const repair = opts.repairer ?? repairSql;
   /** 수리 안내 끝에 질문 모양의 SQL 안내(shapeHints)를 붙인다. 사유에 같은 안내가 이미 있으면 다시 붙이지 않는다. */
@@ -117,11 +159,13 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
   /** 묶음마다 1위를 묻는데 전체 1위 한 행만 고른 SQL 을 생성 모델 없이 묶음마다 1위를 고르는 SQL 로 바꿔(groupTopRewrite) 실행한다. 바꾼 SQL 이
    * 읽기 전용 가드와 실행 전 검사를 지나고 행을 돌려줄 때만 받는다. 사유만 되먹였을 때 7B 수리는 「지역별로 매출이 가장 높은 고객사는?」에서 두 번 다
    * LIMIT 1 을 남겼다(랜덤 테스트 사전 점검 5차 P13, FV11 3/3 거절). */
-  const regroup = async (sql: string): Promise<Executed | null> => {
+  const regroup = async (sql: string, added?: string[]): Promise<Executed | null> => {
     const text = groupTopRewrite(sql, query);
     if (!text || !isReadOnly(text) || (await untrustedReasons(pool, schema, text, query)).length) return null;
     const result = await sqlQuery(pool, text);
-    return result.ok && result.rows.length > 0 ? { text, result, repaired: false, gate: { outcome: "repaired", rejected, rewritten: "group-top" } } : null;
+    return result.ok && result.rows.length > 0
+      ? { text, result, repaired: false, gate: { outcome: "repaired", rejected, rewritten: "group-top", ...(added ? { added } : {}) } }
+      : null;
   };
   /** 사유가 모두 부모 키의 COUNT 팬아웃이면 COUNT(DISTINCT …) 로 바꿔(countDistinctRewrite) 실행한다. 받는 조건은 regroup 과 같다. */
   const recount = async (sql: string, reasons: string[]): Promise<Executed | null> => {
@@ -132,11 +176,88 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
       ? { text: ran.text, result: ran.result, repaired: false, gate: { outcome: "repaired", rejected, rewritten: "count-distinct" }, ...(ran.rank ? { rank: ran.rank } : {}) }
       : null;
   };
+  /** 열린 티켓을 묻는데 상태 조건이 없으면 그 조건을 더한다(openStatusRewrite). 묶음마다 1위도 묻으면 더한 SQL 을 묶음마다 1위로 바꾼다(그 조건은 남는다).
+   * 「우선순위별로 가장 오래 열린 티켓은?」의 묶음마다 1위 결정론 문장에 해결된 티켓이 섞였다(랜덤 테스트 사전 점검 6차 P12, TG04 3/3). */
+  const reopen = async (sql: string): Promise<Executed | null> => {
+    const o = openStatusRewrite(sql, query);
+    if (!o || !isReadOnly(o.text)) return null;
+    const top = await regroup(o.text, [o.cond]);
+    if (top) return top;
+    if ((await untrustedReasons(pool, schema, o.text, query)).length) return null;
+    const ran = await run(o.text);
+    return ran.result.ok
+      ? { text: ran.text, result: ran.result, repaired: false, gate: { outcome: "repaired", rejected, rewritten: "open-status", added: [o.cond] }, ...(ran.rank ? { rank: ran.rank } : {}) }
+      : null;
+  };
+  /** 질문이 묻지 않은 자기 조인 같음 조건을 뺀다(dropSelfJoinConditions). 받는 조건은 recount 와 같다. */
+  const unjoin = async (sql: string, reasons: string[]): Promise<Executed | null> => {
+    const text = dropSelfJoinConditions(sql, reasons);
+    if (!text || !isReadOnly(text) || (await untrustedReasons(pool, schema, text, query)).length) return null;
+    const ran = await run(text);
+    return ran.result.ok
+      ? { text: ran.text, result: ran.result, repaired: false, gate: { outcome: "repaired", rejected, rewritten: "self-join" }, ...(ran.rank ? { rank: ran.rank } : {}) }
+      : null;
+  };
+  /** 수리까지 없는 열 오류(42703)로 끝나면 바깥 SELECT 목록의 없는 열을 빼고 실행해 본다(dropMissingSelectColumns). 고르는 행은 그대로다. */
+  const salvage = async (sql: string, result: SqlResult, reason?: Executed["repairReason"]): Promise<Executed | null> => {
+    if (result.ok || !/\(42703\)\s*$/.test(result.error ?? "")) return null;
+    const d = dropMissingSelectColumns(sql, ctx.columns, ctx.known);
+    if (!d || !isReadOnly(d.text) || (await untrustedReasons(pool, schema, d.text, query)).length) return null;
+    const ran = await run(d.text);
+    return ran.result.ok
+      ? {
+          text: ran.text,
+          result: ran.result,
+          repaired: reason !== undefined,
+          ...(reason ? { repairReason: reason } : {}),
+          gate: { outcome: "repaired", rejected: [...rejected, { sql, reasons: [d.reason] }], rewritten: "missing-column" },
+          ...(ran.rank ? { rank: ran.rank } : {}),
+        }
+      : null;
+  };
+  /** 생성 모델 없이 고치는 길(묶음마다 1위, COUNT DISTINCT, 열린 티켓 상태, 자기 조인 조건)을 차례로 해 본다. */
+  const rewrite = async (sql: string, reasons: string[]) =>
+    (await regroup(sql)) ?? (await recount(sql, reasons)) ?? (await reopen(sql)) ?? (await unjoin(sql, reasons));
+  /** 조건 없는 목록 질문(「계약 목록 보여줘」)은 생성 SQL 과 수리 SQL 이 거부되거나 실행되지 않으면 그 표의 목록 SQL(plainListSql)로 답한다. 7B 가 묻지
+   * 않은 부서를 붙이다 거부되거나 없는 열로 오류가 나 「믿을 수 있는 조회를 만들지 못해」로 끝났다(랜덤 테스트 사전 점검 6차 P1, AN06, XC06 3/3). 실행 오류는
+   * 게이트의 rejected 에 남긴다. 조건이 있는 목록 질문은 이 길을 타지 않는다. */
+  const listed = async (failure?: { sql: string; error?: string }): Promise<Executed | null> => {
+    const text = plainListSql(query, schema);
+    if (!text || (await untrustedReasons(pool, schema, text, query)).length) return null;
+    const result = await sqlQuery(pool, text);
+    if (!result.ok) return null;
+    const why = failure ? [...rejected, { sql: failure.sql, reasons: [`실행하면 오류가 난다: ${failure.error ?? "unknown error"}`] }] : rejected;
+    return { text, result, repaired: false, gate: { outcome: "repaired", rejected: why, rewritten: "list" } };
+  };
+
+  // 「작년 동기 대비 매출 증감률은?」은 이번 분기를 1년 전 같은 분기와 견준다. 이번 분기(서울 기준) 매출이 아직 없으면 생성 SQL 을 실행하지 않고 그렇다고 답한다.
+  // 매출이 있는 마지막 분기와 그 1년 전 같은 분기는 결정론 SQL 로 조회해 함께 든다(untrustedAnswer 의 결정론 문장). 7B 는 2025-Q4 를 직전 분기와 견준 33.26% 를
+  // 「작년 동기 대비」로 답했다(랜덤 테스트 사전 점검 6차 P4, MR17, XC05 3/3).
+  const yoy = /매출|실적/.test(query) ? sameQuarterCompare(query) : null;
+  if (yoy && /^[a-z_][a-z0-9_]*$/.test(schema)) {
+    const cur = await sqlQuery(pool, `SELECT count(*)::int AS n FROM ${schema}.sales WHERE quarter = '${yoy.current}'`);
+    if (cur.ok && cur.rows.length === 1 && Number((cur.rows[0] as { n?: unknown }).n) === 0) {
+      rejected.push({ sql: generated, reasons: [noCurrentQuarterReason(yoy)] });
+      const text = lastSameQuarterSql(schema);
+      const result = await sqlQuery(pool, text);
+      const row = result.ok ? (result.rows[0] as Record<string, unknown> | undefined) : undefined;
+      const last = row
+        ? { quarter: String(row.quarter), amount: Number(row.amount), prevQuarter: String(row.prev_quarter), prevAmount: Number(row.prev_amount), pct: Number(row.change_pct) }
+        : undefined;
+      const valid = last !== undefined && [last.amount, last.prevAmount, last.pct].every(Number.isFinite);
+      return {
+        text: valid ? text : null,
+        ...(valid ? { result } : {}),
+        repaired: false,
+        gate: { outcome: "refused", rejected, sameQuarter: { ...yoy, ...(valid ? { last } : {}) } },
+      };
+    }
+  }
 
   // 처음 SQL 부터 믿을 수 없으면 실행하지 않고 사유를 되먹여 한 번 고친다. 값 어휘 사유로 고친 SQL 이 그 열의 값을 질문이 말하지 않은
   // 값으로 바꿨으면(「단종된 제품」의 'cancelled' → 'active') 뜻이 뒤집힌 것이라 받지 않고 처음 사유(그 열의 값 목록)로 답한다.
   if (!(await trusted(generated))) {
-    const rewritten = (await regroup(generated)) ?? (await recount(generated, rejected[0].reasons));
+    const rewritten = await rewrite(generated, rejected[0].reasons);
     if (rewritten) return rewritten;
     const cols = opts.repair === false ? "" : await columnsForSql(pool, generated, schema).catch(() => "");
     const engine = opts.repair === false ? "" : await engineError(pool, generated);
@@ -144,13 +265,20 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
     // 하자 3/3 실제 열로 바꿨다(I8b 수리 실측 2026-10-08).
     const why = withShape((engine ? `이 SQL 은 실행하면 오류가 난다: ${engine}. 오류가 지목한 열은 그 표에 없으니 빼거나 실제 컬럼 목록의 열로 바꾼다. 그리고 ` : "") + rejected[0].reasons.join(" "));
     const fixed = opts.repair === false ? null : await repair(query, generated, why, cols, "untrusted");
-    if (!fixed || !(await trusted(fixed))) return (fixed ? await regroup(fixed) : null) ?? { text: null, repaired: false, gate: { outcome: "refused", rejected } };
+    if (!fixed || !(await trusted(fixed))) {
+      return (
+        (fixed ? await rewrite(fixed, rejected[rejected.length - 1].reasons) : null) ??
+        (await listed()) ?? { text: null, repaired: false, gate: { outcome: "refused", rejected } }
+      );
+    }
     const turned = repairTurnsValue(rejected[0].reasons, fixed, query, enumColumns(schema), schema);
     if (turned.length) {
       rejected.push({ sql: fixed, reasons: turned });
       return { text: null, repaired: false, gate: { outcome: "refused", rejected } };
     }
     const ran = await run(fixed);
+    const saved = ran.result.ok ? null : ((await salvage(ran.text, ran.result, "untrusted")) ?? (await listed({ sql: ran.text, error: ran.result.error })));
+    if (saved) return saved;
     return {
       text: ran.text,
       result: ran.result,
@@ -175,18 +303,22 @@ export async function executeWithRepair(pool: Pool, query: string, generated: st
   const fixed = failed
     ? await repair(query, text, withShape(first.error ?? "unknown error"), cols, "error")
     : await repair(query, text, withShape(EMPTY_FEEDBACK), cols, "empty");
-  if (!fixed) return { text, result: first, repaired: false };
+  const firstFailure = { sql: text, error: first.error };
+  if (!fixed) return (failed ? ((await salvage(text, first)) ?? (await listed(firstFailure))) : null) ?? { text, result: first, repaired: false };
   // 수리한 SQL 도 같은 검사를 거친다. 오류를 고치려다 없는 관계로 조인한 것이면(「매출 알려줘」) 믿을 만한
-  // SQL 이 없는 것이고, 0행을 고치려다 그랬으면 처음 SQL 의 0행이 답이다.
+  // SQL 이 없는 것이고, 0행을 고치려다 그랬으면 처음 SQL 의 0행이 답이다. 오류 수리가 거부되면 생성 모델 없이 고치는 길, 없는 열 빼기, 목록 질문의 목록 SQL 을 해 본다.
   if (!(await trusted(fixed))) {
-    return { text, result: first, repaired: false, gate: { outcome: failed ? "refused" : "kept", rejected } };
+    const saved = failed
+      ? ((await rewrite(fixed, rejected[rejected.length - 1].reasons)) ?? (await salvage(text, first)) ?? (await listed(firstFailure)))
+      : null;
+    return saved ?? { text, result: first, repaired: false, gate: { outcome: failed ? "refused" : "kept", rejected } };
   }
   const again = await run(fixed);
   const second = again.result;
   // 오류 수리는 실행만 되면 받는다. 0행 수리는 행을 돌려줄 때만 받는다 — 0행이 정답인
   // 질문에서 멀쩡한 쿼리를 행이 나오는 틀린 쿼리로 바꾸지 않게 하려는 것이다.
   const accept = failed ? second.ok : second.ok && second.rows.length > 0;
-  return accept
-    ? { text: again.text, result: second, repaired: true, repairReason: failed ? "error" : "empty", ...(again.rank ? { rank: again.rank } : {}) }
-    : { text, result: first, repaired: false };
+  if (accept) return { text: again.text, result: second, repaired: true, repairReason: failed ? "error" : "empty", ...(again.rank ? { rank: again.rank } : {}) };
+  const saved = failed ? ((await salvage(again.text, second, "error")) ?? (await salvage(text, first)) ?? (await listed(firstFailure))) : null;
+  return saved ?? { text, result: first, repaired: false };
 }
