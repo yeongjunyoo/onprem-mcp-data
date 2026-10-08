@@ -1955,5 +1955,247 @@ const deadEmbedder: Embedder = {
   );
 }
 
+// 랜덤 테스트 사전 점검 3차 Q3: 7B 답의 근거 밖 이름. 목록 항목이면 빼고 그 목록의 수를 줄이고, 문장 속이면 답 끝에 밝힌다.
+{
+  const { withoutOutsideNames } = await import("./pipeline.js");
+  const ctx = ["Q", "C", "M"].map((c) => `[그래프] Client-${c}의 기술지원 이슈를 제기한 제품: Product-T2 (client→product, REPORTED_ISSUE)`).join("\n");
+  const q = "Product-T2 관련 고객 이슈 현황은?";
+  const s05 = withoutOutsideNames("Product-T2에 대한 기술지원 이슈는 Client-Q, Client-C, Client-M, Client-L 총 4건입니다.", ctx, q);
+  ok(s05.text === "Product-T2에 대한 기술지원 이슈는 Client-Q, Client-C, Client-M 총 3건입니다.", `목록 끝의 근거 밖 이름을 빼고 수를 줄인다 (got ${s05.text})`);
+  ok(JSON.stringify(s05.removed) === '["Client-L"]' && s05.flagged.length === 0, "뺀 이름을 돌려준다");
+  ok(withoutOutsideNames("Client-L, Client-Q, Client-C 3곳입니다.", ctx, q).text === "Client-Q, Client-C 2곳입니다.", "목록 맨 앞");
+  ok(withoutOutsideNames("Client-Q, Client-C와 Client-L입니다.", ctx, q).text === "Client-Q, Client-C입니다.", "「와」로 이은 끝 항목");
+  ok(withoutOutsideNames("이슈를 낸 고객사:\n- Client-Q\n- Client-L\n- Client-C\n총 3곳", ctx, q).text === "이슈를 낸 고객사:\n- Client-Q\n- Client-C\n총 2곳", "머리표 목록의 한 줄");
+  const prose = withoutOutsideNames("Client-L은 Product-T2 이슈를 가장 많이 냈습니다.", ctx, q);
+  ok(
+    prose.text === "Client-L은 Product-T2 이슈를 가장 많이 냈습니다.\n\n근거에 없는 이름이 답에 섞여 있어 사실로 볼 수 없습니다: Client-L." && prose.flagged[0] === "Client-L",
+    `문장 속 이름은 빼지 않고 답 끝에 밝힌다 (got ${prose.text})`,
+  );
+  const same = "Product-T2에 대한 이슈는 Client-Q, Client-C, Client-M 총 3건입니다.";
+  ok(withoutOutsideNames(same, ctx, q).text === same && withoutOutsideNames(same, ctx, q).removed.length === 0, "근거 안의 이름뿐이면 그대로");
+  ok(withoutOutsideNames("Client-ZZ는 데이터에 없습니다.", "", "Client-ZZ 매출은?").text === "Client-ZZ는 데이터에 없습니다.", "질문에 있는 이름은 근거 밖으로 보지 않는다");
+  ok(withoutOutsideNames("Ubuntu 22.04 에서 Client-Q, Client-L 2곳.", ctx, q).text === "Ubuntu 22.04 에서 Client-Q 1곳.", "소수점은 문장 끝이 아니다");
+
+  // ask: 생성 답의 근거 밖 이름은 빠지고, 감사 레코드의 접지 검사는 비고 보정 내역이 남는다.
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const { installOntology } = await import("./router.js");
+  installOntology(
+    [
+      { id: "client_17", name: "Client-Q", type: "client" },
+      { id: "product_40", name: "Product-T2", type: "product" },
+    ] as { id: string; name: string; type: string }[],
+    [{ source: "client_17", target: "product_40", relation: "REPORTED_ISSUE" }],
+  );
+  const graphPool = {
+    query: async (sql: string, params?: unknown[]) => {
+      if (sql.includes("information_schema.columns")) return { rowCount: 1, rows: [{}] };
+      if (sql.includes("WITH t AS")) {
+        const terms = (params?.[0] ?? []) as string[];
+        return terms.includes("Product-T2")
+          ? { rowCount: 1, rows: [{ id: 40, type: "product", canonical_name: "Product-T2", properties: null, via: "canonical", matched: "Product-T2", score: 4 }] }
+          : { rowCount: 0, rows: [] };
+      }
+      if (sql.includes(".relations r") && sql.includes("ANY($1::int[])")) {
+        const rows = ["Q", "C", "M"].map((c, i) => ({
+          id: i + 1, src_entity_id: 10 + i, src_name: `Client-${c}`, src_type: "client", rel_type: "REPORTED_ISSUE",
+          dst_entity_id: 40, dst_name: "Product-T2", dst_type: "product", confidence: 1, provenance: "test",
+        }));
+        return { rowCount: rows.length, rows };
+      }
+      return { rowCount: 0, rows: [] };
+    },
+  } as unknown as Pool;
+  const r = await ask(q, {
+    pool: graphPool,
+    embedder: deadEmbedder,
+    llm: async () => "Product-T2 이슈는 Client-Q, Client-C, Client-M, Client-L 총 4건입니다.",
+  });
+  const rec = buildAuditRecord(r);
+  ok(r.route === "graph" && r.answer === "Product-T2 이슈는 Client-Q, Client-C, Client-M 총 3건입니다.", `ask 의 답에서 빠진다 (got ${r.route} ${r.answer})`);
+  ok(rec.grounding?.outside_context.length === 0 && rec.grounding?.fixed?.removed[0] === "Client-L", `감사: 접지 위반 없음, 보정 내역 (got ${JSON.stringify(rec.grounding)})`);
+  installOntology([], []);
+}
+
+// 3차 Q4: 상태 조건을 건 관계 스캔은 조건과 이름을 결정론으로 적는다(7B 는 줄에 상태가 없어 「알 수 없습니다」였다).
+{
+  const { filteredListAnswer } = await import("./pipeline.js");
+  const entries = [
+    ["이지훈", "Client-AB DevOps 전환"],
+    ["한태호", "Client-K 보안 감사"],
+    ["이지훈", "Client-B 로그 분석"],
+    ["강현우", "Client-C 마이그레이션"],
+  ].map(([src, dst]) => ({ relType: "LEADS", src, dst, text: `[그래프] ${src}의 이끄는 프로젝트: ${dst} (employee→project, LEADS)` }));
+  const fr = (o: { value?: string; kept?: number; complete?: boolean; strategy?: string; route?: string; rel?: string }) =>
+    ({
+      route: o.route ?? "graph",
+      graph: {
+        strategy: o.strategy ?? "relation-scan",
+        filtered: {
+          filter: { side: "target", key: "status", value: o.value ?? "completed" },
+          complete: o.complete ?? true,
+          entries: entries.map((e) => ({ ...e, relType: o.rel ?? "LEADS" })),
+        },
+      },
+      curated: { kept: entries.slice(0, o.kept ?? entries.length).map((e) => ({ text: e.text })) },
+    }) as unknown as Parameters<typeof filteredListAnswer>[0];
+  ok(
+    filteredListAnswer(fr({}), "완료된 프로젝트를 이끈 직원 목록") === "상태가 완료(completed)인 프로젝트를 이끄는 직원은 3명입니다: 이지훈, 한태호, 강현우.",
+    `완료 상태의 리드 (got ${filteredListAnswer(fr({}), "완료된 프로젝트를 이끈 직원 목록")})`,
+  );
+  ok(
+    filteredListAnswer(fr({ value: "in_progress", kept: 2 }), "진행 중인 프로젝트를 이끄는 직원 목록") ===
+      "상태가 진행 중(in_progress)인 프로젝트를 이끄는 직원은 3명입니다: 이지훈, 한태호 외 1명.",
+    "예산에 잘린 줄의 이름은 수로만",
+  );
+  ok(filteredListAnswer(fr({ complete: false }), "완료된 프로젝트를 이끈 직원 목록") === undefined, "스캔 상한에 걸렸거나 조건이 안 걸렸으면 모델이 답한다");
+  ok(filteredListAnswer(fr({ strategy: "seeded+relation-scan" }), "Client-B의 완료된 프로젝트를 이끈 직원") === undefined, "시드가 있으면 종전 길");
+  ok(filteredListAnswer(fr({}), "완료된 프로젝트 목록") === undefined, "출발 끝(직원)을 묻지 않으면 종전 길");
+  ok(filteredListAnswer(fr({ rel: "RELATED_TO" }), "완료된 프로젝트를 이끈 직원 목록") === undefined, "말을 정해 둔 관계(LEADS, HAS_PROJECT)만");
+}
+
+// 3차 Q8: 두 개체의 관계 질문은 두 개체 사이의 직접 엣지로 답한다.
+{
+  const { pairAnswer, pairLines } = await import("./pipeline.js");
+  const e = (src: string, st: string, rel: string, dst: string, dt: string) =>
+    ({ srcId: 1, srcName: src, srcType: st, relType: rel, dstId: 2, dstName: dst, dstType: dt, confidence: 1, provenance: "t", depth: 1 });
+  const one = { a: "Client-Q", b: "조현우", ok: true, edges: [e("조현우", "employee", "MANAGES_ACCOUNT", "Client-Q", "client")] };
+  ok(pairAnswer(one) === "두 개체 사이에 직접 연결된 관계는 1건입니다: 조현우의 담당 고객사: Client-Q (MANAGES_ACCOUNT).", `엣지 하나 (got ${pairAnswer(one)})`);
+  ok(pairLines(one)[0] === "[그래프] 조현우의 담당 고객사: Client-Q (employee→client, MANAGES_ACCOUNT)", "컨텍스트 줄은 그래프 레인과 같은 꼴");
+  const two = { a: "Client-D", b: "Product-D3", ok: true, edges: [e("Client-D", "client", "USES", "Product-D3", "product"), e("Client-D", "client", "REPORTED_ISSUE", "Product-D3", "product")] };
+  ok(
+    pairAnswer(two) === "두 개체 사이에 직접 연결된 관계는 2건입니다: Client-D의 사용 중인 제품: Product-D3 (USES); Client-D의 기술지원 이슈를 제기한 제품: Product-D3 (REPORTED_ISSUE).",
+    "엣지가 여럿이면 모두",
+  );
+  const none = { a: "Client-A", b: "Product-D3", ok: true, edges: [] };
+  ok(pairAnswer(none).startsWith("두 개체 사이에 직접 연결된 관계가 없습니다(조회한 개체: Client-A, Product-D3."), `엣지가 없으면 없다고 (got ${pairAnswer(none)})`);
+  ok(pairLines(none)[0] === "[그래프] 두 개체 사이에 직접 연결된 관계가 없습니다(조회한 개체: Client-A, Product-D3).", "없다는 줄이 컨텍스트에 남는다");
+}
+
+// 3차 Q9: 앞 대화를 가리키는 말만 있는 질문은 라우팅과 조회 없이(풀과 7B 를 부르지 않고) 다시 물어 달라고 답한다.
+{
+  const { BACK_REFERENCE_ANSWER } = await import("./pipeline.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  let touched = 0;
+  const noPool = { query: async () => { touched++; throw new Error("조회하면 안 된다"); } } as unknown as Pool;
+  const noEmbed: Embedder = { name: "test:none", dim: 8, embed: async () => { touched++; throw new Error("임베딩하면 안 된다"); } };
+  for (const q of ["그럼 2위는?", "위에서 말한 거 다시 말해줘", "그 고객사 담당자는?"]) {
+    const r = await ask(q, { pool: noPool, embedder: noEmbed, llm: async () => { touched++; return "Client-K"; } });
+    const rec = buildAuditRecord(r);
+    ok(r.answer === BACK_REFERENCE_ANSWER && r.context === "" && rec.routing.tools.length === 0, `앞 대화를 가리키는 질문: ${q} (got ${r.answer})`);
+  }
+  ok(touched === 0, "풀, 임베더, 7B 를 부르지 않는다");
+}
+
+// 3차 Q10: 문서 레인 답이 전체, 정리, 최근을 물으면 상위 조각만 본 것을 밝힌다.
+{
+  const { documentScopeNote } = await import("./pipeline.js");
+  const sr = (route = "semantic", kept = 5) =>
+    ({ route, vector: { ok: true, hits: [] }, curated: { kept: Array.from({ length: kept }, (_, i) => ({ source: `documents#${i}` })) } }) as unknown as Parameters<typeof documentScopeNote>[0];
+  ok(documentScopeNote(sr(), "장애 보고서들에 나온 장애 원인을 정리해줘") === "이 답은 검색 상위 5개 조각만 근거로 했습니다. 문서 전체를 다 본 것은 아닙니다.", "전체와 정리");
+  ok(
+    documentScopeNote(sr(), "요즘 서버 장애 난 거 원인이 뭐였어?") === "이 답은 검색 상위 5개 조각만 근거로 했습니다. 문서 전체를 다 보거나 날짜순으로 고른 것은 아닙니다.",
+    "최근은 날짜순이 아님도 밝힌다",
+  );
+  for (const q of ["Product-C1 설치 방법이 궁금해", "성능 최적화를 위한 DB 튜닝 방법 알려줘", "백업 정책은 어떻게 되어 있어?", "API 인증 방식은 뭐야?", "SSL 인증서 관련 장애가 있었어?", "클라우드 마이그레이션 제안서 내용 보여줘", "재해 복구 절차가 문서로 정리된 게 있나?", "신규로 들어온 고객사"]) {
+    ok(documentScopeNote(sr(), q) === undefined, `시험항목 문서 질문과 다른 뜻은 붙이지 않는다: ${q}`);
+  }
+  ok(documentScopeNote(sr("hybrid"), "장애 보고서들 정리해줘") === undefined && documentScopeNote(sr("semantic", 0), "장애 보고서들 정리해줘") === undefined, "문서 레인 답이고 조각이 있을 때만");
+}
+
+// 3차 Q11: 그래프의 부정 조건과 세 단계 관계. 「부서 소속 중 관계가 없는 직원」은 차집합으로, 나머지는 계산하지 않는다고 답한다.
+{
+  const { graphLimitAnswer, NEGATION_ANSWER, THREE_HOP_ANSWER } = await import("./pipeline.js");
+  const { installOntology } = await import("./router.js");
+  installOntology(
+    [
+      { name: "영업팀", type: "department" },
+      { name: "Client-K", type: "client" },
+      { name: "박소연", type: "employee" },
+    ],
+    [],
+  );
+  const members = [["김지훈", true], ["강동현", false], ["신다은", false], ["류혜원", true]];
+  let asked: unknown[] | undefined;
+  const memberPool = {
+    query: async (_sql: string, params?: unknown[]) => {
+      asked = params;
+      return { rowCount: members.length, rows: members.map(([name, has]) => ({ name, has })) };
+    },
+  } as unknown as Pool;
+  const gr = (rel = "MANAGES_ACCOUNT", route = "graph", strategy = "seeded") =>
+    ({ route, graph: { strategy }, audit: { route: { graph_plan: { relTypes: [rel] } } } }) as unknown as Parameters<typeof graphLimitAnswer>[1];
+  const c11 = await graphLimitAnswer(memberPool, gr(), "영업팀 직원 중 고객사를 담당하지 않는 사람은?");
+  ok(c11 === "영업팀 소속 직원 4명 가운데 담당 고객사(MANAGES_ACCOUNT)가 없는 직원은 2명입니다: 강동현, 신다은.", `차집합 (got ${c11})`);
+  ok(JSON.stringify(asked) === '["영업팀","MANAGES_ACCOUNT"]', "부서와 관계로 센다");
+  ok((await graphLimitAnswer(memberPool, gr(), "Product-C1을 사용하지 않는 고객사는?")) === NEGATION_ANSWER, "그 밖의 부정 조건은 계산하지 않는다고");
+  ok((await graphLimitAnswer(memberPool, gr(), "영업팀에서 담당하지 않는 고객사는?")) === NEGATION_ANSWER, "사람을 묻지 않으면 차집합이 아니다");
+  ok((await graphLimitAnswer(memberPool, gr(), "Client-K 담당자와 같은 부서 사람은 누구야?")) === THREE_HOP_ANSWER, "세 단계 관계");
+  ok((await graphLimitAnswer(memberPool, gr(), "박소연과 같은 부서에 있는 직원은 누구야?")) === undefined, "직원에서 출발하는 같은 부서(두 단계)는 종전 길");
+  ok((await graphLimitAnswer(memberPool, gr(), "Client-S랑 진행한 건들 이름이 기억 안 나는데 프로젝트 쪽에 뭐가 올라가 있어?")) === undefined, "「기억 안 나는데」는 부정 조건이 아니다");
+  ok((await graphLimitAnswer(memberPool, gr("MANAGES_ACCOUNT", "structured"), "영업팀 직원 중 고객사를 담당하지 않는 사람은?")) === undefined, "그래프 레인일 때만");
+  ok((await graphLimitAnswer(memberPool, gr("MANAGES_ACCOUNT", "graph", "unresolved"), "서울물산 직원 중 담당하지 않는 사람은?")) === undefined, "못 찾은 개체는 종전 사유 문장");
+  installOntology([], []);
+}
+
+// 정형 레인의 값 하나를 7B 가 10의 거듭제곱만큼 틀리게 옮겨 적은 것(「올해 상반기 매출 합계 알려줘」에 행은 58753, 답은 「587,530」,
+// 6회 중 2회)을 조회 값으로 되돌린다. 행이 하나이고 수가 하나일 때만, 그 밖에는 답을 그대로 둔다.
+{
+  const { scaleSlip } = await import("./pipeline.js");
+  const h1 = "올해 상반기 매출 합계 알려줘";
+  const fixed = scaleSlip("올해 상반기(2026년 상반기) 매출 합계는 587,530입니다.", [{ total_sales: "58753" }], h1);
+  ok(fixed.text === "올해 상반기(2026년 상반기) 매출 합계는 58,753입니다." && fixed.from === "587,530" && fixed.to === "58,753", `10배 (got ${fixed.text})`);
+  ok(scaleSlip("합계는 5,875.3입니다.", [{ total_sales: 58753 }], h1).text === "합계는 58,753입니다.", "10분의 1, 숫자 값");
+  ok(scaleSlip("월평균 매출은 5899.7입니다.", [{ avg: "589.9700000000000000" }], "security 제품의 월평균 매출").text === "월평균 매출은 589.97입니다.", "소수 값");
+  ok(scaleSlip("총 460개입니다.", [{ count: "46" }], "현재 활성 상태인 계약 수는 몇 개야?").text === "총 46개입니다.", "개수");
+  const same = (text: string, rows: Record<string, unknown>[], q = h1) => scaleSlip(text, rows, q).text === text;
+  ok(same("올해 상반기(2026년 상반기) 매출 합계는 58,753입니다.", [{ total_sales: "58753" }]), "맞는 답은 그대로");
+  ok(same("합계는 58753입니다.", [{ total_sales: "58753" }]) && same("월평균 약 590입니다.", [{ avg: "589.9700000000000000" }]), "그대로 적었거나 반올림해 적은 값");
+  ok(same("2026년 기준으로는 확인되지 않습니다.", [{ total: 202.6 }]) && same("2026 기준으로는 확인되지 않습니다.", [{ total: 202.6 }]), "해(2026)는 손대지 않는다");
+  ok(same("3분기 매출은 확인되지 않았습니다.", [{ total: 30 }]) && same("Q3 매출과 2025-Q3 비교", [{ total: 30 }]), "분기는 손대지 않는다");
+  ok(same("취소 계약은 15.53%입니다.", [{ ratio: "0.1553" }], "취소된 계약은 어느 정도야?"), "퍼센트로 적은 수");
+  ok(same("취소 비율은 15.53입니다.", [{ ratio: "0.1553" }], "전체 계약 중 취소된 계약의 비율은 몇 퍼센트야?"), "비율 질문");
+  ok(same("두 분기는 230과 300입니다.", [{ total: 23 }, { total: 30 }]), "행이 둘이면 그대로");
+  ok(same("합계 230, 건수 30", [{ total: 23, n: 3 }]), "한 행에 수가 둘이면 그대로");
+  ok(same("계약 금액은 110,000,000원입니다.", [{ amount: "11000" }], "가장 큰 계약 금액은?"), "만원 값을 원으로 바꿔 적은 수");
+  ok(same("1억 원 이상 계약은 없습니다.", [{ amount: 10000 }], "가장 큰 계약 금액은?"), "우리말 큰 수 단위");
+  ok(same("587,530 또는 5,875.3입니다.", [{ total_sales: "58753" }]), "다른 두 수가 걸리면 그대로");
+  ok(same("Product-C1 매출은 확인되지 않았습니다.", [{ total: 10 }]), "식별자 속 숫자");
+  ok(same("매출은 없습니다.", [{ total_sales: null }]), "값이 null 이면 그대로");
+  ok(same("상위 50개 고객사 가운데 서울은 없습니다.", [{ n: 5 }], "매출 상위 50개 고객사 중 서울 고객사는 몇 곳이야?"), "질문의 수를 되풀이한 것");
+
+  // ask: 정형 레인 답의 문장만 고치고, 행 블록과 감사 레코드에 고친 내역이 남는다.
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const salesRows = [{ total_sales: "23859" }];
+  const salesPool = {
+    connect: async () => ({
+      query: async (sql: string) =>
+        /FROM companyx\.sales/.test(sql) ? { rows: salesRows, rowCount: 1, fields: [{ name: "total_sales" }] } : { rows: [], rowCount: 0 },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  const r = await ask("2025년 3분기 총 매출액은 얼마야?", {
+    pool: salesPool,
+    embedder: deadEmbedder,
+    repair: false,
+    nl2sql: async () => "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'",
+    llm: async () => "2025년 3분기 총 매출액은 238,590입니다.",
+  });
+  const rec = buildAuditRecord(r);
+  ok(
+    r.route === "structured" && r.answer === "2025년 3분기 총 매출액은 23,859입니다.\n\n[조회 결과 1건]\n- total_sales: 23859",
+    `ask 의 답 (got ${r.route} ${JSON.stringify(r.answer)})`,
+  );
+  ok(rec.grounding?.fixed?.value?.from === "238,590" && rec.grounding.fixed.value.to === "23,859", `감사 레코드에 고친 값 (got ${JSON.stringify(rec.grounding)})`);
+  const right = await ask("2025년 3분기 총 매출액은 얼마야?", {
+    pool: salesPool,
+    embedder: deadEmbedder,
+    repair: false,
+    nl2sql: async () => "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q3'",
+    llm: async () => "2025년 3분기 총 매출액은 23859입니다.",
+  });
+  ok(right.answer.startsWith("2025년 3분기 총 매출액은 23859입니다.") && right.grounding_fix === undefined, "맞는 답은 그대로, 보정 내역 없음");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

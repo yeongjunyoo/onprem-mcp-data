@@ -88,8 +88,15 @@ export interface AuditRecord {
     broken_rows: number | null;
   };
   policies: PolicyVerdict[];
-  /** 답변이 있을 때만. 컨텍스트 밖 개체를 답이 언급했는지. */
-  grounding?: { checked: boolean; answer_chars: number; outside_context: string[] };
+  /** 답변이 있을 때만. 컨텍스트 밖 개체를 답이 언급했는지. fixed 는 생성 답의 근거 밖 이름을 목록에서 뺐거나(removed) 근거에 없다고
+   * 밝힌(flagged) 내역과, 자릿수를 틀리게 옮겨 적은 SQL 값을 조회 값으로 되돌린 내역(value)이다(pipeline.ts withoutOutsideNames,
+   * scaleSlip). 그런 것이 있었을 때만 붙는다. */
+  grounding?: {
+    checked: boolean;
+    answer_chars: number;
+    outside_context: string[];
+    fixed?: { removed: string[]; flagged: string[]; value?: { from: string; to: string } };
+  };
   /** 미해소 개체 게이트가 발동했을 때만. 왜 못 찾았는지. */
   not_found?: NotFound;
   /** 섞인 질문에서 일부 개체만 해소됐을 때만. 해소되지 않은 이름마다 왜 못 찾았는지. */
@@ -313,10 +320,12 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
   if (r.missing?.length) record.missing_entities = r.missing;
 
   if (answer !== undefined) {
+    const fixed = "grounding_fix" in r ? r.grounding_fix : undefined;
     record.grounding = {
       checked: true,
       answer_chars: answer.length,
       outside_context: outsideContextMentions(answer, r.context),
+      ...(fixed ? { fixed } : {}),
     };
   }
 
@@ -340,6 +349,10 @@ export function renderAudit(rec: AuditRecord): string {
         ? `접지 위반: ${rec.grounding.outside_context.join(", ")}`
         : "접지: 답변의 개체가 모두 컨텍스트 안에 있다",
     );
+    const f = rec.grounding.fixed;
+    if (f?.removed.length) lines.push(`접지 보정: 생성 답의 근거 밖 이름을 목록에서 뺐다(${f.removed.join(", ")})`);
+    if (f?.flagged.length) lines.push(`접지 보정: 생성 답의 근거 밖 이름을 답 끝에 밝혔다(${f.flagged.join(", ")})`);
+    if (f?.value) lines.push(`접지 보정: 생성 답의 값 ${f.value.from} 을 조회 값 ${f.value.to} 로 되돌렸다`);
   }
   return lines.join("\n");
 }
