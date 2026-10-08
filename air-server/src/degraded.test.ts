@@ -2989,5 +2989,223 @@ const deadEmbedder: Embedder = {
   ok(errHint.startsWith("aggregate function calls cannot be nested") && errHint.includes("질문은 묶음 하나마다의 평균 하나를 묻는다"), `오류 수리 안내에도 모양 안내 (got ${errHint})`);
 }
 
+// ── 랜덤 테스트 사전 점검 5차 SQL 쪽(P1, P2, P3, P6, P9, P10, P12, P13). 이 블록은 혼자 선다(가져오기, 가짜 풀, 도우미 모두 여기 안).
+{
+  const q5 = await import("./sqltrust.js");
+  const q5n = await import("./nl2sql.js");
+  const q5r = await import("./sqlrepair.js");
+  const E5 = q5.enumColumns("companyx");
+  const now5 = new Date("2026-10-19T13:00:00+09:00"); // 서울 2026년 4분기
+  const said5 = (sql: string, reasons: string[]) => q5.untrustedAnswer({ outcome: "refused", rejected: [{ sql, reasons }] });
+  const tables5 = new Set(["clients", "sales", "departments", "employees", "products", "contracts", "projects", "support_tickets"]);
+
+  // P2: 달 범위를 끝 달까지 읽는다. 한 분기와 같은 범위면 그 분기 조건을 받는다(DT14 의 quarter = '2025-Q1' 을 1월로 수리했다).
+  const q1 = "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2025-Q1'";
+  for (const q of ["2025년 1월부터 3월까지 매출 합계는?", "2025년 1~3월 매출 합계는?", "2025년 1월~3월 매출", "2025년 1월에서 3월까지 매출 합계 알려줘", "25년 1월부터 3월까지 매출은?"]) {
+    ok(q5.checkPeriod(q1, q, now5).length === 0, `P2 한 분기와 같은 달 범위는 그 분기를 받는다: ${q}`);
+  }
+  ok(q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter IN ('2025-Q1', '2025-Q2')", "2025년 1월부터 6월까지 매출은?", now5).length === 0, "P2 두 분기 범위");
+  const wrongQ = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q2'", "2025년 1월부터 3월까지 매출 합계는?", now5);
+  ok(wrongQ.length === 1 && wrongQ[0].includes("질문의 2025년 1월부터 3월까지는 quarter = '2025-Q1' 다") && wrongQ[0].includes("sale_date < '2025-04-01'"), `P2 다른 분기 (got ${wrongQ})`);
+  const span4 = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter IN ('2025-Q1','2025-Q2')", "2025년 1월부터 4월까지 매출 합계는?", now5);
+  ok(span4.length === 1 && span4[0].includes("sale_date >= '2025-01-01' AND sale_date < '2025-05-01'"), `P2 분기와 맞지 않는 범위는 첫 달 1일부터 끝 달 다음 달 1일 전까지 (got ${span4})`);
+  ok(said5("SELECT 1", span4).includes("2025년 1월부터 4월까지가 아니라 분기(") && said5("SELECT 1", span4).includes("「2025-01-01부터 2025-04-30까지 매출 합계는?」"), "P2 거절 문장");
+  const cross = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2024-Q4'", "2024년 11월부터 2025년 2월까지 매출은?", now5);
+  ok(cross.length === 1 && cross[0].includes("sale_date < '2025-03-01'"), `P2 해를 넘는 범위 (got ${cross})`);
+  const jan = q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q1'", "2025년 1월 매출 합계는?", now5);
+  ok(jan.length === 1 && jan[0].includes("질문의 2025년 1월은 한 분기가 아니라 한 달이다"), "P2 한 달은 종전 사유 그대로");
+  ok(q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE sale_date BETWEEN '2024-07-01' AND '2024-09-30'", "2024년 7월에서 9월까지 매출 합계 알려줘", now5).length === 0, "P2 날짜 범위는 보지 않는다");
+
+  // P3 ①: 「YYYY년 이후, 부터」는 그해를 넣는다(DT03 hire_date > '2025-12-31' 로 0명, 6명이 맞다).
+  const since = q5.checkPeriod("SELECT COUNT(*) FROM companyx.employees WHERE hire_date > '2025-12-31'", "2025년 이후에 입사한 직원은 몇 명이야?", now5);
+  ok(since.length === 1 && since[0].includes("hire_date >= '2025-01-01' 로 고른다"), `P3 이후 (got ${since})`);
+  ok(said5("SELECT 1", since).includes("질문의 「2025년 이후」에서 2025년을 빼고 골라서"), "P3 이후 거절 문장");
+  for (const sql of ["SELECT COUNT(*) FROM companyx.employees WHERE hire_date >= '2026-01-01'", "SELECT COUNT(*) FROM companyx.employees WHERE EXTRACT(YEAR FROM hire_date) > 2025"]) {
+    ok(q5.checkPeriod(sql, "2025년부터 입사한 직원은?", now5).length === 1, `P3 그해 끝 다음부터 고르는 꼴: ${sql}`);
+  }
+  ok(q5.checkPeriod("SELECT COUNT(*) FROM companyx.employees WHERE hire_date > '2024-12-31'", "작년 이후 입사자는 몇 명이야?", now5).length === 0, "P3 작년(2025) 이후의 > '2024-12-31' 은 맞다");
+  ok(q5.checkPeriod("SELECT COUNT(*) FROM companyx.employees WHERE hire_date > '2025-12-31'", "작년 이후 입사자는 몇 명이야?", now5).length === 1, "P3 상대 연도 이후");
+  ok(q5.checkPeriod("SELECT COUNT(*) FROM companyx.employees WHERE hire_date >= '2025-01-01'", "2025년 이후에 입사한 직원은 몇 명이야?", now5).length === 0, "P3 그해 첫날부터는 맞다");
+
+  // P3 ②: 한 기간으로 묻는 「작년 같은 분기」는 서울 기준 이번 분기의 1년 전 분기로 쓴다(DT10 은 한 해 합계 112,773 을 답했다).
+  ok(q5n.absoluteYears("작년 같은 분기 매출은 얼마였어?", now5) === "2025년 4분기 매출은 얼마였어?", `P3 작년 같은 분기 (got ${q5n.absoluteYears("작년 같은 분기 매출은 얼마였어?", now5)})`);
+  ok(q5n.absoluteYears("지난해 같은 분기 계약 금액 합계는?", now5) === "2025년 4분기 계약 금액 합계는?", "P3 지난해 같은 분기");
+  ok(q5n.absoluteYears("작년 동기 매출 합계는?", now5) === "2025년 4분기 매출 합계는?", "P3 작년 동기");
+  ok(q5n.absoluteYears("이번 분기 매출은 작년 같은 분기 대비 몇 퍼센트야?", now5) === "2026년 4분기 매출은 2025년 4분기 대비 몇 퍼센트야?", "P3 이번 분기와 함께");
+  for (const q of ["분기별 매출의 전년 동기 대비 증감률을 보여줘", "2025년 3분기 매출의 전년 동기 대비 증감률은?"]) {
+    ok(q5n.sameQuarterLastYear(q, now5) === null && !q5n.absoluteYears(q, now5).includes("4분기"), `P3 분기마다나 다른 기준의 전년 동기는 그대로: ${q}`);
+  }
+  ok(q5n.absoluteYears("작년 매출은 얼마야?", now5) === "2025년도 매출은 얼마야?", "P3 작년만 쓴 질문은 종전 그대로");
+  const sameQ = q5.checkPeriod("SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%'", "작년 같은 분기 매출은 얼마였어?", now5);
+  ok(sameQ.length === 1 && sameQ[0].includes("quarter = '2025-Q4' 로 고른다"), `P3 한 해를 고른 SQL (got ${sameQ})`);
+  ok(said5("SELECT 1", sameQ).includes("질문의 「작년 같은 분기」(2025년 4분기)와 다른 기간"), "P3 같은 분기 거절 문장");
+  ok(q5.checkPeriod("SELECT SUM(amount) FROM companyx.sales WHERE quarter = '2025-Q4'", "작년 같은 분기 매출은 얼마였어?", now5).length === 0, "P3 그 분기는 받는다(한 해 검사도 걸지 않는다)");
+  ok(q5.checkPeriod("SELECT quarter, SUM(amount) FROM companyx.sales WHERE quarter IN ('2026-Q4', '2025-Q4') GROUP BY quarter", "이번 분기 매출은 작년 같은 분기 대비 몇 퍼센트야?", now5).length === 0, "P3 두 분기를 함께 고르는 비교");
+  ok(q5.shapeHints("작년 같은 분기 매출은 얼마였어?").length === 0 && q5.shapeHints("이번 분기 매출은 작년 같은 분기 대비 몇 퍼센트 늘었어?").length === 1, "P3 견주지 않는 같은 분기에는 전년 동기 안내를 붙이지 않는다");
+
+  // P3 ③: 기간의 길이. 햇수를 내린 평균(DT12 3.31년, 3.77년이 맞다)과 시작일 없는 계약 기간(DT07 62건, 41건이 맞다).
+  const tenure = q5.checkPeriodLength("SELECT AVG(EXTRACT(YEAR FROM AGE(CURRENT_DATE, hire_date))) AS avg_tenure FROM companyx.employees WHERE is_active = true", "직원들의 평균 근속 기간은 몇 년이야?");
+  ok(tenure.length === 1 && tenure[0].includes("AVG((CURRENT_DATE - hire_date) / 365.25)"), `P3 근속 평균 (got ${tenure})`);
+  ok(q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.employees WHERE EXTRACT(YEAR FROM AGE(CURRENT_DATE, hire_date)) >= 5", "근속 연수가 5년 이상인 직원은 몇 명이야?").length === 0, "P3 근속 5년 이상(DT06)은 맞다");
+  ok(q5.checkPeriodLength("SELECT AVG((CURRENT_DATE - hire_date) / 365.25) FROM companyx.employees", "직원들의 평균 근속 기간은 몇 년이야?").length === 0, "P3 일 단위 평균은 맞다");
+  const span1y = q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.contracts WHERE end_date IS NOT NULL AND end_date < CURRENT_DATE + INTERVAL '1 year'", "계약 기간이 1년 넘는 계약은 몇 건이야?");
+  ok(span1y.length === 1 && span1y[0].includes("「기간이 1년 넘는」") && span1y[0].includes("end_date - start_date > 365 로 고른다"), `P3 계약 기간 (got ${span1y})`);
+  const span6m = q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.projects WHERE end_date < CURRENT_DATE + INTERVAL '6 months'", "프로젝트 기간이 6개월 넘는 프로젝트는 몇 개야?");
+  ok(span6m[0]?.includes("end_date > start_date + INTERVAL '6 months' 로 고른다"), `P3 달은 INTERVAL (got ${span6m})`);
+  ok(q5.checkPeriodLength("SELECT COUNT(*) FROM companyx.contracts WHERE end_date - start_date >= 730", "계약 기간이 2년 이상인 계약은?").length === 0, "P3 두 날짜의 차는 맞다");
+  ok(said5("SELECT 1", span1y).includes("생성된 SQL 이 기간의 길이를 재지 않아서"), "P3 길이 거절 문장");
+
+  // P6: AVG 안의 ELSE 0(CG06 -35.08, 520 이 맞다), 두 값 비교(CG02, CG01), 함께 참일 수 없는 조건(CG01).
+  const cg06 = "SELECT AVG(CASE WHEN T1.company_size = 'enterprise' THEN T2.amount ELSE 0 END) - AVG(CASE WHEN T1.company_size = 'startup' THEN T2.amount ELSE 0 END) AS diff FROM companyx.clients AS T1 JOIN companyx.contracts AS T2 ON T1.id = T2.client_id";
+  const avgElse = q5.checkAvgElseZero(cg06);
+  ok(avgElse.length === 2 && avgElse[0].includes("ELSE 를 빼야"), `P6 ELSE 0 (got ${avgElse})`);
+  ok(said5(cg06, avgElse).includes("생성된 SQL 이 평균에 조건 밖의 행을 0 으로 넣어서"), "P6 ELSE 0 거절 문장");
+  for (const sql of [
+    "SELECT AVG(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) FROM companyx.support_tickets", // 비율 꼴
+    "SELECT AVG(CASE WHEN T1.company_size = 'enterprise' THEN T2.amount END) FROM companyx.clients T1 JOIN companyx.contracts T2 ON T1.id = T2.client_id",
+    "SELECT SUM(CASE WHEN c.region = '서울' THEN s.amount ELSE 0 END) FROM companyx.sales s JOIN companyx.clients c ON c.id = s.client_id",
+  ]) ok(q5.checkAvgElseZero(sql).length === 0, `P6 상수 THEN, ELSE 없음, SUM 은 보지 않는다: ${sql}`);
+  const cg02 = "SELECT c.name AS client_name, SUM(s.amount) AS total_sales FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region IN ('서울', '부산') GROUP BY c.name";
+  const cmp = q5.checkCompareGroups(cg02, "서울 고객사와 부산 고객사의 매출을 비교해줘", "companyx");
+  ok(cmp.length === 1 && cmp[0].includes("'서울' 과 '부산' 을 견주는데") && cmp[0].includes("GROUP BY c.region"), `P6 두 지역을 섞음 (got ${cmp})`);
+  ok(said5(cg02, cmp).includes("견주는 두 값('서울', '부산')을 따로 집계하지 않아서"), "P6 비교 거절 문장");
+  const cg01r3 = "SELECT AVG(e.salary) - AVG(e2.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id JOIN companyx.employees e2 ON e2.dept_id = d.id WHERE d.name = '영업팀' AND e.id != e2.id";
+  ok(q5.checkCompareGroups(cg01r3, "영업팀과 기술지원팀 평균 연봉 차이는 얼마야?", "companyx")[0]?.includes("SQL 에 '기술지원팀' 이 없다"), "P6 한쪽만 고름");
+  for (const [q, sql] of [
+    ["서울 고객사와 부산 고객사의 매출을 비교해줘", "SELECT c.region, SUM(s.amount) FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id WHERE c.region IN ('서울', '부산') GROUP BY c.region"],
+    ["영업팀과 기술지원팀 평균 연봉 차이는 얼마야?", "SELECT AVG(e.salary) FILTER (WHERE d.name = '영업팀') - AVG(e.salary) FILTER (WHERE d.name = '기술지원팀') FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id"],
+    ["대기업 고객사와 스타트업 고객사의 평균 계약 금액 차이는?", cg06],
+    ["인천 고객사와 대구 고객사의 매출 합계를 비교해줘", "SELECT (SELECT SUM(amount) FROM companyx.sales WHERE client_id IN (SELECT id FROM companyx.clients WHERE region = '인천')) AS a, (SELECT SUM(amount) FROM companyx.sales WHERE client_id IN (SELECT id FROM companyx.clients WHERE region = '대구')) AS b"],
+    ["클라우드사업부 평균 연봉은 영업팀보다 얼마나 높아?", "SELECT (SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '클라우드사업부') - (SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀')"],
+    ["서울과 부산 고객사 목록", "SELECT name FROM companyx.clients WHERE region IN ('서울', '부산')"], // 견주는 말이 없다
+    ["서울물산의 2025년 3분기 총 매출액은 얼마야?", "SELECT SUM(s.amount) FROM companyx.sales s JOIN companyx.clients c ON c.id = s.client_id WHERE c.name = '서울물산' AND s.quarter = '2025-Q3'"], // TC-143
+  ]) ok(q5.checkCompareGroups(sql, q, "companyx").length === 0, `P6 그 열로 묶거나 따로 집계하거나 견주지 않는 질문은 보지 않는다: ${q}`);
+  const cg01 = "SELECT AVG(e.salary) - AVG(e2.salary) AS salary_difference FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id JOIN companyx.employees e2 ON e2.dept_id = d.id WHERE d.name = '영업팀' AND e2.dept_id = (SELECT id FROM companyx.departments WHERE name = '기술지원팀')";
+  const contra = q5.checkContradiction(cg01, tables5);
+  ok(contra.length === 1 && contra[0].startsWith("모순 조건 d.name = '영업팀' 과 e2.dept_id = (SELECT id FROM companyx.departments WHERE name = '기술지원팀')"), `P6 모순 (got ${contra})`);
+  ok(said5(cg01, contra).includes("함께 참일 수 없는 조건(") && !said5(cg01, contra).includes("집계한 값이 없습니다"), "P6 모순 거절 문장");
+  ok(q5.checkContradiction("SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀' AND d.name = '기술지원팀'", tables5).length === 1, "P6 한 열에 두 값");
+  ok(q5.checkContradiction("SELECT * FROM companyx.employees e JOIN companyx.employees e2 ON e2.id = e.id WHERE e.id <> e2.id", tables5).length === 1, "P6 맞을 수 없는 자기 조인");
+  for (const sql of [
+    "SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀' OR d.name = '기술지원팀'",
+    "SELECT AVG(e.salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name IN ('영업팀', '기술지원팀') GROUP BY d.name",
+    "SELECT c.name FROM companyx.clients c LEFT JOIN companyx.contracts co ON co.client_id = c.id AND co.status = 'active' WHERE c.region = '서울'",
+    "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON e.id = d.head_id WHERE e.dept_id = (SELECT id FROM companyx.departments WHERE name = '영업팀') AND d.name = '영업팀'",
+    "SELECT SUM(amount) FROM companyx.sales WHERE sale_date BETWEEN '2025-01-01' AND '2025-03-31' AND region = '서울'",
+  ]) ok(q5.checkContradiction(sql, tables5).length === 0, `P6 OR, IN, LEFT JOIN, 맞는 하위 질의, BETWEEN 은 모순이 아니다: ${sql}`);
+
+  // P9: 측정 항목 없는 최상급과 「요즘 매출 어때?」는 되묻는다. 「제일 잘나가는 제품」, 「제일 바쁜 직원」은 그대로.
+  ok(q5.vagueMeasure("가장 큰 고객사는 어디야?", "companyx") === "가장 큰 고객사", "P9 AM01");
+  ok(q5.vagueMeasure("가장 중요한 고객사는 어디야?", "companyx") === "가장 중요한 고객사", "P9 AM04");
+  ok(q5.vagueMeasure("요즘 매출 어때?", "companyx") === "요즘 매출", "P9 AM05");
+  ok(q5.vagueMeasure("제일 큰 고객사가 어디야?", "companyx") === "제일 큰 고객사", "P9 다른 말");
+  for (const q of ["제일 잘나가는 제품은 뭐야?", "제일 바쁜 직원은 누구야?", "매출 합계가 가장 큰 고객사는 어디야?", "가장 큰 계약은?", "최근 6개월 매출 합계는 얼마야?"]) {
+    ok(q5.vagueMeasure(q, "companyx") === null, `P9 측정 항목이 있거나 고객사 최상급이 아니면 되묻지 않는다: ${q}`);
+  }
+  ok(q5.vagueAnswer("가장 큰 고객사").includes("매출, 계약 금액, 회사 규모 가운데 무엇으로 볼지 함께 물어봐 주세요.") && q5.vagueAnswer("가장 큰 고객사").includes("「매출 합계가 가장 큰 고객사는 어디야?」"), "P9 되묻는 문장");
+  ok(q5.vagueAnswer("요즘 매출").includes("어느 기간을 볼지 정할 수 없어") && q5.vagueAnswer("매출").includes("기간, 고객사, 제품처럼"), "P9 기간 되묻기, 종전 한 낱말 문장");
+  ok(q5.sqlGatePolicy({ outcome: "refused", rejected: [], vague: "요즘 매출" })?.detail.includes("「요즘 매출」을 물어") === true, "P9 감사 문장의 조사");
+
+  // P10: 제품 상태에 없는 「판매 중지」(FV09 다른 표의 취소 계약)와 부정한 상태의 어휘 밖 값(FV15).
+  const fv09 = "SELECT p.name FROM companyx.products p JOIN companyx.contracts c ON p.id = c.product_id WHERE c.status = 'cancelled'";
+  const absent = q5.checkAbsentState(fv09, "판매 중지된 제품 목록을 보여줘", E5, "companyx");
+  ok(absent.length === 1 && absent[0].includes("'판매 중지' 는 products.status 에 없는 값이다(쓸 수 있는 값: 'active', 'beta')"), `P10 다른 표의 상태 (got ${absent})`);
+  ok(said5(fv09, absent).includes("질문이 말한 상태('판매 중지')는 products.status 에 없는 값입니다. products.status 의 값은 'active', 'beta' 입니다."), "P10 값 목록으로 답한다");
+  ok(q5.checkAbsentState("SELECT name FROM companyx.products", "단종된 제품 목록을 알려줘", E5, "companyx").length === 1, "P10 조건을 뺀 수리도 받지 않는다");
+  ok(q5.checkAbsentState("SELECT name FROM companyx.products WHERE status = 'discontinued'", "단종된 제품 목록을 알려줘", E5, "companyx").length === 0, "P10 어휘 밖 값은 checkEnum 이 맡는다(KF07)");
+  ok(q5.checkAbsentState("SELECT name FROM companyx.products WHERE status = 'active'", "판매 중인 제품 목록", E5, "companyx").length === 0, "P10 판매 중은 있는 상태");
+  const fv15 = "SELECT COUNT(*) FROM companyx.contracts WHERE status IN ('open', 'in_progress')";
+  const comp = q5.checkUnaskedEnum(fv15, "종료되지 않은 계약은 몇 건이야?", E5, "companyx");
+  ok(comp.length === 1 && comp[0].endsWith("status <> 'completed' 로 거른다"), `P10 여집합 (got ${comp})`);
+  ok(q5.checkUnaskedEnum("SELECT COUNT(*) FROM companyx.projects WHERE status = 'cancelled'", "취소된 프로젝트는 몇 개야?", E5, "companyx").length === 0, "P10 긍정한 어휘 밖 값은 종전대로 checkEnum 만");
+  ok(q5.checkUnaskedNull("SELECT COUNT(*) FROM companyx.contracts WHERE status <> 'completed' AND end_date IS NULL", "끝나지 않은 계약은 몇 건이야?").length === 1, "P10 끝나지 않은은 종료일을 묻지 않는다");
+  ok(q5.checkUnaskedNull("SELECT COUNT(*) FROM companyx.projects WHERE end_date IS NULL", "종료일이 정해지지 않은 프로젝트는 몇 개야?").length === 0, "P10 종료일을 말하면 받는다");
+
+  // P12: 부모 키를 DISTINCT 없이 센 COUNT(JN04 Client-T 계약 6건을 41건).
+  const fks5 = [
+    ["contracts", "client_id", "clients", "id"], ["contracts", "product_id", "products", "id"], ["sales", "contract_id", "contracts", "id"],
+    ["sales", "client_id", "clients", "id"], ["employees", "dept_id", "departments", "id"],
+  ].map(([table, column, refTable, refColumn]) => ({ table, column, refTable, refColumn }));
+  const jn04 = "SELECT c.name AS client_name, COUNT(co.id) AS contract_count, SUM(s.amount) AS total_sales FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id JOIN companyx.sales s ON co.id = s.contract_id GROUP BY c.name";
+  const fan = q5.fanoutJoins(jn04, fks5);
+  ok(fan.length === 1 && fan[0].agg === "COUNT(co.id)" && fan[0].child === "sales", `P12 COUNT 팬아웃 (got ${JSON.stringify(fan)})`);
+  for (const sql of [
+    jn04.replace("COUNT(co.id)", "COUNT(DISTINCT co.id)"),
+    "SELECT c.name, COUNT(co.id) FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id GROUP BY c.name",
+    "SELECT c.name, COUNT(s.id) FROM companyx.clients c JOIN companyx.contracts co ON c.id = co.client_id JOIN companyx.sales s ON co.id = s.contract_id GROUP BY c.name",
+  ]) ok(q5.fanoutJoins(sql, fks5).every((f) => !/^count/i.test(f.agg)), `P12 DISTINCT, 자식 쪽 COUNT 는 보지 않는다: ${sql}`);
+  const fanWhy = `집계 COUNT(co.id) 은 contracts 의 열인데 contracts 를 가리키는 sales 와 조인(co.id = s.contract_id)해 contracts 한 행이 sales 행 수만큼 겹쳐 세어진다. COUNT(co.id) 를 COUNT(DISTINCT co.id) 로 바꾼 SQL 전체를 쓴다`;
+  ok(q5.countDistinctRewrite(jn04, [fanWhy]) === jn04.replace("COUNT(co.id)", "COUNT(DISTINCT co.id)"), "P12 결정론 수리");
+  ok(q5.countDistinctRewrite(jn04, [fanWhy, "기간 조건 x"]) === null, "P12 다른 사유가 섞이면 7B 수리");
+  ok(said5(jn04, [fanWhy]).includes("같은 행을 여러 번 세어서"), "P12 거절 문장");
+
+  // P13: 묶음마다 1위를 결정론으로(FV11 수리 실패로 거절). 부서별 최고 연봉자도 같은 길.
+  const fv11 = "SELECT c.name, SUM(s.amount) as total_sales FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY total_sales DESC LIMIT 1";
+  const top = q5.groupTopRewrite(fv11, "지역별로 매출이 가장 높은 고객사는?");
+  ok(
+    top === "SELECT region, name, total_sales FROM (SELECT c.region AS region, c.name, SUM(s.amount) as total_sales, RANK() OVER (PARTITION BY c.region ORDER BY SUM(s.amount) DESC) AS group_rank FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name, c.region) AS ranked WHERE group_rank = 1",
+    `P13 지역별 (got ${top})`,
+  );
+  const ag02 = "SELECT d.name AS department, e.name AS employee, MAX(e.salary) AS max_salary FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id WHERE e.is_active = true GROUP BY d.name, e.name ORDER BY max_salary DESC LIMIT 1";
+  ok(q5.groupTopRewrite(ag02, "부서별 최고 연봉자는 누구야?")?.includes("RANK() OVER (PARTITION BY d.name ORDER BY MAX(e.salary) DESC) AS group_rank") === true, "P13 부서별");
+  ok(q5.groupTopRewrite(fv11.replace("GROUP BY c.name ORDER BY total_sales", "GROUP BY c.name, c.region ORDER BY c.region, total_sales"), "지역별로 매출이 가장 높은 고객사는?")?.includes("ORDER BY SUM(s.amount) DESC") === true, "P13 첫 정렬 키가 묶음 열이면 다음 키");
+  for (const [q, sql] of [
+    ["분기별 매출 중 가장 높은 분기는?", "SELECT quarter, SUM(amount) AS t FROM companyx.sales GROUP BY quarter ORDER BY t DESC LIMIT 1"],
+    ["매출이 가장 높은 고객사는?", fv11],
+    ["지역별로 매출이 가장 높은 고객사는?", "SELECT * FROM (SELECT c.region, c.name, RANK() OVER (PARTITION BY c.region ORDER BY SUM(s.amount) DESC) r FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.region, c.name) t WHERE r = 1"],
+  ]) ok(q5.groupTopRewrite(sql, q) === null, `P13 묶음마다 1위가 아니거나 이미 나눈 SQL 은 바꾸지 않는다: ${q}`);
+  const ran5: string[] = [];
+  const fkRows5 = fks5.map((f) => ({ table_name: f.table, column_name: f.column, ref_table: f.refTable, ref_column: f.refColumn }));
+  const pool5 = (rows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          const r = /pg_roles/.test(sql)
+            ? []
+            : /SELECT EXISTS/.test(sql)
+              ? [{ dup: true }]
+              : /AS grouped/.test(sql)
+                ? [{ n: 1 }]
+                : /^\s*(select|with)\b/i.test(sql)
+                  ? (ran5.push(sql), rows)
+                  : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string) => (/contype = 'f'/.test(sql) ? { rows: fkRows5, rowCount: fkRows5.length } : { rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  let asked5 = 0;
+  const regionTop = await q5r.executeWithRepair(pool5([{ region: "서울", name: "Client-Q", total_sales: 23244 }]), "지역별로 매출이 가장 높은 고객사는?", fv11, {
+    repairer: async () => {
+      asked5++;
+      return fv11;
+    },
+  });
+  ok(regionTop.text === top && regionTop.gate?.rewritten === "group-top" && regionTop.gate.outcome === "repaired" && asked5 === 0 && !regionTop.repaired, `P13 생성 모델 없이 실행 (got ${regionTop.text} ${asked5})`);
+  ok(q5.sqlGatePolicy(regionTop.gate)?.detail.includes("결정론으로 바꿔 실행했다(생성 모델을 다시 부르지 않음)") === true, "P13 감사 문장");
+  const recount5 = await q5r.executeWithRepair(pool5([{ client_name: "Client-T", contract_count: 6, total_sales: 30540 }]), "고객사별 계약 수와 매출 합계를 한 표로 보여줘", jn04, {
+    repairer: async () => {
+      asked5++;
+      return "COUNT(DISTINCT co.id)";
+    },
+  });
+  ok(recount5.text?.includes("COUNT(DISTINCT co.id)") === true && recount5.gate?.rewritten === "count-distinct" && asked5 === 0, `P12 생성 모델 없이 COUNT(DISTINCT) (got ${recount5.text} ${recount5.gate?.outcome})`);
+
+  // P1: 바깥 SELECT 의 JSON 묶음은 열로 고르게 하고(OS04 없는 직원 10명을 지어냄), SQL 질문 줄에서 「JSON으로」를 뺀다.
+  const os04 = "SELECT json_agg(json_build_object('name', e.name, 'email', e.email)) AS sales_team FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀'";
+  const js = q5.checkJsonOutput(os04);
+  ok(js.length === 1 && js[0].includes("(SELECT e.name, e.email FROM …)"), `P1 JSON 묶음 (got ${js})`);
+  ok(said5(os04, js).includes("조회 결과를 JSON 값 하나로 묶어서"), "P1 거절 문장");
+  for (const sql of [
+    "SELECT e.name, e.email FROM companyx.employees e",
+    "SELECT name FROM companyx.employees WHERE id IN (SELECT (row_to_json(t)->>'id')::int FROM companyx.employees t)",
+  ]) ok(q5.checkJsonOutput(sql).length === 0, `P1 바깥 SELECT 가 열이면 보지 않는다: ${sql}`);
+  ok(q5n.sqlQuestionForModel("영업팀 직원 목록을 JSON으로 줘", now5) === "영업팀 직원 목록을 줘", "P1 SQL 질문 줄의 JSON");
+  ok(q5n.sqlQuestionForModel("기술지원팀 직원 이름과 이메일을 JSON 형식으로 보여줘", now5) === "기술지원팀 직원 이름과 이메일을 보여줘", "P1 JSON 형식으로");
+  const long5 = "2025년 3분기 총 매출액은 얼마야? ".repeat(3);
+  ok(q5n.sqlQuestionForModel(long5, now5) === long5, "P1 JSON 이 없는 질문은 글자 하나 바꾸지 않는다(TC-153 꼴 뒤 공백 포함)");
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
