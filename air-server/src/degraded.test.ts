@@ -3133,6 +3133,23 @@ const deadEmbedder: Embedder = {
   ok(P.bossAnswer(bossR("김지훈: 상사: BELONGS_TO 다음 HEAD_IS", ["[그래프 경로] 김지훈의 소속 부서: 영업팀 → 영업팀의 부서장: 김지훈 (BELONGS_TO→HEAD_IS)"])) === "김지훈은 영업팀의 부서장이라 이 데이터에는 김지훈의 상사(소속 부서의 부서장)가 따로 없습니다.", "본인이 부서장");
   ok(P.bossAnswer(bossR("영업팀: HEAD_IS 다음 MANAGES_ACCOUNT", ["[그래프 경로] 영업팀의 부서장: 김지훈 → 김지훈의 담당 고객사: Client-T (HEAD_IS→MANAGES_ACCOUNT)"])) === undefined && P.bossAnswer(bossR("황민수: 상사: BELONGS_TO 다음 HEAD_IS", ["[그래프] 황민수 (employee)"])) === undefined, "상사 경로가 아니거나 경로 줄이 없으면 7B 에게");
 
+  // P8 ②: 그래프 경로가 있는데 7B 가 모른다고만 답하면 묻는 타입에서 끝나는 경로의 이름을 적는다. 경로 끝은 경로 줄이 함께 싣는다.
+  const edge = (srcId: number, srcName: string, srcType: string, relType: string, dstId: number, dstName: string, dstType: string, depth: number) =>
+    ({ srcId, srcName, srcType, relType, dstId, dstName, dstType, confidence: 1, provenance: "t", depth }) as const;
+  const jn09Paths = G.pathCandidates(
+    [edge(13, "Client-M", "client", "HAS_PROJECT", 70, "Client-M 하이브리드 클라우드", "project", 1), edge(30, "서재원", "employee", "LEADS", 70, "Client-M 하이브리드 클라우드", "project", 2)],
+    13,
+    2,
+  );
+  ok(jn09Paths.length === 1 && jn09Paths[0].answer.name === "서재원" && jn09Paths[0].answer.type === "employee" && jn09Paths[0].text.startsWith("[그래프 경로] 서재원의 이끄는 프로젝트"), `경로 끝(거꾸로 탄 경로는 줄 앞) (got ${JSON.stringify(jn09Paths)})`);
+  const pathR = (items: { text: string }[], route = "graph") =>
+    ({ route, graph: { items }, curated: { kept: items.map((it, i) => ({ text: it.text, source: `graph#${i}` })) } }) as unknown as Parameters<typeof P.pathAnswer>[0];
+  const unknown = "주어진 정보로는 알 수 없습니다.";
+  ok(P.pathAnswer(pathR(jn09Paths), "Client-M 프로젝트를 맡은 매니저는 누구야?", unknown) === "그래프 경로로 찾은 직원은 1명입니다: 서재원.", `JN09 (got ${P.pathAnswer(pathR(jn09Paths), "Client-M 프로젝트를 맡은 매니저는 누구야?", unknown)})`);
+  ok(P.pathAnswer(pathR(jn09Paths), "Client-M 프로젝트를 맡은 매니저는 누구야?", "서재원입니다.") === undefined, "7B 가 이름을 적었으면 그대로");
+  ok(P.pathAnswer(pathR(jn09Paths), "Client-M 프로젝트 담당자들의 부서는?", unknown) === undefined && P.pathAnswer(pathR(jn09Paths), "Client-M 프로젝트는 어디 고객사 거야?", unknown) === undefined, "묻는 타입이 부서이거나 경로 끝과 다르면 그대로");
+  ok(P.pathAnswer(pathR(jn09Paths, "hybrid"), "Client-M 프로젝트를 맡은 매니저는 누구야?", unknown) === undefined && P.pathAnswer(pathR([{ text: "[그래프] Client-M (client)" }]), "Client-M 담당자는 누구야?", unknown) === undefined, "그래프 레인이 아니거나 경로가 없으면 그대로");
+
   // P8 ①: 한 행 한 값과 다른 수 하나.
   const fv06q = "연봉 칠천만 원 넘는 직원 몇 명이야?";
   const fv06sql = "SELECT COUNT(*) FROM companyx.employees WHERE salary > 7000";

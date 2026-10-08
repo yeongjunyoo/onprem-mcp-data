@@ -68,6 +68,7 @@ import {
   type GraphResult,
   type GraphTruncation,
   type NodeFilter,
+  type PathCandidate,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
@@ -1014,6 +1015,38 @@ export function bossAnswer(r: RetrieveResult): string | undefined {
   );
 }
 
+/** 질문이 묻는 타입의 말. 한국어는 머리말이 끝에 오므로 마지막에 나온 것이 묻는 타입이다. 직원과 고객사만 답한다(pathAnswer). */
+const ASKED_TYPE: [RegExp, string, string, string][] = [
+  [/누구|담당자|매니저|리더|책임자|직원|사람|팀원/g, "employee", "직원", "명"],
+  [/어디|고객사|고객|거래처/g, "client", "고객사", "곳"],
+  [/부서|팀|소속/g, "department", "", ""],
+  [/제품|솔루션|서비스/g, "product", "", ""],
+  [/프로젝트|과제/g, "project", "", ""],
+];
+
+/** 그래프 레인 7B 가 「주어진 정보로는 알 수 없습니다」라고 답했는데 컨텍스트에 질문이 묻는 타입(누구 → 직원, 어디 → 고객사)에서 끝나는
+ * 경로가 있으면 그 이름을 적는 결정론 문장. 「Client-M 프로젝트를 맡은 매니저는 누구야?」는 컨텍스트 첫 줄이 「서재원의 이끄는 프로젝트:
+ * Client-M 하이브리드 클라우드 → …」인데 모른다고 답했다(랜덤 테스트 사전 점검 5차 P8 ②, 3/3). 7B 가 이름을 적은 답은 그대로 둔다(시험항목
+ * 화면이 그 문장을 인용한다). 묻는 타입이 부서, 제품, 프로젝트이거나 경로 끝과 다르면(「고객사 담당자들의 부서는?」에 담당자까지의 경로)
+ * 쓰지 않는다. */
+export function pathAnswer(r: RetrieveResult, query: string, answer: string): string | undefined {
+  if (r.route !== "graph" || !r.graph || !/^\s*주어진 정보로는 알 수 없습니다\.?\s*$/.test(answer)) return undefined;
+  let text = query;
+  for (const e of entitiesIn(query)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  let asked: { at: number; type: string; noun: string; counter: string } | undefined;
+  for (const [re, type, noun, counter] of ASKED_TYPE) {
+    for (const m of text.matchAll(re)) if (!asked || m.index! >= asked.at) asked = { at: m.index!, type, noun, counter };
+  }
+  if (!asked?.noun) return undefined;
+  const names: string[] = [];
+  for (const it of r.curated.kept) {
+    const c = it.source.startsWith("graph#") ? (r.graph.items[Number(it.source.slice(6))] as Partial<PathCandidate> | undefined) : undefined;
+    if (c?.answer?.type === asked.type && !names.includes(c.answer.name)) names.push(c.answer.name);
+  }
+  if (!names.length) return undefined;
+  return `그래프 경로로 찾은 ${asked.noun}${topic(asked.noun)} ${names.length}${asked.counter}입니다: ${names.join(", ")}.`;
+}
+
 /** 부정 조건(「담당하지 않는」, 「고객사가 없는」, 「안 맡은」). 「없는데」, 「기억 안 나는데」는 조건이 아니다. 대상을 꾸미는
  * 꼴만 본다: 「알려주지 않을래?」(부탁), 「빠뜨리지 않고」(부사), 「보안 담당」, 「오랫동안 담당하는」, 「문제없는」(낱말 속의
  * 안, 없는)은 부정 조건이 아니다(규칙 오탐 검토 2026-10-08: TC-126 의 공손한 꼴을 계산하지 않는다고 답했다). */
@@ -1418,6 +1451,9 @@ export async function ask(
   const gen = deps.llm ?? llmAnswer;
   try {
     const generated = await gen(r.answer_query ?? query, answerContext);
+    // 그래프 경로가 있는데 모른다고만 답했으면 묻는 타입에서 끝나는 경로의 이름을 적는다(pathAnswer).
+    const viaPath = pathAnswer(r, r.answer_query ?? query, generated);
+    if (viaPath) return { ...r, answer: head + viaPath };
     // 근거에도 질문에도 없는 이름은 사실로 남기지 않는다(withoutOutsideNames). 정형 레인의 값 하나를 10의 거듭제곱만큼 틀리게
     // 옮겨 적었으면 조회 값으로 되돌린다(scaleSlip). 문서 레인이 상위 조각만 본 것은 밝힌다.
     const fix = withoutOutsideNames(generated, r.context, query);
