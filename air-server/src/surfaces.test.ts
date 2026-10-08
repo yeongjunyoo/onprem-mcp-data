@@ -301,6 +301,10 @@ async function main() {
     params: { query: string };
   };
   ok(ctrlOut.params.query === "매출 합계", "제어 문자 제거는 그대로 한다");
+  // 길이 상한에서 말없이 자르지 않는다(랜덤 테스트 3차 G24: 공백을 채운 10,101자 SQL 이 앞 10,000자만 실행됐다). 상한은 입력 검증이 거절한다.
+  const padded = "SELECT count(*) AS n FROM companyx.sales WHERE amount > 0" + " ".repeat(10000) + "AND amount > 1000";
+  const longOut = (await sanitize({ tool: { name: "sql.query" }, params: { sql: padded } } as never)) as { params: { sql: string } };
+  ok(longOut.params.sql === padded, `sanitizer 가 10,000자를 넘는 인자를 자르지 않는다 (got ${longOut.params.sql.length}자)`);
 
   // --- stdio: 프리플라이트가 stdout 에 쓰지 않는다 ---
   // stdout 은 MCP JSON-RPC 통로다. 사람이 읽을 줄이 섞이면 클라이언트가 파싱 오류를 낸다.
@@ -451,6 +455,75 @@ async function main() {
   const fmtWired = String(JSON.parse(fmtWiring.stdout.split("\n@@")[1] ?? '""'));
   ok(fmtWired.includes('format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml"'), `서버 정의의 audit.explain 이 format=xml 을 거절한다 (got ${fmtWired.slice(0, 160)})`);
 
+  // --- 긴 인자와 budget(랜덤 테스트 3차 G20, G24, F20, F21, X01): 넘는 길이와 1 미만, 소수 budget 은 입력 검증에서 거절한다 ---
+  // 종전에는 sanitizer 가 10,000자에서 말없이 잘라 다른 질의를 실행했고, budget -1 과 0.5 는 근거를 모두 버린 빈 컨텍스트가 됐다.
+  {
+    const { MAX_INPUT_CHARS, sqlParam, budgetParam } = await import("./queryinput.js");
+    const sp = sqlParam("실행할 단일 SELECT/WITH 쿼리");
+    const bp = budgetParam("큐레이터 토큰 예산 (기본 1024)");
+    const longQ = "가".repeat(MAX_INPUT_CHARS + 1);
+    const qr = qp.safeParse(longQ);
+    ok(!qr.success && qr.error.issues[0].message === "질문이 너무 깁니다(10,001자). 10,000자 이하로 입력해 주세요. 잘라서 처리하면 다른 질문이 되므로 처리하지 않았습니다.", `긴 질문은 자르지 않고 거절한다 (got ${qr.success ? "통과" : qr.error.issues[0].message})`);
+    const tc157 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+    ok(qp.safeParse(tc157).success && qp.safeParse("가".repeat(MAX_INPUT_CHARS)).success, "TC-157 의 2,200자와 상한 그대로의 질문은 통과한다");
+    const sr = sp.safeParse("SELECT 1" + " ".repeat(MAX_INPUT_CHARS));
+    ok(!sr.success && sr.error.issues[0].message.startsWith("SQL 이 너무 깁니다(10,008자). 10,000자 이하로 입력해 주세요."), `긴 SQL 은 자르지 않고 거절한다 (got ${sr.success ? "통과" : sr.error.issues[0].message})`);
+    ok(sp.safeParse("SELECT count(*) FROM companyx.clients").success, "보통 SQL 은 통과한다");
+    for (const b of [undefined, 1, 200, 1024, 1e12]) ok(bp.safeParse(b).success, `budget ${b} 는 받는다(TC-111, TC-112 는 200)`);
+    for (const b of [-1, 0, 0.5, 1.5, Number.POSITIVE_INFINITY]) {
+      const r = bp.safeParse(b);
+      ok(!r.success && r.error.issues[0].message.startsWith("budget 은 1 이상의 정수(토큰 수)만 받습니다.") && r.error.issues[0].message.includes(`받은 값: ${JSON.stringify(b) ?? String(b)}`), `budget ${b} 는 거절하고 받은 값을 말한다`);
+    }
+    const mcp = new McpServer({ name: "t", version: "0" });
+    const seen: unknown[] = [];
+    mcp.registerTool("sql.query", { inputSchema: { sql: sp } }, async (a: { sql: string }) => (seen.push(a.sql), { content: [{ type: "text" as const, text: "행" }] }));
+    mcp.registerTool("retrieve", { inputSchema: { query: qp, budget: bp } }, async (a: { budget?: number }) => (seen.push(a.budget), { content: [{ type: "text" as const, text: "근거" }] }));
+    const client = await connect(mcp);
+    const listed = (await client.listTools()).tools;
+    const schemaOf = (name: string) => JSON.stringify(listed.find((t) => t.name === name)?.inputSchema);
+    ok(
+      schemaOf("sql.query") === JSON.stringify({ type: "object", properties: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } }, required: ["sql"], additionalProperties: false, $schema: "http://json-schema.org/draft-07/schema#" }),
+      `tools/list 의 sql 스키마는 종전 그대로다 (got ${schemaOf("sql.query")})`,
+    );
+    ok(
+      schemaOf("retrieve") ===
+        JSON.stringify({
+          type: "object",
+          properties: { query: { type: "string", description: "사용자의 한국어 질의" }, budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)" } },
+          required: ["query"],
+          additionalProperties: false,
+          $schema: "http://json-schema.org/draft-07/schema#",
+        }),
+      `tools/list 의 budget 스키마는 종전 그대로다 (got ${schemaOf("retrieve")})`,
+    );
+    const textOf = (r: Record<string, unknown>) => (r.content as { text: string }[])[0]?.text ?? "";
+    const longSql = await client.callTool({ name: "sql.query", arguments: { sql: "SELECT 1" + " ".repeat(MAX_INPUT_CHARS) } });
+    ok(longSql.isError === true && textOf(longSql).includes("Input validation error") && textOf(longSql).includes("SQL 이 너무 깁니다"), `MCP 로 긴 SQL 을 주면 isError 와 안내 (got ${textOf(longSql).slice(0, 160)})`);
+    const neg = await client.callTool({ name: "retrieve", arguments: { query: "Client-B가 사용 중인 제품 목록은?", budget: -1 } });
+    ok(neg.isError === true && textOf(neg).includes("budget 은 1 이상의 정수") && seen.length === 0, `MCP 로 budget -1 을 주면 isError 와 안내, 핸들러에 닿지 않는다 (got ${textOf(neg).slice(0, 160)})`);
+    const fine = await client.callTool({ name: "retrieve", arguments: { query: "Client-B가 사용 중인 제품 목록은?", budget: 200 } });
+    ok(!fine.isError && seen.at(-1) === 200, "budget 200 은 핸들러로 간다");
+    await client.close();
+  }
+  const limitWiring = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+       const s = buildServer(); const out = {};
+       out.sql = await s.callTool("sql.query", { sql: "SELECT 1" + " ".repeat(10000) });
+       for (const t of ["retrieve", "ask"]) out[t] = await s.callTool(t, { query: "질문", budget: 0.5 });
+       out.route = await s.callTool("route", { query: "가".repeat(10001) });
+       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  const limited = JSON.parse(limitWiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
+  ok(String(limited.sql).includes("SQL 이 너무 깁니다"), `서버 정의의 sql.query 가 긴 SQL 을 거절한다 (got ${String(limited.sql).slice(0, 120)})`);
+  for (const t of ["retrieve", "ask"]) ok(String(limited[t]).includes("budget 은 1 이상의 정수"), `서버 정의의 ${t} 가 budget 0.5 를 거절한다 (got ${String(limited[t]).slice(0, 120)})`);
+  ok(String(limited.route).includes("질문이 너무 깁니다"), `서버 정의의 질의 도구가 긴 질문을 거절한다 (got ${String(limited.route).slice(0, 120)})`);
+
   // --- 빠진 필수 인자: SDK 1.30 부터 검증 오류가 한 줄로 줄어 「Required」만 남았다. 기대한 형을 문장에 남긴다(TC-042) ---
   {
     const { z } = await import("zod");
@@ -500,9 +573,9 @@ async function main() {
     const client = await connect(mcp);
     const listed = (await client.listPrompts()).prompts;
     for (const p of defs) {
-      const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}`).join(",");
-      const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}`).join(",");
-      ok(have === want, `prompts/list 가 ${p.name} 의 인자를 싣는다 (want ${want}, got ${have})`);
+      const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
+      const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
+      ok(have === want, `prompts/list 가 ${p.name} 의 인자와 설명을 싣는다 (want ${want}, got ${have})`);
       const values = Object.fromEntries((p.arguments ?? []).map((a) => [a.name, `인자값-${a.name}-7`]));
       const got = await client.getPrompt({ name: p.name, arguments: values });
       const text = got.messages.map((m) => (m.content as { text?: string }).text ?? "").join("\n");
@@ -515,6 +588,27 @@ async function main() {
       missing = String(e);
     }
     ok(missing.includes("context") && missing.includes("Required"), `필수 인자가 빠지면 빈 칸 템플릿 대신 거절한다 (got ${missing.slice(0, 160)})`);
+    // 빈 필수 인자도 빠진 인자처럼 거절한다(랜덤 테스트 3차 X04: question="" 에 질문 칸이 빈 템플릿).
+    for (const [name, args] of [
+      ["grounded-answer", { question: "", context: "" }],
+      ["grounded-answer", { question: "   ", context: "[SQL 결과] total_revenue=23859" }],
+      ["nl2sql-with-schema-card", { question: "　" }],
+      ["review-generated-sql", { question: "매출", sql: "" }],
+    ] as const) {
+      let blank = "";
+      try {
+        await client.getPrompt({ name, arguments: { ...args } });
+      } catch (e) {
+        blank = String(e);
+      }
+      const empty = Object.entries(args).filter(([, v]) => !v.trim()).map(([k]) => k);
+      ok(
+        blank.includes("-32602") && blank.includes(`Invalid arguments for prompt ${name}`) && empty.every((k) => blank.includes(`${k} 인자가 비어 있습니다`)),
+        `prompts/get ${name} 의 빈 필수 인자(${empty.join(", ")})는 거절한다 (got ${blank.slice(0, 200)})`,
+      );
+    }
+    const tc039 = await client.getPrompt({ name: "grounded-answer", arguments: { question: "2025년 3분기 총 매출액은 얼마야?", context: "[SQL 결과] total_revenue=23859" } });
+    ok(((tc039.messages[0].content as { text?: string }).text ?? "").includes("[질문] 2025년 3분기 총 매출액은 얼마야?"), "값이 있는 인자는 종전처럼 템플릿에 들어간다(TC-039)");
     await client.close();
   }
 

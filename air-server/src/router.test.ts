@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
+import { route, audit, installOntology, entityLexiconSize, fitPlanToSeed, identifyingAliases, maskEntities, buildGraphPlan, documentCountRequest, pairRelationRequest, backReferenceOnly, entitiesIn, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, RELATION_SIGNAL_TYPES } from "./router.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
 // 로컬에서 세려고만 켠다(셸에 남아도 단언 수가 「데이터셋 없음」 정본과 같아질 뿐이다).
@@ -236,6 +236,23 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
     [["USES"]],
     "같은 무리라도 그 무리를 이름으로 지목한 시드가 있으면 왕복하지 않는다",
   );
+  // 랜덤 테스트 사전 점검 2차 R5: 지목한 관계(LEADS)를 고객 담당(MANAGES_ACCOUNT)으로 바꾸거나 버리지 않는다.
+  // 시드 이름 바로 뒤의 「프로젝트」가 다리 타입이다. client -HAS_PROJECT- project -LEADS- employee (-BELONGS_TO- department).
+  eq(
+    fitPlanToSeed(["LEADS"], "client", "Client-A 프로젝트를 이끄는 직원은 누구야?"),
+    { hops: [["HAS_PROJECT"], ["LEADS"]], fitted: "LEADS 는 client 에 닿지 않아 project 를 거침: HAS_PROJECT 다음 LEADS" },
+    "고객사 프로젝트의 리드는 프로젝트를 거친다",
+  );
+  eq(hops(["LEADS"], "client", "Client-A의 프로젝트를 맡은 사람은 누구야?"), [["HAS_PROJECT"], ["LEADS"]], "「의」로 이어도 시드의 프로젝트다");
+  eq(
+    fitPlanToSeed(["BELONGS_TO", "LEADS"], "client", "Client-A 프로젝트를 이끄는 직원들은 어느 부서 소속이야?"),
+    { hops: [["HAS_PROJECT"], ["LEADS"], ["BELONGS_TO"]], fitted: "LEADS, BELONGS_TO 는 client 에 닿지 않아 project 를 거침: HAS_PROJECT 다음 LEADS 다음 BELONGS_TO" },
+    "리드의 부서는 세 홉: 계획의 두 엣지를 묻는 타입(부서)에서 끝나게 잇는다",
+  );
+  // 다리 타입이 시드 이름에 붙지 않으면 종전 규칙 그대로다.
+  eq(hops(["LEADS"], "client", "Client-A에서 직원이 이끄는 프로젝트는?"), [["HAS_PROJECT"]], "시드에 붙지 않은 직원은 다리가 아니다(규칙 2)");
+  eq(hops(["HAS_PROJECT"], "employee", "김지훈 직원이 관여하는 프로젝트는?"), [["LEADS"]], "고객사를 말하지 않으면 고객사를 거치지 않는다(규칙 2)");
+  eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["USES"], ["HAS_PROJECT"]], "계획이 질문의 관계어가 아니면(앵커) 종전 규칙 3(TC-129)");
   installOntology([], []);
   eq(hops(["HAS_PROJECT"], "product", "Product-S1 제품과 관련된 프로젝트는?"), [["HAS_PROJECT"]], "온톨로지가 없으면 계획 그대로");
 }
@@ -276,6 +293,83 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   // 「많은」은 종전 계획 그대로(TC-132, TC-133). order 키가 없다.
   eq(route("가장 많은 고객을 담당하는 직원은?").graphPlan, { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source" }, "가장 많은 → 종전 그대로");
   eq(buildGraphPlan("기술 지원 이슈가 가장 많은 제품은?", ["REPORTED_ISSUE"], true), { relTypes: ["REPORTED_ISSUE"], aggregate: "target" }, "TC-133 계획 그대로");
+}
+
+// ── 문서 개수 질문 (랜덤 테스트 2차 R9) ─────────────────────────────────
+//
+// 개체 이름, 문서 종류, 개수 말과 조사뿐인 질문만 문서 제목으로 센다. 다른 낱말이 있으면 제목으로 셀 수 없어 종전 길이다.
+{
+  installOntology(
+    [
+      { id: "client_1", name: "Client-A", type: "client" },
+      { id: "client_1", name: "client_1", type: "client" },
+      { id: "product_1", name: "Product-C1", type: "product" },
+      { id: "employee_3", name: "김준혁", type: "employee" },
+      { id: "project_9", name: "Client-A 데이터 이전", type: "project" },
+    ] as { id: string; name: string; type: string }[],
+    [],
+  );
+  eq(documentCountRequest("Product-C1 관련 장애 보고서는 몇 건이야?"), { entity: "Product-C1", kind: "장애 보고서", tag: "[장애보고]" }, "장애 보고서 개수");
+  eq(documentCountRequest("Product-C1 관련 문서는 몇 개야?"), { entity: "Product-C1", kind: "문서" }, "문서 개수(종류 무관)");
+  eq(documentCountRequest("회의록 개수 알려줘"), { kind: "회의록", tag: "[회의록]" }, "개체 없이 종류만");
+  eq(documentCountRequest("client_1 제안서는 몇 건?"), { entity: "Client-A", kind: "제안서", tag: "[제안서]" }, "별칭은 정본 이름으로 센다");
+  eq(documentCountRequest("설치 가이드 몇 개 있어?"), { kind: "설치 가이드", words: "설치 가이드" }, "제목 말로 고르는 종류");
+  for (const q of [
+    "2025년 장애 보고서는 몇 건이야?", // 연도
+    "SSL 관련 장애 보고서는 몇 건이야?", // 주제
+    "김준혁이 참석한 회의록은 몇 건이야?", // 사람(제목에 없다)
+    "Client-A 데이터 이전 관련 문서는 몇 개야?", // 프로젝트
+    "Product-C1 관련 장애 보고서 내용 알려줘", // 개수 말 없음
+    "Client-A와 Product-C1 관련 문서는 몇 개야?", // 개체 둘
+    "장애 보고서와 제안서는 몇 건이야?", // 종류 둘
+    "2019년에 등록된 고객사는 몇 개야?", // 문서 아님(TC-142)
+    "Product-C1 매출은 몇 건이야?",
+  ]) eq(documentCountRequest(q), undefined, `문서 개수 질문이 아니다: ${q}`);
+  installOntology([], []);
+}
+
+// 랜덤 테스트 사전 점검 3차 Q8, Q9: 두 개체의 관계 질문과 앞 대화를 가리키는 질문.
+{
+  installOntology(
+    [
+      { id: "client_17", name: "Client-Q", type: "client" },
+      { id: "client_4", name: "Client-D", type: "client" },
+      { id: "product_12", name: "Product-D3", type: "product" },
+      { id: "employee_9", name: "조현우", type: "employee" },
+      { id: "department_3", name: "영업팀", type: "department" },
+    ] as { id: string; name: string; type: string }[],
+    [],
+  );
+  eq(pairRelationRequest("Client-Q와 조현우는 무슨 관계야?"), { a: "Client-Q", b: "조현우" }, "고객사와 직원");
+  eq(pairRelationRequest("Client-D와 Product-D3는 어떤 관계야?"), { a: "Client-D", b: "Product-D3" }, "고객사와 제품");
+  eq(pairRelationRequest("조현우랑 Client-Q는 서로 어떤 관계가 있어?"), { a: "조현우", b: "Client-Q" }, "「랑」, 「서로」, 「관계가 있어」");
+  eq(pairRelationRequest("Client Q와 조현우는 무슨 관계야?"), { a: "Client-Q", b: "조현우" }, "띄어 쓴 식별자");
+  for (const q of [
+    "Client-Q와 서울물산은 무슨 관계야?", // 없는 개체
+    "Client-Q와 Client-Q는 무슨 관계야?", // 같은 개체
+    "Client-Q와 조현우의 관계를 표로 정리하고 매출도 알려줘", // 꼴이 다르다
+    "Client-Q 담당자는 누구야?",
+  ]) eq(pairRelationRequest(q), undefined, `두 개체 관계 질문이 아니다: ${q}`);
+
+  for (const [q, mark] of [
+    ["그럼 2위는?", "그럼"],
+    ["위에서 말한 거 다시 말해줘", "위에서"],
+    ["그 고객사 담당자는?", "그 고객사"],
+    ["아까 그거 다시", "아까"],
+    ["방금 말한 사람 누구라고?", "방금"],
+  ]) eq(backReferenceOnly(q), mark, `앞 대화를 가리키는 말만: ${q}`);
+  for (const q of [
+    "그럼 2025년 매출은?", // 기간과 표 낱말
+    "아까 말한 Client-Q 담당자는?", // 개체
+    "그럼 조현우는?", // 사전의 이름
+    "방금 등록된 고객사는?", // 표 낱말
+    "그래프로 보여줘", // 「그래」로 시작하는 낱말
+    "진행 중인 프로젝트를 이끄는 직원 목록",
+    "Product-C3 이거 말썽 많이 나는 편이야?",
+  ]) eq(backReferenceOnly(q), undefined, `대상이 있거나 가리키는 말이 아니다: ${q}`);
+
+  eq(entitiesIn("영업팀 직원 중 Client-Q를 담당하지 않는 사람"), [{ name: "Client-Q", type: "client" }, { name: "영업팀", type: "department" }], "질문의 개체(긴 이름부터)");
+  installOntology([], []);
 }
 
 console.log(`\nrouter.test: ${pass} passed, ${fail} failed`);

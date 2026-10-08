@@ -22,11 +22,12 @@
 // 고치게 한다(sqltrust.ts checkMoney).
 //
 // 금액으로 읽는 것: 아라비아 숫자로 시작하고
+//   조가 있는 것(「1조 원」 = 1억 만원, 「1.5조」, 「1조 5천억 원」, 「1조 5천만 원」. 조 뒤의 억, 만 자리도 읽는다),
 //   억이 있는 것(「2억 원」, 「2억원」, 「1.5억」, 「1억 5천만 원」, 만을 줄인 「1억 5천」, 원 단위가 붙은 「1억 5천 원」),
 //   천만, 백만, 십만인 것(「5천만 원」, 「5천만 이상」),
 //   원으로 끝나는 만 단위(「3,000만 원」, 「500만원」).
 // 읽지 않는 것: 원이 없는 만 단위(「500만 명」, 「3000만」), 뒤에 세는 말이나 다른 통화가 오는 것(「1억 건」, 「2억 년」,
-// 「1억 달러」), 단위 없는 숫자가 억 뒤에 붙어 값이 갈리는 것(「1억 2」), 한글 숫자(「오천만」).
+// 「1억 달러」), 단위 없는 숫자가 억이나 조 뒤에 붙어 값이 갈리는 것(「1억 2」, 「1조 2」), 조항 번호(「제1조」), 한글 숫자(「오천만」).
 
 /** 질문 속 금액 표현 하나. text 는 질문에 쓰인 그대로(원까지), manwon 은 만원 단위 값. */
 export interface MoneyMention {
@@ -57,14 +58,39 @@ export function formatManwon(v: number): string {
 
 /** q[i] 에서 시작하는 금액 표현 하나. 금액이 아니면 null. */
 function readMoney(q: string, i: number): MoneyMention | null {
-  const a = num(q, i);
+  let a = num(q, i);
   if (!a) return null;
-  const j = sp(q, a.end);
-  let manwon: number;
+  let j = sp(q, a.end);
+  let manwon = 0;
   let end: number;
-  let big: boolean; // 억이나 천만, 백만, 십만이면 원이 없어도 금액이다
+  let big: boolean; // 조나 억, 천만, 백만, 십만이면 원이 없어도 금액이다
+  // 조 = 1억 만원. 「1조 원」을 금액으로 읽지 못해 7B 가 amount > 10000(1억)으로 조회했다(랜덤 테스트 3차 U05, 3/3).
+  // 조 뒤의 억 자리(「1조 5천억」)는 이어서 억으로, 만 자리(「1조 5천만」)는 만원으로 읽는다.
+  if (q[j] === "조") {
+    if (q[i - 1] === "제") return null; // 조항 번호(「제1조」)
+    manwon = a.v * 100000000;
+    end = j + 1;
+    const k0 = sp(q, end);
+    const b = /\d/.test(q[k0] ?? "") ? num(q, k0) : null;
+    let k = b?.end ?? 0;
+    const mul = b ? MULT[q[k]] : undefined;
+    if (mul) k++;
+    if (b && q[k] === "억") {
+      a = { v: b.v * (mul ?? 1), end: k };
+      j = k;
+    } else {
+      if (b && q[k] === "만") {
+        manwon += b.v * (mul ?? 1); // 「1조 5천만 원」
+        end = k + 1;
+      } else if (b) return null; // 「1조 2」
+      const w = sp(q, end);
+      if (q[w] === "원") end = w + 1;
+      else if (COUNTER.test(q.slice(end))) return null; // 「1조 건」
+      return { text: q.slice(i, end), start: i, end, manwon: Math.round(manwon * 10000) / 10000 };
+    }
+  }
   if (q[j] === "억") {
-    manwon = a.v * 10000;
+    manwon += a.v * 10000;
     end = j + 1;
     big = true;
     // 억 뒤의 만 단위: 「5천만」, 「5000만」, 그리고 만을 줄인 「5천」. 바로 뒤에 원이 오면 그 자리는 원 단위다

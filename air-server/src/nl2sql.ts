@@ -36,7 +36,16 @@ export interface Nl2SqlReport {
 /** 테이블을 읽지 않는 SELECT 의 kind. */
 export const NO_TABLE = "NO_TABLE";
 
-import { fitAnnotated, generate, questionForModel, RELATIVE_YEAR, RELATIVE_YEAR_RE, seoulYear } from "./llm.js";
+import {
+  fitAnnotated,
+  generate,
+  questionForModel,
+  RELATIVE_YEAR,
+  RELATIVE_YEAR_RE,
+  replaceRelativeQuarters,
+  seoulYear,
+  THIS_YEAR_PART_RE,
+} from "./llm.js";
 import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
 
@@ -540,7 +549,7 @@ export function companyxSchemaCard(): string {
 
 export { seoulYear };
 
-/** 질문의 상대 연도를 서울 기준 오늘의 연도로 바꾼다: 작년, 지난해 → (올해 - 1)년도, 재작년 → (올해 - 2)년도, 내년 →
+/** 질문의 상대 연도와 상대 분기를 서울 기준 오늘로 바꾼다: 작년, 지난해 → (올해 - 1)년도, 재작년 → (올해 - 2)년도, 내년 →
  * (올해 + 1)년도. 생성 프롬프트에는 오늘 날짜가 없어 7B 가 「작년」을 2022년으로 썼다(랜덤 테스트 사전 점검 2차 R3, 「작년에
  * 새로 등록된 고객사는 몇 곳이야?」에 0곳, 2025년 등록은 14곳).
  *
@@ -548,11 +557,16 @@ export { seoulYear };
  * 그대로 quarter = '2025-Q3' 이었고(3/3) 「2025년도 매출은 얼마야?」는 한 해 전체(quarter LIKE '2025-%', 3/3)였다. 뒤에 붙은
  * 「도」(작년도)는 「년도」가 받는다. 올해와 금년은 바꾸지 않는다. 바꾸지 않으면 7B 가 CURRENT_DATE 로 써서 「올해 매출은
  * 얼마야?」가 맞는데(58,753), 「2026년」으로 바꾸면 quarter = '2026-Q1' 하나만 걸거나(30,478, 3/3) 「2026년도」로 바꾸면 답
- * 단계가 「587,530원」이라고 썼다(3/3). 월과 분기를 가리키는 말(지난달, 이번 분기)은 그대로 둔다. 상대 연도가 없는 질문은
- * 받은 그대로 돌려준다. */
+ * 단계가 「587,530원」이라고 썼다(3/3). 다만 올해와 금년 바로 뒤에 반기, 분기, 월이 오면 「2026년 상반기」로 바꾼다. 그대로 두면
+ * 「올해 상반기 매출 합계 알려줘」를 2023년으로 조회했다(랜덤 테스트 3차 A04, 3/3). 상대 분기(지난, 전, 직전, 이번 분기)는 서울 기준
+ * 「2026년 3분기」 꼴로 바꾼다. 그대로 두면 「지난 분기 매출」을 카드의 분기 예시 '2025-Q3' 으로 조회했다(A03, 3/3). 질문이 연도를
+ * 따로 말하면 상대 분기는 그대로 둔다(llm.ts replaceRelativeQuarters). 지난달은 그대로 둔다(CURRENT_DATE 로 맞게 쓴다). 이런
+ * 낱말이 없는 질문은 받은 그대로 돌려준다. */
 export function absoluteYears(q: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  return q.replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`);
+  return replaceRelativeQuarters(q, now, (_w, quarter) => quarter)
+    .replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`)
+    .replace(THIS_YEAR_PART_RE, (_w, _word: string, part: string) => `${year}년 ${part}`);
 }
 
 /** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 상대 연도를 연도로 바꾸고(absoluteYears, 감사 레코드의 query 는 원문

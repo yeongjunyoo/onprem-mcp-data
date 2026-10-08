@@ -27,6 +27,7 @@
 // 다른 호출은 손대지 않는다.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { isBlankQuery } from "./queryinput.js";
 
 interface DeclaredArg {
   name: string;
@@ -37,11 +38,17 @@ interface DeclaredArg {
 const DECLARED = new Map<string, DeclaredArg[]>();
 let wrapped = false;
 
+/** 필수 인자는 빈 값(공백, 보이지 않는 문자뿐)도 빠진 인자처럼 거절한다. 도구의 빈 질문과 같은 판정이다(queryinput.ts). 종전에는
+ * question="" 를 받아 질문 칸이 빈 템플릿을 돌려줬다(랜덤 테스트 사전 점검 3차 X04). describe 는 refine 뒤에 건다. prompts/list 는
+ * 인자 스키마의 description 을 그대로 읽는데, refine 이 감싼 바깥에 없으면 설명이 빠진다. */
 function argsShape(args: DeclaredArg[]) {
   return Object.fromEntries(
     args.map((a) => {
-      const s = a.description ? z.string().describe(a.description) : z.string();
-      return [a.name, a.required ? s : s.optional()];
+      const s = a.required
+        ? z.string().refine((v) => !isBlankQuery(v), { message: `${a.name} 인자가 비어 있습니다. 내용을 넣어 주세요.` })
+        : z.string();
+      const described = a.description ? s.describe(a.description) : s;
+      return [a.name, a.required ? described : described.optional()];
     }),
   );
 }

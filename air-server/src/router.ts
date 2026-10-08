@@ -195,6 +195,10 @@ export interface RouteDecision {
   graphPlan?: GraphPlan;
   rationale: string;
   gate: RuleGate;
+  /** 문서 개수 질문일 때만 붙는다(semroute.ts routeQuery). 문서 제목으로 센다(pipeline.ts documentCount). */
+  docCount?: DocCountRequest;
+  /** 「A와 B는 무슨 관계야?」처럼 두 개체의 관계를 묻는 질문일 때만 붙는다(pairRelationRequest). 두 정본 이름. */
+  pair?: { a: string; b: string };
   /** 규칙이 확신하지 못해 시맨틱 폴백이 판단했을 때만 붙는다(semroute.ts). */
   semantic?: {
     lane: Lane;
@@ -300,10 +304,26 @@ function scan(q: string, signals: [RegExp, string][]): string[] {
 // 실패의 대부분이 「개체를 못 알아봐서 관계 질문인 줄 몰랐다」였다.
 let ENTITY_LEXICON: { name: string; type: string }[] = [];
 let ENTITY_NAMES = new Set<string>();
+/** 사전의 이름(정본 이름이나 별칭) -> 그 개체의 정본 이름. 노드에 id 가 있으면 그 id 로 처음 들어온 이름이 정본이다
+ * (loadOntologyForRouter 는 정본 이름을 별칭보다 먼저 넣는다). id 가 없으면 이름 자신. */
+let CANONICAL_OF = new Map<string, string>();
 
 /** 이 이름(정본 이름이나 한 개체만 가리키는 별칭)이 설치된 온톨로지 사전에 있는가. 사전이 없으면 false. */
 export function isEntityName(name: string): boolean {
   return ENTITY_NAMES.has(name);
+}
+
+/** 공백, 하이픈, 밑줄을 빼고 소문자로 바꾼 이름. */
+function looseKey(s: string): string {
+  return s.normalize("NFC").toLowerCase().replace(/[\s\-_]+/g, "");
+}
+/** looseKey -> 정본 이름. 다른 개체 둘이 같은 열쇠를 가지면 null(어느 쪽인지 모른다). */
+let LOOSE_NAMES = new Map<string, string | null>();
+
+/** 공백, 하이픈, 밑줄과 대소문자만 다른 표기(「클라우드 사업부」, 「CLIENT A」)가 가리키는 개체의 정본 이름. 그 표기를 정규화한
+ * 것이 사전의 이름 하나(한 개체)와만 같을 때만 돌려준다. 글자가 다르면(「클라우드사업팀」) undefined. */
+export function looseEntityName(text: string): string | undefined {
+  return LOOSE_NAMES.get(looseKey(text)) ?? undefined;
 }
 
 /** 타입쌍 -> 엣지 타입들(데이터 순서). edges.json에서 유도하며 사람이 적지 않는다.
@@ -347,6 +367,19 @@ export function installOntology(
   // 긴 이름부터 대조해 부분 일치를 막는다.
   ENTITY_LEXICON.sort((a, b) => b.name.length - a.name.length);
   ENTITY_NAMES = new Set(seen);
+  CANONICAL_OF = new Map();
+  const canonicalById = new Map<string, string>();
+  for (const n of nodes as Iterable<{ name: string; id?: string }>) {
+    const name = (n.name ?? "").trim();
+    if (n.id !== undefined && !canonicalById.has(n.id)) canonicalById.set(n.id, name);
+    if (!CANONICAL_OF.has(name)) CANONICAL_OF.set(name, n.id !== undefined ? canonicalById.get(n.id)! : name);
+  }
+  LOOSE_NAMES = new Map();
+  for (const { name } of ENTITY_LEXICON) {
+    const key = looseKey(name);
+    const canonical = CANONICAL_OF.get(name) ?? name;
+    LOOSE_NAMES.set(key, LOOSE_NAMES.has(key) && LOOSE_NAMES.get(key) !== canonical ? null : canonical);
+  }
 
   // 타입쌍 -> 엣지. 노드 id 접두사가 타입이다(client_7 -> client).
   const typeOf = new Map<string, string>();
@@ -421,6 +454,139 @@ export function maskEntities(q: string): string {
   return out;
 }
 
+// ── 문서 개수 질문 ─────────────────────────────────────────────────────
+//
+// 「Product-C1 관련 장애 보고서는 몇 건이야?」에 벡터 레인 조각 다섯(한 문서가 두 조각)을 보고 7B 가 「2건」이라 했고(실제 1건),
+// 「Product-C1 관련 문서는 몇 개야?」는 시맨틱 폴백이 정형으로 보내 매출 46건을 셌다(실제 3건, 랜덤 테스트 사전 점검 2차 R9).
+// 조각 상위 k 개로는 문서 수를 셀 수 없고 정형 스키마에는 문서 표가 없다. 문서 제목(종류 꼬리표와 고객사, 제품 이름이 든다)으로
+// 결정론으로 센다(pipeline.ts documentCount). 질문이 개체 이름, 문서 종류, 개수 말과 조사뿐일 때만 문서 개수 질문으로 본다.
+// 그 밖의 낱말(연도, 주제, 심각도, 사람 이름)이 있으면 제목으로는 셀 수 없어 종전 길로 간다.
+
+/** 문서 종류 낱말과 제목에서 고르는 법. 긴 말부터 대조한다. tag 는 제목 앞 꼬리표, words 는 제목에 든 말이다. */
+const DOC_KINDS: { re: RegExp; kind: string; tag?: string; words?: string }[] = [
+  { re: /장애\s*보고서|장애\s*보고/, kind: "장애 보고서", tag: "[장애보고]" },
+  { re: /기술\s*문서/, kind: "기술 문서", tag: "[기술문서]" },
+  { re: /성능\s*튜닝\s*가이드|튜닝\s*가이드/, kind: "성능 튜닝 가이드", words: "튜닝 가이드" },
+  { re: /설치\s*가이드/, kind: "설치 가이드", words: "설치 가이드" },
+  { re: /아키텍처\s*설계서/, kind: "아키텍처 설계서", words: "아키텍처 설계서" },
+  { re: /운영\s*매뉴얼/, kind: "운영 매뉴얼", words: "운영 매뉴얼" },
+  { re: /API\s*레퍼런스/i, kind: "API 레퍼런스", words: "API 레퍼런스" },
+  { re: /회의록/, kind: "회의록", tag: "[회의록]" },
+  { re: /제안서/, kind: "제안서", tag: "[제안서]" },
+  // 이 데이터의 보고서는 장애 보고서뿐이다.
+  { re: /보고서/, kind: "보고서", tag: "[장애보고]" },
+  { re: /가이드/, kind: "가이드", words: "가이드" },
+  { re: /설계서/, kind: "설계서", words: "설계서" },
+  { re: /매뉴얼/, kind: "매뉴얼", words: "매뉴얼" },
+  { re: /레퍼런스/, kind: "레퍼런스", words: "레퍼런스" },
+  { re: /문서/, kind: "문서" },
+];
+const DOC_COUNT = /몇\s*(?:건|개|편)|개수|갯수|건수/;
+/** 개체 이름, 문서 종류 낱말, 개수 말을 뺀 뒤 남아도 되는 말: 조사, 「관련」, 「모두」, 서술어 끝. */
+const DOC_COUNT_FILLER = new Set([
+  "관련", "관련된", "관련한", "관한", "대한", "에", "의", "은", "는", "이", "가", "을", "를", "도", "와", "과",
+  "모두", "전부", "다", "총", "전체", "있어", "있어요", "있나요", "있니", "있지", "있습니까", "이야", "야", "인가요", "인가",
+  "이에요", "예요", "입니까", "돼", "되나요", "돼요", "됩니까", "알려줘", "알려", "줘", "알려주세요", "주세요",
+]);
+
+export interface DocCountRequest {
+  /** 질문이 지목한 고객사나 제품의 정본 이름. 없으면 모든 문서에서 센다. */
+  entity?: string;
+  /** 질문의 문서 종류(장애 보고서, 회의록, 문서 …). */
+  kind: string;
+  /** 제목 앞 꼬리표로 고르는 종류면 그 꼬리표. */
+  tag?: string;
+  /** 제목에 든 말로 고르는 종류면 그 말. */
+  words?: string;
+}
+
+/** 문서 개수 질문이면 무엇을 셀지, 아니면 undefined. 결정론이다. */
+export function documentCountRequest(q: string): DocCountRequest | undefined {
+  const count = DOC_COUNT.exec(q);
+  if (!count) return undefined;
+  let rest = q.slice(0, count.index) + " " + q.slice(count.index + count[0].length);
+  let entity: string | undefined;
+  for (const e of ENTITY_LEXICON) {
+    if (!rest.includes(e.name)) continue;
+    // 제목에 이름이 드는 개체는 고객사와 제품뿐이다. 다른 개체나 둘째 개체가 있으면 제목으로 셀 수 없다.
+    if ((e.type !== "client" && e.type !== "product") || entity !== undefined) return undefined;
+    entity = CANONICAL_OF.get(e.name) ?? e.name;
+    rest = rest.split(e.name).join(" ");
+  }
+  const kind = DOC_KINDS.find((k) => k.re.test(rest));
+  if (!kind) return undefined;
+  rest = rest.replace(kind.re, " ");
+  const left = rest.split(/[\s?？!.,~]+/).filter(Boolean);
+  if (!left.every((w) => DOC_COUNT_FILLER.has(w))) return undefined;
+  return {
+    ...(entity ? { entity } : {}),
+    kind: kind.kind,
+    ...(kind.tag ? { tag: kind.tag } : {}),
+    ...(kind.words ? { words: kind.words } : {}),
+  };
+}
+
+// ── 두 개체의 관계 질문 ──────────────────────────────────────────────
+//
+// 「Client-Q와 조현우는 무슨 관계야?」는 컨텍스트 첫 줄이 「조현우의 담당 고객사: Client-Q」인데 7B 가 「관계 없습니다」라고
+// 답했고, 「Client-D와 Product-D3는 어떤 관계야?」는 hybrid 로 가 「알 수 없습니다」였다(랜덤 테스트 사전 점검 3차 Q8). 두 이름이
+// 모두 개체면 두 개체 사이의 직접 엣지가 답이라 결정론으로 찾는다(pipeline.ts pairAnswer).
+const PAIR_RELATION =
+  /^\s*(.+?)\s*(?:와|과|하고|이랑|랑)\s+(.+?)\s*(은|는|이|가)?\s*(?:서로\s*)?(?:무슨|어떤|어떠한)\s*관계(?:야|예요|에요|이에요|이야|인가요|인가|입니까|일까|인지\s*알려\s*줘|가\s*있(?:어|어요|나요|니|습니까)|가\s*뭐야)?\s*[?？.!~]*\s*$/;
+
+/** 사전의 이름이면 그 개체의 정본 이름. 공백, 하이픈, 대소문자만 다른 표기도 한 개체만 가리키면 받는다. */
+function canonicalName(text: string): string | undefined {
+  const t = text.trim();
+  if (ENTITY_NAMES.has(t)) return CANONICAL_OF.get(t) ?? t;
+  return looseEntityName(t);
+}
+
+/** 「A와 B(는) 무슨/어떤 관계야?」이고 A, B 가 모두 다른 개체로 해소되면 두 정본 이름. 아니면 undefined. */
+export function pairRelationRequest(q: string): { a: string; b: string } | undefined {
+  const m = PAIR_RELATION.exec(q);
+  if (!m) return undefined;
+  const a = canonicalName(m[1]);
+  // 이름이 조사처럼 보이는 글자로 끝나면(「…이」) 조사를 뗀 이름이 없을 때 붙인 채로도 찾는다.
+  const b = canonicalName(m[2]) ?? (m[3] ? canonicalName(m[2] + m[3]) : undefined);
+  if (!a || !b || a === b) return undefined;
+  return { a, b };
+}
+
+// ── 앞 대화를 가리키는 질문 ──────────────────────────────────────────
+//
+// 서버는 호출마다 상태가 없다(Inspector 는 호출마다 서버를 새로 띄운다). 「그럼 2위는?」은 시맨틱 폴백이 문서 레인으로 보내 7B 가
+// 「Client-K」라고 답했고, 「위에서 말한 거 다시 말해줘」에는 아무 장애 서술이 나왔다(랜덤 테스트 사전 점검 3차 Q9). 앞 대화를 가리키는
+// 말만 있고 대상(개체, 기간, 표 낱말)이 없으면 조회하지 않고 다시 물어 달라고 답한다(pipeline.ts BACK_REFERENCE_ANSWER).
+const BACK_REFERENCE =
+  /^\s*(?:그럼|그러면|그렇다면|그래서)(?=[\s?？.,!]|$)|그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?![가-힣])|위에서|위의|아까|방금|앞에서|앞서|앞의|이전\s*(?:질문|답|대화)|전에\s*말한|다시\s*말해/g;
+const PERIOD_WORD =
+  /\d{4}|\d+\s*(?:분기|월|일|년)|상반기|하반기|작년|올해|금년|지난해|재작년|내년|이번\s*(?:달|주|분기|해)|지난\s*(?:달|주|분기)|최근|요즘|오늘|어제|내일/;
+const TABLE_WORD = /매출|계약|프로젝트|티켓|이슈|제품|고객|직원|부서|문서|보고서|장애|회의|제안서|매뉴얼|가이드|연봉|금액|예산|팀/;
+
+/** 질문이 앞 대화를 가리키는 말(그럼, 그거, 그 고객사, 위에서, 아까, 방금, 앞에서 …)만 있고 대상이 없으면 그 말. 아니면 undefined.
+ * 대상은 사전의 개체 이름, 영문 낱말(Client-ZZ, 표 이름), 기간 말, 표 낱말이다. 가리키는 말 자체(「그 고객사」)는 대상으로 세지 않는다. */
+export function backReferenceOnly(q: string): string | undefined {
+  const marks = q.match(BACK_REFERENCE);
+  if (!marks) return undefined;
+  const rest = q.replace(BACK_REFERENCE, " ");
+  if (/[A-Za-z]/.test(rest) || PERIOD_WORD.test(rest) || TABLE_WORD.test(rest)) return undefined;
+  if (ENTITY_LEXICON.some((e) => rest.includes(e.name))) return undefined;
+  return marks[0].trim();
+}
+
+/** 질문에 이름이 그대로 든 개체(정본 이름, 타입). 긴 이름부터 대조하고 겹친 자리는 한 번만 센다. */
+export function entitiesIn(q: string): { name: string; type: string }[] {
+  const out: { name: string; type: string }[] = [];
+  let rest = q;
+  for (const e of ENTITY_LEXICON) {
+    if (!rest.includes(e.name)) continue;
+    const name = CANONICAL_OF.get(e.name) ?? e.name;
+    if (!out.some((o) => o.name === name)) out.push({ name, type: e.type });
+    rest = rest.split(e.name).join(" ");
+  }
+  return out;
+}
+
 /** 질문에 등장하는 실재 개체의 타입들. */
 function entityTypesIn(q: string): string[] {
   const out = new Set<string>();
@@ -454,12 +620,18 @@ export interface SeedWalk {
   fitted?: string;
 }
 
+/** 개체 이름을 같은 길이의 공백으로 가린 질문. 이름 속의 타입 어휘(「기술지원팀」의 팀)를 세지 않으려고 쓴다. */
+function withoutEntityNames(q: string): string {
+  let text = q;
+  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  return text;
+}
+
 /** 질문이 묻는 노드 타입. 한국어는 머리말이 끝에 오므로 마지막에 나온 타입 어휘다.
  * 「Product-S1 이슈를 올린 고객사의 프로젝트는?」은 고객사가 아니라 프로젝트를 묻는다.
  * 개체 이름 속의 타입 어휘(「기술지원팀」의 팀)는 세지 않는다. 시드 타입은 뺀다. */
 function askedType(q: string, except: string): string | undefined {
-  let text = q;
-  for (const e of ENTITY_LEXICON) if (text.includes(e.name)) text = text.split(e.name).join(" ".repeat(e.name.length));
+  const text = withoutEntityNames(q);
   let best: { at: number; type: string } | undefined;
   for (const [re, type] of NODE_TYPE_TERMS) {
     if (type === except) continue;
@@ -468,6 +640,20 @@ function askedType(q: string, except: string): string | undefined {
     }
   }
   return best?.type;
+}
+
+/** 시드 타입 개체의 이름 바로 뒤(사이에 공백이나 「의」만)에 온 타입 어휘. 「Client-J 프로젝트」, 「Client-J의 프로젝트」는
+ * 그 고객사의 프로젝트라는 말이다. 「Client-J에서 직원이 이끄는 프로젝트」의 직원은 이름에 붙지 않아 세지 않는다. */
+function typesAfterSeedName(q: string, seedType: string): Set<string> {
+  const out = new Set<string>();
+  for (const e of ENTITY_LEXICON) {
+    if (e.type !== seedType) continue;
+    for (let at = q.indexOf(e.name); at >= 0; at = q.indexOf(e.name, at + 1)) {
+      const rest = q.slice(at + e.name.length).replace(/^\s*(?:의\s*)?/, "");
+      for (const [re, type] of NODE_TYPE_TERMS) if (new RegExp(`^(?:${re.source})`).test(rest)) out.add(type);
+    }
+  }
+  return out;
 }
 
 /** 탐색 계획을 시드 개체의 타입에 맞춘다.
@@ -487,6 +673,9 @@ function askedType(q: string, except: string): string | undefined {
  *      시드에서부터 한 홉씩 탄다(담당 직원 → 그 직원이 이끄는 프로젝트). 한 홉으로 묻는
  *      타입에 못 닿으면 그 타입으로 가는 엣지를 한 홉 더 잇는다(직원 → 담당 고객사 → 그
  *      고객사의 프로젝트).
+ *   2a. 닿지 않는 엣지를 질문이 관계어로 지목했고(named) 그 엣지들이 묻는 타입에서 끝나는 사슬이 되며, 사슬의 첫 타입을
+ *      시드 이름 바로 뒤에서 말하면(「Client-J 프로젝트를 이끄는 직원」) 시드에서 그 타입으로 다리를 놓고 사슬을 탄다
+ *      (client -HAS_PROJECT- project -LEADS- employee, 부서를 물으면 -BELONGS_TO- department 까지 세 홉).
  *   2. 닿지 않으면, 묻는 타입이 그 엣지의 끝이고 시드 타입과 그 타입을 바로 잇는 엣지가
  *      있을 때 그 엣지 한 홉으로 바꾼다(직원이 「관여하는 프로젝트」 = LEADS).
  *   3. 그것도 없으면 시드 타입과 그 엣지의 한쪽 끝을 잇는 다리 엣지를 찾아 두 홉으로 잇는다.
@@ -536,6 +725,27 @@ export function fitPlanToSeed(relTypes: string[], seedType: string, query: strin
       }
     }
     return { hops: [rels] };
+  }
+
+  // 2a. 질문이 지목한 엣지를 버리지 않는다. 규칙 2 는 「Client-J 프로젝트를 이끄는 직원은 누구야?」의 LEADS 를 고객 담당
+  //     (MANAGES_ACCOUNT)으로 바꿔 「알 수 없습니다」라고 답했고, 규칙 3 은 계획의 첫 엣지만 이어서 「… 직원들은 어느 부서
+  //     소속이야?」의 LEADS 를 버리고 고객 담당자의 부서를 답했다(랜덤 테스트 사전 점검 2차 R5). 다리 타입을 시드 이름 바로
+  //     뒤에서 말할 때만 쓴다. 말하지 않은 타입을 거치는 길은 지어낸 경로다(「김도윤이 관여하는 프로젝트」는 규칙 2 의 LEADS).
+  if (asked && rels.length <= 2 && rels.every((r) => named.includes(r))) {
+    const said = typesAfterSeedName(query, seedType);
+    const endsAt = (t: string, order: string[]): boolean =>
+      order.length ? across(order[0], t).some((n) => endsAt(n, order.slice(1))) : t === asked;
+    for (const order of rels.length === 2 ? [rels, [rels[1], rels[0]]] : [rels]) {
+      for (const start of [...new Set(ends(order[0]).flat())]) {
+        const bridge = TYPE_PAIR_EDGE.get(`${seedType}|${start}`);
+        if (!said.has(start) || !bridge?.length || !endsAt(start, order)) continue;
+        const b = pick(bridge);
+        return {
+          hops: [[b], ...order.map((r) => [r])],
+          fitted: `${order.join(", ")} 는 ${seedType} 에 닿지 않아 ${start} 를 거침: ${[b, ...order].join(" 다음 ")}`,
+        };
+      }
+    }
   }
 
   const rel = rels[0];

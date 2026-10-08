@@ -187,6 +187,33 @@ ok(
   );
 }
 
+// ── 4c) 세 홉 경로: 고객사(2) -HAS_PROJECT→ 프로젝트(3, 9) ←LEADS- 직원(5, 8) -BELONGS_TO→ 부서(7) ──────
+// 랜덤 테스트 사전 점검 2차 R5 「Client-J 프로젝트를 이끄는 직원들은 어느 부서 소속이야?」. 답은 셋째 홉의 끝(부서)이고,
+// 두 직원이 같은 부서에 닿아도 줄 둘이 다 남는다(줄의 정체는 답과 그 앞 직원의 쌍).
+{
+  const g: Rel[] = [
+    { id: 1, src: 2, dst: 3, rel: "HAS_PROJECT" },
+    { id: 2, src: 2, dst: 9, rel: "HAS_PROJECT" },
+    { id: 3, src: 5, dst: 3, rel: "LEADS" },
+    { id: 4, src: 8, dst: 9, rel: "LEADS" },
+    { id: 5, src: 5, dst: 7, rel: "BELONGS_TO" },
+    { id: 6, src: 8, dst: 7, rel: "BELONGS_TO" },
+    { id: 7, src: 10, dst: 2, rel: "MANAGES_ACCOUNT" },
+  ];
+  const w = await graphWalk(fakePool(g).pool, 2, [["HAS_PROJECT"], ["LEADS"], ["BELONGS_TO"]], "synthetic");
+  const three = pathCandidates(w.edges, 2, 3);
+  ok(
+    three.map((c) => c.text).join("\n") ===
+      "[그래프 경로] n2의 진행 프로젝트: n3 → n5의 이끄는 프로젝트: n3 → n5의 소속 부서: n7 (HAS_PROJECT→LEADS→BELONGS_TO)\n" +
+        "[그래프 경로] n2의 진행 프로젝트: n9 → n8의 이끄는 프로젝트: n9 → n8의 소속 부서: n7 (HAS_PROJECT→LEADS→BELONGS_TO)",
+    `세 홉 경로는 시드부터 차례로 한 줄 (got ${JSON.stringify(three.map((c) => c.text))})`,
+  );
+  ok(new Set(three.map((c) => c.canonicalKey)).size === 2, `같은 부서에 닿은 두 직원의 줄이 모두 남는다 (got ${JSON.stringify(three.map((c) => c.canonicalKey))})`);
+  ok(pathCandidates(w.edges, 2).every((c) => !c.text.includes("소속 부서")), "홉 수를 주지 않으면 종전 두 홉 줄(셋째 홉은 읽지 않는다)");
+  const short = await graphWalk(fakePool(g.filter((r) => r.rel !== "BELONGS_TO")).pool, 2, [["HAS_PROJECT"], ["LEADS"], ["BELONGS_TO"]], "synthetic");
+  ok(pathCandidates(short.edges, 2, 3).length === 0, "셋째 홉이 없는 직원은 답이 아니다");
+}
+
 // ── 4a) 집계 순위 줄: 많은 쪽은 종전 글 그대로(TC-132, TC-133), 적은 쪽은 「적은 순」과 공동 1위 전부 ───
 // 랜덤 테스트 사전 점검 2차 R6: 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위를 답했다.
 {

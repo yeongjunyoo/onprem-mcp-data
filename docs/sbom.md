@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-10-07T06:59:43.662Z
+> 생성 시각 2026-10-08T01:09:45.834Z
 > npm 패키지 110개(직접 6 / 전이 104) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(`node scripts/sbom.mjs`).
@@ -12,9 +12,9 @@
 | --- | --- | --- | --- | --- | --- |
 | 1 | @airmcp-dev/core | 0.3.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
 | 2 | @modelcontextprotocol/sdk | 1.31.0 | MIT | https://github.com/modelcontextprotocol/typescript-sdk | MCP 공식 TypeScript SDK. 프롬프트 인자 검증(promptargs.ts)이 직접 쓰고 air 도 이 위에서 동작 |
-| 3 | @types/node | 26.4.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
+| 3 | @types/node | 26.6.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 4 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
-| 5 | pg | 8.23.0 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
+| 5 | pg | 8.23.1 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
 | 6 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript | 빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일 |
 | 7 | PostgreSQL | 16 | PostgreSQL License (OSI 인증) | https://github.com/postgres/postgres | 관계형 저장소와 온프렘 클러스터(primary, replica) |
 | 8 | pgvector | 0.8.6 | PostgreSQL License (OSI 인증) | https://github.com/pgvector/pgvector | 벡터 인덱스와 코사인 유사도 검색 |
@@ -91,11 +91,11 @@
 | 62 | parseurl | 1.3.3 | MIT | https://github.com/pillarjs/parseurl |
 | 63 | path-key | 3.1.1 | MIT | https://github.com/sindresorhus/path-key |
 | 64 | path-to-regexp | 8.4.2 | MIT | https://github.com/pillarjs/path-to-regexp |
-| 65 | pg-cloudflare | 1.4.0 | MIT | https://github.com/brianc/node-postgres |
-| 66 | pg-connection-string | 2.14.0 | MIT | https://github.com/brianc/node-postgres |
+| 65 | pg-cloudflare | 1.4.1 | MIT | https://github.com/brianc/node-postgres |
+| 66 | pg-connection-string | 2.14.1 | MIT | https://github.com/brianc/node-postgres |
 | 67 | pg-int8 | 1.0.1 | ISC | https://github.com/charmander/pg-int8 |
 | 68 | pg-pool | 3.14.0 | MIT | https://github.com/brianc/node-postgres |
-| 69 | pg-protocol | 1.16.0 | MIT | https://github.com/brianc/node-postgres |
+| 69 | pg-protocol | 1.16.1 | MIT | https://github.com/brianc/node-postgres |
 | 70 | pg-types | 2.2.0 | MIT | https://github.com/brianc/node-pg-types |
 | 71 | pgpass | 1.0.5 | MIT | https://github.com/hoegaarden/pgpass |
 | 72 | pkce-challenge | 5.0.1 | MIT | https://github.com/crouchcd/pkce-challenge |
@@ -123,7 +123,7 @@
 | 94 | statuses | 2.0.2 | MIT | https://github.com/jshttp/statuses |
 | 95 | toidentifier | 1.0.1 | MIT | https://github.com/component/toidentifier |
 | 96 | type-is | 2.1.0 | MIT | https://github.com/jshttp/type-is |
-| 97 | undici-types | 8.3.0 | MIT | https://github.com/nodejs/undici |
+| 97 | undici-types | 8.9.0 | MIT | https://github.com/nodejs/undici |
 | 98 | unpipe | 1.0.0 | MIT | https://github.com/stream-utils/unpipe |
 | 99 | vary | 1.1.2 | MIT | https://github.com/jshttp/vary |
 | 100 | which | 2.0.2 | ISC | https://github.com/isaacs/node-which |

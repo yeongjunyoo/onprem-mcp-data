@@ -160,6 +160,17 @@ const marker = new MarkerEmbedder();
   eq([kept.route, kept.semantic?.applied], [route(table).route, false], "그래프 밖 항목이면 시맨틱의 그래프 판정은 적용하지 않고 규칙 결정 그대로");
   ok(/semantic knowledge_graph not applied .*: table noun 계약 has no graph edge$/.test(kept.rationale), `근거에 적용하지 않은 이유가 남는다 (got ${kept.rationale})`);
 
+  // 그래프 레인이 출발할 곳(이름을 댄 개체, 관계 집계, 상태 조건)이 없으면 그래프 판정은 쓰지 않고 규칙이 고른 레인을 둔다.
+  // 「2019년에 등록된 고객사 목록을 보여줘」가 「개체(등록된)를 찾지 못했습니다」였다(랜덤 테스트 사전 점검 2차).
+  const noStart = "2019년에 등록된 어떤 말썽";
+  const rule = route(noStart);
+  eq([rule.route, rule.gate.confident], ["structured", false], "규칙은 정형을 고르되 확신하지 못한다");
+  const held = await routeQuery(noStart, marker);
+  eq([held.route, held.semantic?.lane, held.semantic?.applied], ["structured", "knowledge_graph", false], "출발할 개체가 없으면 규칙의 정형 그대로");
+  ok(/semantic knowledge_graph not applied .*: no entity named to start from$/.test(held.rationale), `근거에 이유가 남는다 (got ${held.rationale})`);
+  // 규칙이 고른 레인이 없으면(fan-out) 종전처럼 그래프로 간다. 그래프 레인이 「개체 이름으로 볼 낱말을 찾지 못해」라고 적는다.
+  eq((await routeQuery("어떤 말썽", marker)).route, "graph", "규칙의 레인이 없으면 그래프 판정 그대로");
+
   // 규칙이 확신하는 질문에는 폴백이 끼어들지 않는다.
   const sure = "Client-A가 사용 중인 제품 목록은?";
   eq(JSON.stringify(await routeQuery(sure, marker)), JSON.stringify(route(sure)), "확신 구간은 규칙 그대로");

@@ -41,12 +41,52 @@ export function isBlankQuery(q: string): boolean {
   return q.replace(INVISIBLE, "").trim().length === 0;
 }
 
+/** 질문과 SQL 인자의 상한(문자열 길이). air sanitizer 의 기본 상한과 같은 값이다. 종전에는 sanitizer 가 넘는 부분을 말없이 잘라
+ * 다른 질의를 실행했다: 11,963자 SELECT 는 사실과 다른 문법 오류, 공백을 채운 10,101자 SELECT 는 앞 10,000자만 실행해 다른 값
+ * (랜덤 테스트 사전 점검 3차 G20, G24, 3/3). 이제 넘으면 입력 검증에서 거절하고 sanitizer 는 자르지 않는다(server.ts). */
+export const MAX_INPUT_CHARS = 10_000;
+
+const n = (v: number) => v.toLocaleString("en-US");
+
 /** 도구 params 의 query 칸. 설명은 tools/list 에 종전 그대로 나간다. */
 export function queryParam(description: string) {
   return z
     .string()
     .describe(description)
-    .refine((q) => !isBlankQuery(q), { message: EMPTY_QUERY_MESSAGE });
+    .refine((q) => !isBlankQuery(q), { message: EMPTY_QUERY_MESSAGE })
+    .refine(
+      (q) => q.length <= MAX_INPUT_CHARS,
+      (q) => ({
+        message: `질문이 너무 깁니다(${n(q.length)}자). ${n(MAX_INPUT_CHARS)}자 이하로 입력해 주세요. 잘라서 처리하면 다른 질문이 되므로 처리하지 않았습니다.`,
+      }),
+    );
+}
+
+/** sql.query 의 sql 칸. 길이만 본다(빈 SQL 과 쓰기 문장은 종전처럼 실행 단계의 가드가 거절한다). tools/list 의 입력 스키마는 종전 그대로다. */
+export function sqlParam(description: string) {
+  return z
+    .string()
+    .describe(description)
+    .refine(
+      (s) => s.length <= MAX_INPUT_CHARS,
+      (s) => ({
+        message: `SQL 이 너무 깁니다(${n(s.length)}자). ${n(MAX_INPUT_CHARS)}자 이하로 입력해 주세요. 잘라서 실행하면 다른 질의가 되므로 실행하지 않았습니다.`,
+      }),
+    );
+}
+
+/** retrieve 와 ask 의 budget 칸(큐레이터 토큰 예산). 1 이상의 정수만 받고, 아니면 같은 입력 검증 길(-32602)로 거절한다. 종전에는
+ * -1 과 0.5 를 그대로 받아 근거 후보를 모두 버린 빈 컨텍스트를 돌려주고 ask 는 「알 수 없습니다」라고 답했다(랜덤 테스트 사전 점검
+ * 3차 F20, F21, X01, 3/3). 값이 없으면 기본(1024)이다. tools/list 의 입력 스키마는 종전 그대로다. */
+export function budgetParam(description: string) {
+  return z
+    .number()
+    .describe(description)
+    .refine(
+      (b) => Number.isInteger(b) && b >= 1,
+      (b) => ({ message: `budget 은 1 이상의 정수(토큰 수)만 받습니다. 기본은 1024 입니다. 받은 값: ${JSON.stringify(b) ?? String(b)}` }),
+    )
+    .optional();
 }
 
 /** 빠진 필수 인자의 검증 문장에 기대한 형을 남긴다. MCP SDK 1.30 부터 입력 검증 오류가 「<문장> at <경로>」 한 줄로 줄어
