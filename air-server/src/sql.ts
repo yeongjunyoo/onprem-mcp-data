@@ -133,7 +133,8 @@ export function tokenizeSql(sql: string): SqlToken[] | null {
   return out;
 }
 
-const READONLY_START = /^\s*(select|with)\b/i;
+/** 첫 낱말이 SELECT 나 WITH. 앞의 여는 괄호는 괜찮다(`(SELECT …) UNION ALL (SELECT …)`). */
+const READONLY_START = /^\s*(?:\(\s*)*(select|with)\b/i;
 
 /** Strip SQL comments and surrounding whitespace / trailing semicolon. */
 function normalize(sql: string): string {

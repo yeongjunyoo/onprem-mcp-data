@@ -68,8 +68,9 @@ function unwrap(raw: string): string {
 /** Strip code fences / prose and keep the first read-only SQL statement. */
 export function extractSql(raw: string): string | null {
   const s = unwrap(raw);
-  // take from the first SELECT/WITH to the first semicolon (or end)
-  const m = s.match(/\b(select|with)\b[\s\S]*?(?=;|$)/i);
+  // take from the first SELECT/WITH to the first semicolon (or end). 바로 앞의 여는 괄호도 문장이다: 두 끝 수리 안내대로 쓴
+  // `(SELECT … LIMIT 1) UNION ALL (SELECT … LIMIT 1)` 이 첫 괄호를 잃고 문법 오류로 실행되지 않았다(랜덤 테스트 4차 수정본 실측 I8b).
+  const m = s.match(/(?:\(\s*)*\b(select|with)\b[\s\S]*?(?=;|$)/i);
   if (!m) return null;
   const sql = m[0].trim();
   return isReadOnly(sql) ? sql : null;

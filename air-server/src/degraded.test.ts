@@ -2424,6 +2424,22 @@ const deadEmbedder: Embedder = {
     ["2024년 하반기 매출 알려줘", "SELECT SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' AND quarter IN ('2024-Q3', '2024-Q4')"],
     ["2024년 하반기 매출 알려줘", "SELECT SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' AND sale_date >= '2024-07-01'"],
   ]) ok(checkPeriod(sql, q, oct8).length === 0, `그해 전체도 묻거나 반기를 식 안에서 고르면 보지 않는다: ${q} / ${sql} (got ${checkPeriod(sql, q, oct8)})`);
+  // 식 안에서 고른 분기도 반기의 두 분기여야 한다(4차 수정본 실측 R1: CASE WHEN quarter = '2024-Q3' 만 세어 17.03%).
+  const r1 = "SELECT (SUM(CASE WHEN quarter = '2024-Q3' THEN amount ELSE 0 END)::numeric / SUM(amount)) * 100 AS percentage FROM companyx.sales WHERE sale_date >= '2024-01-01' AND sale_date < '2025-01-01'";
+  const r1Why = checkPeriod(r1, "2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?", oct8);
+  ok(r1Why.length === 1 && r1Why[0].includes("2024년 3분기만 센다") && r1Why[0].includes("quarter IN ('2024-Q3', '2024-Q4')"), `R1 식 안의 3분기만 (got ${r1Why})`);
+  ok(
+    checkPeriod("SELECT SUM(amount) FILTER (WHERE quarter = '2024-Q4') AS h2 FROM companyx.sales WHERE quarter LIKE '2024-%'", "2024년 하반기 매출 알려줘", oct8).length === 1,
+    "FILTER 안의 4분기만",
+  );
+  ok(
+    checkPeriod(
+      "SELECT CASE WHEN quarter IN ('2024-Q1','2024-Q2') THEN '상반기' ELSE '하반기' END AS half, SUM(amount) FROM companyx.sales WHERE quarter LIKE '2024-%' GROUP BY 1",
+      "2024년 상반기와 하반기 매출을 비교해줘",
+      oct8,
+    ).length === 0,
+    "한 해의 두 반기를 함께 물으면 ELSE 가 다른 반기를 셀 수 있어 보지 않는다",
+  );
   const t01 = "SELECT SUM(amount) AS total_sales FROM companyx.sales WHERE quarter = '2024-Q4'";
   ok(
     checkPeriod(t01, "2024년 하반기 총 매출액은 얼마야?", oct8)[0] ===
@@ -2733,6 +2749,19 @@ const deadEmbedder: Embedder = {
     ["계약 금액이 가장 큰 계약은?", ag08],
     ["평균 연봉이 가장 높은 부서는 어디야?", "SELECT d.name FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id GROUP BY d.name ORDER BY AVG(e.salary) DESC LIMIT 1"], // 사업자 4번
   ]) ok(checkBothEnds(sql, q).length === 0, `두 끝을 함께 고르거나 한쪽 끝만 묻는 질문은 보지 않는다: ${q}`);
+  // OFFSET 이 붙어도 한 행이다(4차 수정본 실측 I8a: 수리 SQL 의 LIMIT 1 OFFSET 1 이 두 번째로 높은 분기를 가장 높은 분기로 답했다).
+  for (const tail of ["LIMIT 1 OFFSET 1", "OFFSET 1 LIMIT 1", "OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY", "LIMIT 1 OFFSET 1;"]) {
+    const sql = `SELECT quarter, SUM(amount) AS total_sales FROM companyx.sales WHERE quarter LIKE '2025-Q%' GROUP BY quarter ORDER BY total_sales DESC, total_sales ASC ${tail}`;
+    ok(checkBothEnds(sql, ag15q).length === 1, `두 끝 질문의 ${tail}`);
+    ok(checkGroupTop(sql.replace("ORDER BY", "ORDER BY quarter,"), "분기별로 가장 높은 매출은?").length === 1, `묶음마다 1위 질문의 ${tail}`);
+  }
+  // 두 끝 수리 안내대로 쓴 SQL 은 첫 괄호까지 문장이다(I8b: 첫 괄호를 잃고 syntax error at or near ")" 로 실행되지 않았다).
+  const { extractSql } = await import("./nl2sql.js");
+  const { isReadOnly } = await import("./sql.js");
+  const union = "(SELECT id, amount FROM companyx.contracts ORDER BY amount DESC LIMIT 1) UNION ALL (SELECT id, amount FROM companyx.contracts ORDER BY amount ASC LIMIT 1)";
+  ok(extractSql(union) === union && extractSql("```sql\n" + union + ";\n```") === union, `괄호로 여는 UNION 은 그대로 (got ${extractSql(union)})`);
+  ok(extractSql("SELECT 1") === "SELECT 1" && extractSql("설명\nSELECT a FROM t") === "SELECT a FROM t", "괄호 없는 문장은 종전 그대로");
+  ok(isReadOnly(union) && isReadOnly("((SELECT 1))") && !isReadOnly("(DELETE FROM companyx.sales)") && !isReadOnly("(SELECT 1); DROP TABLE companyx.sales"), "여는 괄호 뒤도 SELECT, WITH 만");
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

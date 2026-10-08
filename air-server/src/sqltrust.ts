@@ -785,7 +785,8 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
     for (const q of HALF[m[3]].quarters) want.get(year)!.add(q);
     halves.set(year, [...(halves.get(year) ?? []), HALF[m[3]].name]);
   }
-  if (!want.size || WHOLE_YEAR_WORD.test(question)) return [];
+  if (!want.size) return [];
+  const wholeAsked = WHOLE_YEAR_WORD.test(question);
   // 반기가 붙지 않은 연도 낱말: 그해 전체를 묻는다.
   const whole = new Set<number>();
   for (const m of question.matchAll(YEAR_WORD)) {
@@ -799,10 +800,19 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
   const spans = exprSpans(masked);
   const inExpr = (at: number) => spans.some(([s, e]) => at >= s && at < e);
   const inside = new Set<number>();
+  // 식 안(CASE, FILTER)에서 고른 분기. 반기를 식 안에서 세더라도 그 분기는 반기의 두 분기여야 한다: 「2024년 하반기 매출은 2024년 연간
+  // 매출의 몇 퍼센트야?」에 CASE WHEN quarter = '2024-Q3' 만 세어 17.03% 를 답했다(하반기는 3, 4분기. 4차 수정 실측 2026-10-08).
+  // 한 해의 두 반기를 함께 물으면(「상반기와 하반기」) ELSE 가 다른 반기를 셀 수 있어 보지 않는다.
+  const insideQ = new Map<number, { quarters: Set<number>; conds: string[] }>();
   const got = new Map<number, { quarters: Set<number>; wide: boolean; conds: string[] }>();
   const pick = (at: number, cond: string, year: number, quarters: number[] | null) => {
     if (inExpr(at)) {
       inside.add(year);
+      if (quarters) {
+        if (!insideQ.has(year)) insideQ.set(year, { quarters: new Set(), conds: [] });
+        for (const q of quarters) insideQ.get(year)!.quarters.add(q);
+        insideQ.get(year)!.conds.push(cond.replace(/\s+/g, " "));
+      }
       return;
     }
     if (!got.has(year)) got.set(year, { quarters: new Set(), wide: false, conds: [] });
@@ -819,11 +829,20 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
   }
   const reasons: string[] = [];
   for (const [year, quarters] of want) {
+    const iq = insideQ.get(year);
+    const asked = [...quarters].sort();
+    if (iq && halves.get(year)!.length === 1 && (asked.some((q) => !iq.quarters.has(q)) || [...iq.quarters].some((q) => !quarters.has(q)))) {
+      const list = asked.map((q) => `'${year}-Q${q}'`).join(", ");
+      reasons.push(
+        `${PERIOD_REASON}식 안(CASE, FILTER)의 ${[...new Set(iq.conds)].join(", ")} 은 ${year}년 ${[...iq.quarters].sort().join(", ")}분기만 센다. ` +
+          `질문의 ${year}년 ${halves.get(year)!.join(", ")}는 ${asked.join(", ")}분기다. 식 안에서도 quarter IN (${list}) 로 그 분기를 모두 센다`,
+      );
+      continue;
+    }
     const g = got.get(year);
-    if (!g || whole.has(year) || inside.has(year)) continue;
+    if (!g || wholeAsked || whole.has(year) || inside.has(year)) continue;
     // 그해 전체(LIKE 'YYYY-%')와 그 안의 분기를 함께 고르면 행은 그 분기들이다.
     const picked = g.quarters.size ? [...g.quarters].sort() : g.wide ? [1, 2, 3, 4] : [];
-    const asked = [...quarters].sort();
     const missing = asked.filter((q) => !picked.includes(q));
     const extra = picked.filter((q) => !quarters.has(q));
     if (!missing.length && (!extra.length || DATE_NARROWING.test(sql))) continue;
@@ -1173,6 +1192,11 @@ const PER_GROUP_TOP = new RegExp(
   `(?<![가-힣])(${Object.keys(GROUP_NOUNS).join("|")})\\s*(?:별로?|마다)(?![가-힣])|(?:^|\\s)각\\s*(${Object.keys(GROUP_NOUNS).join("|")})(?=$|[^가-힣]|의|에서)`,
 );
 const TOP_WORD = /가장|제일|최고|최저|최대|최소|1위/;
+/** 바깥 질의 끝에서 한 행만 고르는 꼴. OFFSET 이 붙어도 한 행이다: 「2025년 분기 중 매출이 가장 높은 분기와 가장 낮은 분기는?」의 수리 SQL
+ * `ORDER BY total_sales DESC, total_sales ASC LIMIT 1 OFFSET 1` 이 검사를 지나 두 번째로 높은 분기 하나를 가장 높은 분기로 답했다
+ * (랜덤 테스트 4차 수정본 실측 I8a). */
+const ONE_ROW_TAIL =
+  /\b(?:(?:offset\s+\d+\s+(?:rows?\s+)?)?limit\s+1(?:\s+offset\s+\d+(?:\s+rows?)?)?|(?:offset\s+\d+\s+rows?\s+)?fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i;
 
 /** ⑧-3 묶음마다의 1위(「부서별 최고 연봉자는 누구야?」, 「지역별로 매출이 가장 높은 고객사」)를 묻는데 생성 SQL 의 바깥 질의가
  * 전체에서 한 행(ORDER BY … LIMIT 1, FETCH FIRST 1 ROWS)만 고르고 PARTITION BY 나 DISTINCT ON 이 없으면 1위가 하나뿐이다.
@@ -1188,7 +1212,7 @@ export function checkGroupTop(sql: string, question: string): string[] {
   const masked = maskSql(sql);
   const d = masked === null ? null : depths(masked);
   if (masked === null || !d || /\bpartition\s+by\b|\bdistinct\s+on\b/i.test(masked)) return [];
-  const tail = /\b(?:limit\s+1|fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i.exec(masked);
+  const tail = ONE_ROW_TAIL.exec(masked);
   if (!tail || d[tail.index] !== 0 || !/\border\s+by\b/i.test(masked.slice(0, tail.index))) return [];
   return [
     `${UNIT_REASON}질문은 ${group}마다 1위를 묻는데 SQL 이 전체에서 한 행(${sql.slice(tail.index).replace(/\s+/g, " ").trim()})만 고른다. ` +
@@ -1209,7 +1233,7 @@ export function checkBothEnds(sql: string, question: string): string[] {
   const d = masked === null ? null : depths(masked);
   if (masked === null || !d) return [];
   if ([...masked.matchAll(/\b(?:union|intersect|except)\b/gi)].some((m) => d[m.index ?? 0] === 0)) return [];
-  const tail = /\b(?:limit\s+1|fetch\s+(?:first|next)\s+1\s+rows?\s+(?:only|with\s+ties))\s*;?\s*$/i.exec(masked);
+  const tail = ONE_ROW_TAIL.exec(masked);
   if (!tail || d[tail.index] !== 0 || !/\border\s+by\b/i.test(masked.slice(0, tail.index))) return [];
   return [
     `${UNIT_REASON}질문은 가장 높은 쪽과 가장 낮은 쪽을 함께 묻는데 SQL 이 한쪽 끝 한 행(${sql.slice(tail.index).replace(/\s+/g, " ").trim()})만 고른다. ` +
