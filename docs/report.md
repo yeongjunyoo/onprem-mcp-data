@@ -666,7 +666,7 @@ h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 1093(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 152(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **1245단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 1073. tsc strict clean.
+- **테스트:** 오프라인 1419(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard) + DB·모델 통합 152(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **1571단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 1399. tsc strict clean.
 
 ---
 
@@ -897,11 +897,11 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 1093단언(데이터셋 없는 CI 는 1073), 전체 1245단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 1419단언(데이터셋 없는 CI 는 1399), 전체 1571단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp** 2026-09-30 재측정, 사업자 NL2SQL 무재시도 Δ **+70pp** 2026-10-01 정본, 둘 다 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
-| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 530, PR 240(병합 221), 이슈 15(열림 4), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고 활성, 의존성 갱신 정책은 `.github/dependabot.yml`(메이저는 사람이 판단), 워크플로 권한은 `contents: read` 로 코드에 명시. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
+| 프로젝트 팀워크 (6) — **1인 참가는 프로젝트 관리체계로 채점**(github issues, review, pull requests, commit, merge, 커뮤니티) | 공개 저장소에 커밋 590, PR 243(병합 223), 이슈 15(열림 4), 릴리스 v0.1.0·v0.2.0, 토픽 11종. 전 변경이 브랜치→PR→CI→병합을 거치며 `main` 은 필수 체크 3종·PR 필수·force push 금지로 보호된다. `CONTRIBUTING`·`SECURITY`·`CODE_OF_CONDUCT`·이슈/PR 템플릿, Discussions, 비공개 취약점 신고 활성, 의존성 갱신 정책은 `.github/dependabot.yml`(메이저는 사람이 판단), 워크플로 권한은 `contents: read` 로 코드에 명시. **다만 star 0 / fork 0 — 외부 참여는 아직 없다** | 충족(외부 참여 제외) |
 
 ### 2차 발표 70점
 
@@ -917,6 +917,6 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 ### 이 표가 지목하는 것
 
-**최대 갭은 성능이 아니라 외부 참여다** — 단 2026-08-20 공식 배점이 그 칸을 10에서 5로 낮췄고, 그만큼을 오픈소스SW 적절성(10 → 15)에 옮겼다. 갱신된 가중치에서 우리의 미충족 항목은 작아지고 이미 충족한 항목(의존성 라이선스·SBOM·정상 운영)이 커졌다. 그래도 외부 참여가 0이라는 사실은 그대로 적는다. 저장소 공개와 이슈/PR 운영은 닫혔다 — 커밋 530, PR 240(병합 221), 이슈 15, 릴리스 2, CI 검사 20종이 매 PR 마다 돈다. `main` 은 상태 검사 3종을 필수로 요구하고 **`enforce_admins` 를 켜 관리자에게도 적용**한다(2026-08-18 에 일부러 빨간 PR 을 만들어 `405: 2 of 3 required status checks have not succeeded` 로 차단되는 것을 확인했다). 병합된 브랜치는 정리해 `main` 하나만 남긴다.
+**최대 갭은 성능이 아니라 외부 참여다** — 단 2026-08-20 공식 배점이 그 칸을 10에서 5로 낮췄고, 그만큼을 오픈소스SW 적절성(10 → 15)에 옮겼다. 갱신된 가중치에서 우리의 미충족 항목은 작아지고 이미 충족한 항목(의존성 라이선스·SBOM·정상 운영)이 커졌다. 그래도 외부 참여가 0이라는 사실은 그대로 적는다. 저장소 공개와 이슈/PR 운영은 닫혔다 — 커밋 590, PR 243(병합 223), 이슈 15, 릴리스 2, CI 검사 20종이 매 PR 마다 돈다. `main` 은 상태 검사 3종을 필수로 요구하고 **`enforce_admins` 를 켜 관리자에게도 적용**한다(2026-08-18 에 일부러 빨간 PR 을 만들어 `405: 2 of 3 required status checks have not succeeded` 로 차단되는 것을 확인했다). 병합된 브랜치는 정리해 `main` 하나만 남긴다.
 
   남은 갭은 **star 0 / fork 0 / 외부 PR 0** 이다. 이건 우리가 만들 수 없는 수치이고 지어내지도 않는다 — 표지판(good first issue 2건, Discussions, CONTRIBUTING 의 「내 데이터에 붙이기」)을 세워 두고 **없다는 사실을 그대로 적는다.**
