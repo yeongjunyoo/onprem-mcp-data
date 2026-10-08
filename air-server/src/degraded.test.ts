@@ -3590,5 +3590,292 @@ const deadEmbedder: Embedder = {
   else process.env.DATASET = savedDataset;
 }
 
+// ── 랜덤 테스트 사전 점검 6차의 답, 라우팅, 그래프, 문서 쪽: P7 원 단위(5차 회귀), P2 문서의 상대 연도와 반기와 「있어?」, P3 ② 한 값 차이의 부호,
+// P4 ③ null 위의 견줌 말, P5 그래프 집계 「가장 많은」의 공동 1위, P6 「…별」 묶음 낱말, P9 「단종된 제품 있어?」, P14 그래프 다홉과 목록 빠뜨림,
+// P15 글 값 목록. 이 블록은 혼자 선다(가져오기, 가짜 풀, 도우미 모두 여기 안). 입력과 행은 qa_random6 원출력 그대로다.
+{
+  const R = await import("./router.js");
+  const G = await import("./graph.js");
+  const P = await import("./pipeline.js");
+  const savedDataset = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  const dead6: Embedder = { name: "test:dead6", dim: 768, embed: async () => new Array(768).fill(0) };
+  const sqlPool6 = (rows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) =>
+          /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? {}).map((name) => ({ name })) } : { rows: [], rowCount: 0 },
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+
+  // P7: 생성 SQL 이 금액 열에 10000 을 곱했으면 값이 이미 원이다. 맞게 쓴 「60006000원」을 「60006000만원」으로 바꿨다(AN10, 3/3).
+  const an10sql = "SELECT AVG(salary * 10000) AS average_salary FROM companyx.employees WHERE is_active = true";
+  const an10q = "직원 평균 연봉을 원 단위로 알려줘";
+  const an10 = P.unitSlip("직원 평균 연봉은 60006000원입니다.", [{ average_salary: "60006000" }], an10sql, "companyx", an10q);
+  ok(an10.text === "직원 평균 연봉은 60006000원입니다." && an10.units.length === 0, `AN10 원 단위는 그대로 (got ${JSON.stringify(an10)})`);
+  for (const sql of [
+    "SELECT AVG(salary) * 10000 AS won FROM companyx.employees",
+    "SELECT AVG(salary * 10000.0) AS won FROM companyx.employees",
+    "SELECT SUM(amount)*1e4 AS won FROM companyx.contracts",
+    "SELECT ROUND(AVG(salary) * 10_000) AS won FROM companyx.employees",
+  ]) ok(P.unitSlip("평균은 60006000원입니다.", [{ won: "60006000" }], sql, "companyx").units.length === 0, `10000 을 곱한 SQL: ${sql}`);
+  ok(P.unitSlip("평균은 60006000元입니다.", [{ won: "60006000" }], an10sql, "companyx", an10q).text === "평균은 60006000원입니다.", "원으로 바꾼 SQL 의 元 은 「원」");
+  const unscaled = P.unitSlip("직원 평균 연봉은 6000.6원입니다.", [{ avg: "6000.6" }], "SELECT AVG(salary) AS avg FROM companyx.employees", "companyx", an10q);
+  ok(unscaled.text === "직원 평균 연봉은 60,006,000원입니다." && unscaled.units[0]?.to === "60,006,000원", `원 단위를 물었는데 만원 값에 「원」만 붙였으면 원으로 환산 (got ${JSON.stringify(unscaled)})`);
+  ok(P.unitSlip("평균 연봉은 6,752원입니다.", [{ avg: "6752.25" }], "SELECT AVG(salary) AS avg FROM companyx.employees", "companyx", "평균 연봉은?").text === "평균 연봉은 6,752만원입니다.", "원 단위를 묻지 않았으면 종전처럼 만원");
+  ok(P.unitSlip("평균은 6000.6원입니다.", [{ avg: "6000.6" }], "SELECT AVG(salary) AS avg FROM companyx.employees", "companyx", "만원 단위로 평균 연봉 알려줘").text === "평균은 6000.6만원입니다.", "「만원 단위」는 원 단위가 아니다");
+  let an10llm = 0;
+  const an10r = await ask(an10q, { pool: sqlPool6([{ average_salary: "60006000" }]), embedder: dead6, repair: false, nl2sql: async () => an10sql, llm: async () => ((an10llm++), "직원 평균 연봉은 60006000원입니다.") });
+  ok(an10r.answer === "직원 평균 연봉은 60006000원입니다.\n\n[조회 결과 1건]\n- average_salary: 60006000" && an10r.grounding_fix === undefined && an10llm === 1, `ask 의 AN10 (got ${JSON.stringify(an10r.answer)} ${JSON.stringify(an10r.grounding_fix)})`);
+
+  // P2: 상대 연도, 반기, 「있어?」, 「장애」. 기준 시각은 2026-10-09 00:00 KST.
+  const now6 = Date.UTC(2026, 9, 8, 15, 0);
+  ok(R.seoulYear(now6) === 2026 && R.seoulYear(Date.UTC(2026, 11, 31, 15, 30)) === 2027, "서울 기준 해(UTC+9)");
+  const dq = (q: string) => JSON.stringify(R.documentCountRequest(q, now6) ?? null);
+  ok(dq("작년에 발생한 장애는 몇 건이야?") === '{"kind":"장애 보고서","tag":"[장애보고]","year":2025,"incident":true}', `DC01 (got ${dq("작년에 발생한 장애는 몇 건이야?")})`);
+  ok(dq("올해 회의록은 몇 개야?") === '{"kind":"회의록","tag":"[회의록]","year":2026}' && dq("금년 회의록 몇 건이야?") === '{"kind":"회의록","tag":"[회의록]","year":2026}', `DC02 올해, 금년 (got ${dq("올해 회의록은 몇 개야?")})`);
+  ok(dq("2022년 회의록 있어?") === '{"kind":"회의록","tag":"[회의록]","year":2022,"exists":true}' && dq("작년 장애 보고서 있나요?") === '{"kind":"장애 보고서","tag":"[장애보고]","year":2025,"exists":true}', `DC06 「있어?」 (got ${dq("2022년 회의록 있어?")})`);
+  ok(dq("2025년 하반기 장애 보고서는 몇 건이야?") === '{"kind":"장애 보고서","tag":"[장애보고]","year":2025,"half":2}' && R.documentCountRequest("작년 상반기 회의록 목록 알려줘", now6)?.half === 1, `DC08 반기 (got ${dq("2025년 하반기 장애 보고서는 몇 건이야?")})`);
+  ok(dq("작년 회의록 목록 알려줘") === '{"kind":"회의록","tag":"[회의록]","year":2025}' && R.documentCountRequest("재작년 장애 보고서는 몇 건이야?", now6)?.year === 2024 && R.documentCountRequest("지난해 회의록 목록", now6)?.year === 2025, `DC09 작년, 재작년, 지난해 (got ${dq("작년 회의록 목록 알려줘")})`);
+  ok(dq("2025년에 발생한 장애는 몇 건이야?") === '{"kind":"장애 보고서","tag":"[장애보고]","year":2025,"incident":true}', "XC03 도 같은 뜻이라 같은 답");
+  for (const q of ["회의록 있어?", "작년 매출은 얼마야?", "장애는 몇 건이야?", "작년 장애 대응 사례 몇 건이야?", "올해 회의록에서 논의된 이슈는?", "하반기 장애 보고서는 몇 건이야?"]) {
+    ok(R.documentCountRequest(q, now6)?.half === undefined && (q !== "하반기 장애 보고서는 몇 건이야?" ? R.documentCountRequest(q, now6) === undefined : true), `해가 없거나 다른 말이 있으면 종전 길: ${q}`);
+  }
+  ok(R.documentCountRequest("하반기 장애 보고서는 몇 건이야?", now6) === undefined, "해 없는 반기는 받지 않는다");
+  ok(dq("장애 보고서는 몇 건이야?") === '{"kind":"장애 보고서","tag":"[장애보고]"}' && dq("2025년에 작성된 장애 보고서는 몇 건이야?") === '{"kind":"장애 보고서","tag":"[장애보고]","year":2025}', "종전 꼴은 그대로");
+  const titles6 = [
+    "[장애보고] Client-A Product-C1 서비스 장애 (2025-12-27)",
+    "[장애보고] Client-D Product-S2 서비스 장애 (2024-08-05)",
+    "[장애보고] Client-G Product-C3 서비스 장애 (2025-03-20)",
+    "[장애보고] Client-H Product-D1 서비스 장애 (2025-11-08)",
+    "[회의록] Client-A 정기 미팅 (2025-04-21)",
+    "[회의록] Client-C 정기 미팅 (2026-02-03)",
+    "[기술문서] Product-C1 설치 가이드",
+  ];
+  const titlePool6 = { query: async () => ({ rows: titles6.map((t, i) => ({ title: t, first: i + 1 })), rowCount: titles6.length }) } as unknown as Pool;
+  const docAnswer = async (req: ReturnType<typeof R.documentCountRequest>) => P.documentCountAnswer(await P.documentCount(titlePool6, req!, "companyx.document_chunks"));
+  ok(
+    (await docAnswer(R.documentCountRequest("2025년 하반기 장애 보고서는 몇 건이야?", now6))) ===
+      "문서 제목의 날짜 기준으로 2025년 하반기 장애 보고서는 2건입니다: [장애보고] Client-A Product-C1 서비스 장애 (2025-12-27), [장애보고] Client-H Product-D1 서비스 장애 (2025-11-08).",
+    `DC08 하반기는 7~12월 (got ${await docAnswer(R.documentCountRequest("2025년 하반기 장애 보고서는 몇 건이야?", now6))})`,
+  );
+  ok((await docAnswer(R.documentCountRequest("2022년 회의록 있어?", now6))) === "문서 제목의 날짜 기준으로 2022년 회의록은 없습니다(0건).", "DC06 없으면 0건");
+  ok((await docAnswer(R.documentCountRequest("올해 회의록 있어?", now6))) === "문서 제목의 날짜 기준으로 2026년 회의록은 1건 있습니다: [회의록] Client-C 정기 미팅 (2026-02-03).", "있으면 「N건 있습니다」");
+  const dc01 = await docAnswer(R.documentCountRequest("작년에 발생한 장애는 몇 건이야?", now6));
+  ok(
+    dc01 ===
+      "문서 제목의 날짜 기준으로 2025년 장애 보고서는 3건입니다: [장애보고] Client-A Product-C1 서비스 장애 (2025-12-27), [장애보고] Client-G Product-C3 서비스 장애 (2025-03-20), [장애보고] Client-H Product-D1 서비스 장애 (2025-11-08). 「장애」를 장애 보고서로 셌습니다. 지원 티켓 건수는 「2025년에 접수된 티켓은 몇 건이야?」처럼 따로 물어봐 주세요.",
+    `DC01 장애 보고서로 세고 티켓은 따로 (got ${dc01})`,
+  );
+  let docLlm6 = 0;
+  const xc03 = await ask("2025년에 발생한 장애는 몇 건이야?", { pool: titlePool6, embedder: dead6, llm: async () => ((docLlm6++), "70건") });
+  ok(xc03.answer.startsWith("문서 제목의 날짜 기준으로 2025년 장애 보고서는 3건입니다:") && xc03.sql.text === null && docLlm6 === 0 && xc03.context.includes("[문서 개수] 문서 7건 가운데 제목의 날짜 기준 2025년 장애 보고서: 3건"), `ask 의 XC03 (got ${xc03.answer.slice(0, 80)})`);
+
+  // P3 ②: 한 행 한 수의 부호와 7B 답의 쪽이 어긋나면 부호로 쓴 문장. A − B 인지 B − A 인지는 SELECT 목록의 맨 바깥 빼기로 가른다.
+  const cp07sql =
+    "SELECT AVG(e.salary) - (SELECT AVG(e2.salary) FROM companyx.employees e2 JOIN companyx.departments d2 ON e2.dept_id = d2.id WHERE d2.name = '경영지원팀') AS diff FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀'";
+  const cmpR = (sql: string, v: unknown) =>
+    ({ route: "structured", sql: { text: sql, result: { ok: true, rows: [{ diff: v }] } }, curated: { kept: [{ source: "sql#0", text: "" }] } }) as unknown as Parameters<typeof P.signAnswer>[0];
+  const cp07q = "영업팀 평균 연봉이 경영지원팀보다 얼마나 낮아?";
+  ok(P.signAnswer(cmpR(cp07sql, "5.25"), cp07q, "영업팀 평균 연봉이 경영지원팀보다 5.25 만원 낮아요.") === "영업팀이 경영지원팀보다 5.25만원 높습니다(낮지 않습니다).", `CP07 (got ${P.signAnswer(cmpR(cp07sql, "5.25"), cp07q, "영업팀 평균 연봉이 경영지원팀보다 5.25 만원 낮아요.")})`);
+  ok(P.signAnswer(cmpR(cp07sql, "5.25"), cp07q, "영업팀 평균 연봉이 경영지원팀보다 5.25만원 높습니다.") === undefined && P.signAnswer(cmpR(cp07sql, "5.25"), cp07q, "차이는 5.25만원입니다.") === undefined, "맞는 쪽이나 쪽을 말하지 않은 답은 그대로");
+  const xc02sql = "SELECT AVG(salary) FILTER (WHERE d.name = '경영지원팀') - AVG(salary) FILTER (WHERE d.name = '영업팀') AS diff FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id";
+  ok(P.signAnswer(cmpR(xc02sql, "-5.25"), "경영지원팀 평균 연봉이 영업팀보다 얼마나 낮아?", "5.25만원 높아요.") === "경영지원팀이 영업팀보다 5.25만원 낮습니다.", "FILTER 두 항, 참인 전제");
+  const ba = "SELECT (SELECT AVG(salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '경영지원팀') - (SELECT AVG(salary) FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀') AS diff";
+  ok(P.signAnswer(cmpR(ba, "-5.25"), cp07q, "5.25만원 낮아요.") === "영업팀이 경영지원팀보다 5.25만원 높습니다(낮지 않습니다).", "B − A 로 뺀 SQL 도 쪽을 맞게");
+  ok(P.signAnswer(cmpR(cp07sql, "0"), cp07q, "5.25만원 낮아요.") === "영업팀과 경영지원팀의 값이 같습니다(차이 0만원).", "차이 0");
+  // 두 항이 별칭만 쓰면(「AVG(e1.salary) - AVG(e2.salary)」) 값마다 가장 가까운 「별칭.열」의 번호로 잇는다. 수정본 실측 SQL 그대로(7B 는 「652.3만원 낮아요」).
+  const aliasSql =
+    "SELECT AVG(e1.salary) - AVG(e2.salary) AS salary_difference\nFROM companyx.employees e1\nJOIN companyx.departments d1 ON e1.dept_id = d1.id\nJOIN companyx.employees e2 ON e2.dept_id = (SELECT id FROM companyx.departments WHERE name = '영업팀')\nWHERE d1.name = '클라우드사업부' AND e1.is_active = true AND e2.is_active = true";
+  const cloudQ = "클라우드사업부 평균 연봉이 영업팀보다 얼마나 낮아?";
+  ok(P.signAnswer(cmpR(aliasSql, "652.3"), cloudQ, "클라우드사업부 평균 연봉이 영업팀보다 652.3만원 낮아요.") === "클라우드사업부가 영업팀보다 652.3만원 높습니다(낮지 않습니다).", `별칭 번호 (got ${P.signAnswer(cmpR(aliasSql, "652.3"), cloudQ, "652.3만원 낮아요.")})`);
+  ok(P.signAnswer(cmpR(aliasSql.replace(/\be1\b/g, "x").replace(/\be2\b/g, "y"), "652.3"), cloudQ, "652.3만원 낮아요.") === undefined, "번호가 없는 별칭이면 가르지 않는다");
+  ok(P.signAnswer(cmpR(aliasSql.replace("d1.name", "d2.name"), "652.3"), cloudQ, "652.3만원 낮아요.") === undefined, "두 값이 같은 번호에 닿으면 가르지 않는다");
+  const cnt = "SELECT COUNT(*) FILTER (WHERE region = '서울') - COUNT(*) FILTER (WHERE region = '부산') AS diff FROM companyx.clients";
+  ok(P.signAnswer(cmpR(cnt, "1"), "서울 고객사가 부산보다 몇 곳 적어?", "1곳 적어요.") === "서울이 부산보다 1곳 많습니다(적지 않습니다).", "수를 센 차이는 질문의 단위");
+  const cp09sql = "SELECT AVG(CASE WHEN T1.company_size = 'startup' THEN T2.amount END) - AVG(CASE WHEN T1.company_size = 'enterprise' THEN T2.amount END) AS diff FROM companyx.clients AS T1 JOIN companyx.contracts AS T2 ON T1.id = T2.client_id";
+  ok(P.signAnswer(cmpR(cp09sql, "-520"), "스타트업 고객사의 평균 계약 금액은 대기업 고객사보다 얼마나 적어?", "520만원 많아요.") === undefined, "질문에 없는 값(영문 코드)이면 가르지 않는다");
+  ok(P.signAnswer(cmpR("SELECT ABS(AVG(a) - AVG(b)) AS diff FROM companyx.employees WHERE '영업팀' <> '경영지원팀'", "5.25"), cp07q, "낮아요") === undefined, "ABS 처럼 맨 바깥 빼기가 없으면 그대로");
+  ok(P.signAnswer(cmpR(cp07sql, "5.25"), "서울 고객사 매출은 부산 고객사 매출의 몇 배야?", "낮아요") === undefined && P.signAnswer(cmpR(cp07sql, "5.25"), "영업팀과 경영지원팀의 평균 연봉 차이는?", "낮아요") === undefined, "「보다 얼마나 …」 꼴이 아니면 그대로");
+  const cp07r = await ask(cp07q, { pool: sqlPool6([{ diff: "5.25" }]), embedder: dead6, repair: false, nl2sql: async () => cp07sql, llm: async () => "영업팀 평균 연봉이 경영지원팀보다 5.25 만원 낮아요." });
+  ok(cp07r.answer.endsWith("영업팀이 경영지원팀보다 5.25만원 높습니다(낮지 않습니다).\n\n[조회 결과 1건]\n- diff: 5.25"), `ask 의 CP07 (got ${JSON.stringify(cp07r.answer)})`);
+
+  // P4 ③: 견줌 말을 썼는데 견줄 값이 모두 null.
+  const mr14rows = [
+    { category: "cloud", current_quarter_sales: "6240", previous_quarter_sales: null },
+    { category: "consulting", current_quarter_sales: "2267", previous_quarter_sales: null },
+  ];
+  const mr14sql = "SELECT p.category, SUM(s.amount) AS current_quarter_sales, LAG(SUM(s.amount)) OVER (PARTITION BY p.category ORDER BY s.quarter) AS previous_quarter_sales FROM companyx.sales s JOIN companyx.products p ON s.product_id = p.id WHERE s.quarter = '2025-Q3' GROUP BY p.category, s.quarter";
+  const nullR = (rows: Record<string, unknown>[], sql = mr14sql) =>
+    ({ route: "structured", sql: { text: sql, result: { ok: true, rows } }, curated: { kept: rows.map((_, i) => ({ source: `sql#${i}`, text: "" })) } }) as unknown as Parameters<typeof P.nullCompareAnswer>[0];
+  const mr14q = "2025년 3분기 매출을 전년 같은 분기와 비교해줘";
+  ok(P.nullCompareAnswer(nullR(mr14rows), mr14q, "2025년 3분기 매출은 전년 같은 분기보다 높아요.") === P.NULL_COMPARE_ANSWER(["previous_quarter_sales"]), "MR14");
+  ok(P.nullCompareAnswer(nullR([{ a: null, b: null }], "SELECT SUM(x) AS a, SUM(y) AS b FROM companyx.sales"), "작년보다 늘었어?", "늘었어요.") === P.NULL_ROW_ANSWER, "값 열이 모두 null 이면 null 문장");
+  ok(P.nullCompareAnswer(nullR(mr14rows), mr14q, "2025년 3분기 매출은 6240입니다.") === undefined && P.nullCompareAnswer(nullR(mr14rows), "2025년 3분기 카테고리별 매출", "높아요") === undefined, "견줌 말이 없거나 견줌을 묻지 않으면 그대로");
+  ok(P.nullCompareAnswer(nullR([{ name: "Client-A", amount: "100", end_date: null }, { name: "Client-B", amount: "50", end_date: null }], "SELECT name, amount, end_date FROM companyx.contracts"), "Client-A 계약이 Client-B보다 많아?", "더 많아요.") === undefined, "견줄 쪽 열이 아닌 null 열(end_date)은 보지 않는다");
+  const mr14r = await ask(mr14q, { pool: sqlPool6(mr14rows), embedder: dead6, repair: false, nl2sql: async () => mr14sql, llm: async () => "2025년 3분기 매출은 전년 같은 분기보다 높아요." });
+  ok(mr14r.answer.startsWith(P.NULL_COMPARE_ANSWER(["previous_quarter_sales"]) + "\n\n[조회 결과 2건]\n"), `ask 의 MR14 (got ${JSON.stringify(mr14r.answer.slice(0, 120))})`);
+
+  // P15: 글 값만 든 목록은 행을 그대로. 「X와 함께」면 둘째 열로 묶는다. 수 열이 있는 목록(TC 「기술지원팀 직원 목록과 연봉」)은 7B 에게.
+  const an12rows = [
+    { client_name: "Client-A", region: "서울" },
+    { client_name: "Client-B", region: "경기" },
+    { client_name: "Client-AB", region: "대전" },
+    { client_name: "Client-I", region: "서울" },
+    { client_name: "Client-AD", region: "인천" },
+  ];
+  const listR = (rows: Record<string, unknown>[], kept = rows.length, route = "structured") =>
+    ({ route, sql: { text: "x", result: { ok: true, rows } }, curated: { kept: rows.slice(0, kept).map((_, i) => ({ source: `sql#${i}`, text: "" })) } }) as unknown as Parameters<typeof P.textListAnswer>[0];
+  const an12q = "고객사 목록을 지역과 함께 전부 보여줘";
+  ok(P.textListAnswer(listR(an12rows), an12q) === "조회 결과 5건을 지역별로 묶으면 다음과 같습니다(지역 4개).\n- 서울: Client-A, Client-I\n- 경기: Client-B\n- 대전: Client-AB\n- 인천: Client-AD", `AN12 (got ${P.textListAnswer(listR(an12rows), an12q)})`);
+  ok(P.textListAnswer(listR(an12rows, 3), an12q)!.endsWith("- 대전: Client-AB\n- 외 2건"), "예산에 잘린 행은 수만");
+  ok(P.textListAnswer(listR(an12rows.map((r) => ({ name: r.client_name }))), "고객사 목록 보여줘") === "조회 결과 5건입니다: Client-A, Client-B, Client-AB, Client-I, Client-AD.", "한 열 목록");
+  ok(P.textListAnswer(listR(an12rows), "고객사 목록 보여줘") === "조회 결과 5건입니다.\n- Client-A (서울)\n- Client-B (경기)\n- Client-AB (대전)\n- Client-I (서울)\n- Client-AD (인천)", "「함께」가 없으면 행마다");
+  ok(P.textListAnswer(listR([{ name: "박소연", salary: 9520 }, { name: "권승호", salary: "5378" }]), "기술지원팀 직원 목록과 연봉을 알려줘") === undefined, "수 열이 있으면 7B 에게(시험항목)");
+  ok(P.textListAnswer(listR(an12rows), "서울 고객사는 어디야?") === undefined && P.textListAnswer(listR(an12rows, 5, "hybrid"), an12q) === undefined && P.textListAnswer(listR(an12rows.slice(0, 1)), an12q) === undefined, "목록 말이 없거나, 정형 레인이 아니거나, 한 행이면 그대로");
+  ok(P.textListAnswer(listR(Array.from({ length: 51 }, (_, i) => ({ name: `Client-${i}` }))), "고객사 목록 전부") === undefined, "51행 넘으면 7B 에게");
+  ok(P.textListAnswer(listR([{ name: "A", hire_date: new Date(2020, 0, 1) }, { name: "B", hire_date: new Date(2020, 1, 1) }]), "직원 목록") === undefined, "날짜 값은 글 값이 아니다");
+  let an12llm = 0;
+  // 시맨틱 폴백이 없는 시험에서 정형으로 가게 「등록된」을 넣는다(실측 AN12 는 시맨틱 폴백이 정형으로 보냈다).
+  const an12r = await ask("등록된 고객사 목록을 지역과 함께 전부 보여줘", { pool: sqlPool6(an12rows), embedder: dead6, repair: false, nl2sql: async () => "SELECT c.name AS client_name, c.region FROM companyx.clients c", llm: async () => ((an12llm++), "경기: Client-AB") });
+  ok(an12r.answer.startsWith("조회 결과 5건을 지역별로 묶으면 다음과 같습니다(지역 4개).\n- 서울: Client-A, Client-I\n") && an12r.answer.includes("\n\n[조회 결과 5건]\n- client_name: Client-A, region: 서울") && an12llm === 0, `ask 의 AN12 (got ${JSON.stringify(an12r.answer.slice(0, 120))})`);
+
+  // P9: 제품 상태 열에 없는 상태는 정형 레인에서 제품 상태별 개수로 없다고 답한다. 부정한 꼴은 종전 길.
+  ok(JSON.stringify(R.productStateRequest("단종된 제품 있어?")) === '{"word":"단종"}' && R.productStateRequest("판매 중단된 상품 목록")?.word === "판매 중단" && R.productStateRequest("품절된 제품은 몇 개야?")?.word === "품절" && R.productStateRequest("출시 중단된 product 있어?")?.word === "출시 중단", "ST01 과 다른 말");
+  for (const q of ["판매 중지되지 않은 제품은 몇 개야?", "단종 안 된 제품 목록", "단종된 프로젝트 있어?", "제품 목록 보여줘", "서비스 중단 장애 보고서"]) ok(R.productStateRequest(q) === undefined, `부정, 제품이 아님, 상태 낱말 없음: ${q}`);
+  const statusRows = [{ status: "active", products: "10" }, { status: "beta", products: "2" }];
+  let st01nl2sql = 0;
+  let st01llm = 0;
+  const st01 = await ask("단종된 제품 있어?", { pool: sqlPool6(statusRows), embedder: dead6, nl2sql: async () => ((st01nl2sql++), "SELECT 1"), llm: async () => ((st01llm++), "주어진 정보로는 알 수 없습니다.") });
+  ok(
+    st01.route === "structured" && st01.answer === "제품 상태(products.status)의 값은 active(10개), beta(2개)뿐이라 「단종」 상태의 제품은 데이터에 없습니다(0건).\n\n[조회 결과 2건]\n- status: active, products: 10\n- status: beta, products: 2" && st01nl2sql === 0 && st01llm === 0,
+    `ask 의 ST01 (got ${st01.route} ${JSON.stringify(st01.answer)} ${st01nl2sql} ${st01llm})`,
+  );
+  ok(st01.sql.text === P.productStateSql("companyx") && st01.audit.route.rationale === "product state (단종) -> products.status values", "감사의 SQL 과 근거");
+  const stopped = await ask("단종된 제품 있어?", { pool: sqlPool6([{ status: "active", products: "9" }, { status: "discontinued", products: "3" }]), embedder: dead6, nl2sql: async () => "SELECT 1", llm: async () => "단종 제품은 3개입니다." });
+  ok(stopped.answer.startsWith("단종 제품은 3개입니다."), "그 상태로 보이는 값이 있으면 결정론 문장을 쓰지 않는다");
+
+  // P5, P6, P14 ②: 그래프 계획. 시험용 온톨로지(엣지 타입마다 끝 타입 한 쌍).
+  R.installOntology(
+    [
+      { id: "dept_1", name: "영업팀", type: "department" },
+      { id: "dept_2", name: "클라우드사업부", type: "department" },
+      { id: "employee_1", name: "김지훈", type: "employee" },
+      { id: "employee_2", name: "안소연", type: "employee" },
+      { id: "client_1", name: "Client-T", type: "client" },
+      { id: "client_2", name: "Client-R", type: "client" },
+      { id: "product_1", name: "Product-S1", type: "product" },
+      { id: "product_2", name: "Product-C3", type: "product" },
+      { id: "project_1", name: "Client-T 데이터 거버넌스", type: "project" },
+    ] as { id: string; name: string; type: string }[],
+    [
+      { source: "employee_2", target: "dept_1", relation: "BELONGS_TO" },
+      { source: "dept_1", target: "employee_1", relation: "HEAD_IS" },
+      { source: "employee_1", target: "client_1", relation: "MANAGES_ACCOUNT" },
+      { source: "client_1", target: "product_1", relation: "USES" },
+      { source: "client_2", target: "product_2", relation: "REPORTED_ISSUE" },
+      { source: "employee_2", target: "project_1", relation: "LEADS" },
+      { source: "client_1", target: "project_1", relation: "HAS_PROJECT" },
+    ],
+  );
+  // P6: 「…별」 묶음 낱말은 시드가 아니고 관계의 그 끝으로 묶어 센다.
+  for (const q of ["담당자별 담당 고객사 수는?", "직원별 담당 고객사 수는?"]) {
+    const d = R.route(q);
+    ok(G.seedTerms(q).length === 0 && G.mentionTerms(q).length === 0, `CJ04, XC07 시드 없음: ${q} (got ${G.seedTerms(q).join()})`);
+    ok(d.route === "graph" && JSON.stringify(d.graphPlan) === '{"relTypes":["MANAGES_ACCOUNT"],"aggregate":"source","group":true}', `묶어 세는 계획: ${q} (got ${JSON.stringify(d.graphPlan)})`);
+  }
+  ok(JSON.stringify(R.buildGraphPlan("고객사별 담당자 수는?", ["MANAGES_ACCOUNT"], false)) === '{"relTypes":["MANAGES_ACCOUNT"],"aggregate":"target","group":true}' && R.buildGraphPlan("제품별 사용 고객사 몇 곳이야?", ["USES"], false).aggregate === "target", "도착 끝으로 묶기");
+  ok(R.buildGraphPlan("담당자별 담당 고객사 목록", ["MANAGES_ACCOUNT"], false).group === undefined && R.buildGraphPlan("부서별 담당 고객사 수는?", ["MANAGES_ACCOUNT"], false).group === undefined, "수를 묻지 않거나 관계 끝이 아닌 묶음은 그대로");
+  ok(G.seedTerms("김지훈별 담당 고객사").includes("김지훈별") && G.seedTerms("Client-T별 매출").length > 0, "묶음 낱말이 아닌 「…별」은 그대로");
+  // P14 ②: 함께 쓰는 다른 제품(같은 엣지로 갔다가 돌아옴), 부서장이 맡은 고객사들이 쓰는 제품(세 홉).
+  ok(JSON.stringify(R.fitPlanToSeed(["USES"], "product", "Product-S1을 쓰는 고객사들이 함께 쓰는 다른 제품은?")) === '{"hops":[["USES"],["USES"]],"fitted":"함께: USES 로 갔다가 같은 엣지로 다른 product"}', `SJ04 (got ${JSON.stringify(R.fitPlanToSeed(["USES"], "product", "Product-S1을 쓰는 고객사들이 함께 쓰는 다른 제품은?"))})`);
+  ok(JSON.stringify(R.fitPlanToSeed(["USES"], "product", "Product-S1을 쓰는 고객사는?").hops) === '[["USES"]]' && JSON.stringify(R.fitPlanToSeed(["USES"], "client", "Client-T가 쓰는 제품은?").hops) === '[["USES"]]', "함께 쓰는 다른 개체를 묻지 않으면 한 홉");
+  const gr13 = R.route("영업팀장이 맡은 고객사들이 쓰는 제품은?");
+  ok(gr13.graphPlan?.relTypes.join() === "USES,MANAGES_ACCOUNT,HEAD_IS", `GR13 계획 (got ${JSON.stringify(gr13.graphPlan)})`);
+  ok(JSON.stringify(R.fitPlanToSeed(gr13.graphPlan!.relTypes, "department", "영업팀장이 맡은 고객사들이 쓰는 제품은?")) === '{"hops":[["HEAD_IS"],["MANAGES_ACCOUNT"],["USES"]],"fitted":"HEAD_IS 다음 MANAGES_ACCOUNT 다음 USES"}', "GR13 세 홉");
+  ok(JSON.stringify(R.fitPlanToSeed(["MANAGES_ACCOUNT", "HEAD_IS"], "department", "영업팀장이 담당하는 고객사는?").hops) === '[["HEAD_IS"],["MANAGES_ACCOUNT"]]', "5차 GR16 두 홉은 그대로");
+  ok(JSON.stringify(R.fitPlanToSeed(["MANAGES_ACCOUNT", "HEAD_IS"], "client", "Client-B를 담당하는 사람의 상사는 누구야?").hops) === '[["MANAGES_ACCOUNT"],["BELONGS_TO"],["HEAD_IS"]]', "상사 세 홉은 그대로");
+
+  // P5: 그래프 집계의 공동 1위(가장 많은 쪽)는 이름을 모두 적는다. P6 의 묶음 집계는 묶음과 수를 모두 적는다. 가짜 풀이 관계 스캔에 엣지를 준다.
+  // 관계 스캔(relationScan)만 엣지를 준다. 개체 id 는 이름의 첫 등장 순서다. 개체 해소와 사전 읽기는 빈 결과.
+  const relPool = (edges: [string, string, string, string, string][]) =>
+    ({
+      query: async (sql: string) => {
+        if (/information_schema\.columns/.test(sql)) return { rows: [{ ok: 1 }], rowCount: 1 };
+        if (!/FROM companyx\.relations r/.test(sql) || !/rel_type = ANY/.test(sql)) return { rows: [], rowCount: 0 };
+        const ids = new Map<string, number>();
+        const id = (n: string) => (ids.has(n) ? ids.get(n)! : (ids.set(n, ids.size + 1), ids.size));
+        const rows = edges.map(([src, st, rel, dst, dt]) => ({
+          src_entity_id: id(src), src_name: src, src_type: st, rel_type: rel, dst_entity_id: id(dst), dst_name: dst, dst_type: dt, confidence: 1, provenance: "t",
+        }));
+        return { rows, rowCount: rows.length };
+      },
+    }) as unknown as Pool;
+  const headcount: [string, string, string, string, string][] = [
+    ...Array.from({ length: 3 }, (_, i) => [`직원C${i}`, "employee", "BELONGS_TO", "클라우드사업부", "department"] as [string, string, string, string, string]),
+    ...Array.from({ length: 3 }, (_, i) => [`직원S${i}`, "employee", "BELONGS_TO", "영업팀", "department"] as [string, string, string, string, string]),
+    ["직원D0", "employee", "BELONGS_TO", "데이터플랫폼팀", "department"],
+  ];
+  const sp02plan = R.buildGraphPlan("인원이 제일 많은 부서는 어디야?", ["BELONGS_TO"], false);
+  ok(sp02plan.aggregate === "target" && sp02plan.order === undefined, `SP02 계획 (got ${JSON.stringify(sp02plan)})`);
+  const sp02g = await P.graphLane(relPool(headcount), "인원이 제일 많은 부서는 어디야?", 5, 2, "companyx", sp02plan);
+  ok(sp02g.strategy === "relation-scan" && sp02g.tied?.entries.map((e) => e.name).join() === "클라우드사업부,영업팀" && sp02g.tied.count === 3 && sp02g.tied.side === "target", `SP02 공동 1위 (got ${JSON.stringify(sp02g.tied)})`);
+  const tieR = (g: typeof sp02g, route = "graph") => ({ route, graph: g, curated: { kept: g.items.map((it) => ({ text: it.text })) } }) as unknown as Parameters<typeof P.topTieAnswer>[0];
+  ok(P.topTieAnswer(tieR(sp02g), "인원이 제일 많은 부서는 어디야?") === "공동 1위가 2곳입니다(소속 직원 3명): 클라우드사업부, 영업팀.", `SP02 답 (got ${P.topTieAnswer(tieR(sp02g), "인원이 제일 많은 부서는 어디야?")})`);
+  ok(P.topTieAnswer(tieR(sp02g), "인원이 많은 부서 상위 3개는?") === undefined && P.topTieAnswer(tieR(sp02g, "hybrid"), "인원이 제일 많은 부서는 어디야?") === undefined, "몇 개를 고르라는 질문, 그래프 레인이 아니면 그대로");
+  ok(P.topTieAnswer(tieR(sp02g), "인원이 제일 많은 부서 1위는?") === "공동 1위가 2곳입니다(소속 직원 3명): 클라우드사업부, 영업팀." && P.topTieAnswer(tieR(sp02g), "인원이 가장 많은 부서 2곳은?") === undefined, "「1위」는 1위를 묻는 말, 「2곳」은 둘을 고르라는 말");
+  const tc132edges: [string, string, string, string, string][] = [];
+  for (const [who, n] of [["안소연", 4], ["조현우", 4], ["김준혁", 4], ["권소연", 3]] as [string, number][]) {
+    for (let i = 0; i < n; i++) tc132edges.push([who, "employee", "MANAGES_ACCOUNT", `Client-${who}${i}`, "client"]);
+  }
+  let tcLlm = 0;
+  const tc132 = await ask("가장 많은 고객을 담당하는 직원은?", { pool: relPool(tc132edges), embedder: dead6, llm: async () => ((tcLlm++), "안소연, 조현우, 김준혁") });
+  ok(tc132.answer === "공동 1위가 3명입니다(담당 고객사 4곳): 안소연, 조현우, 김준혁." && tcLlm === 0, `TC-132 꼴: 공동 1위 3명의 이름이 그 순서로 (got ${JSON.stringify(tc132.answer)} ${tcLlm})`);
+  ok(tc132.answer.includes("안소연, 조현우, 김준혁"), "TC-132 화면의 이름 문자열이 그대로 든다");
+  const two = await ask("가장 많은 고객을 담당하는 직원은?", { pool: relPool(tc132edges.slice(4)), embedder: dead6, llm: async () => "조현우" });
+  ok(two.answer === "공동 1위가 2명입니다(담당 고객사 4곳): 조현우, 김준혁.", `공동 1위 둘 (got ${JSON.stringify(two.answer)})`);
+  const one = await ask("가장 많은 고객을 담당하는 직원은?", { pool: relPool(tc132edges.slice(8)), embedder: dead6, llm: async () => "김준혁" });
+  ok(one.answer === "김준혁" && one.graph?.tied === undefined, "1위가 하나면 7B 답 그대로");
+  const headIs = await P.graphLane(relPool([["영업팀", "department", "HEAD_IS", "김지훈", "employee"], ["클라우드사업부", "department", "HEAD_IS", "안진우", "employee"]]), "부서장이 가장 많은 부서는?", 5, 2, "companyx", { relTypes: ["HEAD_IS"], aggregate: "source" });
+  ok(P.topTieAnswer(tieR(headIs), "부서장이 가장 많은 부서는?") === undefined, "부서장(HEAD_IS)은 부서마다 하나라 쓰지 않는다");
+  // P6: 묶음 집계의 답.
+  const cj04 = await ask("담당자별 담당 고객사 수는?", { pool: relPool(tc132edges), embedder: dead6, llm: async () => "x" });
+  ok(
+    cj04.answer ===
+      "담당자별 담당 고객사 수입니다(담당 고객사를 가진 직원 4명, MANAGES_ACCOUNT 15건). 목록에 없는 직원은 담당 고객사가 없습니다.\n- 안소연: 4곳\n- 조현우: 4곳\n- 김준혁: 4곳\n- 권소연: 3곳",
+    `CJ04 (got ${JSON.stringify(cj04.answer)})`,
+  );
+  ok(cj04.not_found === undefined && cj04.graph?.strategy === "relation-scan" && cj04.graph.grouped?.edges === 15, "못 찾음 게이트가 아니라 관계 스캔");
+
+  // P14 ①: 7B 가 경로 끝 이름 가운데 일부만 적었으면 모두 적는 결정론 문장. 이름을 모두 적었거나 하나도 적지 않은(모른다는 말이 아닌) 답은 그대로.
+  const pe = (srcId: number, srcName: string, srcType: string, relType: string, dstId: number, dstName: string, dstType: string, depth: number) =>
+    ({ srcId, srcName, srcType, relType, dstId, dstName, dstType, confidence: 1, provenance: "t", depth }) as const;
+  const gr12paths = G.pathCandidates(
+    [
+      pe(10, "Client-H", "client", "USES", 1, "Product-C3", "product", 1),
+      pe(11, "Client-AB", "client", "USES", 1, "Product-C3", "product", 1),
+      pe(20, "장미라", "employee", "MANAGES_ACCOUNT", 10, "Client-H", "client", 2),
+      pe(21, "박성민", "employee", "MANAGES_ACCOUNT", 11, "Client-AB", "client", 2),
+      pe(22, "한도윤", "employee", "MANAGES_ACCOUNT", 10, "Client-H", "client", 2),
+    ],
+    1,
+    2,
+  );
+  const gpR = (items: { text: string }[]) =>
+    ({ route: "graph", graph: { items }, curated: { kept: items.map((it, i) => ({ text: it.text, source: `graph#${i}` })) } }) as unknown as Parameters<typeof P.pathAnswer>[0];
+  const gr12q = "Product-C3를 쓰는 고객사의 담당자는 누구야?";
+  ok(P.pathAnswer(gpR(gr12paths), gr12q, "Product-C3를 쓰는 고객사의 담당자는 박성민, 한도윤입니다.") === "그래프 경로로 찾은 직원은 3명입니다: 장미라, 박성민, 한도윤.", `GR12 일부만 (got ${P.pathAnswer(gpR(gr12paths), gr12q, "Product-C3를 쓰는 고객사의 담당자는 박성민, 한도윤입니다.")})`);
+  ok(P.pathAnswer(gpR(gr12paths), gr12q, "담당자는 장미라, 박성민, 한도윤입니다.") === undefined && P.pathAnswer(gpR(gr12paths), gr12q, "담당자는 여러 명입니다.") === undefined, "모두 적었거나 하나도 적지 않은 답은 그대로");
+  ok(P.pathAnswer(gpR(gr12paths), gr12q, "주어진 정보로는 알 수 없습니다.") === "그래프 경로로 찾은 직원은 3명입니다: 장미라, 박성민, 한도윤.", "모른다는 답은 종전처럼");
+  const sj04paths = G.pathCandidates([pe(10, "Client-A", "client", "USES", 1, "Product-S1", "product", 1), pe(10, "Client-A", "client", "USES", 2, "Product-C3", "product", 2), pe(11, "Client-K", "client", "USES", 1, "Product-S1", "product", 1), pe(11, "Client-K", "client", "USES", 3, "Product-S2", "product", 2)], 1, 2);
+  ok(P.pathAnswer(gpR(sj04paths), "Product-S1을 쓰는 고객사들이 함께 쓰는 다른 제품은?", "주어진 정보로는 알 수 없습니다.") === "그래프 경로로 찾은 제품은 2개입니다: Product-C3, Product-S2.", `SJ04 제품을 묻는 경로 (got ${P.pathAnswer(gpR(sj04paths), "Product-S1을 쓰는 고객사들이 함께 쓰는 다른 제품은?", "주어진 정보로는 알 수 없습니다.")})`);
+
+  R.installOntology([], []);
+  if (savedDataset === undefined) delete process.env.DATASET;
+  else process.env.DATASET = savedDataset;
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

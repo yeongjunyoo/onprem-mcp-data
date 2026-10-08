@@ -155,6 +155,11 @@ function withoutHeadSuffix(w: string): string {
 }
 /** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
 const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
+/** 「…별」 묶음 낱말(「담당자별」, 「직원별」, 「고객사별」). 묶는 기준이지 개체 이름이 아니다. 「담당자별 담당 고객사 수는?」에 「개체(담당자별)를 … 데이터셋에
+ * 존재하지 않습니다」라고 답했다(랜덤 테스트 사전 점검 6차 P6, 3/3). 사전에 있는 이름은 그대로 둔다. */
+const GROUP_WORD =
+  /^(?:담당자|직원|사원|사람|인원|매니저|담당|부서|팀|고객사|고객|거래처|회사|제품|상품|솔루션|서비스|프로젝트|과제|지역|업종|규모|직급|카테고리|분류|상태|월|분기|연도|년도|날짜|기간|우선순위)별$/;
+const groupWord = (w: string) => GROUP_WORD.test(w) && !isEntityName(w);
 
 /** 「Client A」, 「product c1」처럼 하이픈 대신 띄어 쓴 사업자 식별자를 「Client-A」, 「Product-C1」로.
  * 띄어 쓰면 한 글자 토큰(A)이 버려지고 남은 「Client」가 고객사 전부에 걸렸다(D4: 「Client A 담당 엔지니어」에
@@ -221,7 +226,7 @@ export function seedTerms(query: string): string[] {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) continue;
     const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
-    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
+    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w) || groupWord(w)) continue;
     out.add(w);
   }
   return [...out];
@@ -257,7 +262,7 @@ export function mentionTerms(query: string): string[] {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
     const w = withoutHeadSuffix(withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "")));
-    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
+    if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w) || groupWord(w)) return;
     if (entityLikeName(w) === null && !isEntityName(w)) {
       const prev = toks[i - 1];
       const afterDeterminer = prev !== undefined && DETERMINERS.has(prev[0]) && /^\s+$/.test(text.slice(prev.index! + prev[0].length, m.index));
