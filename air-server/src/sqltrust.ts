@@ -834,8 +834,8 @@ function checkHalfYear(sql: string, question: string, now: Date): string[] {
     if (iq && halves.get(year)!.length === 1 && (asked.some((q) => !iq.quarters.has(q)) || [...iq.quarters].some((q) => !quarters.has(q)))) {
       const list = asked.map((q) => `'${year}-Q${q}'`).join(", ");
       reasons.push(
-        `${PERIOD_REASON}식 안(CASE, FILTER)의 ${[...new Set(iq.conds)].join(", ")} 은 ${year}년 ${[...iq.quarters].sort().join(", ")}분기만 센다. ` +
-          `질문의 ${year}년 ${halves.get(year)!.join(", ")}는 ${asked.join(", ")}분기다. 식 안에서도 quarter IN (${list}) 로 그 분기를 모두 센다`,
+        `${PERIOD_REASON}${[...new Set(iq.conds)].join(", ")} 은 ${year}년 ${[...iq.quarters].sort().join(", ")}분기만 고른다. ` +
+          `질문의 ${year}년 ${halves.get(year)!.join(", ")}는 ${asked.join(", ")}분기다. 식 안(CASE, FILTER)에서도 quarter IN (${list}) 로 그 분기를 모두 센다`,
       );
       continue;
     }
@@ -999,6 +999,12 @@ const ENUM_WORDS = new Map<string, Readonly<Record<string, Readonly<Record<strin
   ],
 ]);
 
+/** 표마다 이름이 다른 같은 상태(끝난 계약과 해결되거나 종결된 티켓, 진행 중인 계약과 프로젝트). 질문이 말한 상태가 그 표에 없는지 볼 때
+ * 같은 상태로 친다: 「아직 안 끝난 critical 티켓」의 끝은 계약과 프로젝트의 completed 낱말이지만 티켓에는 resolved, closed 가 있다. */
+const SAME_STATE = new Map<string, readonly (readonly string[])[]>([
+  ["companyx", [["completed", "resolved", "closed"], ["active", "in_progress", "open"]]],
+]);
+
 /** 질문이 그 값을 말하는가: 영문 값(밑줄은 띄어 써도) 또는 그 값의 우리말 낱말. value 가 "" 면 그 열 전체를 가리키는 낱말. */
 function saysValue(question: string, words: Readonly<Record<string, string>> | undefined, value: string): boolean {
   const ko = words?.[value];
@@ -1022,6 +1028,25 @@ export function checkUnaskedEnum(sql: string, question: string, enums: TableEnum
   for (const c of enumConditions(sql, enums)) {
     const vocab = [...new Set([...enums.values()].flatMap((cols) => cols.get(c.col) ?? []))];
     if (c.values.some((v) => !c.tables.some((t) => enums.get(t)?.get(c.col)?.includes(v)))) continue;
+    // 질문이 말한 상태가 이 표의 열에 하나도 없으면(「취소되지 않은 프로젝트는 몇 개야?」의 취소는 계약 상태다) 질문이 말하지 않은 값을
+    // 고른 조건은 질문의 상태를 다른 상태로 바꾼 것이다. status = 'completed' 로 6개를 세고 「알 수 없습니다」라고 답했다(4차 수정본 실측 R2).
+    const own = [...new Set(c.tables.flatMap((t) => enums.get(t)?.get(c.col) ?? []))];
+    const named = new Set([
+      ...Object.entries(words)
+        .filter(([tc]) => tc.endsWith(`.${c.col}`))
+        .flatMap(([, w]) => Object.keys(w).filter((v) => v !== "" && saysValue(question, w, v))),
+      ...vocab.filter((v) => saysValue(question, undefined, v)),
+    ]);
+    const ownSaid = c.values.some((v) => c.tables.some((t) => saysValue(question, words[`${t}.${c.col}`], v)));
+    const alike = (v: string) => [v, ...(SAME_STATE.get(schema) ?? []).filter((g) => g.includes(v)).flat()];
+    if (named.size && [...named].every((v) => !alike(v).some((x) => own.includes(x))) && !ownSaid) {
+      reasons.push(
+        `${UNASKED_REASON}${c.cond} 은 질문이 묻지 않은 조건이다(질문이 말한 상태 ${[...named].map((v) => `'${v}'`).join(", ")} 는 ` +
+          `${c.tables.map((t) => `${t}.${c.col}`).join(", ")} 에 없는 값이다. 쓸 수 있는 값: ${own.join(", ")}). ` +
+          "그 상태가 아닌 것을 물으면 이 조건을 빼고 모두 세고, 그 상태를 물으면 없는 값이라 0건이다",
+      );
+      continue;
+    }
     const said = Object.entries(words)
       .filter(([tc]) => tc.endsWith(`.${c.col}`))
       .some(([, w]) => Object.keys(w).some((v) => saysValue(question, w, v)));

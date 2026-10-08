@@ -2427,7 +2427,8 @@ const deadEmbedder: Embedder = {
   // 식 안에서 고른 분기도 반기의 두 분기여야 한다(4차 수정본 실측 R1: CASE WHEN quarter = '2024-Q3' 만 세어 17.03%).
   const r1 = "SELECT (SUM(CASE WHEN quarter = '2024-Q3' THEN amount ELSE 0 END)::numeric / SUM(amount)) * 100 AS percentage FROM companyx.sales WHERE sale_date >= '2024-01-01' AND sale_date < '2025-01-01'";
   const r1Why = checkPeriod(r1, "2024년 하반기 매출은 2024년 연간 매출의 몇 퍼센트야?", oct8);
-  ok(r1Why.length === 1 && r1Why[0].includes("2024년 3분기만 센다") && r1Why[0].includes("quarter IN ('2024-Q3', '2024-Q4')"), `R1 식 안의 3분기만 (got ${r1Why})`);
+  ok(r1Why.length === 1 && r1Why[0].includes("2024년 3분기만 고른다") && r1Why[0].includes("quarter IN ('2024-Q3', '2024-Q4')"), `R1 식 안의 3분기만 (got ${r1Why})`);
+  ok(refused(r1, r1Why).includes("2024년 하반기(3, 4분기) 가운데 3분기(quarter = '2024-Q3')만 골라서"), `R1 거절 문장 (got ${refused(r1, r1Why)})`);
   ok(
     checkPeriod("SELECT SUM(amount) FILTER (WHERE quarter = '2024-Q4') AS h2 FROM companyx.sales WHERE quarter LIKE '2024-%'", "2024년 하반기 매출 알려줘", oct8).length === 1,
     "FILTER 안의 4분기만",
@@ -2678,6 +2679,19 @@ const deadEmbedder: Embedder = {
     ["보류 중인 계약 목록을 보여줘", "SELECT * FROM companyx.contracts WHERE status = 'on_hold'"],
   ]) ok(checkUnaskedEnum(sql, q, E, "companyx").length === 0, `질문이 그 열을 말하면(값, 우리말, 부정, 다른 표의 상태 낱말) 보지 않는다: ${q}`);
   ok(checkUnaskedEnum(sf03, "서울 고갱사는 몇 곳이야?", enumColumns("bench"), "bench").length === 0, "낱말을 두지 않은 스키마는 끈다");
+  // 질문이 말한 상태가 그 표의 열에 없는데 다른 값을 고르면(4차 수정본 실측 R2 「취소되지 않은 프로젝트」 → status = 'completed', 6개).
+  const r2 = "SELECT COUNT(*) FROM companyx.projects WHERE status = 'completed'";
+  const r2Why = checkUnaskedEnum(r2, "취소되지 않은 프로젝트는 몇 개야?", E, "companyx");
+  ok(r2Why.length === 1 && r2Why[0].includes("'cancelled' 는 projects.status 에 없는 값이다"), `R2 다른 표의 상태 (got ${r2Why})`);
+  ok(refused(r2, r2Why).includes("생성된 SQL 이 질문에 없는 조건(status = 'completed')을 붙여서 실행하지 않았습니다."), "R2 거절 문장");
+  ok(checkUnaskedEnum("SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'", "보류된 계약은 몇 건이야?", E, "companyx").length === 1, "계약에 없는 보류를 활성으로");
+  for (const [q, sql] of [
+    ["완료되지 않은 프로젝트는 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE status IN ('planning','in_progress','on_hold')"],
+    ["취소되지 않은 계약은 몇 건이야?", "SELECT COUNT(*) FROM companyx.contracts WHERE status IN ('active','completed')"],
+    ["만료된 프로젝트는 몇 개야?", r2],
+    ["아직 안 끝난 critical 티켓 몇 개야?", "SELECT COUNT(*) FROM companyx.support_tickets WHERE priority = 'critical' AND status IN ('open', 'in_progress')"], // QA2 A07
+    ["활성 프로젝트는 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE status = 'in_progress'"],
+  ]) ok(checkUnaskedEnum(sql, q, E, "companyx").length === 0, `질문이 말한 상태가 그 표에 있거나 같은 상태가 있으면 보지 않는다: ${q}`);
 
   // P12: 값 어휘 수리가 뜻을 뒤집으면 받지 않는다(KF07 「단종된 제품」 'cancelled' → 'active' 로 활성 제품 10개).
   const ran: string[] = [];
