@@ -3172,6 +3172,49 @@ const deadEmbedder: Embedder = {
   const fv06r = await ask(fv06q, { pool: fv06Pool, embedder: deadEmbedder, repair: false, nl2sql: async () => fv06sql, llm: async () => "연봉 칠천만 원을 넘는 직원은 7명입니다." });
   ok(fv06r.answer === "연봉 칠천만 원을 넘는 직원은 8명입니다.\n\n[조회 결과 1건]\n- count: 8" && fv06r.grounding_fix?.value?.from === "7", `ask 와 grounding_fix (got ${JSON.stringify(fv06r.answer)} ${JSON.stringify(fv06r.grounding_fix)})`);
 
+  // 금액 단위: 뒤의 0 을 지운 값(「652.3」)에 7B 가 「元」을 붙였다. 만원 값 뒤의 맨 「원」도 같이 바로잡는다(unitSlip).
+  const xc08q = "클라우드사업부 평균 연봉은 영업팀보다 얼마나 높아?";
+  const xc08sql =
+    "SELECT AVG(e.salary) - (SELECT AVG(e2.salary) FROM companyx.employees e2 JOIN companyx.departments d2 ON e2.dept_id = d2.id WHERE d2.name = '영업팀') AS diff FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '클라우드사업부'";
+  const xc08u = P.unitSlip("클라우드사업부 평균 연봉은 영업팀보다 652.3元 높아요.", [{ diff: "652.3" }], xc08sql, "companyx");
+  ok(xc08u.text === "클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요." && JSON.stringify(xc08u.units) === '[{"from":"652.3元","to":"652.3만원"}]', `XC08 元 (got ${JSON.stringify(xc08u)})`);
+  for (const [a, want] of [
+    ["차이는 652.3 万元입니다.", "차이는 652.3만원입니다."],
+    ["차이는 652.3萬元입니다.", "차이는 652.3만원입니다."],
+    ["차이는 1,652.3圓입니다.", "차이는 1,652.3만원입니다."],
+    ["차이는 652円입니다.", "차이는 652만원입니다."],
+  ]) ok(P.unitSlip(a, [{ diff: "652.3" }], xc08sql, "companyx").text === want, `중국, 일본 화폐 기호: ${a}`);
+  ok(P.unitSlip("티켓은 50元입니다.", [{ n: 3 }], "SELECT COUNT(*) AS n FROM companyx.support_tickets", "companyx").text === "티켓은 50원입니다." && P.unitSlip("비용은 100元입니다.", undefined, "", "companyx").text === "비용은 100원입니다.", "금액 열을 읽지 않으면(문서 답 포함) 「원」");
+  const pk = P.unitSlip("박성민의 연봉은 9390원과 4685원입니다.", [{ name: "박성민", salary: 9390 }, { name: "박성민", salary: 4685 }], "SELECT name, salary FROM companyx.employees WHERE name = '박성민'", "companyx");
+  ok(pk.text === "박성민의 연봉은 9390만원과 4685만원입니다." && pk.units.length === 2, `랜덤 테스트 1차의 맨 「원」 (got ${JSON.stringify(pk)})`);
+  const cg01Rows = [{ name: "영업팀", avg_salary: "5639.00" }, { name: "기술지원팀", avg_salary: "6752.25" }];
+  const cg01Sql = "SELECT d.name, AVG(e.salary) AS avg_salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name IN ('영업팀', '기술지원팀') GROUP BY d.name";
+  ok(P.unitSlip("두 부서 평균 연봉의 차이는 1113.25원입니다.", cg01Rows, cg01Sql, "companyx").text === "두 부서 평균 연봉의 차이는 1113.25만원입니다.", "5차 CG01: 두 금액 행의 차이");
+  ok(P.unitSlip("차이는 652.3원입니다.", [{ diff: "652.3" }], xc08sql, "companyx").text === "차이는 652.3만원입니다.", "금액 열을 읽는 한 행 한 수");
+  ok(P.unitSlip("평균 연봉은 6,752원입니다.", [{ avg: "6752.25" }], "SELECT AVG(salary) AS avg FROM companyx.employees", "companyx").text === "평균 연봉은 6,752만원입니다.", "답의 자릿수로 반올림해 같으면");
+  const untouched = (a: string, rows: Record<string, unknown>[] | undefined, sql: string, schema = "companyx") => {
+    const u = P.unitSlip(a, rows, sql, schema);
+    return u.text === a && u.units.length === 0;
+  };
+  ok(untouched("연봉은 77,670,000원입니다.", [{ salary: 7767 }], "SELECT salary FROM companyx.employees WHERE name = '김지훈'") && untouched("연봉은 7,767만원입니다.", [{ salary: 7767 }], "SELECT salary FROM companyx.employees") && untouched("연봉은 7,767만 원입니다.", [{ salary: 7767 }], "SELECT salary FROM companyx.employees"), "원으로 환산한 값, 만원, 만 원은 그대로");
+  ok(untouched("계약 금액은 1억 원입니다.", [{ amount: 10000 }], "SELECT amount FROM companyx.contracts") && untouched("티켓은 3원입니다.", [{ n: 3 }], "SELECT COUNT(*) AS n FROM companyx.support_tickets"), "억 원, 금액 열을 읽지 않는 SQL 의 수");
+  ok(untouched("연봉은 9000원입니다.", [{ salary: 7767 }], "SELECT salary FROM companyx.employees") && untouched("연봉은 9390원입니다.", [{ salary: 9390 }], "SELECT salary FROM public.employees", "public"), "행 값이 아니거나 금액 열을 모르는 스키마면 그대로");
+  ok(untouched("장애 원인은 3가지입니다. 2원인 분석", [{ amount: 2 }], "SELECT amount FROM companyx.contracts") && untouched("2025년 3분기 총 매출액은 23859입니다.", [{ total: 23859 }], "SELECT SUM(amount) AS total FROM companyx.sales"), "원으로 시작하는 낱말, 단위 없는 답");
+  const xc08Pool = {
+    connect: async () => ({
+      query: async (sql: string) =>
+        /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows: [{ diff: "652.3000000000000000" }], rowCount: 1, fields: [{ name: "diff" }] } : { rows: [], rowCount: 0 },
+      release: () => {},
+    }),
+    query: async () => ({ rows: [], rowCount: 0 }),
+  } as unknown as Pool;
+  const xc08r = await ask(xc08q, { pool: xc08Pool, embedder: deadEmbedder, repair: false, nl2sql: async () => xc08sql, llm: async () => "클라우드사업부 평균 연봉은 영업팀보다 652.3元 높아요." });
+  ok(
+    // 시험용 pool 은 온톨로지 행이 없어 부서 이름이 못 찾은 개체로 앞에 붙는다. 답 문장과 조회 블록만 본다.
+    xc08r.answer.endsWith("\n\n클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요.\n\n[조회 결과 1건]\n- diff: 652.3") && JSON.stringify(xc08r.grounding_fix?.units) === '[{"from":"652.3元","to":"652.3만원"}]',
+    `ask 의 XC08 과 grounding_fix (got ${JSON.stringify(xc08r.answer)} ${JSON.stringify(xc08r.grounding_fix)})`,
+  );
+
   // P8 ③: 예산이 SQL 행을 자른 목록 답은 쓴 행 수를 밝힌다.
   const many = Array.from({ length: 27 }, (_, i) => ({ client_name: `Client-${String.fromCharCode(65 + (i % 26))}${i >= 26 ? "A" : ""}`, contract_count: i + 1, total_sales: 1000 + i }));
   const manyPool = {
