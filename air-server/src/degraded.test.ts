@@ -2934,6 +2934,21 @@ const deadEmbedder: Embedder = {
     ok((await confirmAverageUnit(countPool(27), ag11, q)).length === 0, `묶음마다의 평균, 「당」이 없는 평균, 평균이 아닌 질문은 보지 않는다: ${q}`);
   }
 
+  // 질문에 없는 날짜 비었음 조건(3차 V13 「현재 진행 중인 계약 수」 → end_date IS NULL, 6회 중 1회).
+  const { checkUnaskedNull } = await import("./sqltrust.js");
+  const v13 = "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active' AND end_date IS NULL";
+  const v13Why = checkUnaskedNull(v13, "현재 진행 중인 계약 수는 몇 개야?");
+  ok(v13Why.length === 1 && v13Why[0].startsWith("질문에 없는 조건 end_date IS NULL 은 질문이 묻지 않은 조건이다"), `V13 (got ${v13Why})`);
+  ok(refused(v13, v13Why).includes("생성된 SQL 이 질문에 없는 조건(end_date IS NULL)을 붙여서 실행하지 않았습니다."), "V13 거절 문장");
+  ok(checkUnaskedNull("SELECT * FROM companyx.support_tickets t WHERE t.resolved_at IS NOT NULL", "Client-A 티켓 목록").length === 1, "표를 붙인 열, IS NOT NULL");
+  for (const [q, sql] of [
+    ["종료일이 정해지지 않은 프로젝트는 몇 개야?", "SELECT COUNT(*) FROM companyx.projects WHERE end_date IS NULL"], // 2차 B03
+    ["아직 해결되지 않은 티켓은?", "SELECT title FROM companyx.support_tickets WHERE resolved_at IS NULL"],
+    ["종료 예정일이 없는 계약", "SELECT id FROM companyx.contracts WHERE end_date IS NULL"],
+    ["현재 진행 중인 계약 수는 몇 개야?", "SELECT COUNT(*) FROM companyx.contracts WHERE status = 'active'"], // TC-114 꼴
+    ["매니저가 없는 직원", "SELECT name FROM companyx.employees WHERE manager_id IS NULL"], // 날짜 열이 아님
+  ]) ok(checkUnaskedNull(sql, q).length === 0, `질문이 그 날짜나 날짜 없음을 말하거나 날짜 열이 아니면 보지 않는다: ${q}`);
+
   // 질문 모양의 안내는 수리마다 붙는다. 오류 수리가 모양을 몰라 AG11 의 AVG(COUNT(…)) 오류를 고객사별 30행으로 고쳤다(수정본 실측).
   const { shapeHints } = await import("./sqltrust.js");
   ok(shapeHints("고객사당 평균 계약 건수는?")[0]?.includes("AVG(COUNT(…)) 처럼 집계를 겹쳐 쓰지 않는다"), "묶음당 평균 안내");

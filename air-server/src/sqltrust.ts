@@ -1134,6 +1134,35 @@ export function checkUnaskedEnum(sql: string, question: string, enums: TableEnum
   return reasons;
 }
 
+/** 날짜 열마다 그 열을 가리키는 질문 낱말. 여기 없는 날짜 열은 일반 낱말만 본다. */
+const DATE_COLUMN_WORDS: Readonly<Record<string, string>> = {
+  end_date: "종료|끝|만료|마감|기한|기간",
+  start_date: "시작|착수|개시|기간",
+  resolved_at: "해결|처리|완료|종결|닫",
+  registered_at: "등록|가입",
+  hire_date: "입사|채용",
+  created_at: "생성|등록|접수|만든|만들",
+};
+/** 날짜가 있는지 없는지를 묻는 일반 낱말. */
+const DATE_PRESENCE_WORDS = /날짜|일자|언제|정해지|정해진|미정|비어|빈\s|없는|없이|기록|null/i;
+
+/** ⑥-3 날짜 열이 비었는지(IS NULL, IS NOT NULL)를 거는데 질문에 그 날짜를 가리키는 말이 없으면 질문이 묻지 않은 조건이다. 「현재 진행 중인 계약
+ * 수는 몇 개야?」에 7B 가 status = 'active' 에 end_date IS NULL 을 붙여 6회 중 1회 다른 수를 냈다(랜덤 테스트 사전 점검 3차 V13). 「종료일이
+ * 정해지지 않은 프로젝트」처럼 그 날짜나 날짜가 없음을 말하면 보지 않는다. 사유는 그 조건을 빼라고 말한다(수리 안내가 된다). */
+export function checkUnaskedNull(sql: string, question: string): string[] {
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const reasons: string[] = [];
+  for (const m of masked.matchAll(/(?<![A-Za-z0-9_$.])((?:[A-Za-z_][A-Za-z0-9_]*\.)?([A-Za-z_][A-Za-z0-9_]*(?:_date|_at)))\s+is\s+(?:not\s+)?null\b/gi)) {
+    const col = m[2].toLowerCase();
+    const words = DATE_COLUMN_WORDS[col];
+    if (DATE_PRESENCE_WORDS.test(question) || (words && new RegExp(words).test(question))) continue;
+    const cond = sql.slice(m.index ?? 0, (m.index ?? 0) + m[0].length).replace(/\s+/g, " ");
+    reasons.push(`${UNASKED_REASON}${cond} 은 질문이 묻지 않은 조건이다(질문에 ${col} 을 가리키는 말이 없다). 그 조건을 빼고 질문이 말한 조건만 건다`);
+  }
+  return reasons;
+}
+
 /** 부정과 여집합의 말. 이런 질문은 고친 값이 질문 낱말과 다를 수 있다(「완료되지 않은 프로젝트」의 IN ('planning', 'in_progress', …)). */
 const NEGATED = /지\s*않|않은|아닌|안\s*(?:된|한|끝난)|없는|제외|빼고|말고|이외|외의/;
 
@@ -1598,6 +1627,7 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...checkPeriod(sql, question),
     ...checkEnum(sql, enumColumns(schema)),
     ...checkUnaskedEnum(sql, question, enumColumns(schema), schema),
+    ...checkUnaskedNull(sql, question),
     ...checkRatio(sql, question),
     ...checkMonthUnit(sql, question),
     ...checkGroupTop(sql, question),
