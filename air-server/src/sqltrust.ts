@@ -434,6 +434,11 @@ export function checkSql(sql: string, question: string, fks: ForeignKey[] | null
         const lt = alias.get(lq);
         const rt = alias.get(rq);
         if (!lt || !rt) continue; // 어느 표인지 모르면 판정하지 않는다
+        // 같은 표의 같은 열로 잇는 자기 조인(c1.start_date = c2.start_date)은 같은 값끼리 짝짓는 것이라 외래키 조인이 아니다. 「같은 날 시작한
+        // 계약이 있어?」를 「외래키가 아닌 열」로 거절했다(랜덤 테스트 사전 점검 6차 P13, SJ06 3/3. 2024-08-20 과 2025-09-23 두 쌍). 질문이 그 열을
+        // 말할 때만 받는다(SELF_JOIN_WORDS). 「2025년 3분기 매출을 전년 같은 분기와 비교해줘」의 s1.client_id = s2.client_id … 는 매출 건끼리 짝지어 견줘
+        // 종전처럼 거부한다(MR14 1/3).
+        if (lc === rc && [...lt].some((t) => rt.has(t)) && selfJoinSaid(lc, question)) continue;
         const valid = [...lt].some((t1) => [...rt].some((t2) => fkPair(t1, lc, t2, rc)));
         if (valid) continue;
         // 열 목록을 아는 표에서 그 열이 어느 표에도 없으면 없는 열이다. 수리 안내가 되도록 그 표가 외래키로 이어지는 표를 덧붙인다.
@@ -559,8 +564,11 @@ export function fanoutJoins(sql: string, fks: ForeignKey[] | null): FanoutJoin[]
         if (pq !== aq) continue;
         const child = bind.get(cq);
         if (!child || !fks.some((f) => f.table === child && f.column === cc && f.refTable === parent && f.refColumn === pc)) continue;
-        // 부모로 묶었으면(GROUP BY c.name) 묶음마다 센 부모 키는 자식 행 수이고 그것을 물었을 수 있다(「고객사별 계약 수」의 COUNT(c.id)).
-        if (isCount && (ac !== pc || new RegExp(`(?<![A-Za-z0-9_])${aq}\\.`).test(groupText))) continue;
+        // 부모의 키나 이름으로 묶었으면(GROUP BY c.name) 묶음마다 센 부모 키는 자식 행 수이고 그것을 물었을 수 있다(「고객사별 계약 수」의
+        // COUNT(c.id)). 부모의 다른 열(지역, 업종, 규모)로 묶으면 묶음마다 부모가 여럿이라 겹쳐 센다: 「지역별 고객사 수와 티켓 수」의 GROUP BY
+        // c.region 에 COUNT(c.id) 가 부산 17곳(실제 4곳)이었다(랜덤 테스트 사전 점검 6차 P10, CJ06 3/3).
+        const byParent = new RegExp(`(?<![A-Za-z0-9_.])(?:(?:(?:${aq}|${parent})\\.)?(?:${pc}|name)|${cq}\\.${cc})(?![A-Za-z0-9_])`).test(groupText);
+        if (isCount && (ac !== pc || byParent)) continue;
         // AVG 는 부모의 키로 묶으면 맞다.
         const keyed = new RegExp(`(?<![A-Za-z0-9_])(?:${aq}|${parent})\\.${pc}(?![A-Za-z0-9_])`).test(groupText);
         if (a[1].toLowerCase() === "avg" && keyed) continue;
@@ -736,10 +744,19 @@ function checkSameQuarterLastYear(sql: string, question: string, now: Date): str
     ...sql.matchAll(/(?<![A-Za-z0-9_$])(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter(?:\s*(?:=|i?like)\s*'[^']*'|\s+in\s*\([^()]*\))/gi),
   ];
   if (!conds.length) return [];
-  // 그 분기를 고르면 받는다. 이번 분기와 견주는 질문(「이번 분기 매출은 작년 같은 분기 대비」)은 두 분기를 함께 고른다.
+  // 그 분기를 고르면 받는다. 이번 분기와 견주는 질문(「작년 동기 대비 매출 증감률은?」)은 이번 분기도 함께 골라야 한다: 2025-Q4 를 직전 분기 2025-Q3 와 견준
+  // 33.26% 를 「작년 동기 대비」로 답했다(랜덤 테스트 사전 점검 6차 P4, MR17, XC05 3/3).
   const chosen = pickedQuarters(conds);
-  if (chosen?.has(target.year * 4 + target.quarter - 1)) return [];
+  const compare = sameQuarterCompare(question, now);
+  const current = (target.year + 1) * 4 + target.quarter - 1;
   const picked = [...new Set(conds.map((c) => c[0].replace(/\s+/g, " ")))].join(", ");
+  if (chosen?.has(target.year * 4 + target.quarter - 1)) {
+    if (!compare || chosen.has(current)) return [];
+    return [
+      `${PERIOD_REASON}${picked} 은 이번 분기(${compare.current})를 고르지 않는다. 질문의 「작년 동기 대비」는 이번 분기(${target.year + 1}년 ${target.quarter}분기)를 ` +
+        `1년 전 같은 분기(${target.year}년 ${target.quarter}분기)와 견준다. quarter IN ('${compare.current}', '${want}') 로 두 분기를 고르고 분기마다 합계를 견준다`,
+    ];
+  }
   return [
     `${PERIOD_REASON}${picked} 은 질문의 기간과 다르다. 질문의 「작년 같은 분기」는 오늘(${target.year + 1}년 ${target.quarter}분기)의 1년 전인 ` +
       `${target.year}년 ${target.quarter}분기다. quarter = '${want}' 로 고른다`,
@@ -1490,12 +1507,26 @@ export function checkSyntax(sql: string): string[] {
         "질문에 그 값이 있으면 그 값을 쓰고, 없으면 그 조건을 뺀다",
     );
   }
+  // ON 없는 JOIN(CROSS, NATURAL 이 아님): 「경영지원팀 평균 연봉이 영업팀보다 얼마나 낮아?」의 JOIN companyx.employees e2 JOIN … 이 42601 로 끝났고 오류 수리도
+  // 같은 JOIN 을 남겼다(랜덤 테스트 사전 점검 6차 P3, XC02 3/3).
+  const bare = new RegExp(
+    `(?<!\\b(?:cross|natural)\\s+)\\bjoin\\s+((?:${IDENT}\\.)?${IDENT}(?:\\s+(?:as\\s+)?(?!(?:on|using|join|where|group|order|limit|left|right|inner|full|cross|natural|lateral)\\b)${IDENT})?)\\s*(?=$|\\)|\\b(?:join|where|group|order|having|limit|left|right|inner|full|cross|natural|union)\\b)`,
+    "gi",
+  );
+  const noOn = [...masked.matchAll(bare)].map((m) => `JOIN ${sql.slice((m.index ?? 0) + m[0].indexOf(m[1]), (m.index ?? 0) + m[0].indexOf(m[1]) + m[1].length)}`);
+  if (noOn.length) {
+    reasons.push(
+      `${SYNTAX_REASON}${[...new Set(noOn)].join(", ")} 에 ON 조건이 없다(PostgreSQL 이 읽지 못한다, 42601). 외래키 열로 ON 을 잇거나, ` +
+        "두 값을 견주려고 같은 표를 두 번 읽었다면 한 번만 읽고 값마다 FILTER 로 따로 집계한다",
+    );
+  }
   return reasons;
 }
 
 /** 비율 사유의 머리말. */
 const RATIO_REASON = "나눗셈 ";
-const RATIO_WORDS = /퍼센트|%|％|비율|비중|증감률|증가율|감소율|성장률|대비/;
+// 「몇 배」도 비율이다: 「서울 고객사 매출은 부산 고객사 매출의 몇 배야?」를 SUM / SUM 정수 나눗셈으로 「4배」라고 답했다(4.30배. 랜덤 테스트 사전 점검 6차 P3, CP11 3/3).
+const RATIO_WORDS = /퍼센트|%|％|비율|비중|증감률|증가율|감소율|성장률|대비|몇\s*배|\d\s*배(?![가-힣])|배(?:야|인가|인지|나요?|로)(?![가-힣])/;
 /** 정수가 아닌 값이 끼는 표시: 형 변환, 소수 상수, AVG(결과가 numeric). 문자열과 주석은 가린 문장에서 본다. */
 const NOT_INTEGER = /::\s*(?:numeric|decimal|float|real|double)|\bcast\s*\(|(?<![\w.])\d+\.\d*(?!\w)|(?<![\w.])\.\d|\bavg\s*\(|\b(?:numeric|decimal|float\d?|real|double)\b/i;
 
@@ -1896,7 +1927,58 @@ export function shapeHints(question: string): string[] {
   if (/평균/.test(question) && PER_UNIT_AVERAGE.test(question) && !PER_GROUP.test(question)) hints.push(`질문은 묶음 하나마다의 평균 하나를 묻는다. ${PER_UNIT_AVERAGE_HINT}`);
   if (/누적/.test(question) && CUMULATIVE_ASKED.test(question)) hints.push(`질문은 기간마다의 누적을 묻는다. ${CUMULATIVE_HINT}`);
   if (yoyAsked(question)) hints.push(`질문은 전년 동기와 견준다. ${yoyHint(question)}`);
+  // 6차 P3: 두 값의 비, 두 묶음의 차, 두 반기의 차. 7B 는 「high 우선순위 티켓은 low 우선순위 티켓의 몇 배야?」를 COUNT(*) … / COUNT(*) … 문법 오류로, 「경영지원팀 평균
+  // 연봉이 영업팀보다 얼마나 낮아?」를 ON 없는 JOIN 으로, 「2025년 상반기 계약 금액은 2024년 상반기보다 얼마나 많아?」를 sales 의 EXTRACT(… FROM quarter) 로 써 한 번의
+  // 수리도 실패했다(CP06, XC02, MR16 3/3).
+  const halves = halfPeriods(question);
+  if (/몇\s*배/.test(question)) hints.push(`질문은 두 값의 비(몇 배)를 묻는다. ${RATIO_SHAPE_HINT}`);
+  if (halves.length >= 2) hints.push(`질문은 두 기간의 값을 견준다. ${halfDiffHint(question, halves[0], halves[1])}`);
+  else if (/보다\s*(?:얼마나|몇)/.test(question)) hints.push(`질문은 두 값의 차를 묻는다. ${diffShapeHint(question)}`);
+  // 6차 P11: 「최근 매출 추이는 어때?」는 끝난 분기 네 개로 본다(SP08).
+  if (RECENT_TREND.test(question) && /매출|실적/.test(question)) hints.push(`질문은 최근 추이를 묻는다. ${recentQuartersHint()}`);
   return hints;
+}
+
+const RATIO_SHAPE_HINT =
+  "값마다 따로 집계해 나누고 분자를 ::numeric 으로 바꾼다(정수끼리 나누면 소수점 아래를 버린다): SELECT (SELECT COUNT(*) FROM 표 WHERE 열 = 'A')::numeric / " +
+  "NULLIF((SELECT COUNT(*) FROM 표 WHERE 열 = 'B'), 0) AS ratio. 합계의 비는 SUM(값) FILTER (WHERE 열 = 'A')::numeric / NULLIF(SUM(값) FILTER (WHERE 열 = 'B'), 0). " +
+  "A, B 는 질문의 두 값이다";
+/** 두 값의 차 안내. 질문에 부서 이름이 둘이면 그 이름을 넣은 SQL 을 그대로 적는다(A, B 자리표시만 주자 7B 는 같은 표를 두 번 JOIN 한 꼴을 남겼다, XC02). */
+function diffShapeHint(question: string): string {
+  const depts = (COMPARE_FAMILIES.get("companyx")?.find((f) => f.col === "departments.name")?.values ?? [])
+    .map(([v]) => [question.indexOf(v), v] as [number, string])
+    .filter(([i]) => i >= 0)
+    .sort((x, y) => x[0] - y[0])
+    .map(([, v]) => v);
+  if (depts.length === 2 && /연봉|급여|월급/.test(question)) {
+    const [a, b] = depts;
+    return (
+      `한 FROM 에서 값마다 FILTER 로 따로 집계해 뺀다: SELECT AVG(e.salary) FILTER (WHERE d.name = '${a}') - AVG(e.salary) FILTER (WHERE d.name = '${b}') AS diff ` +
+      "FROM companyx.employees e JOIN companyx.departments d ON d.id = e.dept_id. 같은 표를 두 번 JOIN 하지 않는다"
+    );
+  }
+  return (
+    "한 FROM 에서 값마다 FILTER 로 따로 집계해 뺀다: SELECT SUM(값) FILTER (WHERE 열 = 'A') - SUM(값) FILTER (WHERE 열 = 'B') AS diff FROM 표 " +
+    "(평균이면 AVG). A 는 질문의 앞 값, B 는 「보다」 앞의 값이다. 같은 표를 두 번 JOIN 하지 않는다"
+  );
+}
+
+/** 질문의 연도가 붙은 반기(「2025년 상반기」, 「작년 하반기」). */
+function halfPeriods(question: string): { year: number; half: string }[] {
+  const thisYear = seoulYear(new Date());
+  return [...question.matchAll(HALF_RE)].map((m) => ({ year: m[1] ? Number(m[1]) : thisYear + (RELATIVE_YEAR[m[2]] ?? 0), half: m[3] }));
+}
+
+function halfDiffHint(question: string, a: { year: number; half: string }, b: { year: number; half: string }): string {
+  const contract = /계약/.test(question);
+  const col = contract ? "start_date" : "sale_date";
+  const range = (p: { year: number; half: string }) =>
+    p.half === "상" ? `${col} >= '${p.year}-01-01' AND ${col} < '${p.year}-07-01'` : `${col} >= '${p.year}-07-01' AND ${col} < '${p.year + 1}-01-01'`;
+  return (
+    `기간마다 FILTER 로 따로 합해 뺀다: SELECT SUM(amount) FILTER (WHERE ${range(a)}) - SUM(amount) FILTER (WHERE ${range(b)}) AS diff FROM companyx.${contract ? "contracts" : "sales"}. ` +
+    (contract ? "계약 금액은 contracts.amount 를 계약 시작일(start_date)로 센다(매출 sales 가 아니다). " : "매출은 sales.amount 를 sale_date 로 센다. ") +
+    "quarter 는 '2025-Q1' 꼴 글자라 EXTRACT 에 넣지 않는다"
+  );
 }
 
 /** ⑧-6 묶음 하나마다의 평균 하나를 묻는데(「고객사당 평균 계약 건수는?」) 생성 SQL 의 바깥 질의가 GROUP BY 로 묶어 묶음마다 값을 내면
@@ -2016,6 +2098,30 @@ const COMPARE_FAMILIES = new Map<string, readonly { col: string; keys: readonly 
         values: [["startup", "스타트업|신생|소규모|소기업"], ["mid", "중견|중소|중형|중규모"], ["enterprise", "대기업|대형|대규모|엔터프라이즈"]],
       },
       { col: "category", keys: ["products.category", "sales.category"], values: [["cloud", "클라우드"], ["security", "보안"], ["data", "데이터"], ["consulting", "컨설팅"]] },
+      // 6차 P3: 「critical 티켓과 high 티켓 중 미해결이 더 많은 쪽은?」에 두 값을 거르지 않고 미해결 1위 우선순위(medium)를 골랐다(CP10 3/3).
+      {
+        col: "priority",
+        keys: ["support_tickets.priority"],
+        values: [
+          ["critical", "(?<![A-Za-z])[Cc]ritical|크리티컬|긴급"],
+          ["high", "(?<![A-Za-z])[Hh]igh(?![A-Za-z])|하이"],
+          ["medium", "(?<![A-Za-z])[Mm]edium|미디엄"],
+          ["low", "(?<![A-Za-z])[Ll]ow(?![A-Za-z])|로우"],
+        ],
+      },
+      {
+        col: "industry",
+        keys: ["clients.industry"],
+        values: [
+          ["건설", "건설"], ["교육", "교육"], ["금융", "금융"], ["미디어", "미디어"], ["에너지", "에너지"], ["제조업", "제조업?"], ["공공기관", "공공\\s*기관|공공"],
+          ["유통/물류", "유통|물류"], ["의료/바이오", "의료|바이오"], ["IT/SW", "(?<![A-Za-z])IT(?![A-Za-z])|소프트웨어"],
+        ],
+      },
+      {
+        col: "contract_type",
+        keys: ["contracts.contract_type"],
+        values: [["subscription", "구독"], ["maintenance", "유지\\s*보수|유지\\s*관리"], ["project", "프로젝트\\s*(?:계약|형)|구축\\s*(?:계약|형)"]],
+      },
     ],
   ],
 ]);
@@ -2083,11 +2189,22 @@ export function checkCompareGroups(sql: string, question: string, schema: string
         }
         return masked.slice(from, end);
       });
-    if (clause(/\bgroup\s+by\b/gi).some(keyed) || clause(/\bpartition\s+by\b/gi).some(keyed)) continue;
     const spans = exprSpans(masked);
     const at = (v: string) => [...sql.matchAll(new RegExp(`'${v}'`, "g"))].map((m) => m.index ?? 0).filter((i) => masked[i] === "'");
     const where = said.map(at);
     const missing = said.filter((_, i) => !where[i].length);
+    if (clause(/\bgroup\s+by\b/gi).some(keyed) || clause(/\bpartition\s+by\b/gi).some(keyed)) {
+      // 그 열로 묶어도 두 값으로 거르지 않고 전체 묶음에서 한 행만 고르면 두 값을 견주지 않는다: 「critical 티켓과 high 티켓 중 미해결이 더 많은 쪽은?」에
+      // 미해결 1위 우선순위 medium 한 행을 골랐다(랜덤 테스트 사전 점검 6차 P3, CP10 3/3).
+      const tail = ONE_ROW_TAIL.exec(masked);
+      if (!missing.length || !tail || d[tail.index] !== 0) continue;
+      const ref = [...masked.matchAll(refRe)].find((r) => isKey(r[1], r[2]) && !/^(?:id|dept_id)$/i.test(r[2]))?.[0] ?? f.col;
+      reasons.push(
+        `${COMPARE_REASON}질문은 '${said[0]}' 과 '${said[1]}' 을 견주는데 SQL 이 그 두 값으로 거르지 않고 전체 묶음에서 한 행만 고른다. ` +
+          `${ref} IN ('${said[0]}', '${said[1]}') 로 거른 뒤 ${ref} 로 묶어 두 값을 함께 낸다`,
+      );
+      continue;
+    }
     if (!missing.length) {
       if (where.every((ps) => ps.some((p) => spans.some(([s, e]) => p >= s && p < e)))) continue;
       const scopes = where.map((ps) => new Set(ps.map((p) => queryScope(masked, p))));
@@ -2389,6 +2506,430 @@ export async function declaredColumns(pool: Pool, schema: string): Promise<Table
   }
 }
 
+/** 시각 열(timestamp)마다. 날짜 열(registered_at, hire_date 등)은 날짜 하나로 끝을 골라도 맞아 넣지 않는다. 스키마마다 둔다. */
+const TIMESTAMP_COLUMNS = new Map<string, readonly string[]>([["companyx", ["created_at", "resolved_at"]]]);
+
+/** ⑤-6 시각 열을 날짜 하나로 끝내 고르면(created_at <= '2025-12-31', BETWEEN … AND '2025-12-31') 그날 0시 뒤의 시각이 빠진다. 「2025년까지 접수된
+ * 티켓은 몇 건이야?」에 2025-12-31 20:22 에 접수된 티켓을 빼고 102건을 답했다(실제 103건. 랜덤 테스트 사전 점검 6차 P16, MR11 3/3). 시각이 붙은
+ * 값('2025-12-31 23:59:59'), 날짜로 바꾼 열(created_at::date), 날짜 열은 보지 않는다. */
+export function checkTimestampEnd(sql: string, schema: string): string[] {
+  const cols = TIMESTAMP_COLUMNS.get(schema);
+  const masked = cols?.length ? maskSql(sql) : null;
+  if (!cols || masked === null) return [];
+  const col = `((?:${IDENT}\\.)?(?:${cols.join("|")}))`;
+  const day = "'(\\d{4})-(\\d{2})-(\\d{2})'";
+  const reasons: string[] = [];
+  const next = (y: string, m: string, d: string) => new Date(Date.UTC(Number(y), Number(m) - 1, Number(d) + 1)).toISOString().slice(0, 10);
+  const outside = (at: number, len: number) => masked.slice(at, at + len) === sql.slice(at, at + len);
+  for (const m of sql.matchAll(new RegExp(`(?<![A-Za-z0-9_$.])${col}\\s*<=\\s*${day}`, "gi"))) {
+    if (!outside(m.index ?? 0, m[1].length)) continue;
+    const end = `${m[2]}-${m[3]}-${m[4]}`;
+    reasons.push(
+      `${PERIOD_REASON}${m[0].replace(/\s+/g, " ")} 은 시각 열이라 ${end} 0시 뒤의 시각(그날 낮 시각)이 빠진다. ${m[1]} < '${next(m[2], m[3], m[4])}' 로 고른다`,
+    );
+  }
+  for (const m of sql.matchAll(new RegExp(`(?<![A-Za-z0-9_$.])${col}\\s+between\\s+('[^']*')\\s+and\\s+${day}`, "gi"))) {
+    if (!outside(m.index ?? 0, m[1].length)) continue;
+    const end = `${m[3]}-${m[4]}-${m[5]}`;
+    reasons.push(
+      `${PERIOD_REASON}${m[0].replace(/\s+/g, " ")} 은 시각 열이라 ${end} 0시 뒤의 시각(그날 낮 시각)이 빠진다. ` +
+        `${m[1]} >= ${m[2]} AND ${m[1]} < '${next(m[3], m[4], m[5])}' 로 고른다`,
+    );
+  }
+  return reasons;
+}
+
+/** 견줌을 묻는 말. 「작년 같은 분기 매출은 얼마였어?」처럼 이 말이 없으면 한 기간을 묻는다. */
+const YOY_COMPARE = /대비|비교|증감|증가|감소|늘|줄|차이|보다|성장|변화|변동/;
+
+/** 「작년 동기 대비 매출 증감률은?」, 「작년 같은 분기 대비 …」처럼 분기를 따로 말하지 않고 이번 분기를 1년 전 같은 분기와 견주는 질문의 두 분기
+ * ('YYYY-Qn', 서울 기준). 견주는 말이 없거나 분기, 연도를 따로 말하면 null. */
+export function sameQuarterCompare(question: string, now: Date = new Date()): { current: string; target: string } | null {
+  const t = sameQuarterLastYear(question, now);
+  if (!t || !YOY_COMPARE.test(question)) return null;
+  return { current: `${t.year + 1}-Q${t.quarter}`, target: `${t.year}-Q${t.quarter}` };
+}
+
+/** 분기마다 매출 합계에서 마지막 분기와 그 1년 전 같은 분기(둘 다 매출이 있는 분기 가운데 마지막). 이번 분기 매출이 아직 없을 때 견줄 수 있는 값으로 쓴다. */
+export function lastSameQuarterSql(schema: string): string {
+  return (
+    `WITH q AS (SELECT quarter, SUM(amount) AS amount FROM ${schema}.sales GROUP BY quarter) ` +
+    "SELECT cur.quarter, cur.amount, prev.quarter AS prev_quarter, prev.amount AS prev_amount, " +
+    "ROUND((cur.amount - prev.amount)::numeric * 100 / NULLIF(prev.amount, 0), 2) AS change_pct " +
+    "FROM q cur JOIN q prev ON prev.quarter = (CAST(LEFT(cur.quarter, 4) AS integer) - 1) || RIGHT(cur.quarter, 3) " +
+    "ORDER BY cur.quarter DESC LIMIT 1"
+  );
+}
+
+/** 「작년 동기 대비」인데 이번 분기 매출이 아직 없는 사유. untrustedAnswer 가 gate.sameQuarter 로 결정론 문장을 쓴다. */
+export function noCurrentQuarterReason(c: { current: string; target: string }): string {
+  return (
+    `${PERIOD_REASON}질문의 「작년 동기」는 이번 분기(${quarterLabel(c.current)})를 1년 전 같은 분기(${quarterLabel(c.target)})와 견주는데 ` +
+    `이번 분기 매출이 아직 없다(sales 에 quarter = '${c.current}' 행이 없다). 생성 SQL 은 견줄 수 없는 기간을 견준다`
+  );
+}
+
+const quarterLabel = (q: string) => q.replace(/^(\d{4})-Q([1-4])$/, "$1년 $2분기");
+
+const EXPLICIT_QUARTER = /(\d{4})\s*년\s*(?:도\s*)?([1-4])\s*분기/g;
+const PREV_YEAR_SAME = /(?:전년|작년|지난해)\s*(?:의\s*)?(?:같은\s*분기|동일\s*분기|동\s*분기|동기)/;
+
+/** ⑤-7 분기를 말하고 그 분기를 1년 전 같은 분기와 견주는데(「2025년 3분기 매출을 전년 같은 분기와 비교해줘」) 생성 SQL 의 분기 값 조건이 그 분기 하나만
+ * 남기면 견줄 값이 없다. WHERE s.quarter = '2025-Q3' 위의 LAG(SUM(s.amount)) 가 모두 null 인데 「높아요」라고 답했다(2025-Q3 23,859, 2024-Q3 22,730.
+ * 랜덤 테스트 사전 점검 6차 P4, MR14 2/3). 분기 값 조건이 없거나(날짜 범위) 그 분기를 고르지 않는 SQL 은 보지 않는다(다른 기간 검사가 본다). */
+export function checkExplicitYoy(sql: string, question: string): string[] {
+  if (!PREV_YEAR_SAME.test(question) || !YOY_COMPARE.test(question)) return [];
+  const asked = [...question.matchAll(EXPLICIT_QUARTER)];
+  if (asked.length !== 1 || maskSql(sql) === null) return [];
+  const [y, q] = [Number(asked[0][1]), Number(asked[0][2])];
+  const conds = [...sql.matchAll(/(?<![A-Za-z0-9_$])(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter(?:\s*(?:=|i?like)\s*'[^']*'|\s+in\s*\([^()]*\))/gi)];
+  const chosen = conds.length ? pickedQuarters(conds) : null;
+  if (!chosen || !chosen.has(y * 4 + q - 1) || chosen.has((y - 1) * 4 + q - 1)) return [];
+  const picked = [...new Set(conds.map((c) => c[0].replace(/\s+/g, " ")))].join(", ");
+  return [
+    `${PERIOD_REASON}${picked} 은 ${y}년 ${q}분기만 남겨 1년 전 같은 분기(${y - 1}년 ${q}분기)와 견줄 값이 없다(LAG 가 닿을 행이 없다). ` +
+      `quarter IN ('${y}-Q${q}', '${y - 1}-Q${q}') 로 두 분기를 고르고 GROUP BY quarter 로 분기마다 합계를 견준다`,
+  ];
+}
+
+/** 최근 추이 질문(「최근 매출 추이는 어때?」). */
+const RECENT_TREND = /(?:최근|요즘|요새|근래|요즈음)[^?]*?(?:추이|흐름|추세|트렌드|변화)/;
+const ROLLING_CUT = /(?<![A-Za-z0-9_$.])((?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*(?:_date|_at))\s*>=?\s*(?:current_date|now\s*\(\s*\)|current_timestamp)\s*-\s*interval\s*'[^']*'/i;
+
+/** 끝난 분기 네 개를 고르는 안내. 이번 분기(서울 기준)는 아직 끝나지 않았다. */
+function recentQuartersHint(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric", month: "numeric" }).formatToParts(now);
+  const part = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const current = `${part("year")}-Q${Math.floor((part("month") - 1) / 3) + 1}`;
+  return (
+    `끝난 분기를 통째로 견준다: SELECT quarter, SUM(amount) AS total FROM companyx.sales WHERE quarter < '${current}' GROUP BY quarter ORDER BY quarter DESC LIMIT 4 ` +
+    "(최근 분기 네 개). CURRENT_DATE - INTERVAL 로 자르면 맨 앞 분기가 중간에서 잘린다"
+  );
+}
+
+/** ⑤-8 최근 추이를 묻는데 생성 SQL 이 분기로 묶으면서 오늘에서 거꾸로 잰 기간(sale_date >= CURRENT_DATE - INTERVAL '1 year')으로 자르면 맨 앞 분기를 일부만
+ * 센다. 「최근 매출 추이는 어때?」에 2025년 4분기를 10월 8일부터의 29,939 로 적었다(실제 31,795. 랜덤 테스트 사전 점검 6차 P11, SP08 3/3). */
+export function checkRollingQuarter(sql: string, question: string, now: Date = new Date()): string[] {
+  if (!RECENT_TREND.test(question)) return [];
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d) return [];
+  const group = [...masked.matchAll(/\bgroup\s+by\b([^;]*)/gi)].find((m) => /(?<![A-Za-z0-9_$'])(?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter(?![A-Za-z0-9_$'])/i.test(m[1]));
+  const cut = ROLLING_CUT.exec(masked);
+  if (!group || !cut) return [];
+  return [
+    `${PERIOD_REASON}${sql.slice(cut.index, cut.index + cut[0].length).replace(/\s+/g, " ")} 은 오늘에서 거꾸로 잰 기간이라 분기로 묶으면 맨 앞 분기를 일부만 센다. ${recentQuartersHint(now)}`,
+  ];
+}
+
+/** 문법 사유 가운데 quarter 에 날짜 함수를 쓴 것. */
+const QUARTER_TEXT_FN =
+  /\b(?:extract\s*\(\s*[A-Za-z_]+\s+from\s+((?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter)\s*\)|date_part\s*\(\s*'[^']*'\s*,\s*((?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter)\s*\)|date_trunc\s*\(\s*'[^']*'\s*,\s*((?:[A-Za-z_][A-Za-z0-9_]*\.)?quarter)\s*\))/gi;
+
+/** ⑨-2 sales.quarter 는 '2025-Q1' 꼴 글자인데 날짜 함수(EXTRACT, date_part, date_trunc)에 넣으면 PostgreSQL 이 읽지 못한다(42883). 「2025년 상반기 계약 금액은
+ * 2024년 상반기보다 얼마나 많아?」의 EXTRACT(YEAR FROM quarter) 가 수리 뒤에도 남아 거절했다(랜덤 테스트 사전 점검 6차 P3, MR16 3/3). quarter 를 날짜로
+ * 만든 별칭(AS quarter)이 있으면 보지 않는다. */
+export function checkQuarterText(sql: string): string[] {
+  const masked = maskSql(sql);
+  if (masked === null || /\bas\s+quarter\b/i.test(masked)) return [];
+  const hits = [...masked.matchAll(QUARTER_TEXT_FN)].map((m) => sql.slice(m.index ?? 0, (m.index ?? 0) + m[0].length).replace(/\s+/g, " "));
+  if (!hits.length) return [];
+  return [
+    `${SYNTAX_REASON}${[...new Set(hits)].join(", ")} 의 quarter 는 '2025-Q1' 꼴 글자다(날짜가 아니라 날짜 함수가 읽지 못한다, 42883). ` +
+      "연도는 quarter LIKE '2025-%' 나 LEFT(quarter, 4) = '2025', 분기는 quarter = '2025-Q1' 처럼 글자로 고르거나 날짜 열(sale_date, start_date)로 센다",
+  ];
+}
+
+/** 상태 조건 사유의 머리말. */
+const STATE_REASON = "상태 조건 ";
+/** 열린 티켓을 가리키는 말(open, in_progress). 「처리 중」만이면 in_progress. 「아직 해결되지 않은 건」은 넣지 않았다(4차 P12 의 수리 SQL 을 받는 시험이
+ * 상태 조건 없는 SQL 을 받는다). */
+const OPEN_TICKET = /열린|열려\s*있|미해결|해결\s*안\s*(?:된|됨)/;
+const IN_PROGRESS_TICKET = /처리\s*중/;
+
+/** 질문이 말한 열린 티켓의 상태 조건(열 이름 없이): IN ('open', 'in_progress') 나 = 'in_progress'. 말하지 않았으면 null. */
+function openTicketCondition(question: string): string | null {
+  return OPEN_TICKET.test(question) ? "IN ('open', 'in_progress')" : IN_PROGRESS_TICKET.test(question) ? "= 'in_progress'" : null;
+}
+
+/** 생성 SQL 의 바깥 질의가 support_tickets 를 읽는 별칭(하나일 때만). 아니면 null. */
+function topTicketAlias(masked: string, d: number[]): string | null {
+  const binds = [...masked.matchAll(new RegExp(`\\b(?:from|join)\\s+(?:${IDENT}\\.)?support_tickets\\b(?:\\s+(?:as\\s+)?(${IDENT}))?`, "gi"))];
+  if (binds.length !== 1 || d[binds[0].index ?? 0] !== 0) return null;
+  const a = binds[0][1];
+  return a && !NOT_ALIAS.has(a.toLowerCase()) ? a : "support_tickets";
+}
+
+/** ⑥-6 열린(미해결, 처리 중) 티켓을 묻는데 생성 SQL 이 티켓을 상태로 거르지 않으면 해결되거나 종결된 티켓도 고른다. 「우선순위별로 가장 오래 열린 티켓은?」에
+ * 상태 조건 없이 묶음마다 1위를 골라 critical, high 줄에 해결된 티켓을 적었다(랜덤 테스트 사전 점검 6차 P12, TG04 3/3). 상태 열이나 해결 시각(resolved_at
+ * IS NULL)으로 거르는 SQL, 티켓을 읽지 않는 SQL 은 보지 않는다. */
+export function checkOpenTickets(sql: string, question: string): string[] {
+  const want = openTicketCondition(question);
+  const masked = want ? maskSql(sql) : null;
+  if (!want || masked === null || !/\bsupport_tickets\b/i.test(masked)) return [];
+  if (/\bstatus\b/i.test(masked) || /\bresolved_at\s+is\b/i.test(masked)) return [];
+  const d = depths(masked);
+  const alias = d ? topTicketAlias(masked, d) : null;
+  const col = `${alias ?? "support_tickets"}.status`;
+  return [
+    `${STATE_REASON}질문은 ${want.startsWith("IN") ? "열린(해결되지 않은)" : "처리 중인"} 티켓을 묻는데 SQL 이 support_tickets.status 로 거르지 않는다` +
+      `(해결되거나 종결된 티켓도 고른다). ${col} ${want} 로 고른다`,
+  ];
+}
+
+/** checkOpenTickets 의 결정론 수리: 바깥 질의의 WHERE 에 열린 티켓 상태 조건을 더한다(WHERE 가 없으면 만든다). 묶음마다 1위 재작성(groupTopRewrite)은 이
+ * 조건을 그대로 둔다. 바꿀 꼴이 아니면(WITH, 집합 연산, 티켓을 읽는 바깥 별칭이 하나가 아님, 읽지 못하는 문장) null. */
+export function openStatusRewrite(sql: string, question: string): { text: string; cond: string } | null {
+  const want = openTicketCondition(question);
+  if (!want || !checkOpenTickets(sql, question).length) return null;
+  const masked = maskSql(sql);
+  const d = masked === null ? null : depths(masked);
+  if (masked === null || !d || /^\s*(?:\(\s*)*with\b/i.test(masked)) return null;
+  if ([...masked.matchAll(/\b(?:union|intersect|except)\b/gi)].some((m) => d[m.index ?? 0] === 0)) return null;
+  const alias = topTicketAlias(masked, d);
+  if (!alias) return null;
+  const cond = `${alias}.status ${want}`;
+  const body = masked.replace(/[\s;]+$/, "").length;
+  const clauses = [...masked.slice(0, body).matchAll(/\b(where|group\s+by|having|order\s+by|limit|offset|fetch|window)\b/gi)].filter((m) => d[m.index ?? 0] === 0);
+  const where = clauses.find((m) => /^where$/i.test(m[1]));
+  if (where) {
+    const after = (where.index ?? 0) + where[0].length;
+    const stop = clauses.find((m) => (m.index ?? 0) > after)?.index ?? body;
+    const rest = sql.slice(stop, body).trim();
+    return { text: `${sql.slice(0, after)} ${cond} AND (${sql.slice(after, stop).trim()})${rest ? ` ${rest}` : ""}`, cond };
+  }
+  const at = clauses[0]?.index ?? body;
+  const rest = sql.slice(at, body).trim();
+  return { text: `${sql.slice(0, at).trimEnd()} WHERE ${cond}${rest ? ` ${rest}` : ""}`, cond };
+}
+
+/** 자기 조인의 같음 조건에서 열마다 그 열을 가리키는 질문 낱말. 여기 없는 열은 판정하지 않는다. */
+const SELF_JOIN_WORDS: Readonly<Record<string, string>> = {
+  client_id: "고객|회사|거래처",
+  product_id: "제품|상품",
+  manager_id: "담당|매니저|관리자",
+  assignee_id: "담당|처리자",
+  dept_id: "부서|팀",
+  contract_id: "계약\\s*(?:건|번호)",
+  region: "지역|도시",
+  industry: "업종|산업",
+  company_size: "규모",
+  category: "분류|카테고리|종류",
+  status: "상태",
+  contract_type: "유형|종류|형태",
+  priority: "우선\\s*순위|중요도",
+  position: "직급|직책",
+  start_date: "시작|착수|개시|날짜|일자",
+  end_date: "종료|끝|만료|마감|날짜|일자",
+  hire_date: "입사|날짜|일자",
+  registered_at: "등록|가입|날짜|일자",
+  created_at: "접수|생성|날짜|일자",
+  sale_date: "날짜|일자|판매일|매출일",
+  amount: "금액|매출",
+  salary: "연봉|급여",
+  budget: "예산",
+  quarter: "분기",
+};
+
+/** 질문이 그 열을 가리키는 말을 하는가(SELF_JOIN_WORDS). 낱말을 두지 않은 열은 false. */
+function selfJoinSaid(col: string, question: string): boolean {
+  const words = SELF_JOIN_WORDS[col];
+  return words !== undefined && new RegExp(words).test(question);
+}
+
+/** ⑥-7 같은 표를 두 번 읽는 자기 조인(c1, c2)에서 질문이 말한 열(같은 날 시작 → start_date)의 같음 조건 밖에 질문이 말하지 않은 열의 같음 조건(c1.client_id =
+ * c2.client_id)을 더 걸면 그 쌍은 거의 없다. 「같은 날 시작한 계약이 있어?」에 고객사, 제품, 담당자까지 같은 쌍을 골랐다(랜덤 테스트 사전 점검 6차 P13, SJ06
+ * 3/3. 같은 날 시작한 쌍은 둘이다). 질문이 말한 열이 하나도 없는 자기 조인은 판정하지 않는다. */
+export function checkSelfJoin(sql: string, question: string, known: ReadonlySet<string>): string[] {
+  const masked = maskSql(sql);
+  if (masked === null) return [];
+  const alias = aliasTables(masked, known);
+  const pairs = new Map<string, { table: string; conds: [string, string][] }>();
+  const eqRe = new RegExp(`(?<![A-Za-z0-9_.])(${IDENT})\\.(${IDENT})\\s*=\\s*(${IDENT})\\.(${IDENT})(?![A-Za-z0-9_.(])`, "g");
+  for (const m of masked.matchAll(eqRe)) {
+    const [a, ca, b, cb] = [m[1], m[2], m[3], m[4]].map((x) => x.toLowerCase());
+    const ta = alias.get(a);
+    const tb = alias.get(b);
+    if (a === b || ca !== cb || ta?.size !== 1 || tb?.size !== 1) continue;
+    const [t] = [...ta];
+    if (!tb.has(t)) continue;
+    const key = [a, b].sort().join("|");
+    if (!pairs.has(key)) pairs.set(key, { table: t, conds: [] });
+    pairs.get(key)!.conds.push([ca, sql.slice(m.index ?? 0, (m.index ?? 0) + m[0].length).replace(/\s+/g, " ")]);
+  }
+  const reasons: string[] = [];
+  const said = (c: string) => selfJoinSaid(c, question);
+  for (const { table, conds } of pairs.values()) {
+    const keys = [...new Set(conds.filter(([c]) => said(c)).map(([c]) => c))];
+    const extra = [...new Set(conds.filter(([c]) => SELF_JOIN_WORDS[c] !== undefined && !said(c)).map(([, t]) => t))];
+    if (!keys.length || !extra.length) continue;
+    reasons.push(
+      `${UNASKED_REASON}${extra.join(", ")} 은 질문이 묻지 않은 조건이다(질문은 ${table} 두 행의 같은 ${keys.join(", ")} 만 묻는다). ` +
+        "그 조건을 빼고 질문이 말한 조건만 건다",
+    );
+  }
+  return reasons;
+}
+
+/** checkSelfJoin 의 결정론 수리: 질문이 말하지 않은 자기 조인 같음 조건을 AND 마디째 뺀다. 그 조건이 WHERE, ON 의 유일한 조건이거나 AND 로 이어지지 않으면 null. */
+export function dropSelfJoinConditions(sql: string, reasons: readonly string[]): string | null {
+  const conds = reasons.flatMap((r) => /^질문에 없는 조건 (.+?) 은 질문이 묻지 않은 조건이다\(질문은 \S+ 두 행의 같은 /.exec(r)?.[1].split(", ") ?? []);
+  if (!conds.length || reasons.some((r) => !/^질문에 없는 조건 .+? 은 질문이 묻지 않은 조건이다\(질문은 \S+ 두 행의 같은 /.test(r))) return null;
+  let out = sql;
+  for (const c of conds) {
+    const parts = c.split(/\s*=\s*/);
+    if (parts.length !== 2) return null;
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const cond = `${esc(parts[0])}\\s*=\\s*${esc(parts[1])}(?![A-Za-z0-9_])`;
+    const before = new RegExp(`\\s+and\\s+${cond}`, "i");
+    const after = new RegExp(`${cond}\\s+and\\s+`, "i");
+    const alone = new RegExp(`\\s+where\\s+${cond}\\s*(?=$|;|\\)|\\b(?:group|order|limit|having|offset|fetch|window|union|intersect|except)\\b)`, "i");
+    const next = before.test(out) ? out.replace(before, "") : after.test(out) ? out.replace(after, "") : alone.test(out) ? out.replace(alone, " ") : null;
+    if (next === null) return null;
+    out = next;
+  }
+  return out === sql ? null : out.trim();
+}
+
+/** 별칭 사유의 머리말. */
+const ALIAS_REASON = "별칭 ";
+
+/** ⑨-3 FROM 에 없는 별칭(c.industry 의 c)이 쓰였고, 그 별칭으로 쓴 열이 모두 있는 표가 FROM 에 하나뿐이며 그 표의 별칭이 하나뿐이면 그 별칭으로 바꾼다.
+ * 「업종별 고객사 수와 계약 금액 합계는?」의 FROM companyx.clients cl … GROUP BY c.industry 가 42P01 로 끝났고 수리도 같은 별칭을 남겼다(랜덤 테스트 사전 점검
+ * 6차 P10, CJ05 3/3). 하위 질의나 WITH 가 있는 문장, 읽지 못하는 문장, 열 목록을 모를 때는 바꾸지 않는다. 바꾼 것이 없으면 null. */
+export function realiasSql(sql: string, columns: TableColumns | null, known: ReadonlySet<string>): { text: string; reason: string } | null {
+  const masked = columns ? maskSql(sql) : null;
+  if (!columns || masked === null || /\bwith\b|\(\s*select\b/i.test(masked)) return null;
+  const alias = aliasTables(masked, known);
+  const toks = tokenizeSql(sql);
+  if (!toks) return null;
+  const used = new Map<string, Set<string>>(); // FROM 에 없는 별칭 → 그 별칭으로 쓴 열
+  for (let i = 0; i + 2 < toks.length; i++) {
+    const [q, dot, c] = [toks[i], toks[i + 1], toks[i + 2]];
+    if (q.k !== "w" || dot.k !== "." || c.k !== "w" || toks[i - 1]?.k === "." || toks[i + 3]?.k === "." || toks[i + 3]?.k === "(") continue;
+    if (alias.has(q.v) || KNOWN_SCHEMAS.has(q.v)) continue;
+    if (!used.has(q.v)) used.set(q.v, new Set());
+    used.get(q.v)!.add(c.v);
+  }
+  if (!used.size) return null;
+  const tables = [...new Set([...alias.values()].flatMap((s) => [...s]))];
+  const swap = new Map<string, string>();
+  const notes: string[] = [];
+  for (const [q, cols] of used) {
+    const owners = tables.filter((t) => [...cols].every((c) => columns.get(t)?.has(c)));
+    if (owners.length !== 1) return null;
+    const names = [...alias.entries()].filter(([a, ts]) => ts.size === 1 && ts.has(owners[0]) && a !== owners[0]).map(([a]) => a);
+    const to = names.length === 1 ? names[0] : names.length === 0 && alias.has(owners[0]) ? owners[0] : null;
+    if (!to) return null;
+    swap.set(q, to);
+    notes.push(`${q} 는 FROM 에 없다(${[...cols].map((c) => `${q}.${c}`).join(", ")}). ${[...cols].join(", ")} 열이 있는 표 ${owners[0]} 의 별칭 ${to} 로 바꿨다`);
+  }
+  let out = sql;
+  for (let i = toks.length - 3; i >= 0; i--) {
+    const t = toks[i];
+    if (t.k === "w" && toks[i + 1].k === "." && toks[i - 1]?.k !== "." && swap.has(t.v)) out = out.slice(0, t.at) + swap.get(t.v)! + out.slice(tokenEnd(sql, t));
+  }
+  return out === sql ? null : { text: out, reason: `${ALIAS_REASON}${notes.join(". ")}` };
+}
+
+/** 없는 열 사유의 머리말. */
+const NO_COLUMN_REASON = "없는 열 ";
+
+/** ⑨-4 수리까지 없는 열 오류(42703)로 끝난 SQL 의 마지막 수습: 바깥 SELECT 목록의 「별칭.열 [AS 이름]」 가운데 그 별칭의 표에 없는 열을 목록에서 뺀다. 목록에만
+ * 있는 열이라 고르는 행은 그대로다. 「같은 날 시작한 계약이 있어?」의 c1.name(contracts 에 name 이 없다)을 수리도 남겨 42703 으로 거절했다(랜덤 테스트 사전 점검
+ * 6차 P13, SJ06). 뺄 것이 없거나 다 빠지거나, 열 목록을 모르거나, 읽지 못하는 문장이면 null. */
+export function dropMissingSelectColumns(sql: string, columns: TableColumns | null, known: ReadonlySet<string>): { text: string; reason: string } | null {
+  const masked = columns ? maskSql(sql) : null;
+  const toks = masked === null ? null : tokenizeSql(sql);
+  if (!columns || masked === null || !toks?.length) return null;
+  const alias = aliasTables(masked, known);
+  let level = 0;
+  const depth = toks.map((t) => {
+    if (t.k === ")") level--;
+    const d = level;
+    if (t.k === "(") level++;
+    return d;
+  });
+  if (toks[0].k !== "w" || toks[0].v !== "select") return null;
+  const from = toks.findIndex((t, i) => depth[i] === 0 && t.k === "w" && t.v === "from");
+  if (from < 2) return null;
+  const items: [number, number][] = [];
+  let start = toks[1].k === "w" && toks[1].v === "distinct" ? 2 : 1;
+  const head = start;
+  for (let i = start; i <= from; i++) {
+    if (i === from || (depth[i] === 0 && toks[i].k === ",")) {
+      items.push([start, i]);
+      start = i + 1;
+    }
+  }
+  const gone: string[] = [];
+  const kept = items.filter(([lo, hi]) => {
+    const t = toks.slice(lo, hi);
+    const simple = t.length >= 3 && t[0].k === "w" && t[1].k === "." && t[2].k === "w" && (t.length === 3 || (t.length === 4 && t[3].k === "w") || (t.length === 5 && t[3].v === "as"));
+    if (!simple) return true;
+    const owners = alias.get(t[0].v);
+    if (owners?.size !== 1) return true;
+    const [table] = [...owners];
+    if (!columns.get(table)?.size || columns.get(table)!.has(t[2].v)) return true;
+    gone.push(`${t[0].v}.${t[2].v} 은 ${table} 에 없다`);
+    return false;
+  });
+  if (!gone.length || !kept.length) return null;
+  const list = kept.map(([lo, hi]) => sql.slice(toks[lo].at, tokenEnd(sql, toks[hi - 1]))).join(", ");
+  const text = `${sql.slice(0, toks[head].at)}${list} ${sql.slice(toks[from].at)}`;
+  return { text, reason: `${NO_COLUMN_REASON}${gone.join(", ")}(42703). 고르는 행은 그대로 두고 그 열을 SELECT 목록에서 뺐다` };
+}
+
+/** 조건 없는 목록 요청(「계약 목록 보여줘」, 「전체 계약 목록 보여줘」)의 표 낱말과 그 표의 목록 SQL(표시 열과 외래키가 가리키는 이름). 스키마마다 둔다. */
+const LIST_QUERIES = new Map<string, readonly { words: string; sql: string }[]>([
+  [
+    "companyx",
+    [
+      {
+        words: "계약",
+        sql:
+          "SELECT c.id, cl.name AS client, p.name AS product, e.name AS manager, c.contract_type, c.amount, c.start_date, c.end_date, c.status " +
+          "FROM companyx.contracts c LEFT JOIN companyx.clients cl ON cl.id = c.client_id LEFT JOIN companyx.products p ON p.id = c.product_id " +
+          "LEFT JOIN companyx.employees e ON e.id = c.manager_id ORDER BY c.id",
+      },
+      { words: "고객사|고객|거래처", sql: "SELECT c.id, c.name, c.industry, c.region, c.company_size, c.registered_at, c.is_active FROM companyx.clients c ORDER BY c.id" },
+      {
+        words: "직원|사원|임직원",
+        sql: "SELECT e.id, e.name, e.position, d.name AS department, e.hire_date, e.is_active FROM companyx.employees e LEFT JOIN companyx.departments d ON d.id = e.dept_id ORDER BY e.id",
+      },
+      { words: "부서|팀", sql: "SELECT d.id, d.name, h.name AS head FROM companyx.departments d LEFT JOIN companyx.employees h ON h.id = d.head_id ORDER BY d.id" },
+      { words: "제품|상품", sql: "SELECT p.id, p.name, p.category, p.price_monthly, p.version, p.release_date, p.status FROM companyx.products p ORDER BY p.id" },
+      {
+        words: "프로젝트",
+        sql:
+          "SELECT pr.id, pr.name, cl.name AS client, e.name AS manager, pr.status, pr.start_date, pr.end_date, pr.budget FROM companyx.projects pr " +
+          "LEFT JOIN companyx.clients cl ON cl.id = pr.client_id LEFT JOIN companyx.employees e ON e.id = pr.manager_id ORDER BY pr.id",
+      },
+      {
+        words: "지원\\s*티켓|티켓",
+        sql:
+          "SELECT t.id, t.title, cl.name AS client, p.name AS product, e.name AS assignee, t.priority, t.status, t.created_at, t.resolved_at " +
+          "FROM companyx.support_tickets t LEFT JOIN companyx.clients cl ON cl.id = t.client_id LEFT JOIN companyx.products p ON p.id = t.product_id " +
+          "LEFT JOIN companyx.employees e ON e.id = t.assignee_id ORDER BY t.id",
+      },
+    ],
+  ],
+]);
+
+/** 질문이 조건 없이 한 표의 목록만 묻으면(문장 전체가 「(전체) <표 낱말> 목록 보여줘」 꼴) 그 표의 목록 SQL, 아니면 null. 조건 낱말(「완료된」, 「2019년에
+ * 입사한」, 「기술지원팀」)이 하나라도 있으면 null 이다. 결정론이다. */
+export function plainListSql(question: string, schema: string): string | null {
+  const q = question.normalize("NFC").replace(/[?？!！.。,，~～…]+/g, " ").replace(/\s+/g, " ").trim();
+  const all = "(?:(?:전체|모든|전부|우리\\s*회사)\\s*(?:의\\s*)?)?";
+  const many = "(?:\\s*(?:전체|전부|모두|다))?";
+  const verb = "(?:보여|알려|뽑아|출력해|나열해|조회해|띄워)\\s?(?:줘요?|주세요|줄래요?|주라|봐)";
+  for (const l of LIST_QUERIES.get(schema) ?? []) {
+    const re = new RegExp(`^${all}(?:${l.words})\\s*(?:들)?${many}(?:\\s*(?:목록|리스트|명단))?(?:\\s*(?:을|를|은|는|좀))?${many}(?:\\s*${verb})?$`, "i");
+    if (re.test(q) && /목록|리스트|명단|보여|알려|뽑아|출력|나열|조회|띄워/.test(q)) return l.sql;
+  }
+  return null;
+}
+
 /** 생성 SQL(과 수리 SQL)을 실행하기 전의 검사 사유. 비었으면 실행해도 된다. executeWithRepair 가 부르고, 순서는 조인과 id
  * (checkSql, confirmNamedIds), 금액 단위(checkMoney), 집계를 부풀리는 조인(fanoutJoins, confirmFanout), 기간(checkPeriod),
  * 값 어휘(checkEnum), 질문에 없는 값 조건(checkUnaskedEnum, checkAbsentState, checkUnaskedNull), 기간 길이(checkPeriodLength), 비율의 정수
@@ -2402,9 +2943,14 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...checkMoney(sql, question, moneyColumns(schema)),
     ...(await confirmFanout(pool, schema, fanoutJoins(sql, fks))),
     ...checkPeriod(sql, question),
+    ...checkTimestampEnd(sql, schema),
+    ...checkExplicitYoy(sql, question),
+    ...checkRollingQuarter(sql, question),
     ...checkEnum(sql, enumColumns(schema)),
     ...checkUnaskedEnum(sql, question, enumColumns(schema), schema),
     ...checkAbsentState(sql, question, enumColumns(schema), schema),
+    ...checkOpenTickets(sql, question),
+    ...checkSelfJoin(sql, question, new Set((fks ?? []).flatMap((f) => [f.table, f.refTable]))),
     ...checkUnaskedNull(sql, question),
     ...checkPeriodLength(sql, question),
     ...checkRatio(sql, question),
@@ -2421,6 +2967,7 @@ export async function untrustedReasons(pool: Pool, schema: string, sql: string, 
     ...(await confirmCountUnit(pool, sql, question)),
     ...(await confirmAverageUnit(pool, sql, question)),
     ...checkSyntax(sql),
+    ...checkQuarterText(sql),
   ];
 }
 
@@ -2434,8 +2981,19 @@ export interface SqlGate {
   /** 질문이 측정 항목 한 낱말뿐이라(vagueMeasure) SQL 을 만들지 않았을 때 그 낱말. 그때 outcome 은 refused, rejected 는 비었다. */
   vague?: string;
   /** 생성 모델을 다시 부르지 않고 결정론으로 바꾼 SQL 을 실행했으면 그 방식. group-top: 묶음마다 1위(groupTopRewrite), count-distinct: 부모 키를
-   * COUNT(DISTINCT …) 로(countDistinctRewrite). 그때 outcome 은 repaired. */
-  rewritten?: "group-top" | "count-distinct";
+   * COUNT(DISTINCT …) 로(countDistinctRewrite), list: 조건 없는 목록 질문에 그 표의 목록 SQL(plainListSql), open-status: 열린 티켓 상태 조건을 더함
+   * (openStatusRewrite), self-join: 질문에 없는 자기 조인 조건을 뺌(dropSelfJoinConditions), alias: FROM 에 없는 별칭을 그 표의 별칭으로(realiasSql).
+   * 그때 outcome 은 repaired. */
+  rewritten?: "group-top" | "count-distinct" | "list" | "open-status" | "self-join" | "alias" | "missing-column";
+  /** 결정론으로 더한 조건(묶음마다 1위 재작성과 함께 더한 열린 티켓 상태 조건). */
+  added?: string[];
+  /** 「작년 동기 대비」인데 이번 분기 매출이 아직 없어 생성 SQL 을 실행하지 않았을 때 두 분기와, 결정론으로 조회한 마지막 분기와 그 1년 전 분기의 매출.
+   * 그때 outcome 은 refused 이고 답은 untrustedAnswer 의 결정론 문장이다. */
+  sameQuarter?: {
+    current: string;
+    target: string;
+    last?: { quarter: string; amount: number; prevQuarter: string; prevAmount: number; pct: number };
+  };
 }
 
 /** 대상 없이 한 낱말로 물을 때 조회할 값을 정할 수 없는 측정 항목. 스키마마다 둔다(금액 열, moneyColumns 와 같은 방식).
@@ -2478,6 +3036,9 @@ export function vagueMeasure(question: string, schema: string): string | null {
  * 대기업을 등록일 순으로 골라 「Client-F」, 최근 등록 고객사 행에 제안서의 「Client-O」, sale_date >= CURRENT_DATE 의 null(랜덤 테스트 사전 점검 5차
  * P9, AM01, AM04, AM05 3/3). 측정 항목이 든 최상급(「매출이 가장 큰 고객사」)과 「제일 잘나가는 제품」, 「제일 바쁜 직원」은 걸리지 않는다(문장 전체를
  * 대조). pattern 의 첫 묶음이 답과 감사 레코드에 적는 말이다. 예시 질문은 라이브로 확인한 것이고 개체 식별자를 넣지 않는다. */
+/** 막연한 최상급 뒤의 물음 끝말(「가장 중요한 프로젝트는 뭐야?」의 「는 뭐야」). */
+const VAGUE_SUPERLATIVE_TAIL =
+  "(?:은|는|이|가|를|을)?(?:\\s*(?:어디|어느\\s*(?:곳|것|거|팀|부서|프로젝트|제품)|누구|뭐|무엇|어떤\\s*(?:것|거))(?:야|예요|에요|지|니|일까요?|인가요?|입니까|임)?|\\s*(?:알려|말해)\\s?(?:줘요?|주세요))?";
 const VAGUE_ASKS = new Map<string, readonly { pattern: string; detail: string; ask: string; examples: readonly [string, string] }[]>([
   [
     "companyx",
@@ -2494,6 +3055,40 @@ const VAGUE_ASKS = new Map<string, readonly { pattern: string; detail: string; a
         detail: "기간 없이",
         ask: "어느 기간을 볼지 정할 수 없어 조회하지 않았습니다. 기간을 함께 물어봐 주세요.",
         examples: ["최근 6개월 매출 합계는 얼마야?", "2026년 2분기 총 매출액은 얼마야?"],
+      },
+      // 6차 P11: 고객사 밖의 막연한 최상급. 「가장 큰 부서」는 인원으로 답해도 되어 넣지 않는다(중요한, 좋은, 핵심만). 7B 는 「가장 중요한 프로젝트는 뭐야?」에
+      // 기준을 말하지 않고 예산 1위를 골랐다(SP05 3/3).
+      {
+        pattern: `((?:가장|제일|젤)\\s*(?:중요한|좋은|핵심적인|핵심)\\s*프로젝트)${VAGUE_SUPERLATIVE_TAIL}`,
+        detail: "무엇으로 견줄지(측정 항목) 없이",
+        ask: "무엇으로 견줄지 정할 수 없어 조회하지 않았습니다. 예산, 진행 상태, 고객사 가운데 무엇으로 볼지 함께 물어봐 주세요.",
+        examples: ["예산이 가장 큰 프로젝트는 뭐야?", "진행 중인 프로젝트의 예산 합계는?"],
+      },
+      {
+        pattern: `((?:가장|제일|젤)\\s*(?:중요한|좋은|핵심적인|핵심)\\s*(?:제품|상품))${VAGUE_SUPERLATIVE_TAIL}`,
+        detail: "무엇으로 견줄지(측정 항목) 없이",
+        ask: "무엇으로 견줄지 정할 수 없어 조회하지 않았습니다. 매출, 판매 건수, 월 이용료 가운데 무엇으로 볼지 함께 물어봐 주세요.",
+        examples: ["가장 많이 팔린 제품은?", "매출이 가장 높은 제품 카테고리는?"],
+      },
+      {
+        pattern: `((?:가장|제일|젤)\\s*(?:중요한|좋은|핵심적인|핵심)\\s*(?:직원|사원|인재|사람))${VAGUE_SUPERLATIVE_TAIL}`,
+        detail: "무엇으로 견줄지(측정 항목) 없이",
+        ask: "무엇으로 견줄지 정할 수 없어 조회하지 않았습니다. 담당 고객 수, 처리한 티켓 수, 연봉 가운데 무엇으로 볼지 함께 물어봐 주세요.",
+        examples: ["가장 많은 고객을 담당하는 직원은?", "미해결 티켓이 가장 많은 담당자는 누구야?"],
+      },
+      {
+        pattern: `((?:가장|제일|젤)\\s*(?:중요한|좋은|핵심적인|핵심)\\s*(?:부서|팀))${VAGUE_SUPERLATIVE_TAIL}`,
+        detail: "무엇으로 견줄지(측정 항목) 없이",
+        ask: "무엇으로 견줄지 정할 수 없어 조회하지 않았습니다. 인원, 평균 연봉 가운데 무엇으로 볼지 함께 물어봐 주세요.",
+        examples: ["직원이 가장 많은 부서는 어디야?", "평균 연봉이 가장 높은 부서는 어디야?"],
+      },
+      // 6차 P11: 「요즘 티켓 상황 어때?」에 7B 가 기간 없이 120건을 읽고 2024년에 닫힌 티켓을 「요즘」이라고 답했다(SP07 3/3).
+      {
+        pattern:
+          "((?:요즘|요새|최근|근래|요즈음)\\s*(?:지원\\s*)?(?:티켓|문의|장애)\\s*(?:상황|현황|상태)?)(?:은|는|이|가)?(?:\\s*(?:좀|어때요?|어떤가요?|어떻게\\s*돼(?:요)?|어떠니|괜찮아요?|어떄|알려\\s?줘요?|알려\\s?주세요))*",
+        detail: "기간 없이",
+        ask: "어느 기간을 볼지 정할 수 없어 조회하지 않았습니다. 기간이나 상태를 함께 물어봐 주세요.",
+        examples: ["진행 중인 티켓 목록 보여줘", "2025년 10월부터 12월까지 해결된 티켓은 몇 건이야?"],
       },
     ],
   ],
@@ -2527,23 +3122,52 @@ export function sqlGatePolicy(gate: SqlGate | undefined): PolicyVerdict | undefi
     };
   }
   const why = gate.rejected.map((r) => `「${r.sql.replace(/\s+/g, " ")}」: ${r.reasons.join("; ")}`).join(" / ");
+  const added = gate.added?.length ? ` 열린 티켓 상태 조건(${gate.added.join(", ")})도 결정론으로 더했다.` : "";
   const head =
-    gate.outcome === "refused"
+    gate.outcome === "refused" && gate.sameQuarter
+      ? `질문의 「작년 동기」는 이번 분기(${quarterLabel(gate.sameQuarter.current)})를 1년 전 같은 분기(${quarterLabel(gate.sameQuarter.target)})와 견주는데 ` +
+        "이번 분기 매출이 아직 없어 생성 SQL 을 실행하지 않았다. 매출이 있는 마지막 분기와 그 1년 전 같은 분기를 결정론 SQL 로 조회해 결정론 문장으로 답했다(생성 모델을 부르지 않음)"
+      : gate.outcome === "refused"
       ? "생성 SQL 을 실행하지 않았고 믿을 만한 SQL 을 만들지 못해 답하지 않았다"
       : gate.rewritten === "group-top"
-        ? "처음 생성 SQL 을 실행하지 않고 묶음마다 1위를 고르는 SQL(LIMIT 를 빼고 RANK() OVER (PARTITION BY 묶음 열 …) = 1)로 결정론으로 바꿔 실행했다(생성 모델을 다시 부르지 않음)"
+        ? `처음 생성 SQL 을 실행하지 않고 묶음마다 1위를 고르는 SQL(LIMIT 를 빼고 RANK() OVER (PARTITION BY 묶음 열 …) = 1)로 결정론으로 바꿔 실행했다(생성 모델을 다시 부르지 않음).${added}`
         : gate.rewritten === "count-distinct"
         ? "처음 생성 SQL 을 실행하지 않고 겹쳐 센 부모 키를 COUNT(DISTINCT …) 로 세는 SQL 로 결정론으로 바꿔 실행했다(생성 모델을 다시 부르지 않음)"
+        : gate.rewritten === "list"
+        ? "생성 SQL 과 수리 SQL 이 거부되거나 실행되지 않아, 조건 없는 목록 질문이라 그 표의 목록 SQL(표시 열과 외래키가 가리키는 이름)을 결정론으로 실행했다(생성 모델을 다시 부르지 않음)"
+        : gate.rewritten === "open-status"
+        ? `처음 생성 SQL 에 열린 티켓 상태 조건(${gate.added?.join(", ") ?? "status"})을 결정론으로 더해 실행했다(생성 모델을 다시 부르지 않음)`
+        : gate.rewritten === "self-join"
+        ? "질문이 묻지 않은 자기 조인 같음 조건을 결정론으로 빼고 실행했다(생성 모델을 다시 부르지 않음)"
+        : gate.rewritten === "alias"
+        ? "생성 SQL 의 FROM 에 없는 별칭을 그 열이 있는 표의 별칭으로 결정론으로 바꿔 실행했다(생성 모델을 다시 부르지 않음)"
+        : gate.rewritten === "missing-column"
+        ? "수리한 SQL 도 없는 열 오류로 끝나, 그 열을 SELECT 목록에서 결정론으로 빼고 실행했다(고르는 행은 그대로, 생성 모델을 다시 부르지 않음)"
         : gate.outcome === "repaired"
           ? "처음 생성 SQL 을 실행하지 않고 1회 수리한 SQL 을 실행했다"
           : "0행 수리로 만든 SQL 을 실행하지 않고 처음 SQL(0행)을 그대로 썼다";
   return { policy: "sql-trust-gate", verdict: gate.outcome === "repaired" ? "repair" : "deny", detail: `${head} — ${why}` };
 }
 
+/** 「작년 동기 대비」인데 이번 분기 매출이 아직 없을 때의 결정론 문장. 그렇다고 말하고, 매출이 있는 마지막 분기를 그 1년 전 같은 분기와 견준 값을 든다. 7B 가
+ * 2025년 3분기 대비 4분기(직전 분기)의 33.26% 를 「작년 동기 대비」로 답했다(랜덤 테스트 사전 점검 6차 P4, MR17, XC05 3/3). */
+function sameQuarterAnswer(s: NonNullable<SqlGate["sameQuarter"]>): string {
+  const head = `이번 분기(${quarterLabel(s.current)}) 매출이 아직 없어 작년 같은 분기(${quarterLabel(s.target)})와 견줄 수 없습니다.`;
+  const l = s.last;
+  if (!l) return head;
+  const won = (n: number) => `${n.toLocaleString("en-US")}만원`;
+  const tail =
+    l.pct === 0
+      ? `작년 같은 분기(${quarterLabel(l.prevQuarter)}, ${won(l.prevAmount)})와 같습니다.`
+      : `작년 같은 분기(${quarterLabel(l.prevQuarter)}) ${won(l.prevAmount)}보다 ${Math.abs(l.pct).toFixed(2)}% ${l.pct > 0 ? "많습니다" : "적습니다"}.`;
+  return `${head} 매출이 있는 마지막 분기인 ${quarterLabel(l.quarter)} 매출은 ${won(l.amount)}으로 ${tail}`;
+}
+
 /** 믿을 만한 SQL 을 만들지 못했을 때의 답. 7B 를 부르지 않는다. 금액 단위만 걸렸으면 금액 조건을 말하고 만원으로
  * 바꿔 묻는 법을 알린다. */
 export function untrustedAnswer(gate: SqlGate): string {
   if (gate.vague) return vagueAnswer(gate.vague);
+  if (gate.sameQuarter) return sameQuarterAnswer(gate.sameQuarter);
   const reasons = gate.rejected.flatMap((r) => r.reasons);
   const missing = reasons.map((r) => MISSING_COLUMN.exec(r)?.[1]).find((x) => x !== undefined);
   const join = reasons.find((r) => r.startsWith("조인 조건"))?.match(/^조인 조건 (.+?) 은/)?.[1];
@@ -2566,6 +3190,9 @@ export function untrustedAnswer(gate: SqlGate): string {
           COMPARE_REASON,
           CONTRADICTION_REASON,
           FORMAT_REASON,
+          STATE_REASON,
+          ALIAS_REASON,
+          NO_COLUMN_REASON,
         ].some((p) => r.startsWith(p)),
     )
     ?.match(/^(.+?) 의 번호/)?.[1];
@@ -2651,6 +3278,10 @@ export function untrustedAnswer(gate: SqlGate): string {
   const compare = reasons.map((r) => /^비교 질문은 '(.+?)' 과 '(.+?)' 을 견주는데/.exec(r)).find((x) => x !== null);
   const contradiction = reasons.map((r) => /^모순 조건 (.+?) 은 함께 참일 수 없다/.exec(r)).find((x) => x !== null);
   const format = reasons.find((r) => r.startsWith(FORMAT_REASON));
+  const state = reasons.find((r) => r.startsWith(STATE_REASON));
+  const stampEnd = reasons.find((r) => /^기간 조건 .+? 은 시각 열이라 /.test(r));
+  const oneQuarter = reasons.find((r) => /^기간 조건 .+?만 남겨 1년 전 같은 분기/.test(r));
+  const rolling = reasons.find((r) => /^기간 조건 .+? 은 오늘에서 거꾸로 잰 기간이라/.test(r));
   // 값 어휘에 없는 값이 있으면 그것부터 말한다. 질문이 데이터에 없는 상태를 물었다는 뜻이라 다른 사유(조인 열 따위)보다
   // 묻는 사람에게 가깝다(「취소된 프로젝트 목록을 알려줘」: projects.status 에 cancelled 가 없다. 종전 답은 dept_id 조인을 먼저 말함).
   const why = value
@@ -2673,6 +3304,14 @@ export function untrustedAnswer(gate: SqlGate): string {
         ? `생성된 SQL 이 질문의 「${since[1]}년 이후」에서 ${since[1]}년을 빼고 골라서 실행하지 않았습니다. `
         : sameQuarter
         ? `생성된 SQL 이 질문의 「작년 같은 분기」(${sameQuarter[2]}년 ${sameQuarter[3]}분기)와 다른 기간(${sameQuarter[1]})을 골라서 실행하지 않았습니다. `
+        : stampEnd
+        ? "생성된 SQL 이 시각 열을 날짜 하나로 끝내 골라(그날 0시 뒤가 빠짐) 실행하지 않았습니다. "
+        : oneQuarter
+        ? "생성된 SQL 이 한 분기만 남겨 1년 전 같은 분기와 견주지 못해서 실행하지 않았습니다. "
+        : rolling
+        ? "생성된 SQL 이 오늘에서 거꾸로 잰 기간으로 분기를 잘라 맨 앞 분기를 일부만 세어서 실행하지 않았습니다. "
+        : state
+        ? "생성된 SQL 이 열린 티켓만 고르지 않아서(상태 조건 없음) 실행하지 않았습니다. "
         : length
         ? "생성된 SQL 이 기간의 길이를 재지 않아서(햇수를 내리거나 시작일 없이 오늘과 견줌) 실행하지 않았습니다. "
         : avgElse
@@ -2703,7 +3342,11 @@ export function untrustedAnswer(gate: SqlGate): string {
               : syntax
                 ? syntax.includes("자리표시")
                   ? "생성된 SQL 이 값 대신 자리표시(?)를 써서 실행하지 않았습니다. "
-                  : "생성된 SQL 이 PostgreSQL 이 읽지 못하는 꼴(LIMIT a, b)이라 실행하지 않았습니다. "
+                  : syntax.includes("의 quarter 는")
+                    ? "생성된 SQL 이 글자 열 quarter('2025-Q1' 꼴)에 날짜 함수를 써서 실행하지 않았습니다. "
+                    : syntax.includes("ON 조건이 없다")
+                    ? "생성된 SQL 이 ON 조건 없는 JOIN 을 써서 실행하지 않았습니다. "
+                    : "생성된 SQL 이 PostgreSQL 이 읽지 못하는 꼴(LIMIT a, b)이라 실행하지 않았습니다. "
                 : "";
   return (
     "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. " +
