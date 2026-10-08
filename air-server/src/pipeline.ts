@@ -841,6 +841,11 @@ export const NO_TABLE_ANSWER =
  * 이상인 직원 목록을 알려줘」, TC-141 「2019년에 입사한 직원 목록을 알려줘」, 2026-10-08 리허설). 조건이 맞았는지는 감사 레코드의
  * SQL 로 본다. */
 export const ZERO_ROWS_ANSWER = "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.";
+/** 합계, 평균, 최댓값, 최솟값 집계가 한 행을 돌려줬는데 값이 모두 null 일 때의 답(집계할 행이 없다). 7B 는 같은 질문에 「2023년 총
+ * 매출액은 없습니다.」와 「주어진 정보로는 알 수 없습니다.」를 Ollama 상태에 따라 오갔다(TC-140, 2026-10-08 리허설 3회와 섞은 순서 2회.
+ * 랜덤 테스트 사전 점검 4차 K1 「직전 분기 매출은 얼마였어?」). 저장된 값이 null 인 행(TC-139 의 end_date)은 집계가 아니라 보지 않는다.
+ * 조회 행 블록(null)은 그대로 붙는다. */
+export const NULL_ROW_ANSWER = "이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null).";
 
 export interface AskResult extends RetrieveResult {
   answer: string;
@@ -1233,6 +1238,12 @@ export async function ask(
   // 조회는 했는데 0건이고 다른 근거도 없다. 7B 를 부르지 않고 0건이라고 말한다(ZERO_ROWS_ANSWER).
   if (r.sql.result?.ok && r.sql.result.rows.length === 0 && r.context.length === 0) {
     return { ...r, answer: missingSqlHead + ZERO_ROWS_ANSWER };
+  }
+  // 정형 레인의 합계, 평균, 최댓값, 최솟값 집계가 값이 모두 null 인 한 행이면 7B 없이 값이 없다고 말한다(NULL_ROW_ANSWER).
+  const onlyRow = r.route === "structured" && r.sql.result?.ok && r.sql.result.rows.length === 1 ? r.sql.result.rows[0] : undefined;
+  const aggregate = /\b(?:sum|avg|min|max)\s*\(/i.test(r.sql.text ?? "");
+  if (onlyRow && aggregate && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
+    return { ...r, answer: missingSqlHead + withSqlRows(r, NULL_ROW_ANSWER) };
   }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };

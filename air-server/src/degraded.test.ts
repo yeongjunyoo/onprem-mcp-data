@@ -1920,8 +1920,8 @@ const deadEmbedder: Embedder = {
   ok(
     r.answer ===
       "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.\n\n" +
-        "서울물산의 2025년 3분기 총 매출액은 없습니다.\n\n[조회 결과 1건]\n- total_sales: null",
-    `없는 개체의 사유를 답 앞에 붙이고 답과 행 블록은 그대로 (got ${JSON.stringify(r.answer)})`,
+        "이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null).\n\n[조회 결과 1건]\n- total_sales: null",
+    `없는 개체의 사유를 답 앞에 붙이고 null 한 행은 값이 없다는 문장과 행 블록 (got ${JSON.stringify(r.answer)})`,
   );
   ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
   const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });
@@ -2238,7 +2238,18 @@ const deadEmbedder: Embedder = {
     llm: async () => "2023년 총 매출액은 없습니다.",
     nl2sql: async () => "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2023-01-01' AND '2023-12-31'",
   });
-  ok(nullRow.answer.startsWith("2023년 총 매출액은 없습니다.") && nullRow.answer.includes("- total_revenue: null"), `집계의 null 한 행은 0건이 아니다(TC-140) (got ${JSON.stringify(nullRow.answer)})`);
+  ok(
+    nullRow.answer.startsWith("이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null).") && nullRow.answer.includes("- total_revenue: null"),
+    `집계의 null 한 행은 값이 없다는 문장과 행 블록(TC-140) (got ${JSON.stringify(nullRow.answer)})`,
+  );
+  const stored = await ask("Client-O 클라우드 마이그레이션의 종료일은 언제야?", {
+    pool: rowsPool([{ end_date: null }]),
+    embedder: deadEmbedder,
+    repair: false,
+    llm: async () => "Client-O 클라우드 마이그레이션의 종료일은 알려져 있지 않습니다.",
+    nl2sql: async () => "SELECT end_date FROM companyx.projects WHERE name = 'Client-O 클라우드 마이그레이션'",
+  });
+  ok(stored.answer.startsWith("Client-O 클라우드 마이그레이션의 종료일은 알려져 있지 않습니다."), `저장된 값이 null 인 행은 집계가 아니라 종전대로(TC-139) (got ${JSON.stringify(stored.answer)})`);
 
   // 실행 전 검사가 거부한 SQL 에 값 어휘 밖의 값이 있으면 그 사유를 먼저 말한다(「취소된 프로젝트 목록을 알려줘」).
   const gate = {
