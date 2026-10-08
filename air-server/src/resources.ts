@@ -182,7 +182,7 @@ export function buildResources() {
                 "질문의 개체 중 일부만 해소됐을 때만 붙는다. 해소되지 않은 이름(사업자 식별자 꼴, 조직 접미사, 비슷한 이름이 있는 낱말)마다 "
                 + "not_found 와 같은 {reason, query_entity, candidates}. 찾은 개체로는 답하고 이 사유를 컨텍스트와 답 앞에 싣는다",
               branch_errors:
-                "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword) 이거나 답변 생성(answer)이다. "
+                "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword), 문서 개수 질문의 제목 세기(documents)이거나 답변 생성(answer)이다. "
                 + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",
               generated_at: "레코드 생성 시각(ISO 8601)",
               executed_at:
