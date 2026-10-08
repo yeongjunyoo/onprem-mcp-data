@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { budgetParam, formatParam, installInputErrorMessages, queryParam, sqlParam } from "./queryinput.js";
+import { budgetParam, formatParam, installInputErrorMessages, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -199,7 +199,7 @@ export function buildServer(): AirServer {
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 3, // air Meter: parse/transform tier (no LLM call, near-zero cost)
         tags: ["router", "deterministic", "mcp-parallel", "pylon7:L5"], // Pylon-7 L5 Routing
-        handler: async ({ query }) => routeToolOutput(await routeQuery(query as string, getEmbedder())),
+        handler: async ({ query }) => routeToolOutput(await routeQuery(normalizeQuery(query as string), getEmbedder())),
       }),
 
       defineTool(SQL_TOOL, {
@@ -237,7 +237,7 @@ export function buildServer(): AirServer {
         layer: 6, // air Meter: embeds the query -> LLM-call tier
         tags: ["vector", "pgvector", "semantic", "pylon7:L3"], // Pylon-7 L3 Resource
         handler: async ({ query, k }) =>
-          vectorSearch(getReadPool(), getEmbedder(), query as string, (k as number) ?? 5),
+          vectorSearch(getReadPool(), getEmbedder(), normalizeQuery(query as string), (k as number) ?? 5),
       }),
 
       defineTool("retrieve", {
@@ -259,7 +259,7 @@ export function buildServer(): AirServer {
         layer: 7, // air Meter: orchestrates several tools in one call
         tags: ["pipeline", "rrf", "curation", "tacc", "pylon7:L6"], // Pylon-7 L6 Analysis
         handler: async ({ query, budget }) => {
-          const r = await retrieve(query as string, {
+          const r = await retrieve(normalizeQuery(query as string), {
             pool: getReadPool(),
             embedder: getEmbedder(),
             budget: budget as number | undefined,
@@ -289,7 +289,7 @@ export function buildServer(): AirServer {
         layer: 7, // air Meter: agent chain (retrieval + generation)
         tags: ["agent", "answer", "qwen", "end-to-end", "pylon7:L7"], // Pylon-7 L7 Interface
         handler: async ({ query, budget }) => {
-          const r = await ask(query as string, {
+          const r = await ask(normalizeQuery(query as string), {
             pool: getReadPool(),
             embedder: getEmbedder(),
             budget: budget as number | undefined,
@@ -318,7 +318,7 @@ export function buildServer(): AirServer {
         tags: ["audit", "explainability", "provenance", "pylon7:L7"],
         handler: async ({ query, format }) => {
           const executed_at = new Date().toISOString();
-          const r = await ask(query as string, { pool: getReadPool(), embedder: getEmbedder() });
+          const r = await ask(normalizeQuery(query as string), { pool: getReadPool(), embedder: getEmbedder() });
           // 이 레코드가 언제 실행됐는지를 레코드 자신이 말하게 한다. 캐시 우회는
           // 보이지 않는 성질이라, 보이게 하지 않으면 누가 되돌려도 모른다.
           //
@@ -354,7 +354,7 @@ export function buildServer(): AirServer {
         layer: 2, // air Meter: simple lookup (alias/canonical match)
         tags: ["graph", "ontology", "kg", "pylon7:L3"], // Pylon-7 L3 Resource
         // k 는 vector.search 와 같은 범위(1~50, 0 과 소수는 보정)로 맞춘다(sqltrust.ts clampK).
-        handler: async ({ query, k }) => ontologySearch(getReadPool(), query as string, clampK(k ?? 5), kgSchema()),
+        handler: async ({ query, k }) => ontologySearch(getReadPool(), normalizeQuery(query as string), clampK(k ?? 5), kgSchema()),
       }),
 
       defineTool("graph.expand", {
