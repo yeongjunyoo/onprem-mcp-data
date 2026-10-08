@@ -172,6 +172,8 @@ export interface GraphPlan {
   order?: "asc";
   /** Node-property filter parsed from the query (진행 중 -> status=in_progress). */
   filter?: { side: "source" | "target"; key: string; value: string };
+  /** 「담당자별 담당 고객사 수」처럼 「…별」로 묶어 센다. aggregate 쪽 끝의 개체마다 수를 모두 답한다(pipeline.ts groupCountAnswer). */
+  group?: true;
 }
 
 /** 사업자 라벨 공간의 세 도구. 규칙 점수와 시맨틱 폴백이 같은 공간에서 비교된다. */
@@ -205,6 +207,8 @@ export interface RouteDecision {
   docCount?: DocCountRequest;
   /** 「A와 B는 무슨 관계야?」처럼 두 개체의 관계를 묻는 질문일 때만 붙는다(pairRelationRequest). 두 정본 이름. */
   pair?: { a: string; b: string };
+  /** 제품 상태 열에 없는 상태(「단종된 제품 있어?」)를 묻는 질문일 때만 붙는다(productStateRequest, semroute.ts routeQuery). */
+  productState?: ProductStateRequest;
   /** 규칙이 확신하지 못해 시맨틱 폴백이 판단했을 때만 붙는다(semroute.ts). */
   semantic?: {
     lane: Lane;
@@ -287,10 +291,33 @@ const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함|않|안\s*
  * 「가장 문제가 많은 제품은?」은 시맨틱 폴백이 이슈 앵커로 그래프에 보냈는데 집계가 아니라 「문제」를 개체로 찾았다(5차 P7). */
 const GRAPH_SUPERLATIVE = /(?:가장|제일)\s*(?:[가-힣]+(?:이|가)\s+)?(많|적|높|낮|큰|작)/;
 
+/** 「…별」 묶음 낱말(「담당자별」, 「직원별」, 「고객사별」)과 그 뒤의 수를 묻는 말(「수는」, 「몇 곳」, 「개수」). */
+const GROUP_BY = /(?<![가-힣])(담당자|직원|사원|사람|매니저|부서|팀|고객사|고객|거래처|제품|상품|프로젝트)\s*별(?![가-힣])/;
+const GROUP_TYPE: Readonly<Record<string, string>> = {
+  담당자: "employee", 직원: "employee", 사원: "employee", 사람: "employee", 매니저: "employee", 부서: "department", 팀: "department",
+  고객사: "client", 고객: "client", 거래처: "client", 제품: "product", 상품: "product", 프로젝트: "project",
+};
+const COUNT_ASKED = /수(?:는|가|를|도|와|과|만)?(?=[\s?？.!]|$)|몇|개수|갯수|건수|숫자/;
+
+/** 「담당자별 담당 고객사 수는?」의 묶음 낱말이 계획의 관계에서 어느 끝인지. 관계가 그 낱말의 타입에 닿지 않으면 undefined. */
+function groupSide(q: string, rel: string): "source" | "target" | undefined {
+  const m = GROUP_BY.exec(q);
+  if (!m || !COUNT_ASKED.test(q.slice(m.index + m[0].length))) return undefined;
+  const type = GROUP_TYPE[m[1]];
+  const ends = REL_ENDS.get(rel) ?? [];
+  if (!type || ends.length !== 1) return undefined;
+  return ends[0][0] === type ? "source" : ends[0][1] === type ? "target" : undefined;
+}
+
 export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
   const loose = GRAPH_SUPERLATIVE.exec(q);
-  if ((superlative || loose) && plan.relTypes.length) {
+  // 「담당자별 담당 고객사 수는?」은 관계의 그 끝으로 묶어 센다. 「담당자별」을 개체로 찾아 「찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 6차 P6).
+  const side = plan.relTypes.length === 1 ? groupSide(q, plan.relTypes[0]) : undefined;
+  if (side) {
+    plan.aggregate = side;
+    plan.group = true;
+  } else if ((superlative || loose) && plan.relTypes.length) {
     plan.aggregate = AGG_SIDE[plan.relTypes[0]] ?? "source";
     // 「담당하는 고객사가 가장 적은 직원」에 많은 쪽 상위(3곳씩 맡은 둘)를 답했다(랜덤 테스트 사전 점검 2차 R6).
     if (/^[적낮작]$/.test(SUPERLATIVE.exec(q)?.[1] ?? loose?.[1] ?? "")) plan.order = "asc";
@@ -522,16 +549,49 @@ export interface DocCountRequest {
   words?: string;
   /** 질문의 해. 제목의 날짜(YYYY-MM-DD)가 그 해인 문서만 센다. 날짜가 없는 제목은 세지 않고 답이 그렇다고 밝힌다. */
   year?: number;
+  /** 해 뒤의 「상반기」(1), 「하반기」(2). 제목 날짜의 달이 1~6월, 7~12월인 문서만 센다. */
+  half?: 1 | 2;
+  /** 「2022년 회의록 있어?」처럼 있는지를 물었다. 답은 「없습니다(0건)」나 「N건 있습니다」. */
+  exists?: true;
+  /** 「작년에 발생한 장애」처럼 「장애」만 말했다. 장애 보고서로 세고 지원 티켓은 따로라고 밝힌다. */
+  incident?: true;
 }
 
-/** 문서 개수 질문이면 무엇을 셀지, 아니면 undefined. 결정론이다. */
-export function documentCountRequest(q: string): DocCountRequest | undefined {
-  const count = DOC_COUNT.exec(q) ?? DOC_LIST.exec(q);
+/** 서울 기준 올해(UTC+9). */
+export function seoulYear(now = Date.now()): number {
+  return new Date(now + 9 * 3600 * 1000).getUTCFullYear();
+}
+/** 상대 연도 말과 올해에서 뺄 햇수. 「재작년」을 「작년」보다 먼저 본다. */
+const RELATIVE_YEARS: [RegExp, number][] = [
+  [/재작년|지지난\s*해/g, 2],
+  [/작년|지난\s*해/g, 1],
+  [/올해|금년|올\s+해|이번\s*해/g, 0],
+];
+/** 해 뒤의 반기(「2025년 하반기」). */
+const DOC_HALF = /(?<![가-힣])([상하])\s*반기(?:에|의|에서)?(?![가-힣])/;
+/** 있는지를 묻는 끝말(「있어?」, 「있나요?」). 해가 있을 때만 문서 개수 질문으로 본다. */
+const DOC_EXISTS = /있(?:어|어요|나요|니|습니까|을까|는지|는가)\s*[?？.!~]*\s*$/;
+
+/** 문서 개수 질문이면 무엇을 셀지, 아니면 undefined. 결정론이다.
+ *
+ * 「작년, 지난해」, 「올해, 금년」, 「재작년」은 서울 기준 해로 읽고, 해 뒤의 「상반기, 하반기」는 제목 날짜의 달로 거른다. 개수나 목록 말이 없어도 해와 문서
+ * 종류에 「있어?」로 끝나면 있는지를 센다. 해와 함께 「장애」만 말하면(「작년에 발생한 장애는 몇 건이야?」) 장애 보고서로 센다. 「작년에 발생한 장애」는
+ * 벡터 레인 상위 조각에서 2건(장애 보고서는 7건), 「2025년 하반기 장애 보고서」는 정형 레인이 티켓 27건을 셌고(실제 3건), 「2022년 회의록 있어?」는
+ * 「알 수 없습니다」였다(랜덤 테스트 사전 점검 6차 P2). */
+export function documentCountRequest(q: string, now = Date.now()): DocCountRequest | undefined {
+  const thisYear = seoulYear(now);
+  let text = q;
+  for (const [re, back] of RELATIVE_YEARS) text = text.replace(re, `${thisYear - back}년`);
+  const yearAt = DOC_YEAR.exec(text);
+  const exists = DOC_EXISTS.exec(text);
+  const count = DOC_COUNT.exec(text) ?? DOC_LIST.exec(text) ?? (yearAt ? exists : null);
   if (!count) return undefined;
-  let rest = q.slice(0, count.index) + " " + q.slice(count.index + count[0].length);
+  let rest = text.slice(0, count.index) + " " + text.slice(count.index + count[0].length);
   const y = DOC_YEAR.exec(rest);
   const year = y ? Number(y[1]) : undefined;
   if (y) rest = rest.slice(0, y.index) + " " + rest.slice(y.index + y[0].length);
+  const h = year !== undefined ? DOC_HALF.exec(rest) : null;
+  if (h) rest = rest.slice(0, h.index) + " " + rest.slice(h.index + h[0].length);
   // 「작성된」, 「발생한」은 해와 함께일 때만 받는다(해 없이 「작성된 문서」는 다른 조건일 수 있다).
   const fillerOk = (w: string) => DOC_COUNT_FILLER.has(w) && (year !== undefined || !/^(?:작성|발생|나온|등록)/.test(w));
   let entity: string | undefined;
@@ -542,9 +602,16 @@ export function documentCountRequest(q: string): DocCountRequest | undefined {
     entity = CANONICAL_OF.get(e.name) ?? e.name;
     rest = rest.split(e.name).join(" ");
   }
-  const kind = DOC_KINDS.find((k) => k.re.test(rest));
+  let kind = DOC_KINDS.find((k) => k.re.test(rest));
+  let incident = false;
+  if (kind) rest = rest.replace(kind.re, " ");
+  else if (year !== undefined && /장애/.test(rest)) {
+    // 이 데이터에서 날짜로 셀 수 있는 장애 기록은 장애 보고서다. 지원 티켓은 답이 따로라고 밝힌다.
+    kind = DOC_KINDS[0];
+    incident = true;
+    rest = rest.replace(/장애/, " ");
+  }
   if (!kind) return undefined;
-  rest = rest.replace(kind.re, " ");
   const left = rest.split(/[\s?？!.,~]+/).filter(Boolean);
   if (!left.every(fillerOk)) return undefined;
   return {
@@ -553,7 +620,31 @@ export function documentCountRequest(q: string): DocCountRequest | undefined {
     ...(kind.tag ? { tag: kind.tag } : {}),
     ...(kind.words ? { words: kind.words } : {}),
     ...(year !== undefined ? { year } : {}),
+    ...(h ? { half: h[1] === "상" ? (1 as const) : (2 as const) } : {}),
+    ...(count === exists && !DOC_COUNT.test(text) && !DOC_LIST.test(text) ? { exists: true as const } : {}),
+    ...(incident ? { incident: true as const } : {}),
   };
+}
+
+// ── 제품 상태 열에 없는 상태 ────────────────────────────────────────────
+//
+// 「단종된 제품 있어?」는 정형 신호가 없어 시맨틱 폴백이 그래프로 보냈고 그래프의 못 찾음 게이트가 「주어진 정보로는 알 수 없습니다」라고 답했다
+// (랜덤 테스트 사전 점검 6차 P9, 3/3). 제품 상태는 active, beta 뿐이라 「없습니다」가 답이다. 정형 레인으로 보내고 생성 모델 대신 제품 상태별 개수를
+// 결정론으로 읽어 답한다(pipeline.ts productStateAnswer). 부정한 꼴(「판매 중지되지 않은 제품」)은 종전 길이다.
+const PRODUCT_STATE_WORD = /단종|판매\s*(?:중지|중단|종료)|생산\s*(?:중지|중단|종료)|출시\s*중단|품절/;
+const PRODUCT_WORD = /제품|상품|프로덕트|product/i;
+const STATE_NEGATED = /지\s*않|않은|아닌|안\s*(?:된|한)|없는|제외|빼고|말고|이외|외의/;
+
+export interface ProductStateRequest {
+  /** 질문이 말한 상태 낱말(「단종」, 「판매 중지」). */
+  word: string;
+}
+
+/** 제품 상태 열에 없는 상태를 묻는 질문이면 그 낱말. 아니면 undefined. */
+export function productStateRequest(q: string): ProductStateRequest | undefined {
+  const m = PRODUCT_STATE_WORD.exec(q);
+  if (!m || !PRODUCT_WORD.test(q) || STATE_NEGATED.test(q.slice(m.index))) return undefined;
+  return { word: m[0].replace(/\s+/g, " ") };
 }
 
 // ── 두 개체의 관계 질문 ──────────────────────────────────────────────
@@ -727,6 +818,8 @@ function typesAfterSeedName(q: string, seedType: string): Set<string> {
 
 /** 직원의 상사(소속 부서의 부서장)를 묻는 말. */
 const BOSS = /상사(?=[은는이가을를의도]|\s|[?？.!]|$)/;
+/** 시드와 함께 나오는 같은 타입의 다른 개체를 묻는 말(「함께 쓰는 다른 제품」, 「같이 쓰는 제품」). */
+const CO_OCCUR = /함께|같이|다른|그\s*밖의|외에/;
 
 /** 탐색 계획을 시드 개체의 타입에 맞춘다.
  *
@@ -788,6 +881,17 @@ export function fitPlanToSeed(relTypes: string[], seedType: string, query: strin
       return { hops: [[lead[0]], ...toBoss], fitted: `상사: ${lead[0]} 다음 BELONGS_TO 다음 HEAD_IS` };
     }
   }
+  // 「Product-S1을 쓰는 고객사들이 함께 쓰는 다른 제품은?」은 시드와 같은 타입(제품)을 묻는다. 그 관계로 갔다가 같은 관계로 돌아와 다른 개체에
+  // 닿는다(시드 자신의 엣지는 둘째 홉에서 빠진다). 한 홉에서 멈춰 고객사 여섯 곳만 펼치고 「알 수 없습니다」였다(랜덤 테스트 사전 점검 6차 P14 ②).
+  if (
+    rels.length === 1 &&
+    !otherSeedTypes.length &&
+    CO_OCCUR.test(query) &&
+    askedType(query, "") === seedType &&
+    across(rels[0], seedType).some((m) => m !== seedType)
+  ) {
+    return { hops: [[rels[0]], [rels[0]]], fitted: `함께: ${rels[0]} 로 갔다가 같은 엣지로 다른 ${seedType}` };
+  }
   const asked = askedType(query, seedType);
 
   const touching = rels.filter((r) => across(r, seedType).length);
@@ -795,7 +899,13 @@ export function fitPlanToSeed(relTypes: string[], seedType: string, query: strin
     for (const first of touching) {
       const mids = across(first, seedType);
       const second = rels.find((r) => !touching.includes(r) && mids.some((m) => across(r, m).length));
-      if (second) return { hops: [[first], [second]], fitted: `${first} 다음 ${second}` };
+      if (!second) continue;
+      // 셋째 관계가 둘째 홉의 끝에서 이어지면 세 홉으로 탄다(「영업팀장이 맡은 고객사들이 쓰는 제품은?」: 부서 → 부서장 → 담당 고객사 → 제품).
+      // 두 홉에서 멈춰 담당 고객사까지만 펼치고 「알 수 없습니다」였다(랜덤 테스트 사전 점검 6차 P14 ②).
+      const far = mids.flatMap((m) => across(second, m));
+      const third = rels.find((r) => r !== first && r !== second && far.some((f) => across(r, f).some((t) => !asked || t === asked)));
+      if (third) return { hops: [[first], [second], [third]], fitted: `${first} 다음 ${second} 다음 ${third}` };
+      return { hops: [[first], [second]], fitted: `${first} 다음 ${second}` };
     }
     if (rels.length === 1 && asked) {
       const reached = across(rels[0], seedType);

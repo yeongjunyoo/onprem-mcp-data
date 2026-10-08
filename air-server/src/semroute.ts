@@ -36,6 +36,7 @@ import {
   tableOnlyNoun,
   documentCountRequest,
   pairRelationRequest,
+  productStateRequest,
   LANES,
   SQL_TOOL,
   VECTOR_TOOL,
@@ -193,6 +194,19 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   if (docCount) {
     const what = `${docCount.entity ? `${docCount.entity} ` : ""}${docCount.kind}`;
     return { ...d, route: "semantic", tools: [VECTOR_TOOL], graphPlan: undefined, rationale: `document count (${what}) -> count document titles`, docCount };
+  }
+  // 제품 상태 열에 없는 상태(「단종된 제품 있어?」)는 정형 레인에서 제품 상태별 개수로 답한다(router.ts productStateRequest, pipeline.ts
+  // productStateAnswer). 시맨틱 폴백이 그래프로 보내 「알 수 없습니다」였다(랜덤 테스트 사전 점검 6차 P9). 제품 표는 Company-X 의 것이다.
+  const productState = profile().name === "companyx" ? productStateRequest(query.trim()) : undefined;
+  if (productState) {
+    return {
+      ...d,
+      route: "structured",
+      tools: [SQL_TOOL],
+      graphPlan: undefined,
+      rationale: `product state (${productState.word}) -> products.status values`,
+      productState,
+    };
   }
   // 두 개체의 관계를 묻는 질문은 두 개체 사이의 직접 엣지로 답한다(router.ts pairRelationRequest, pipeline.ts pairAnswer).
   const pair = pairRelationRequest(query.trim());

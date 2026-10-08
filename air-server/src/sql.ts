@@ -183,7 +183,39 @@ async function hasRoRole(client: PoolClient): Promise<boolean> {
 /** 문장 하나의 실행 상한(ms). 커서로 읽을 때는 나머지 행을 세는 MOVE 까지 이 안에서 끝낸다. */
 const STATEMENT_TIMEOUT_MS = 8_000;
 
-type Read = { rows: Record<string, unknown>[]; rowCount: number | null; fields?: { name: string }[] };
+type Read = { rows: (Record<string, unknown> | unknown[])[]; rowCount: number | null; fields?: { name: string }[] };
+
+/** 같은 이름의 열이 있으면 행을 열 자리 배열(rowMode 'array')로 다시 받는다. 이름을 키로 받으면 같은 이름의 열(e.name, d.name)은 뒤 열이 앞 열을 덮어
+ * 하나만 남았다. 이름이 겹치지 않는 결과는 종전처럼 이름 키로 한 번만 받는다(같은 문장을 다시 실행하지 않는다). */
+const ARRAY_ROWS = { rowMode: "array" } as const;
+const repeatedNames = (fields: { name: string }[] | undefined) => new Set(fields?.map((f) => f.name)).size !== (fields?.length ?? 0);
+
+/** 열 이름. 같은 이름이 다시 나오면 뒤 번호를 붙인다(name, name_2). 그 이름이 이미 다른 열 이름이면 다음 번호. 겹치지 않으면 그대로다. */
+export function distinctColumnNames(names: readonly string[]): string[] {
+  const taken = new Set(names);
+  const seen = new Map<string, number>();
+  return names.map((n) => {
+    const k = seen.get(n);
+    if (k === undefined) {
+      seen.set(n, 1);
+      return n;
+    }
+    let next = k + 1;
+    while (taken.has(`${n}_${next}`)) next++;
+    seen.set(n, next);
+    taken.add(`${n}_${next}`);
+    return `${n}_${next}`;
+  });
+}
+
+/** 배열 행을 열 이름 키의 객체로. 겹치지 않는 열은 종전(이름 키 행)과 같은 키 순서, 같은 값이다. 「SELECT e.name, d.name …」은 종전에 columns 가
+ * [name, name] 인데 행에는 부서 이름 하나만 남았다(랜덤 테스트 사전 점검 6차 P8, XC01, NT04 3/3). */
+function keyedRows(res: Read): { rows: Record<string, unknown>[]; columns: string[] } {
+  const raw = res.fields?.map((f) => f.name) ?? [];
+  const columns = distinctColumnNames(raw);
+  const rows = res.rows.map((r) => (Array.isArray(r) ? Object.fromEntries(columns.map((c, i) => [c, r[i]])) : r));
+  return { rows, columns };
+}
 
 /** 서버 쪽 커서로 MAX_ROWS + 1 행까지만 받는다(⑨). 종전에는 결과를 전부 받은 뒤 200행으로 잘랐다.
  *
@@ -201,9 +233,15 @@ async function readCapped(client: PoolClient, text: string): Promise<Read> {
     // 커서가 받지 않는 문장이다(TC-080 의 데이터를 바꾸는 CTE, SELECT INTO, 문법 오류 등). 종전처럼 한 번에 실행해
     // 결과와 오류 문장이 종전과 같게 한다.
     await client.query("ROLLBACK TO SAVEPOINT mcp_read");
-    return client.query(text);
+    const once: Read = await client.query(text);
+    return repeatedNames(once.fields) ? client.query({ text, ...ARRAY_ROWS }) : once;
   }
-  const head = await client.query(`FETCH ${MAX_ROWS + 1} FROM mcp_rows`);
+  let head: Read = await client.query(`FETCH ${MAX_ROWS + 1} FROM mcp_rows`);
+  if (repeatedNames(head.fields)) {
+    await client.query("CLOSE mcp_rows");
+    await client.query(`DECLARE mcp_rows NO SCROLL CURSOR FOR ${text}`);
+    head = await client.query({ text: `FETCH ${MAX_ROWS + 1} FROM mcp_rows`, ...ARRAY_ROWS });
+  }
   let rowCount = head.rows.length;
   if (rowCount > MAX_ROWS) {
     await client.query(`SET LOCAL statement_timeout = ${Math.max(1, STATEMENT_TIMEOUT_MS - (Date.now() - t0))}`);
@@ -261,15 +299,16 @@ export async function sqlQuery(pool: Pool, sql: string, opts: SqlQueryOpts = {})
     // 가드(tokenizeSql)는 문자열을 이 설정으로 읽는다. 서버 기본값이 off 여도 가드와 데이터베이스가 같은 자리에서
     // 문자열을 끝내게 한다(`;` 가 문자열 안에 있다고 본 문장이 데이터베이스에서 두 문장으로 갈리지 않게).
     await client.query("SET LOCAL standard_conforming_strings = on");
-    const res: Read = opts.explain ? await client.query(`EXPLAIN ${text}`) : opts.cursor ? await readCapped(client, text) : await client.query(text);
+    let res: Read = opts.explain ? await client.query(`EXPLAIN ${text}`) : opts.cursor ? await readCapped(client, text) : await client.query(text);
+    if (!opts.explain && !opts.cursor && repeatedNames(res.fields)) res = await client.query({ text, ...ARRAY_ROWS });
     await client.query("ROLLBACK");
-    const all = res.rows;
+    const { rows: all, columns } = keyedRows(res);
     const truncated = all.length > MAX_ROWS;
     return {
       ok: true,
       rows: truncated ? all.slice(0, MAX_ROWS) : all,
       rowCount: res.rowCount ?? all.length,
-      columns: res.fields?.map((f) => f.name) ?? [],
+      columns,
       truncated,
     };
   } catch (err) {
