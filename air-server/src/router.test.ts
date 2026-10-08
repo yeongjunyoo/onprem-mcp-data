@@ -314,8 +314,9 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   eq(documentCountRequest("회의록 개수 알려줘"), { kind: "회의록", tag: "[회의록]" }, "개체 없이 종류만");
   eq(documentCountRequest("client_1 제안서는 몇 건?"), { entity: "Client-A", kind: "제안서", tag: "[제안서]" }, "별칭은 정본 이름으로 센다");
   eq(documentCountRequest("설치 가이드 몇 개 있어?"), { kind: "설치 가이드", words: "설치 가이드" }, "제목 말로 고르는 종류");
+  // 해는 제목의 날짜로 거른다(랜덤 테스트 사전 점검 5차 P5: 해가 붙으면 정형으로 가 티켓 70건을 셌다).
+  eq(documentCountRequest("2025년 장애 보고서는 몇 건이야?"), { kind: "장애 보고서", tag: "[장애보고]", year: 2025 }, "해");
   for (const q of [
-    "2025년 장애 보고서는 몇 건이야?", // 연도
     "SSL 관련 장애 보고서는 몇 건이야?", // 주제
     "김준혁이 참석한 회의록은 몇 건이야?", // 사람(제목에 없다)
     "Client-A 데이터 이전 관련 문서는 몇 개야?", // 프로젝트
