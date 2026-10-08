@@ -327,7 +327,9 @@ export async function graphLane(
   let tied: GraphLaneResult["tied"];
   let grouped: GraphLaneResult["grouped"];
   let filtered: GraphLaneResult["filtered"];
-  const needScan = Boolean(p && p.relTypes.length && (p.aggregate || p.filter || expandFrom.length === 0));
+  // 묶어 세는 계획(「직원별 담당 고객사 수」)은 관계 전체를 센다. 시드가 범위를 좁히면(「영업팀 직원별 …」) 전체 순위는 답이 아니라 시드의 경로만 싣는다.
+  const groupedScan = Boolean(p?.group) && expandFrom.length === 0;
+  const needScan = Boolean(p && p.relTypes.length && ((p.aggregate && (!p.group || groupedScan)) || p.filter || expandFrom.length === 0));
   if (needScan) {
     const scan = await relationScan(
       pool,

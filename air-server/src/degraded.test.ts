@@ -3848,6 +3848,22 @@ const deadEmbedder: Embedder = {
     `CJ04 (got ${JSON.stringify(cj04.answer)})`,
   );
   ok(cj04.not_found === undefined && cj04.graph?.strategy === "relation-scan" && cj04.graph.grouped?.edges === 15, "못 찾음 게이트가 아니라 관계 스캔");
+  // 시드가 범위를 좁히면(「영업팀 직원별 …」) 관계 전체의 순위를 싣지 않고 시드의 경로만 탄다(묶음 답도 쓰지 않는다).
+  let scans = 0;
+  const seededPool = {
+    query: async (sql: string) => {
+      if (/information_schema\.columns/.test(sql)) return { rows: [{ ok: 1 }], rowCount: 1 };
+      if (/unnest\(\$1::text\[\], \$4::text\[\]\)/.test(sql)) {
+        return { rows: [{ id: 7, type: "department", canonical_name: "영업팀", properties: null, via: "canonical", matched: "영업팀", score: 4 }], rowCount: 1 };
+      }
+      if (/WHERE r\.rel_type = ANY\(\$1::text\[\]\)/.test(sql)) return ((scans++), { rows: [], rowCount: 0 });
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  const seededQ = "영업팀 직원별 담당 고객사 수는?";
+  const seededPlan = R.buildGraphPlan(seededQ, ["MANAGES_ACCOUNT"], false);
+  const seededG = await P.graphLane(seededPool, seededQ, 5, 2, "companyx", seededPlan);
+  ok(seededPlan.group === true && seededG.strategy === "seeded" && seededG.grouped === undefined && scans === 0, `시드가 있으면 묶음 스캔을 하지 않는다 (got ${seededG.strategy} ${scans} ${JSON.stringify(seededPlan)})`);
 
   // P14 ①: 7B 가 경로 끝 이름 가운데 일부만 적었으면 모두 적는 결정론 문장. 이름을 모두 적었거나 하나도 적지 않은(모른다는 말이 아닌) 답은 그대로.
   const pe = (srcId: number, srcName: string, srcType: string, relType: string, dstId: number, dstName: string, dstType: string, depth: number) =>
