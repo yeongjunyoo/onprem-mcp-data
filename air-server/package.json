@@ -80,7 +80,7 @@
     "warmup": "node node_modules/typescript/bin/tsc && node dist/cli/warmup.js"
   },
   "dependencies": {
-    "@airmcp-dev/core": "^0.3.0",
+    "@airmcp-dev/core": "^0.5.2",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "pg": "^8.23.1"
   },
