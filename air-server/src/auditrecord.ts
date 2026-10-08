@@ -95,7 +95,7 @@ export interface AuditRecord {
     checked: boolean;
     answer_chars: number;
     outside_context: string[];
-    fixed?: { removed: string[]; flagged: string[]; value?: { from: string; to: string } };
+    fixed?: { removed: string[]; flagged: string[]; value?: { from: string; to: string }; labels?: { from: string; to: string }[] };
   };
   /** 미해소 개체 게이트가 발동했을 때만. 왜 못 찾았는지. */
   not_found?: NotFound;
@@ -117,12 +117,22 @@ function fingerprint(parts: unknown): string {
   return h.toString(16).padStart(8, "0");
 }
 
-/** 답변이 컨텍스트 밖 고유명사를 만들었는지. 대문자 시작 식별자와 한글 고유명 후보만 본다. */
+/** 답변이 컨텍스트 밖 고유명사를 만들었는지. 대문자 시작 식별자와 한글 고유명 후보만 본다.
+ *
+ * 식별자는 대소문자와 구분 기호(하이픈, 슬래시, 공백, 밑줄, 점)를 가리지 않고 찾는다. 질문의 「client-a」나 SQL 의 ILIKE 'client-a' 를
+ * 답이 「Client-A」로, 문서의 「SHA256」, 「Ubuntu 22.04」, 「CI/CD」를 「SHA-256」, 「Ubuntu-22.04」, 「CI-CD」로 적은 것을 근거
+ * 밖이라고 했다(규칙 오탐 검토 2026-10-08). 앞뒤가 다른 영문자나 숫자와 붙어 있으면(「Client-AB」 안의 「Client-A」) 같은 것으로
+ * 보지 않는다. */
 export function outsideContextMentions(answer: string, context: string): string[] {
   const candidates = new Set<string>();
   for (const m of answer.match(/[A-Z][A-Za-z]*-[A-Z0-9]+/g) ?? []) candidates.add(m); // Client-A, Product-C1
   for (const m of answer.match(/[가-힣]{2,4}(?=\s*(씨|님|과장|대리|부장|팀장))/g) ?? []) candidates.add(m);
-  return [...candidates].filter((c) => !context.includes(c));
+  const inContext = (c: string) => {
+    if (!/^[A-Za-z]/.test(c)) return context.includes(c);
+    const parts = c.split(/[-_/\s.]+/).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    return new RegExp(`(?<![A-Za-z0-9])${parts.join("[-_/\\s.]*")}(?![A-Za-z0-9])`, "i").test(context);
+  };
+  return [...candidates].filter((c) => !inContext(c));
 }
 
 /**

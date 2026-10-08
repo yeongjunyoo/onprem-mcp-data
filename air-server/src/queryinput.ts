@@ -41,6 +41,18 @@ export function isBlankQuery(q: string): boolean {
   return q.replace(INVISIBLE, "").trim().length === 0;
 }
 
+/** 도구가 받은 질문을 사전, 기간 검사, 금액 해석이 기대하는 꼴로: 유니코드 NFC, 전각 ASCII(！~～)와 전각 공백을 반각으로, 폭 없는
+ * 문자 제거. NFD 로 풀어 쓴 「영업팀 직원은 몇 명이야?」에 「안진우」, 전각 「２０２５년 매출 합계는?」에 3분기 값을 답했고, 사이에 폭 없는
+ * 공백이 든 「Client-​A」는 찾지 못했다(랜덤 테스트 사전 점검 4차 P15). NFKC 는 자모 나열(「ㅁㄴㅇㄹ」)의 호환 자모까지 바꾸므로
+ * 쓰지 않는다. 이미 NFC 반각인 질문은 그대로다. */
+export function normalizeQuery(q: string): string {
+  return q
+    .normalize("NFC")
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, " ")
+    .replace(/[​-‍⁠﻿]/g, "");
+}
+
 /** 질문과 SQL 인자의 상한(문자열 길이). air sanitizer 의 기본 상한과 같은 값이다. 종전에는 sanitizer 가 넘는 부분을 말없이 잘라
  * 다른 질의를 실행했다: 11,963자 SELECT 는 사실과 다른 문법 오류, 공백을 채운 10,101자 SELECT 는 앞 10,000자만 실행해 다른 값
  * (랜덤 테스트 사전 점검 3차 G20, G24, 3/3). 이제 넘으면 입력 검증에서 거절하고 sanitizer 는 자르지 않는다(server.ts). */

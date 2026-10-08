@@ -263,15 +263,19 @@ const AGG_SIDE: Record<string, "source" | "target"> = {
 
 /** Node-property filters expressible in the question (sponsor status vocabulary). */
 const PROPERTY_FILTERS: [RegExp, { side: "source" | "target"; key: string; value: string }][] = [
-  [/진행\s*중|진행중/, { side: "target", key: "status", value: "in_progress" }],
+  // 「진행 중단된」은 진행 중이 아니다(규칙 오탐 검토 2026-10-08: 진행 중 11명을 답했다). 진행 중단과 보류는 데이터의 보류(on_hold)로
+  // 읽고 답 문장이 「상태가 보류(on_hold)인」으로 그 해석을 밝힌다. 「서비스 중단」 같은 중단만으로는 거르지 않는다(장애 질문의 낱말).
+  [/진행\s*중(?!단)|진행중(?!단)/, { side: "target", key: "status", value: "in_progress" }],
   [/완료(된|한)?/, { side: "target", key: "status", value: "completed" }],
   [/계획\s*(중|단계)/, { side: "target", key: "status", value: "planning" }],
+  [/보류|진행\s*중단/, { side: "target", key: "status", value: "on_hold" }],
 ];
 
 /** 상태 낱말 뒤 같은 마디에 오면 그 상태로 거르라는 말이 아닌 것: 「계획 중인 것도 빼지 마」, 「완료된 건 빼고」,
- * 「진행 중이 아닌」, 「완료된 것까지 포함해서」. 조건은 시드의 엣지에도 걸리므로(pipeline.ts graphLane) 이런 말을
- * 조건으로 읽으면 묻지 않은 상태만 남거나 반대로 거른다. 그때는 거르지 않는다. */
-const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함)/;
+ * 「진행 중이 아닌」, 「완료된 것까지 포함해서」, 「완료되지 않은」, 「완료 안 된」, 「이끌고 있지 않은」, 「완료된 적 없는」.
+ * 조건은 시드의 엣지에도 걸리므로(pipeline.ts graphLane) 이런 말을 조건으로 읽으면 묻지 않은 상태만 남거나 반대로 거른다
+ * (규칙 오탐 검토 2026-10-08: 「완료되지 않은 프로젝트를 이끄는 직원 목록」에 완료 6명을 답했다). 그때는 거르지 않는다. */
+const NOT_A_RESTRICTION = /^[^.?!,]*?(빼|제외|말고|아닌|포함|않|안\s*된|안된|없|예정)/;
 
 export function buildGraphPlan(q: string, relTypes: string[], superlative: boolean): GraphPlan {
   const plan: GraphPlan = { relTypes: relTypes.filter((r) => r !== "RELATED_TO") };
@@ -531,8 +535,10 @@ export function documentCountRequest(q: string): DocCountRequest | undefined {
 // 「Client-Q와 조현우는 무슨 관계야?」는 컨텍스트 첫 줄이 「조현우의 담당 고객사: Client-Q」인데 7B 가 「관계 없습니다」라고
 // 답했고, 「Client-D와 Product-D3는 어떤 관계야?」는 hybrid 로 가 「알 수 없습니다」였다(랜덤 테스트 사전 점검 3차 Q8). 두 이름이
 // 모두 개체면 두 개체 사이의 직접 엣지가 답이라 결정론으로 찾는다(pipeline.ts pairAnswer).
+// 「어떤 사이야」, 「의 관계는」, 「관계가 있어」, 「사이에 무슨 연결이 있어」도 같은 질문이다. 「Client-D와 Product-D3는 어떤 사이야?」는
+// 일반 그래프 길로 가 7B 가 「사용 중인 관계」라고 지어 답했다(둘 사이는 이슈 제기 하나, 랜덤 테스트 사전 점검 4차 P8).
 const PAIR_RELATION =
-  /^\s*(.+?)\s*(?:와|과|하고|이랑|랑)\s+(.+?)\s*(은|는|이|가)?\s*(?:서로\s*)?(?:무슨|어떤|어떠한)\s*관계(?:야|예요|에요|이에요|이야|인가요|인가|입니까|일까|인지\s*알려\s*줘|가\s*있(?:어|어요|나요|니|습니까)|가\s*뭐야)?\s*[?？.!~]*\s*$/;
+  /^\s*(.+?)\s*(?:와|과|하고|이랑|랑)\s+(.+?)\s*(은|는|이|가)?\s*(?:(?:서로\s*)?(?:무슨|어떤|어떠한)\s*(?:관계|사이)(?:야|예요|에요|이에요|이야|인가요|인가|입니까|일까|인지\s*알려\s*줘|가\s*있(?:어|어요|나요|니|습니까)|가\s*뭐야)?|의\s*관계(?:는|가)?(?:\s*(?:뭐야|어때|어떻게\s*돼))?|관계가\s*있(?:어|어요|나요|니|습니까|을까)|사이에\s*(?:무슨|어떤)\s*(?:연결|관계)(?:이|가)?\s*있(?:어|어요|나요|니|습니까))\s*[?？.!~]*\s*$/;
 
 /** 사전의 이름이면 그 개체의 정본 이름. 공백, 하이픈, 대소문자만 다른 표기도 한 개체만 가리키면 받는다. */
 function canonicalName(text: string): string | undefined {
@@ -557,20 +563,44 @@ export function pairRelationRequest(q: string): { a: string; b: string } | undef
 // 서버는 호출마다 상태가 없다(Inspector 는 호출마다 서버를 새로 띄운다). 「그럼 2위는?」은 시맨틱 폴백이 문서 레인으로 보내 7B 가
 // 「Client-K」라고 답했고, 「위에서 말한 거 다시 말해줘」에는 아무 장애 서술이 나왔다(랜덤 테스트 사전 점검 3차 Q9). 앞 대화를 가리키는
 // 말만 있고 대상(개체, 기간, 표 낱말)이 없으면 조회하지 않고 다시 물어 달라고 답한다(pipeline.ts BACK_REFERENCE_ANSWER).
+// 가리키는 말은 낱말 머리에서만 찾는다. 「순위에서」, 「직위의」, 「상위의」의 「위에서」, 「위의」는 가리키는 말이 아니다(규칙 오탐 검토
+// 2026-10-08: 「부장 직위의 인원은 몇 명이야?」, 「가격 순위에서 1위인 상품은?」을 다시 물어 달라고 답했다).
 const BACK_REFERENCE =
-  /^\s*(?:그럼|그러면|그렇다면|그래서)(?=[\s?？.,!]|$)|그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?![가-힣])|위에서|위의|아까|방금|앞에서|앞서|앞의|이전\s*(?:질문|답|대화)|전에\s*말한|다시\s*말해/g;
+  /^\s*(?:그럼|그러면|그렇다면|그래서)(?=[\s?？.,!]|$)|(?<![가-힣])(?:그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?=[은는이가을를의에도만과와랑들]|[\s?？.,!]|$)|위\s*(?:결과|표|내용|목록|답)|위에서|위의|아까|방금|앞에서|앞서|앞의|이전\s*(?:질문|답|대화)|전에\s*말한|다시\s*말해)/g;
+/** 앞에서 말한 특정 대상을 가리키는 말(「그 고객사」, 「그거」, 「그중」, 「위 결과」). 이 말이 있으면 표 낱말과 기간 말이 있어도 대상이
+ * 정해지지 않는다: 「그 고객사 매출은 얼마야?」에 생성 SQL 이 Client-A 를 지어 10,707 을 답했다(랜덤 테스트 사전 점검 4차 P3, 6회 중 3회).
+ * 사전의 개체 이름이나 영문 식별자가 함께 있을 때만 대상이 있다. */
+const DEMONSTRATIVE =
+  /(?<![가-힣])(?:그거|그것|그건|그게|그걸|그중|그\s+중|그\s+(?:고객사|고객|회사|제품|직원|사람|분|프로젝트|부서|팀|문서|장애|계약|건)(?=[은는이가을를의에도만과와랑들]|[\s?？.,!]|$)|위\s*(?:결과|표|내용|목록|답))/;
+/** 순위만 묻는 질문(「2위는?」, 「3위는 누구야?」, 「두 번째는?」). 무엇의 순위인지가 앞 대화에 있다(4차 P3: 「2위는?」에 「Client-I」). */
+const RANK_ONLY = /^\s*(?:\d+\s*(?:위|등)|(?:첫|두|세|네|다섯)\s*번째)(?:은|는|이|가)?\s*(?:누구\S*|뭐\S*|어디\S*)?\s*[?？.!]?\s*$/;
+/** 가리키는 말을 뺀 나머지가 이것뿐이면 대상이 없는 질문이다: 순위(2위, 두 번째, 다음), 되묻는 말(말한 거 다시 말해줘), 묻는 말
+ * (누구야, 뭐야, 얼마야), 대상이 있어야 뜻이 서는 말(담당자, 이름, 내용). 그 밖의 낱말이 하나라도 있으면 그 낱말이 대상일 수 있어
+ * 막지 않는다(「그럼 평균 급여는 얼마야?」, 「그러면 백업 정책은 어떻게 되어 있어?」, 「그럼 영업 담당자는 누구야?」). */
+const BACK_FILLER =
+  /^(?:\d+(?:위|등|번째|번)?|(?:첫|두|세|네|다섯|여섯|일곱|여덟|아홉|열)(?:번째|째)?|번째|다음|그다음|나머지|하나|둘|셋|말(?:한|했\S*|해\S*|하\S*)?|다시|한번|한|번|더|좀|자세히|계속|이어서|얘기\S*|이야기\S*|설명\S*|알려\S*|보여\S*|해줘|해주세요|해봐|해줄래|줘|주세요|누구\S*|뭐\S*|무엇\S*|어디\S*|언제\S*|얼마\S*|몇|어떻게|어때\S*|왜|거|것|걸|건|게|거야|담당자|이름|내용|결과|답|목록|쪽|분|사람|있어\S*|있나\S*|없어\S*|되어|돼|됐어\S*|였어\S*|였지\S*|이야|야|요)$/;
+/** 낱말 끝의 조사. 떼고 나서 BACK_FILLER 와 대조한다(「2위는」 → 「2위」, 「담당자는」 → 「담당자」). */
+const BACK_PARTICLE = /(?:은|는|이|가|을|를|의|에서|에|도|만|이야|야|요)$/;
 const PERIOD_WORD =
   /\d{4}|\d+\s*(?:분기|월|일|년)|상반기|하반기|작년|올해|금년|지난해|재작년|내년|이번\s*(?:달|주|분기|해)|지난\s*(?:달|주|분기)|최근|요즘|오늘|어제|내일/;
 const TABLE_WORD = /매출|계약|프로젝트|티켓|이슈|제품|고객|직원|부서|문서|보고서|장애|회의|제안서|매뉴얼|가이드|연봉|금액|예산|팀/;
 
 /** 질문이 앞 대화를 가리키는 말(그럼, 그거, 그 고객사, 위에서, 아까, 방금, 앞에서 …)만 있고 대상이 없으면 그 말. 아니면 undefined.
- * 대상은 사전의 개체 이름, 영문 낱말(Client-ZZ, 표 이름), 기간 말, 표 낱말이다. 가리키는 말 자체(「그 고객사」)는 대상으로 세지 않는다. */
+ * 대상은 사전의 개체 이름과 영문 낱말(Client-ZZ, 표 이름)이다. 특정 대상을 가리키는 말(DEMONSTRATIVE)이 없으면 기간 말, 표 낱말,
+ * BACK_FILLER 밖의 모든 낱말도 대상으로 센다. 가리키는 말 자체(「그 고객사」)는 대상으로 세지 않는다. */
 export function backReferenceOnly(q: string): string | undefined {
+  const rank = RANK_ONLY.exec(q);
+  if (rank) return rank[0].trim();
   const marks = q.match(BACK_REFERENCE);
   if (!marks) return undefined;
   const rest = q.replace(BACK_REFERENCE, " ");
-  if (/[A-Za-z]/.test(rest) || PERIOD_WORD.test(rest) || TABLE_WORD.test(rest)) return undefined;
-  if (ENTITY_LEXICON.some((e) => rest.includes(e.name))) return undefined;
+  if (/[A-Za-z]/.test(rest) || ENTITY_LEXICON.some((e) => rest.includes(e.name))) return undefined;
+  const pointed = DEMONSTRATIVE.exec(q);
+  if (pointed) return marks[0].trim();
+  if (PERIOD_WORD.test(rest) || TABLE_WORD.test(rest)) return undefined;
+  const words = rest.split(/[^가-힣0-9]+/).filter(Boolean);
+  const filler = (w: string) => BACK_FILLER.test(w) || [w.replace(BACK_PARTICLE, "")].some((s) => s === "" || BACK_FILLER.test(s));
+  if (!words.every(filler)) return undefined;
   return marks[0].trim();
 }
 

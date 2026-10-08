@@ -125,7 +125,20 @@ const SEED_STOP = new Set([
   // 유형 낱말 단독(「Client A」의 「Client」)은 모든 고객사에 부분 일치해 시드가 다섯으로 퍼졌다(D4).
   "client", "clients", "product", "products", "customer", "customers", "employee", "employees",
   "project", "projects",
+  // 상태 낱말과 관계 동사의 어간. 「보류 중인 프로젝트를 맡은 직원은 누구야?」에 「개체(보류)를 찾지 못했습니다」, 「보류된 프로젝트를
+  // 이끄는 직원 목록」에 「개체(이끄)」라고 답했다(랜덤 테스트 사전 점검 4차 P2). 어느 개체 이름에도 없는 낱말이다.
+  "보류", "보류된", "완료", "완료된", "완료한", "계획", "계획된", "중단", "중단된", "취소", "취소된", "예정", "예정인", "활성", "비활성",
+  "이끄", "이끈", "이끌", "맡", "맡긴", "맡겨진", "주어진", "만들어진",
 ]);
+/** 구어 조사(「김준혁한테」, 「박소연이랑」, 「조현우하고」). 떼고 남은 이름이 사전에 있을 때만 뗀다(「무시하고」의 「무시」는 사전에
+ * 없어 그대로). 「개체(김준혁한테)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 4차 P7). */
+const COLLOQUIAL_PARTICLE = /(?:한테서|한테|이랑|랑|하고|께서|께|보다|처럼)$/;
+function withoutColloquialParticle(w: string): string {
+  const m = COLLOQUIAL_PARTICLE.exec(w);
+  if (!m) return w;
+  const base = w.slice(0, -m[0].length);
+  return base.length >= 2 && isEntityName(base) ? base : w;
+}
 /** 서수(「두번째」, 「셋째」). 조사를 뗀 뒤 대조한다. */
 const ORDINAL = /^(?:[첫두세네]|다섯|여섯|일곱|여덟|아홉|열|몇)?번째$|^(?:첫|둘|셋|넷)째$/;
 
@@ -181,10 +194,19 @@ function joinLooseNames(q: string): string {
   return out + q.slice(pos);
 }
 
+/** 「…지」 뒤에 「않」, 「못」, 「안」이 오면 부정의 동사(「완료되지 않은」, 「이끌지 않는」, 「맡지 못한」)라 이름이 아니다. 사전의 이름(「한은지」)은
+ * 그대로 둔다. 「완료되지 않은 프로젝트를 이끄는 직원 목록」에 「개체(완료되지)를 찾지 못했습니다」라고 답했다(4차 수정 실측 2026-10-08). */
+function negatedVerb(raw: string, after: string): boolean {
+  return /지$/.test(raw) && /^\s*(?:않|못|안\s)/.test(after) && !isEntityName(raw);
+}
+
 export function seedTerms(query: string): string[] {
   const out = new Set<string>();
-  for (const raw of joinSpacedIds(query).match(SEED_TOKEN) ?? []) {
-    const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
+  const text = joinSpacedIds(query);
+  for (const m of text.matchAll(SEED_TOKEN)) {
+    const raw = m[0];
+    if (negatedVerb(raw, text.slice(m.index! + raw.length))) continue;
+    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) continue;
     out.add(w);
   }
@@ -219,7 +241,8 @@ export function mentionTerms(query: string): string[] {
   const out = new Set<string>();
   toks.forEach((m, i) => {
     const raw = m[0];
-    const w = raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, "");
+    if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
+    const w = withoutColloquialParticle(raw.replace(/(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/, ""));
     if (w.length < 2 || SEED_STOP.has(w) || SEED_STOP.has(w.toLowerCase()) || ORDINAL.test(w)) return;
     if (entityLikeName(w) === null && !isEntityName(w)) {
       const prev = toks[i - 1];

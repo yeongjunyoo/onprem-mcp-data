@@ -88,7 +88,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 3,544 | `d66ef8c74aa018d2` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 3,544 | `d95902a86b069eaf` | 2026-09-30T00:00:00 |
 
 ## 재생성
 

@@ -37,6 +37,7 @@ export interface Nl2SqlReport {
 export const NO_TABLE = "NO_TABLE";
 
 import {
+  DOT_MONTH_RE,
   fitAnnotated,
   generate,
   questionForModel,
@@ -44,6 +45,7 @@ import {
   RELATIVE_YEAR_RE,
   replaceRelativeQuarters,
   seoulYear,
+  SHORT_YEAR_RE,
   THIS_YEAR_PART_RE,
 } from "./llm.js";
 import { isReadOnly, tokenizeSql } from "./sql.js";
@@ -66,8 +68,9 @@ function unwrap(raw: string): string {
 /** Strip code fences / prose and keep the first read-only SQL statement. */
 export function extractSql(raw: string): string | null {
   const s = unwrap(raw);
-  // take from the first SELECT/WITH to the first semicolon (or end)
-  const m = s.match(/\b(select|with)\b[\s\S]*?(?=;|$)/i);
+  // take from the first SELECT/WITH to the first semicolon (or end). 바로 앞의 여는 괄호도 문장이다: 두 끝 수리 안내대로 쓴
+  // `(SELECT … LIMIT 1) UNION ALL (SELECT … LIMIT 1)` 이 첫 괄호를 잃고 문법 오류로 실행되지 않았다(랜덤 테스트 4차 수정본 실측 I8b).
+  const m = s.match(/(?:\(\s*)*\b(select|with)\b[\s\S]*?(?=;|$)/i);
   if (!m) return null;
   const sql = m[0].trim();
   return isReadOnly(sql) ? sql : null;
@@ -561,12 +564,35 @@ export { seoulYear };
  * 「올해 상반기 매출 합계 알려줘」를 2023년으로 조회했다(랜덤 테스트 3차 A04, 3/3). 상대 분기(지난, 전, 직전, 이번 분기)는 서울 기준
  * 「2026년 3분기」 꼴로 바꾼다. 그대로 두면 「지난 분기 매출」을 카드의 분기 예시 '2025-Q3' 으로 조회했다(A03, 3/3). 질문이 연도를
  * 따로 말하면 상대 분기는 그대로 둔다(llm.ts replaceRelativeQuarters). 지난달은 그대로 둔다(CURRENT_DATE 로 맞게 쓴다). 이런
- * 낱말이 없는 질문은 받은 그대로 돌려준다. */
+ * 낱말이 없는 질문은 받은 그대로 돌려준다.
+ * 두 자리 연도와 점으로 쓴 연월도 네 자리 연도로 쓴다: 「24년 3월」 → 「2024년 3월」(뒤에 달, 분기, 반기가 올 때만), 「2024.3」 →
+ * 「2024년 3월」. 7B 는 「24년 3월 매출은 얼마야?」를 quarter = '2024-Q1' 로, 「2024.3 매출 합계」를 2024년 3분기로 조회했다(랜덤 테스트
+ * 사전 점검 4차 P1). 질문에 연도가 하나도 없으면 연도 없는 날짜(「3/15」, 「3월 15일」)에 서울 기준 올해를 붙인다. 붙이지 않으면
+ * 「3/15에 발생한 매출 있어?」를 sale_date = '2023-03-15' 로 조회했다(P14, 2026-03-15 에 1건이 있다). */
 export function absoluteYears(q: string, now: Date = new Date()): string {
   const year = seoulYear(now);
-  return replaceRelativeQuarters(q, now, (_w, quarter) => quarter)
+  const out = replaceRelativeQuarters(q, now, (_w, quarter) => quarter)
     .replace(RELATIVE_YEAR_RE, (_w, word: string) => `${year + RELATIVE_YEAR[word]}년도`)
-    .replace(THIS_YEAR_PART_RE, (_w, _word: string, part: string) => `${year}년 ${part}`);
+    .replace(THIS_YEAR_PART_RE, (_w, _word: string, part: string) => `${year}년 ${part}`)
+    .replace(SHORT_YEAR_RE, (_w, yy: string) => `20${yy}년`)
+    .replace(DOT_MONTH_RE, (_w, y: string, m: string) => `${y}년 ${Number(m)}월`);
+  return datesWithYear(out, year);
+}
+
+/** 질문 속 연도 표현(네 자리 연도, 날짜, 기간이 아닌 두 자리 연도, 상대 연도). 하나라도 있으면 연도 없는 날짜도 그 연도를 뜻할 수
+ * 있어 올해를 붙이지 않는다. */
+const ANY_YEAR =
+  /\d{4}\s*년|\d{4}-\d{1,2}|(?<![\d.])\d{2}\s*년(?!\s*(?:이상|이하|미만|초과|넘|동안|간|째|차|근속|근무))|재작년|작년|지난해|내년|올해|금년/;
+/** 「3월 15일」. */
+const KO_DATE = /(?<!\d)(1[0-2]|[1-9])\s*월\s*(3[01]|[12]\d|[1-9])\s*일/g;
+/** 「3/15」: 달/날. 분수(「1/2 이상」, 「1/4분기」)는 날짜가 아니다. */
+const SLASH_DATE = /(?<![\d/.\-])(1[0-2]|0?[1-9])\/(3[01]|[12]\d|0?[1-9])(?![\d/.%])(?!\s*(?:분기|분의|이상|이하|초과|미만|만큼|정도|수준|배|씩))/g;
+
+function datesWithYear(q: string, year: number): string {
+  if (ANY_YEAR.test(q)) return q;
+  const day = (_w: string, m: string, d: string) => `${year}년 ${Number(m)}월 ${Number(d)}일`;
+  const out = q.replace(KO_DATE, day);
+  return /비율|비중|퍼센트|%|％|분의/.test(q) ? out : out.replace(SLASH_DATE, day);
 }
 
 /** Company-X NL2SQL(생성과 수리) 프롬프트의 질문 줄. 상대 연도를 연도로 바꾸고(absoluteYears, 감사 레코드의 query 는 원문
