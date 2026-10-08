@@ -577,6 +577,48 @@ function withSqlRows(r: RetrieveResult, text: string): string {
   return block ? `${text.trimEnd()}\n\n${block}` : text;
 }
 
+/** 묶음마다 1위를 결정론으로 바꾼 SQL 의 둘째 행부터 붙이는 머리. SQL 은 첫 행에만 싣는다. */
+export const GROUP_TOP_NEXT_ROW = "[SQL 결과] (위와 같은 조회의 다음 행)";
+/** 묶음 열 이름의 우리말(sqltrust.ts groupTopRewrite 가 묶음 열에 붙이는 이름). 질문에 「…별」이 없을 때 답 머리에 쓴다. */
+const GROUP_WORD: Readonly<Record<string, string>> = {
+  region: "지역", department: "부서", position: "직급", industry: "업종", quarter: "분기", category: "카테고리",
+  contract_type: "유형", company_size: "규모", priority: "우선순위",
+};
+
+/** 묶음마다 1위를 결정론으로 바꾼 SQL(sqltrust.ts groupTopRewrite, sql_gate.rewritten = group-top)의 답. 묶음마다 1위 행을 모두 적는다. 7B 를
+ * 부르지 않는다.
+ *
+ * 「지역별로 매출이 가장 높은 고객사는?」에 7B 가 여덟 줄 가운데 「2. 광주: Client-W (36,760)」을 행 값(3676)의 열 배로 적었고, 「업종별로 매출이
+ * 가장 높은 고객사는?」은 예산이 열 행 가운데 아홉만 넘겨 아홉 업종만 적었다(5차 수정 통합 빌드 실측). 이 SQL 은 생성 모델이 아니라 결정론으로 만든
+ * 것이라 묶음 열(PARTITION BY 의 열)과 행의 꼴이 정해져 있고, 그 길의 컨텍스트는 SQL 을 첫 행에만 실어 묶음 행이 예산 안에 든다. 컨텍스트에 남은
+ * 행만 적고 예산에 잘린 행은 수만 적는다. 시험항목은 이 길을 타지 않는다(SQL 이 처음부터 맞으면 바꾸지 않는다). */
+export function groupTopAnswer(r: RetrieveResult, query: string): string | undefined {
+  const res = r.sql.result;
+  if (r.sql.gate?.rewritten !== "group-top" || !res?.ok || !res.rows.length || !r.sql.text) return undefined;
+  const part = /\bPARTITION\s+BY\s+([A-Za-z_][\w.]*)\s+ORDER\s+BY\b/i.exec(r.sql.text)?.[1];
+  if (!part) return undefined;
+  const alias = new RegExp(`${escapeRe(part)}\\s+AS\\s+([A-Za-z_]\\w*)`, "i").exec(r.sql.text)?.[1];
+  const keys = Object.keys(res.rows[0]);
+  const want = (alias ?? part.split(".").pop()!).toLowerCase();
+  const groupCol = keys.find((k) => k.toLowerCase() === want);
+  if (!groupCol) return undefined;
+  const kept = new Set(r.curated.kept.filter((it) => it.source.startsWith("sql#")).map((it) => Number(it.source.slice(4))));
+  const rows = res.rows.filter((_, i) => kept.has(i));
+  if (!rows.length) return undefined;
+  const numeric = keys.filter((k) => k !== groupCol && res.rows.some((row) => sqlNumber(row[k]) !== undefined) && res.rows.every((row) => row[k] === null || sqlNumber(row[k]) !== undefined));
+  const names = keys.filter((k) => k !== groupCol && !numeric.includes(k));
+  const word = /([가-힣]+)\s*별/.exec(query)?.[1] ?? GROUP_WORD[groupCol.toLowerCase()] ?? groupCol;
+  const groups = new Set(res.rows.map((row) => renderValue(row[groupCol]))).size;
+  const lines = rows.map((row) => {
+    const who = names.map((k) => renderValue(row[k])).join(" ");
+    const vals = numeric.map((k) => `${k} ${renderValue(row[k])}`).join(", ");
+    return `- ${renderValue(row[groupCol])}: ${who}${vals ? ` (${vals})` : ""}`;
+  });
+  const ties = res.rows.length > groups ? ` 공동 1위가 있어 ${res.rows.length}건입니다.` : "";
+  const rest = res.rows.length - rows.length;
+  return `${word}마다 1위는 다음과 같습니다(${word} ${groups}개).${ties}\n${lines.join("\n")}${rest > 0 ? `\n- 외 ${rest}건` : ""}`;
+}
+
 /** 큐레이터가 모델에 넘기는 컨텍스트 예산(토큰 근사). 256 → 1024 (2026-09-30).
  *
  * 채점 기준이 최종 답 일치라(리원에이스 멘토링 09-22) 답을 기준으로 골랐다. 개발용 세트(사업자 30,
@@ -774,10 +816,13 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     // produced it so the 7B can ground its answer (a bare "count=3" is
     // unanchored; "SELECT ... WHERE amount>=10000 → count=3" is self-explaining).
     const sqlHead = `[SQL 결과] ${sqlText}`;
+    // 묶음마다 1위를 결정론으로 바꾼 SQL(sqltrust.ts groupTopRewrite)은 묶음마다 한 행이고 SQL 이 길다. 행마다 SQL 을 되풀이하면 예산이 열 묶음
+    // 가운데 아홉에서 찼다(「업종별로 매출이 가장 높은 고객사는?」 10행 중 9행, 1020/1024). 그 길만 SQL 을 첫 행에 싣는다(groupTopAnswer).
+    const compact = sql.gate?.rewritten === "group-top";
     lists.push(
       sqlResult.rows.map((row, i) => ({
         key: `sql#${i}`,
-        value: { kind: "row" as const, text: `${sqlHead} → ${renderRow(row)}`, source: `sql#${i}`, fields: Object.keys(row).length },
+        value: { kind: "row" as const, text: `${compact && i > 0 ? GROUP_TOP_NEXT_ROW : sqlHead} → ${renderRow(row)}`, source: `sql#${i}`, fields: Object.keys(row).length },
       })),
     );
     listLanes.push("sql");
@@ -917,6 +962,8 @@ export interface AskResult extends RetrieveResult {
     labels?: { from: string; to: string }[];
     /** 금액 단위를 바로잡은 내역(unitSlip). */
     units?: { from: string; to: string }[];
+    /** 목록 줄의 수를 행 값으로 되돌린 내역(listSlip). */
+    numbers?: { from: string; to: string }[];
   };
 }
 
@@ -1330,6 +1377,58 @@ function moneyValues(rows: Record<string, unknown>[], sql: string, cols: readonl
   return rows.flatMap((r) => use.map((k) => sqlNumber(r[k])).filter((v): v is number => v !== undefined));
 }
 
+/** 수 v 를 답에 적힌 수 글 raw 의 꼴로(raw 가 쉼표를 썼으면 천 단위 쉼표). 소수는 v 의 자릿수 그대로. */
+function writtenLike(raw: string, v: number): string {
+  const [int, frac] = String(Math.abs(v)).split(".");
+  return (raw.includes(",") ? int.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : int) + (frac ? `.${frac}` : "");
+}
+
+/** 여러 행 목록 답의 한 줄 안에서 행 값을 10, 100, 1000 배(또는 그 분의 1)로 옮겨 적은 수를 그 행 값으로 되돌린다.
+ *
+ * 「지역별로 매출이 가장 높은 고객사는?」의 여덟 줄 가운데 「2. 광주: Client-W (36,760)」만 행(광주, Client-W, total_sales 3676)의 열 배였다(5차
+ * 수정 통합 빌드 실측, 나머지 일곱 줄은 맞음). 줄이 한 행만 가리킬 때(그 행에만 있는 글 값이 줄에 있음)만 보고, 그 줄의 수가 그 행의 어느 값과도
+ * 같지 않은데 한 수 열의 값과 10, 100, 1000 배(또는 그 분의 1) 관계 하나뿐이면 그 값으로 바꾼다(답이 쉼표를 썼으면 쉼표 꼴). 줄 앞 번호, 때와
+ * 순서, 비율, 우리말 단위가 붙은 수, 해, 1000 배 뒤에 「원」이 붙은 수(만원을 원으로 적은 쪽, scaleSlip 과 같은 가정)는 보지 않는다. */
+export function listSlip(text: string, rows: Record<string, unknown>[]): { text: string; numbers: { from: string; to: string }[] } {
+  const none = { text, numbers: [] };
+  if (rows.length < 2) return none;
+  const keys = Object.keys(rows[0]);
+  const strCols = keys.filter((k) => rows.some((row) => typeof row[k] === "string" && sqlNumber(row[k]) === undefined));
+  const numCols = keys.filter((k) => rows.some((row) => sqlNumber(row[k]) !== undefined) && rows.every((row) => row[k] === null || sqlNumber(row[k]) !== undefined));
+  if (!strCols.length || !numCols.length) return none;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const seen = new Map<string, number>();
+  for (const row of rows) for (const k of strCols) if (str(row[k])) seen.set(str(row[k]), (seen.get(str(row[k])) ?? 0) + 1);
+  // 그 행에만 있는 글 값(행의 이름). 두 글자 이상만 본다.
+  const own = rows.map((row) => strCols.map((k) => str(row[k])).filter((v) => v.length >= 2 && seen.get(v) === 1));
+  const names = (line: string, v: string) => new RegExp(`(?<![A-Za-z0-9-])${escapeRe(v)}(?![A-Za-z0-9-])`).test(line);
+  const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b));
+  const numbers: { from: string; to: string }[] = [];
+  const lines = text.split("\n").map((line) => {
+    const hit = own.flatMap((vs, i) => (vs.some((v) => names(line, v)) ? [i] : []));
+    if (hit.length !== 1) return line;
+    const vals = numCols.map((k) => sqlNumber(rows[hit[0]][k])).filter((v): v is number => v !== undefined && v !== 0);
+    if (!vals.length) return line;
+    const marker = /^\s*(?:\d+[.)]|[-*•])\s*/.exec(line)?.[0].length ?? 0;
+    let out = line;
+    for (const m of [...line.matchAll(ANSWER_NUMBER)].reverse()) {
+      const raw = m[0];
+      const at = m.index!;
+      const n = Number(raw.replace(/,/g, ""));
+      const after = line.slice(at + raw.length);
+      if (at < marker || !n || NOT_A_VALUE_AFTER.test(after) || /^(?:19|20)\d\d$/.test(raw) || vals.some((v) => writtenAs(raw, v))) continue;
+      const won = /^\s*(?:원|\(\s*원\s*\)|KRW)/i.test(after) || /[₩￦]\s*$/.test(line.slice(0, at));
+      const bases = [...new Set(vals.filter((v) => [1, 2, 3].some((e) => (close(n, Math.abs(v) * 10 ** e) && !(e >= 3 && won)) || close(n, Math.abs(v) / 10 ** e))))];
+      if (bases.length !== 1) continue;
+      const to = writtenLike(raw, bases[0]);
+      out = out.slice(0, at) + to + out.slice(at + raw.length);
+      numbers.unshift({ from: raw, to });
+    }
+    return out;
+  });
+  return numbers.length ? { text: lines.join("\n"), numbers } : none;
+}
+
 /** 7B 가 정형 레인의 목록 답에서 행의 이름표를 다른 말로 옮겨 적은 것을 그 행의 이름표로 되돌린다.
  *
  * 「직급별 평균 연봉을 높은 순으로 알려줘」는 첫 행이 position: 부장, avg_salary: 8577.67 인데 답이 「1. 부사장: 8577.67」이었다(데이터에
@@ -1494,6 +1593,9 @@ export async function ask(
   }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
+  // 묶음마다 1위를 결정론으로 바꾼 SQL 은 묶음마다 1위 행을 모두 적는 결정론 문장으로 답한다(groupTopAnswer).
+  const groupTop = (r.missing ?? []).length ? undefined : groupTopAnswer(r, query);
+  if (groupTop) return { ...r, answer: missingSqlHead + withSqlRows(r, groupTop) };
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.
   const few = fewestAnswer(r);
   if (few) return { ...r, answer: few };
@@ -1525,8 +1627,10 @@ export async function ask(
     const fix = withoutOutsideNames(generated, r.context, query);
     const structured = r.route === "structured" && r.sql.result?.ok ? r.sql.result.rows : undefined;
     const scaled = structured ? scaleSlip(fix.text, structured, query, r.sql.text ?? "") : { text: fix.text };
+    // 목록 답의 한 줄이 한 행의 값을 10, 100, 1000 배로 옮겨 적었으면 그 행 값으로 되돌린다(listSlip).
+    const listFixed = structured ? listSlip(scaled.text, structured) : { text: scaled.text, numbers: [] };
     // 목록 답의 이름표를 행의 이름표로 되돌린다(labelSlip).
-    const relabeledRaw = structured ? labelSlip(scaled.text, structured) : { text: scaled.text, labels: [] };
+    const relabeledRaw = structured ? labelSlip(listFixed.text, structured) : { text: listFixed.text, labels: [] };
     // 금액 단위(元, 만원 값 뒤의 원)를 바로잡는다(unitSlip).
     const unit = unitSlip(relabeledRaw.text, r.sql.result?.ok ? r.sql.result.rows : undefined, r.sql.text ?? "", profile().sqlSchema);
     const relabeled = { text: unit.text, labels: relabeledRaw.labels };
@@ -1538,11 +1642,12 @@ export async function ask(
     const value = scaled.from !== undefined && scaled.to !== undefined ? { value: { from: scaled.from, to: scaled.to } } : {};
     const labels = relabeled.labels.length ? { labels: relabeled.labels } : {};
     const units = unit.units.length ? { units: unit.units } : {};
+    const numbers = listFixed.numbers.length ? { numbers: listFixed.numbers } : {};
     return {
       ...r,
       answer: head + withSqlRows(r, answer),
-      ...(fix.removed.length || fix.flagged.length || scaled.from !== undefined || relabeled.labels.length || unit.units.length
-        ? { grounding_fix: { removed: fix.removed, flagged: fix.flagged, ...value, ...labels, ...units } }
+      ...(fix.removed.length || fix.flagged.length || scaled.from !== undefined || relabeled.labels.length || unit.units.length || listFixed.numbers.length
+        ? { grounding_fix: { removed: fix.removed, flagged: fix.flagged, ...value, ...numbers, ...labels, ...units } }
         : {}),
     };
   } catch (e) {

@@ -3507,5 +3507,88 @@ const deadEmbedder: Embedder = {
   else process.env.DATASET = savedDataset;
 }
 
+// 5차 수정 통합 빌드: 목록 줄의 열 배 수(「2. 광주: Client-W (36,760)」, 행 3676)와 묶음마다 1위를 결정론으로 바꾼 SQL 의 잘린 행(10행 중 9행).
+{
+  const P = await import("./pipeline.js");
+  const savedDataset = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  const regions: [string, string, number][] = [
+    ["경기", "Client-B", 22056], ["광주", "Client-W", 3676], ["대구", "Client-E", 14977], ["대전", "Client-T", 30540],
+    ["부산", "Client-AA", 6796], ["서울", "Client-Q", 23244], ["인천", "Client-AD", 16699], ["제주", "Client-X", 23747],
+  ];
+  const regionRows = regions.map(([region, client_name, total_sales]) => ({ region, client_name, total_sales: String(total_sales) }));
+  const fv11Answer =
+    "지역별로 매출이 가장 높은 고객사는 다음과 같습니다:\n\n" + regions.map(([g, c, v], i) => `${i + 1}. ${g}: ${c} (${(i === 1 ? v * 10 : v).toLocaleString("en-US")})`).join("\n");
+
+  // listSlip: 한 행만 가리키는 줄의 10, 100, 1000 배(또는 그 분의 1) 수만 행 값으로, 답의 쉼표 꼴 그대로.
+  const fv11 = P.listSlip(fv11Answer, regionRows);
+  ok(fv11.text === fv11Answer.replace("Client-W (36,760)", "Client-W (3,676)") && JSON.stringify(fv11.numbers) === '[{"from":"36,760","to":"3,676"}]', `FV11 열 배 (got ${JSON.stringify(fv11)})`);
+  ok(P.listSlip("1. 경기: Client-B 220560\n2. 광주: Client-W 367.6", regionRows).text === "1. 경기: Client-B 22056\n2. 광주: Client-W 3676", "쉼표 없는 꼴, 10분의 1");
+  const kept = (text: string, rows: Record<string, unknown>[]) => {
+    const l = P.listSlip(text, rows);
+    return l.text === text && l.numbers.length === 0;
+  };
+  ok(kept(fv11Answer.replace("36,760", "3,676"), regionRows), "맞는 목록은 그대로");
+  ok(kept("경기와 광주의 1위는 Client-B, Client-W (36,760) 입니다.", regionRows), "두 행을 가리키는 줄은 보지 않는다");
+  ok(kept("2. 광주: Client-W (36,760만원)\n3. 광주: Client-W 3.676억", regionRows) && kept("2. 광주: Client-W 2036년", regionRows), "우리말 단위, 해가 붙은 수");
+  ok(kept("1. 김지훈: 7,767,000원\n2. 윤소연: 84,460,000원", [{ name: "김지훈", salary: 7767 }, { name: "윤소연", salary: 8446 }]), "만원을 원으로 적은 수(1000배, 10000배 뒤 원)");
+  ok(kept("1. Client-A: 100", [{ name: "Client-A", n: 1, amount: 1000 }, { name: "Client-B", n: 2, amount: 2000 }]), "행의 두 수 열이 모두 배수 관계면 고르지 않는다");
+  ok(kept("1. 경기: Client-B (220,560)", regionRows.slice(0, 1)) && kept("Client-W 36,760", [{ client_name: "Client-W", total: 3676 }]), "한 행이면 scaleSlip 몫");
+  ok(kept("10. 광주: Client-W (3,676)", regionRows), "줄 앞 번호는 수가 아니다");
+
+  // groupTopAnswer: 결정론으로 바꾼 SQL 의 행을 모두, 컨텍스트에 남은 행만, 잘린 행은 수만.
+  const topSql =
+    "SELECT region, client_name, total_sales FROM (SELECT c.region AS region, c.name AS client_name, SUM(s.amount) AS total_sales, RANK() OVER (PARTITION BY c.region ORDER BY SUM(s.amount) DESC) AS group_rank FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name, c.region) AS ranked WHERE group_rank = 1";
+  const topR = (rows: Record<string, unknown>[], keptN = rows.length, rewritten: string | undefined = "group-top", text = topSql) =>
+    ({
+      sql: { text, gate: { outcome: "repaired", rejected: [], ...(rewritten ? { rewritten } : {}) }, result: { ok: true, rows } },
+      curated: { kept: Array.from({ length: keptN }, (_, i) => ({ source: `sql#${i}`, text: "" })) },
+    }) as unknown as Parameters<typeof P.groupTopAnswer>[0];
+  const regionLines = regions.map(([g, c, v]) => `- ${g}: ${c} (total_sales ${v})`).join("\n");
+  ok(P.groupTopAnswer(topR(regionRows), "지역별로 매출이 가장 높은 고객사는?") === `지역마다 1위는 다음과 같습니다(지역 8개).\n${regionLines}`, `FV11 결정론 답 (got ${P.groupTopAnswer(topR(regionRows), "지역별로 매출이 가장 높은 고객사는?")})`);
+  ok(P.groupTopAnswer(topR(regionRows, 7), "지역별로 매출이 가장 높은 고객사는?")!.endsWith("- 인천: Client-AD (total_sales 16699)\n- 외 1건"), "예산에 잘린 행은 수만");
+  ok(P.groupTopAnswer(topR(regionRows), "각 지역에서 매출이 가장 높은 고객사는?")!.startsWith("지역마다 1위는"), "질문에 「…별」이 없으면 묶음 열의 우리말");
+  const tied = [...regionRows.slice(0, 2), { region: "경기", client_name: "Client-C", total_sales: "22056" }];
+  ok(P.groupTopAnswer(topR(tied), "지역별로 매출이 가장 높은 고객사는?")!.startsWith("지역마다 1위는 다음과 같습니다(지역 2개). 공동 1위가 있어 3건입니다.\n"), "공동 1위");
+  const deptSql =
+    "SELECT department, employee, max_salary FROM (SELECT d.name AS department, e.name AS employee, MAX(e.salary) AS max_salary, RANK() OVER (PARTITION BY d.name ORDER BY MAX(e.salary) DESC) AS group_rank FROM companyx.departments d JOIN companyx.employees e ON d.id = e.dept_id WHERE e.is_active = true GROUP BY d.name, e.name) AS ranked WHERE group_rank = 1";
+  ok(P.groupTopAnswer(topR([{ department: "영업팀", employee: "김지훈", max_salary: 7767 }, { department: "경영지원팀", employee: "윤소연", max_salary: 8446 }], 2, "group-top", deptSql), "부서별 최고 연봉자는 누구야?") === "부서마다 1위는 다음과 같습니다(부서 2개).\n- 영업팀: 김지훈 (max_salary 7767)\n- 경영지원팀: 윤소연 (max_salary 8446)", "부서별 최고 연봉자");
+  ok(P.groupTopAnswer(topR(regionRows, 8, ""), "지역별로 매출이 가장 높은 고객사는?") === undefined && P.groupTopAnswer(topR(regionRows, 8, "count-distinct"), "q") === undefined, "결정론으로 바꾼 묶음 1위가 아니면 7B 에게");
+  ok(P.groupTopAnswer(topR(regionRows, 8, "group-top", topSql.replace("PARTITION BY c.region", "PARTITION BY c.zone")), "q") === undefined, "묶음 열을 결과에서 못 찾으면 7B 에게");
+
+  // ask: 생성 SQL(전체 1위 한 행)을 결정론으로 바꿔 실행하고, 컨텍스트는 SQL 을 첫 행에만, 답은 7B 없이.
+  const genSql = "SELECT c.name AS client_name, SUM(s.amount) AS total_sales FROM companyx.clients c JOIN companyx.sales s ON c.id = s.client_id GROUP BY c.name ORDER BY total_sales DESC LIMIT 1";
+  const industries = ["건설", "교육", "금융", "미디어", "에너지", "제조업", "공공기관", "유통/물류", "의료/바이오", "IT"].map((industry, i) => ({ industry, client_name: `Client-${String.fromCharCode(65 + i)}`, total_sales: String(10000 + i * 1111) }));
+  const topPool = (rows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          const out = /pg_roles/.test(sql) ? [] : /SELECT EXISTS/.test(sql) ? [{ dup: true }] : /AS grouped/.test(sql) ? [{ n: 1 }] : /^\s*(select|with)\b/i.test(sql) ? rows : [];
+          return { rows: out, rowCount: out.length, fields: Object.keys(out[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string) =>
+        /contype = 'f'/.test(sql)
+          ? { rows: [{ table_name: "sales", column_name: "client_id", ref_table: "clients", ref_column: "id" }], rowCount: 1 }
+          : { rows: [], rowCount: 0 },
+    }) as unknown as Pool;
+  let called = 0;
+  const llm = async () => ((called++), "1. 광주: Client-W (36,760)");
+  const ind = await ask("업종별로 매출이 가장 높은 고객사는?", { pool: topPool(industries), embedder: deadEmbedder, repair: false, nl2sql: async () => genSql, llm });
+  ok(ind.sql.gate?.rewritten === "group-top" && called === 0, `결정론으로 바꿔 실행하고 7B 를 부르지 않는다 (got ${JSON.stringify(ind.sql.gate)} ${called})`);
+  const ctxLines = ind.context.split("\n").filter((l) => l.startsWith("[SQL 결과]"));
+  ok(ind.audit.curate.kept.filter((s) => s.startsWith("sql#")).length === 10 && ctxLines.filter((l) => l.startsWith(`${P.GROUP_TOP_NEXT_ROW} → `)).length === 9 && ctxLines[0].includes("RANK() OVER (PARTITION BY"), `열 묶음 모두 컨텍스트에, SQL 은 첫 행에만 (got ${ind.audit.curate.kept.join(",")})`);
+  ok(ind.answer.startsWith("업종마다 1위는 다음과 같습니다(업종 10개).\n- 건설: Client-A (total_sales 10000)\n") && ind.answer.includes("- IT: Client-J (total_sales 19999)\n\n[조회 결과 10건]\n"), `답은 열 업종 모두와 조회 블록 (got ${JSON.stringify(ind.answer.slice(0, 160))})`);
+
+  // 결정론으로 바꾸지 않은 SQL 의 컨텍스트는 행마다 SQL 을 그대로 싣는다(시험항목 화면).
+  const plainPool = topPool([{ name: "박소연", salary: 9520 }, { name: "권승호", salary: 5378 }]);
+  const plain = await ask("기술지원팀 직원 목록과 연봉을 알려줘", { pool: plainPool, embedder: deadEmbedder, repair: false, nl2sql: async () => "SELECT e.name, e.salary FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '기술지원팀'", llm: async () => "박소연, 권승호" });
+  ok(plain.context.split("\n").filter((l) => l.startsWith("[SQL 결과] SELECT e.name, e.salary")).length === 2 && !plain.context.includes(P.GROUP_TOP_NEXT_ROW), "다른 SQL 의 컨텍스트는 그대로");
+
+  if (savedDataset === undefined) delete process.env.DATASET;
+  else process.env.DATASET = savedDataset;
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
