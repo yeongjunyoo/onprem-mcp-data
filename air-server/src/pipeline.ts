@@ -32,7 +32,7 @@ import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
 import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
-import { tieAnswer, untrustedAnswer, vagueMeasure, type SqlGate } from "./sqltrust.js";
+import { alignQualifiedTables, tieAnswer, untrustedAnswer, vagueMeasure, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
 import { answer as llmAnswer } from "./llm.js";
 import {
@@ -551,7 +551,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     const report: Nl2SqlReport = {};
     const missing = profile().name === "companyx" ? await sqlMissingNames(pool, query) : [];
-    const text = await nl2sql(query, report);
+    const generated = await nl2sql(query, report);
+    const text = generated ? alignQualifiedTables(generated, query) : generated;
     if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
     // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다. 외래키와 컬럼은 프로파일의 테이블이 있는

@@ -289,6 +289,40 @@ export function rankRewrite(sql: string, question: string): { text: string; rank
   return { text: `SELECT * FROM (${inner}) AS ranked WHERE rank = ${rank}`, rank };
 }
 
+const QUALIFIED_NAME = /(?<![A-Za-z0-9_.])([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])/g;
+
+/** 질문이 표를 스키마까지 적어 지목하면(「bench.admin_secrets 테이블」) 생성 SQL 도 그 이름을 쓰게 맞춘다. 7B 는 같은 프롬프트에서도
+ * Ollama 상태에 따라 스키마 카드의 companyx 를 붙여 「companyx.admin_secrets」로 쓰기도 했고(2026-10-08, 같은 질문 3회씩 bench 와
+ * companyx 로 갈림), 그러면 TC-150 이 보는 권한 거부(42501) 대신 없는 표 오류가 났다. 질문에 적힌 이름이 사용자가 고른 표다.
+ * 다른 스키마를 붙인 같은 표 이름, FROM 과 JOIN 바로 뒤의 스키마 없는 같은 표 이름을 그 이름으로 바꾼다. 문자열 값은 건드리지 않고,
+ * 같은 표가 질문에 두 스키마로 적혔으면 바꾸지 않는다. 읽지 못하는 SQL 은 그대로 돌려준다. */
+export function alignQualifiedTables(sql: string, question: string): string {
+  const wanted = new Map<string, string>();
+  for (const m of question.matchAll(QUALIFIED_NAME)) {
+    const table = m[2].toLowerCase();
+    const prev = wanted.get(table);
+    wanted.set(table, prev !== undefined && prev.toLowerCase() !== m[1].toLowerCase() ? "" : m[1]);
+  }
+  if (![...wanted.values()].some(Boolean)) return sql;
+  const toks = tokenizeSql(sql);
+  if (!toks) return sql;
+  const edits: { at: number; end: number; text: string }[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    const schema = t.k === "w" ? wanted.get(t.v) : undefined;
+    if (!schema) continue;
+    if (toks[i - 1]?.k === ".") {
+      const s = toks[i - 2];
+      if (s?.k === "w" && s.v !== schema.toLowerCase() && toks[i - 3]?.k !== ".") edits.push({ at: s.at, end: tokenEnd(sql, s), text: schema });
+    } else if (toks[i + 1]?.k !== "." && toks[i + 1]?.k !== "(" && toks[i - 1]?.k === "w" && (toks[i - 1].v === "from" || toks[i - 1].v === "join")) {
+      edits.push({ at: t.at, end: t.at, text: `${schema}.` });
+    }
+  }
+  let out = sql;
+  for (const e of edits.sort((a, b) => b.at - a.at)) out = out.slice(0, e.at) + e.text + out.slice(e.end);
+  return out;
+}
+
 /** 선언된 외래키 한 쌍. table.column 이 refTable.refColumn 을 가리킨다. */
 export interface ForeignKey {
   table: string;
