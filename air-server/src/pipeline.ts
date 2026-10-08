@@ -836,6 +836,12 @@ export function writeRefusal(kind: string): string {
 export const NO_TABLE_ANSWER =
   "주어진 정보로는 알 수 없습니다. 이 질문에 답할 데이터가 데이터베이스에 없어 조회하지 않았습니다.";
 
+/** 생성 SQL 을 실행했는데 0건이고 다른 레인의 근거도 없을 때의 답. 7B 는 빈 컨텍스트를 받고 「주어진 정보로는 알 수 없습니다」라고
+ * 답했다. 시스템이 모른다는 말로 읽히지만 실제로는 조건에 맞는 행이 없다(「2019년에 등록된 고객사 목록을 보여줘」, 「연봉이 2억 원
+ * 이상인 직원 목록을 알려줘」, TC-141 「2019년에 입사한 직원 목록을 알려줘」, 2026-10-08 리허설). 조건이 맞았는지는 감사 레코드의
+ * SQL 로 본다. */
+export const ZERO_ROWS_ANSWER = "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.";
+
 export interface AskResult extends RetrieveResult {
   answer: string;
   /** 7B 답의 근거 밖 이름(withoutOutsideNames)과 자릿수가 틀린 SQL 값(scaleSlip)을 다룬 내역. 그런 것이 있었을 때만. */
@@ -1146,6 +1152,10 @@ export async function ask(
   // (sqlMissingNames). SQL 이 그 이름을 찾지 않았으면(모델이 다른 이름으로 찾았으면) 사유와 답이 어긋나 붙이지 않는다.
   const sqlMissing = (r.sql.missing ?? []).filter((nf) => r.sql.text?.includes(nf.query_entity));
   const missingSqlHead = sqlMissing.length ? `${sqlMissing.map(describeNotFound).join(" ")}\n\n` : "";
+  // 조회는 했는데 0건이고 다른 근거도 없다. 7B 를 부르지 않고 0건이라고 말한다(ZERO_ROWS_ANSWER).
+  if (r.sql.result?.ok && r.sql.result.rows.length === 0 && r.context.length === 0) {
+    return { ...r, answer: missingSqlHead + ZERO_ROWS_ANSWER };
+  }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
   if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
   // 그래프 집계의 「가장 적은」이 공동이면 같은 방식으로 이름을 모두 적는다.

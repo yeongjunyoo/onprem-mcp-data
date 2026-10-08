@@ -2197,5 +2197,66 @@ const deadEmbedder: Embedder = {
   ok(right.answer.startsWith("2025년 3분기 총 매출액은 23859입니다.") && right.grounding_fix === undefined, "맞는 답은 그대로, 보정 내역 없음");
 }
 
+// 생성 SQL 을 실행했는데 0건이고 다른 근거도 없으면 7B 를 부르지 않고 0건이라고 답한다. 7B 는 빈 컨텍스트에 「주어진 정보로는 알 수
+// 없습니다」라고 답했다(「2019년에 등록된 고객사 목록을 보여줘」, TC-141, 2026-10-08 리허설).
+{
+  const { ZERO_ROWS_ANSWER } = await import("./pipeline.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+  const { untrustedAnswer } = await import("./sqltrust.js");
+  const rowsPool = (rows: Record<string, unknown>[]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) =>
+          /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql)
+            ? { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? { name: "" }).map((name) => ({ name })) }
+            : { rows: [], rowCount: 0 },
+        release: () => {},
+      }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    }) as unknown as Pool;
+  let called = 0;
+  const llm = async () => {
+    called++;
+    return "주어진 정보로는 알 수 없습니다.";
+  };
+  const q141 = "2019년에 입사한 직원 목록을 알려줘";
+  const sql141 = "SELECT name FROM companyx.employees WHERE hire_date BETWEEN '2019-01-01' AND '2019-12-31'";
+  const zero = await ask(q141, { pool: rowsPool([]), embedder: deadEmbedder, repair: false, llm, nl2sql: async () => sql141 });
+  ok(zero.route === "structured" && zero.answer === ZERO_ROWS_ANSWER, `0건이면 0건이라고 답한다 (got ${zero.route} ${JSON.stringify(zero.answer)})`);
+  ok(called === 0, "0건 답은 7B 를 부르지 않는다");
+  const ro = buildAuditRecord(zero).policies.find((p) => p.policy === "sql-read-only");
+  ok(ro?.verdict === "allow" && /0행 반환/.test(ro.detail ?? ""), `감사 레코드의 「0행 반환」은 그대로(TC-141) (got ${JSON.stringify(ro)})`);
+  const one = await ask(q141, { pool: rowsPool([{ name: "강현우" }]), embedder: deadEmbedder, repair: false, llm: async () => "강현우입니다.", nl2sql: async () => sql141 });
+  ok(one.answer.startsWith("강현우입니다."), `행이 있으면 종전대로 7B 가 답한다 (got ${JSON.stringify(one.answer)})`);
+  const nullRow = await ask("2023년 총 매출액은 얼마야?", {
+    pool: rowsPool([{ total_revenue: null }]),
+    embedder: deadEmbedder,
+    repair: false,
+    llm: async () => "2023년 총 매출액은 없습니다.",
+    nl2sql: async () => "SELECT SUM(amount) AS total_revenue FROM companyx.sales WHERE sale_date BETWEEN '2023-01-01' AND '2023-12-31'",
+  });
+  ok(nullRow.answer.startsWith("2023년 총 매출액은 없습니다.") && nullRow.answer.includes("- total_revenue: null"), `집계의 null 한 행은 0건이 아니다(TC-140) (got ${JSON.stringify(nullRow.answer)})`);
+
+  // 실행 전 검사가 거부한 SQL 에 값 어휘 밖의 값이 있으면 그 사유를 먼저 말한다(「취소된 프로젝트 목록을 알려줘」).
+  const gate = {
+    outcome: "refused" as const,
+    rejected: [
+      {
+        sql: "SELECT p.name FROM companyx.projects p JOIN companyx.departments d ON p.dept_id = d.id WHERE p.status = 'cancelled'",
+        reasons: [
+          "조인 조건 p.dept_id = d.id 은 없는 열을 쓴다(projects 에는 dept_id 열이 없다). projects 는 contract_id → contracts, manager_id → employees, client_id → clients 로만 이어진다. 질문이 묻지 않은 표의 조인은 뺀다",
+          "값 조건 p.status = 'cancelled' 의 'cancelled' 은 projects.status 에 없는 값이다. 쓸 수 있는 값: 'planning', 'in_progress', 'completed', 'on_hold'",
+        ],
+      },
+    ],
+  };
+  const said = untrustedAnswer(gate as unknown as Parameters<typeof untrustedAnswer>[0]);
+  ok(
+    said.includes("생성된 SQL 이 projects.status 에 없는 값('cancelled')으로 조건을 걸어서 실행하지 않았습니다. projects.status 의 값은 'planning', 'in_progress', 'completed', 'on_hold' 입니다.") &&
+      !said.includes("dept_id"),
+    `값 어휘 밖의 값을 조인 열보다 먼저 말한다 (got ${said})`,
+  );
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

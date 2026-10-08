@@ -1128,7 +1128,11 @@ export function untrustedAnswer(gate: SqlGate): string {
   }
   const value = reasons.map((r) => /^값 조건 .+? 의 (.+?) 은 (.+?) 에 없는 값이다\. 쓸 수 있는 값: (.+)$/.exec(r)).find((x) => x !== null);
   const unit = reasons.find((r) => r.startsWith(UNIT_REASON));
-  const why = missing
+  // 값 어휘에 없는 값이 있으면 그것부터 말한다. 질문이 데이터에 없는 상태를 물었다는 뜻이라 다른 사유(조인 열 따위)보다
+  // 묻는 사람에게 가깝다(「취소된 프로젝트 목록을 알려줘」: projects.status 에 cancelled 가 없다. 종전 답은 dept_id 조인을 먼저 말함).
+  const why = value
+    ? `생성된 SQL 이 ${value[2]} 에 없는 값(${value[1]})으로 조건을 걸어서 실행하지 않았습니다. ${value[2]} 의 값은 ${value[3]} 입니다. `
+    : missing
     ? `생성된 SQL 이 표에 없는 열로 표를 이어서(${missing}) 실행하지 않았습니다. `
     : join
     ? `생성된 SQL 이 외래키가 아닌 열(${join})로 표를 이어서 실행하지 않았습니다. `
@@ -1136,9 +1140,7 @@ export function untrustedAnswer(gate: SqlGate): string {
       ? `생성된 SQL 이 질문에 없는 번호(${id})로 한 건만 골라서 실행하지 않았습니다. `
       : fan
         ? `생성된 SQL 이 ${fan[2]} 의 값(${fan[1]})을 ${fan[3]} 와 조인한 채 집계해 같은 값을 여러 번 더해서 실행하지 않았습니다. `
-        : value
-          ? `생성된 SQL 이 ${value[2]} 에 없는 값(${value[1]})으로 조건을 걸어서 실행하지 않았습니다. ${value[2]} 의 값은 ${value[3]} 입니다. `
-          : reasons.some((r) => r.startsWith(RATIO_REASON))
+        : reasons.some((r) => r.startsWith(RATIO_REASON))
             ? "생성된 SQL 이 비율을 정수끼리 나눠 소수점 아래를 버려서 실행하지 않았습니다. "
             : unit
               ? unit.includes("count(*)")
