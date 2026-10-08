@@ -95,7 +95,7 @@ export interface AuditRecord {
     checked: boolean;
     answer_chars: number;
     outside_context: string[];
-    fixed?: { removed: string[]; flagged: string[]; value?: { from: string; to: string } };
+    fixed?: { removed: string[]; flagged: string[]; value?: { from: string; to: string }; labels?: { from: string; to: string }[] };
   };
   /** 미해소 개체 게이트가 발동했을 때만. 왜 못 찾았는지. */
   not_found?: NotFound;

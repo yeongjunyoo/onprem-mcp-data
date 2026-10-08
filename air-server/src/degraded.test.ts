@@ -2348,6 +2348,25 @@ const deadEmbedder: Embedder = {
     ok(scaleSlip(a, [{ total: 23859 }], "2025년 3분기 총 매출액은 얼마야?").text === a, `원 단위 표기는 그대로: ${a}`);
   }
 
+  // 목록 답의 이름표: 같은 자리 행의 수와 같은데 이름표만 다르면 행의 이름표로(4차 P10).
+  const { labelSlip } = await import("./pipeline.js");
+  const posRows = [
+    { position: "부장", avg_salary: "8577.6666666666666667" },
+    { position: "이사", avg_salary: "8359.0000000000000000" },
+    { position: "사원", avg_salary: "6263.5000000000000000" },
+  ];
+  const relabel = labelSlip("직급별 평균 연봉은 다음과 같습니다:\n\n1. 부사장: 8577.67\n2. 이사: 8359.00\n3. 사원: 6263.50", posRows);
+  ok(relabel.text.includes("1. 부장: 8577.67") && relabel.labels.length === 1 && relabel.labels[0].from === "부사장", `행의 이름표로 (got ${JSON.stringify(relabel)})`);
+  ok(labelSlip("1. 부장: 8577.67\n2. 이사: 8359.00\n3. 사원: 6263.50", posRows).labels.length === 0, "맞으면 그대로");
+  ok(labelSlip("1. 부사장: 9000\n2. 이사: 8359.00\n3. 사원: 6263.50", posRows).labels.length === 0, "수가 행과 다르면 손대지 않는다");
+  ok(labelSlip("1. 부사장: 8577.67\n2. 이사: 8359.00", posRows).labels.length === 0, "줄 수가 행 수와 다르면 손대지 않는다");
+  const tc119 = "1. Product-D3: 36,500\n2. Product-C1: 34,300";
+  ok(labelSlip(tc119, [{ name: "Product-D3", total: 36500 }, { name: "Product-C1", total: 34300 }]).text === tc119, "TC-119 꼴은 그대로");
+  const tc118 = "1. Client-Q | 매출: 4,520\n2. Client-Y | 매출: 3,100";
+  ok(labelSlip(tc118, [{ client: "Client-Q", total: 4520 }, { client: "Client-Y", total: 3100 }]).text === tc118, "행 값을 품은 이름표는 그대로(TC-118)");
+  const cats = "1. 보안: 120\n2. 클라우드: 90";
+  ok(labelSlip(cats, [{ category: "security", avg: 120 }, { category: "cloud", avg: 90 }]).text === cats, "영문 코드를 우리말로 옮긴 이름표는 그대로");
+
   // 문서 범위 고지: 문서 낱말에 붙은 복수와 「전체」만.
   const docR = (route = "semantic") =>
     ({ route, vector: { ok: true }, curated: { kept: [{ source: "documents#1" }, { source: "documents#2" }] } }) as unknown as Parameters<typeof documentScopeNote>[0];
