@@ -1,0 +1,4467 @@
+{
+ "note": "Every wrong, abstained or unscorable answer in the 2026-10-11 scorecards (main c7c1083 behaviour, DOC_TYPE_FILTER off, files companyx-doctype-score-{set}-off.json), attributed to the earliest stage whose failure explains it. Traces and oracle runs are reruns on c7c1083 in a clean worktree against mcpdata_diag and the host Ollama (qwen2.5-coder:7b, bge-m3). analyst_right is a human read of the answer against the gold basis and the dataset, not the scorer.",
+ "generated_at": "2026-10-11T15:37:53",
+ "counts_by_set": {
+  "sponsor30": {
+   "nl2sql": 1,
+   "retrieval": 1,
+   "answer": 1
+  },
+  "all": {
+   "nl2sql": 7,
+   "retrieval": 7,
+   "answer": 7,
+   "scoring": 21,
+   "none (unscorable, analyst: right)": 16,
+   "route": 5
+  },
+  "holdout3": {
+   "scoring": 1,
+   "answer": 2,
+   "nl2sql": 4,
+   "retrieval": 5,
+   "none (unscorable, analyst: right)": 16,
+   "route": 1
+  },
+  "holdout4": {
+   "route": 4,
+   "scoring": 20,
+   "nl2sql": 2,
+   "answer": 4,
+   "retrieval": 1
+  }
+ },
+ "counts_by_lane": {
+  "nl2sql": {
+   "nl2sql": 7,
+   "scoring": 6,
+   "answer": 1,
+   "route": 2
+  },
+  "vector_search": {
+   "retrieval": 4,
+   "answer": 3,
+   "none (unscorable, analyst: right)": 16,
+   "route": 3,
+   "scoring": 14
+  },
+  "knowledge_graph": {
+   "retrieval": 3,
+   "answer": 3,
+   "scoring": 1
+  }
+ },
+ "strict_ceilings": {
+  "record": {
+   "strict_correct": 87,
+   "scorable": 127
+  },
+  "oracle-route": {
+   "strict_correct": 89,
+   "questions_rerun": 10
+  },
+  "oracle-sql": {
+   "strict_correct": 100,
+   "questions_rerun": 50
+  },
+  "oracle-docs": {
+   "strict_correct": 87,
+   "questions_rerun": 50
+  },
+  "oracle-chunks": {
+   "strict_correct": 89,
+   "questions_rerun": 20
+  },
+  "oracle-edges": {
+   "strict_correct": 90,
+   "questions_rerun": 40
+  },
+  "expand-topdoc": {
+   "strict_correct": 87,
+   "questions_rerun": 50
+  }
+ },
+ "nl2sql_models": {
+  "kwai-autosql-14b-iq4xs": {
+   "summary": {
+    "model": "hf.co/mradermacher/Kwai-AutoSQL-14B-GGUF:IQ4_XS",
+    "think": "false",
+    "self_consistency": null,
+    "sets": {
+     "dev30": {
+      "n": 30,
+      "ex": 18,
+      "ex_repo_matcher": 18,
+      "rows_have_answer": "21/29",
+      "median_gen_ms": 7281
+     },
+     "h4": {
+      "n": 20,
+      "ex": 11,
+      "ex_repo_matcher": 12,
+      "rows_have_answer": "11/20",
+      "median_gen_ms": 7706
+     }
+    },
+    "generated_at": "2026-10-11T15:35:13.454Z"
+   },
+   "per_question": {
+    "CX-SQL-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-03": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "CX-SQL-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-10": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-03": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-04": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-09": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-10": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-16": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-18": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-19": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-20": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h4-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-05": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-08": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-15": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-18": {
+     "ex": false,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h4-19": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-20": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    }
+   }
+  },
+  "neohorse-1-9b-q4km": {
+   "summary": {
+    "model": "hf.co/TokenRhythm/NeoHorse-1-9B-GGUF:Q4_K_M",
+    "think": "false",
+    "self_consistency": null,
+    "sets": {
+     "dev30": {
+      "n": 30,
+      "ex": 22,
+      "ex_repo_matcher": 22,
+      "rows_have_answer": "23/29",
+      "median_gen_ms": 860
+     },
+     "h4": {
+      "n": 20,
+      "ex": 15,
+      "ex_repo_matcher": 15,
+      "rows_have_answer": "15/20",
+      "median_gen_ms": 600
+     }
+    },
+    "generated_at": "2026-10-11T15:36:16.409Z"
+   },
+   "per_question": {
+    "CX-SQL-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "CX-SQL-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-01": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h3-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-18": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-19": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-20": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-13": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-14": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-18": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-19": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-20": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    }
+   }
+  },
+  "qwen2.5-coder_7b-sc4": {
+   "summary": {
+    "model": "qwen2.5-coder:7b",
+    "think": null,
+    "self_consistency": 4,
+    "sets": {
+     "dev30": {
+      "n": 30,
+      "ex": 23,
+      "ex_repo_matcher": 23,
+      "rows_have_answer": "24/29",
+      "median_gen_ms": 2929
+     },
+     "h4": {
+      "n": 20,
+      "ex": 12,
+      "ex_repo_matcher": 13,
+      "rows_have_answer": "12/20",
+      "median_gen_ms": 2380
+     }
+    },
+    "generated_at": "2026-10-11T15:16:59.627Z"
+   },
+   "per_question": {
+    "CX-SQL-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-03": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h3-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-13": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-18": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-19": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-20": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-05": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-15": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-18": {
+     "ex": false,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h4-19": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-20": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    }
+   }
+  },
+  "qwen2.5-coder_7b": {
+   "summary": {
+    "model": "qwen2.5-coder:7b",
+    "think": null,
+    "sets": {
+     "dev30": {
+      "n": 30,
+      "ex": 22,
+      "ex_repo_matcher": 22,
+      "rows_have_answer": "23/29",
+      "median_gen_ms": 611
+     },
+     "h4": {
+      "n": 20,
+      "ex": 12,
+      "ex_repo_matcher": 13,
+      "rows_have_answer": "12/20",
+      "median_gen_ms": 450
+     }
+    },
+    "generated_at": "2026-10-11T15:05:25.966Z"
+   },
+   "per_question": {
+    "CX-SQL-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-03": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-04": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h3-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-13": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-18": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-19": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-20": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-02": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-05": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-15": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-18": {
+     "ex": false,
+     "ex_repo_matcher": true,
+     "rows_have_answer": false
+    },
+    "h4-19": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-20": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    }
+   }
+  },
+  "qwen3.5_9b": {
+   "summary": {
+    "model": "qwen3.5:9b",
+    "think": "false",
+    "self_consistency": null,
+    "sets": {
+     "dev30": {
+      "n": 30,
+      "ex": 21,
+      "ex_repo_matcher": 21,
+      "rows_have_answer": "23/29",
+      "median_gen_ms": 892
+     },
+     "h4": {
+      "n": 20,
+      "ex": 13,
+      "ex_repo_matcher": 13,
+      "rows_have_answer": "13/20",
+      "median_gen_ms": 524
+     }
+    },
+    "generated_at": "2026-10-11T15:19:06.945Z"
+   },
+   "per_question": {
+    "CX-SQL-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "CX-SQL-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "CX-SQL-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "CX-SQL-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": true
+    },
+    "h3-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-03": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-05": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-06": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-07": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-09": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-13": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-14": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-15": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-18": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h3-19": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h3-20": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-01": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-02": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-03": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-04": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-05": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-06": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-07": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-08": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-09": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-10": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-11": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-12": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-13": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-14": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-15": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-16": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-17": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-18": {
+     "ex": false,
+     "ex_repo_matcher": false,
+     "rows_have_answer": false
+    },
+    "h4-19": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    },
+    "h4-20": {
+     "ex": true,
+     "ex_repo_matcher": true,
+     "rows_have_answer": true
+    }
+   }
+  }
+ },
+ "rows": [
+  {
+   "set": "sponsor30",
+   "id": "s30-06",
+   "lane": "nl2sql",
+   "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "정답 밖 Client-J",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "interpretation: 「진행 중인」 read as status=in_progress; gold counts all projects (wording is ambiguous)",
+   "analyst_right": false,
+   "answer_1011": "공동 1위가 2건입니다: Client-AC, Client-J. [조회 결과 2건] - name: Client-AC - name: Client-J",
+   "sql": {
+    "generated": "SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progress' GROUP BY c.name ORDER BY COUNT(p.id) DESC LIMIT 1",
+    "executed": "SELECT c.name FROM companyx.clients c JOIN companyx.projects p ON c.id = p.client_id WHERE p.status = 'in_progress' GROUP BY c.name ORDER BY COUNT(p.id) DESC FETCH FIRST 1 ROWS WITH TIES",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 2,
+    "rows_kept": 2,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "deterministic",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "Client-AC [조회 결과 1건] - name: Client-AC, n: 4"
+    }
+   }
+  },
+  {
+   "set": "sponsor30",
+   "id": "s30-13",
+   "lane": "vector_search",
+   "q": "Kubernetes 관련 장애 대응 방법은?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "기권",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "doc: the only Kubernetes incident report (DOC-007) is not in the top 5, also not when search is limited to incident reports; scorer gold is the whole type, so the 7B abstains on chunks that never mention Kubernetes",
+   "analyst_right": false,
+   "answer_1011": "주어진 정보로는 알 수 없습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-001",
+     "DOC-002",
+     "DOC-003",
+     "DOC-004",
+     "DOC-005",
+     "DOC-006",
+     "DOC-007",
+     "DOC-008",
+     "DOC-009",
+     "DOC-010"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-008#54",
+     "DOC-003#19",
+     "DOC-001#5",
+     "DOC-016#103",
+     "DOC-006#40"
+    ],
+    "ctx": [
+     "DOC-008#54",
+     "DOC-003#19",
+     "DOC-001#5",
+     "DOC-016#103",
+     "DOC-006#40"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "주어진 정보로는 알 수 없습니다."
+    },
+    "oracle-wholedoc": {
+     "strict": true,
+     "answer": "Kubernetes 관련 장애 대응 방법은 다음과 같습니다: 1. Pod 리소스 제한 상향 2. 모니터링 알림 임계값 재설정 3. 재발 방지를 위한 자동화 스크립트 작성",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "주어진 정보로는 알 수 없습니다."
+    }
+   }
+  },
+  {
+   "set": "sponsor30",
+   "id": "s30-15",
+   "lane": "vector_search",
+   "q": "보안 취약점 점검 관련 내용이 있어?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "정답 문서의 구체 사실이 없다",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "vague: meeting-note chunks about the security check are in context, the answer names no concrete fact",
+   "analyst_right": false,
+   "answer_1011": "네, 보안 취약점 점검 관련 내용이 있습니다. 각 회의록에서 보안 취약점 점검 결과가 언급되었습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-001",
+     "DOC-002",
+     "DOC-003",
+     "DOC-004",
+     "DOC-005",
+     "DOC-006",
+     "DOC-007",
+     "DOC-008",
+     "DOC-009",
+     "DOC-010",
+     "DOC-021",
+     "DOC-022",
+     "DOC-023",
+     "DOC-024",
+     "DOC-025",
+     "DOC-026",
+     "DOC-027",
+     "DOC-028",
+     "DOC-029",
+     "DOC-030"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-021#132",
+     "DOC-029#188",
+     "DOC-024#153",
+     "DOC-028#181",
+     "DOC-022#139"
+    ],
+    "ctx": [
+     "DOC-021#132",
+     "DOC-029#188",
+     "DOC-024#153",
+     "DOC-028#181",
+     "DOC-022#139"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "네, 보안 취약점 점검 관련 내용이 있습니다. 각 회의록에서 보안 취약점 점검 결과가 언급되었습니다."
+    },
+    "oracle-wholedoc": {
+     "strict": true,
+     "answer": "네, 보안 취약점 점검 관련 내용이 있습니다. Client-A, Client-B, Client-D, Client-H, Client-I의 정기 미팅 및 중간 점검 회의록에서 보안 취약점 점검 결과가 언급되어 있습니다.",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "네, 보안 취약점 점검 관련 내용이 있습니다. 각 회의록에서 보안 취약점 점검 결과가 언급되었습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-03",
+   "lane": "nl2sql",
+   "q": "Product-D2 말고 Product-D1 고르면 월 요금 얼마나 더 붙어?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 2/3",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "gold over-asks: gold projects both monthly prices and the difference; the question asks only how much more (220, right)",
+   "analyst_right": true,
+   "answer_1011": "220 [조회 결과 1건] - price_difference: 220",
+   "sql": {
+    "generated": "SELECT (SELECT price_monthly FROM companyx.products WHERE name = 'Product-D1') - (SELECT price_monthly FROM companyx.products WHERE name = 'Product-D2') AS price_difference",
+    "executed": "SELECT (SELECT price_monthly FROM companyx.products WHERE name = 'Product-D1') - (SELECT price_monthly FROM companyx.products WHERE name = 'Product-D2') AS price_difference",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "220 [조회 결과 1건] - d1_price_monthly: 400, d2_price_monthly: 180, extra_monthly: 220"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-09",
+   "lane": "nl2sql",
+   "q": "Client-X 스테이징 환경 장애 티켓 있잖아, 언제 접수됐고 언제 해결됐는지만 필요해",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 묻는 칸에 resolved_at(NULL) — 답의 표현을 규칙으로 가를 수 없다",
+   "rerun_correct": null,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "SQL rows right (execution match); prose reports one of two tickets and leaves the other ticket’s NULL resolved_at unexplained (unscorable: NULL in gold)",
+   "analyst_right": false,
+   "answer_1011": "Client-X의 스테이징 환경 장애 티켓은 다음과 같습니다: 1. **티켓 ID**: 14 - **접수일**: 2025-03-08 02:35:02 - **해결일**: 미해결 2. **티켓 ID**: 21 - **접수일**: 2025-04-02 17:44:15 - **해결일**: 미해결 3. **티켓 ID**: 29 - **접수일**: 2024-12-14 02:49:45 - **해결일**: 미해결 4. **티켓 ID**: 85 - **접수일**: 2024-08-02 22:14:50 - **해결일**: 미해결 [조회 결과 4건] - …",
+   "sql": {
+    "generated": "SELECT companyx.support_tickets.id, companyx.support_tickets.title, companyx.support_tickets.created_at, companyx.support_tickets.resolved_at FROM companyx.support_tickets JOIN companyx.clients ON companyx.support_tickets.client_id = companyx.clients.id WHERE companyx.clients.name = 'Client-X' AND companyx.support_tickets.title LIKE '%장애%'",
+    "executed": "SELECT companyx.support_tickets.id, companyx.support_tickets.title, companyx.support_tickets.created_at, companyx.support_tickets.resolved_at FROM companyx.support_tickets JOIN companyx.clients ON companyx.support_tickets.client_id = companyx.clients.id WHERE companyx.clients.name = 'Client-X' AND companyx.support_tickets.title LIKE '%장애%'",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 2,
+    "rows_kept": 2,
+    "gold_rows": 2,
+    "ex_match": true,
+    "rows_have_answer": null,
+    "ctx_rows_have_answer": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": null,
+     "answer": "Client-X의 스테이징 환경 장애 티켓이 있습니다. 접수된 시간은 2024-12-14 02:49:45이고, 아직 해결되지 않았습니다. [조회 결과 2건] - id: 29, created_at: 2024-12-14 02:49:45, resolved_at: null - id: 4, created_at: 2026-05-04 02:08:49, resolved_…",
+     "analyst_right": false
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-10",
+   "lane": "nl2sql",
+   "q": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 4/6",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "wrong filter column (resolved_at year instead of created_at) and hours as a number instead of an interval",
+   "analyst_right": false,
+   "answer_1011": "제목: 컨테이너 OOM 발생, Pod 재시작 반복, 스테이징 환경 장애 걸린 시간: 593044초, 585249초, 578423초 [조회 결과 3건] - title: 컨테이너 OOM 발생, time_taken: 593044 - title: Pod 재시작 반복, time_taken: 585249 - title: 스테이징 환경 장애, time_taken: 578423",
+   "sql": {
+    "generated": "SELECT st.title, EXTRACT(EPOCH FROM (st.resolved_at - st.created_at)) / 3600 AS hours_taken FROM companyx.support_tickets st WHERE st.status = 'resolved' AND EXTRACT(YEAR FROM st.resolved_at) = 2025 ORDER BY hours_taken DESC LIMIT 3",
+    "executed": "SELECT st.title, EXTRACT(EPOCH FROM (st.resolved_at - st.created_at)) / 3600 AS hours_taken FROM companyx.support_tickets st WHERE st.status = 'resolved' AND EXTRACT(YEAR FROM st.resolved_at) = 2025 ORDER BY hours_taken DESC LIMIT 3",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 3,
+    "rows_kept": 3,
+    "gold_rows": 3,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "제목: 메모리 누수 의심, 대시보드 로딩 오류, 컨테이너 OOM 발생 걸린 시간: 6일 21시간 50분 21초, 6일 21시간 15분 40초, 6일 20시간 44분 4초 [조회 결과 3건] - id: 61, title: 메모리 누수 의심, resolution_time: 6일 21시간 50분 21초 - id: 84, title: 대시보드 로딩 오류, reso…"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-13",
+   "lane": "nl2sql",
+   "q": "예산 얼마 잡혀 있었지, Client-E 로그 분석 시스템? 시작 날짜도 같이 줘",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 3/3",
+   "rerun_correct": true,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "unstable: 10-11 run generated a join on a missing column (projects.product_id) that the gate refused; both reruns today generated a correct query",
+   "analyst_right": false,
+   "answer_1011": "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 표에 없는 열로 표를 이어서(projects 에는 product_id 열이 없다) 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+   "sql": {
+    "generated": "SELECT p.name AS product_name, p.budget, p.start_date FROM companyx.projects p JOIN companyx.clients c ON p.client_id = c.id WHERE c.name = 'Client-E' AND p.name = 'Client-E 로그 분석 시스템'",
+    "executed": "SELECT p.name AS product_name, p.budget, p.start_date FROM companyx.projects p JOIN companyx.clients c ON p.client_id = c.id WHERE c.name = 'Client-E' AND p.name = 'Client-E 로그 분석 시스템'",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": true,
+    "rows_have_answer": true,
+    "ctx_rows_have_answer": true
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "Client-E 로그 분석 시스템의 예산은 10413이고, 시작 날짜는 2024-05-29입니다. [조회 결과 1건] - name: Client-E 로그 분석 시스템, budget: 10413, start_date: 2024-05-29"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-19",
+   "lane": "nl2sql",
+   "q": "2025년에 시작한 계약에서 취소된 거, 구독/프로젝트/유지보수 각각 몇개임?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 2/6",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "no upper bound on 2025 (2026 contracts counted) and the zero-count type dropped by GROUP BY",
+   "analyst_right": false,
+   "answer_1011": "2025년에 시작한 계약 중 취소된 건수는 다음과 같습니다: - 구독: 3건 - 프로젝트: 4건 - 유지보수: 주어진 정보로는 알 수 없습니다 [조회 결과 2건] - contract_type: subscription, cancelled_contracts: 3 - contract_type: project, cancelled_contracts: 4",
+   "sql": {
+    "generated": "SELECT contract_type, COUNT(*) AS cancelled_contracts FROM companyx.contracts WHERE start_date >= '2025-01-01' AND end_date IS NOT NULL AND status = 'cancelled' GROUP BY contract_type",
+    "executed": "SELECT contract_type, COUNT(*) AS cancelled_contracts FROM companyx.contracts WHERE start_date >= '2025-01-01' AND status = 'cancelled' GROUP BY contract_type",
+    "rewritten": null,
+    "repaired": true,
+    "ok": true,
+    "error": null,
+    "rows": 2,
+    "rows_kept": 2,
+    "gold_rows": 3,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false,
+    "gate": {
+     "outcome": "repaired",
+     "reasons": [
+      "질문에 없는 조건 end_date IS NOT NULL 은 질문이 묻지 않은 조건이다(질문에 end_date 을 가리키는 말이 없다). 그 조건을 빼고 질문이 말한 조건만 건다"
+     ]
+    }
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "2025년에 시작한 계약 중 취소된 건수는 다음과 같습니다: - 구독: 2건 - 프로젝트: 4건 - 유지보수: 0건 [조회 결과 3건] - contract_type: maintenance, cancelled_count: 0 - contract_type: project, cancelled_count: 4 - contract_type: subscription,…"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-20",
+   "lane": "nl2sql",
+   "q": "서울에서 2026년 상반기 제일 돈 잘 들어온 달 언제야? 그달 금액도 궁금",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 2/2",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "grouped by quarter; the half-year gate then forced half-year grouping although the question asks the best month inside H1",
+   "analyst_right": false,
+   "answer_1011": "서울에서 2026년 상반기 가장 많은 돈이 들어온 달은 1월입니다. 그 달의 금액은 12,289입니다. [조회 결과 1건] - half_year: 상반기, total_amount: 12289",
+   "sql": {
+    "generated": "SELECT s.quarter, SUM(s.amount) AS total_amount FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.region = '서울' AND s.quarter LIKE '2026-Q1' GROUP BY s.quarter ORDER BY total_amount DESC LIMIT 1",
+    "executed": "SELECT CASE WHEN quarter IN ('2026-Q1', '2026-Q2') THEN '상반기' ELSE '하반기' END AS half_year, SUM(s.amount) AS total_amount FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.region = '서울' AND s.quarter IN ('2026-Q1', '2026-Q2') GROUP BY half_year ORDER BY total_amount DESC FETCH FIRST 1 ROWS WITH TIES",
+    "rewritten": null,
+    "repaired": true,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false,
+    "gate": {
+     "outcome": "repaired",
+     "reasons": [
+      "기간 조건 s.quarter LIKE '2026-Q1' 은 2026년 1분기만 고른다. 질문의 2026년 상반기는 1, 2분기다. quarter IN ('2026-Q1', '2026-Q2') 이나 sale_date 범위로 그 분기를 모두 고른다",
+      "묶음 단위 질문은 반기(상반기, 하반기)를 묻는데 SQL 이 분기(GROUP BY s.quarter)로 묶는다. 반기마다 한 행이 되게 CASE WHEN quarter IN ('2026-Q1', '2026-Q2') THEN '상반기' ELSE '하반기' END 로 묶어 합계를 구한다"
+     ]
+    }
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "2026년 상반기 서울에서 가장 많은 돈이 들어온 달은 2월입니다. 그 달의 금액은 2969입니다. [조회 결과 1건] - month: 2026-02-01, sales_amount: 2969"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-21",
+   "lane": "vector_search",
+   "q": "Product-C1 일단 띄우려먄 어케 해",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "chunk: the install procedure is four tiny step chunks; steps 2 (.env) and 4 (health check) not retrieved; still wrong with gold-doc oracle",
+   "analyst_right": false,
+   "answer_1011": "Product-C1을 띄우려면 다음 단계를 따르세요: 1. Docker와 Docker Compose를 설치합니다. 2. Kubernetes 환경에서는 Helm 차트를 통해 배포할 수 있습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-011"
+    ],
+    "gold_rank": 2,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-031#201",
+     "DOC-011#74",
+     "DOC-031#199",
+     "DOC-001#2",
+     "DOC-011#73"
+    ],
+    "ctx": [
+     "DOC-031#201",
+     "DOC-011#74",
+     "DOC-031#199",
+     "DOC-001#2",
+     "DOC-011#73"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "docker-compose up -d 명령으로 전체 서비스를 시작합니다. 초기 구동에 약 38초가 소요됩니다.",
+     "analyst_right": false
+    },
+    "oracle-wholedoc": {
+     "strict": null,
+     "answer": "Product-C1을 띄우려면 다음 단계를 따르세요: 1. 의존성 설치: Docker와 Docker Compose를 설치합니다. 2. 설정 파일 준비: .env 파일에 데이터베이스 접속 정보, API 키, 로깅 레벨 등을 설정합니다. 3. 서비스 시작: docker-compose up -d 명령으로 전체 서비스를 시작합니다. 초기 구동에 약 38초가 소요됩…",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Product-C1을 띄우려면 다음 단계를 따르세요: 1. **의존성 설치**: Docker와 Docker Compose를 설치합니다. 2. **Kubernetes 환경에서는 Helm 차트를 통해 배포할 수 있습니다**.",
+     "analyst_right": false
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-22",
+   "lane": "vector_search",
+   "q": "Product-D2 처음 켜보려는데 뭐부터 만져야 됨",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "chunk: same four-step layout; steps 2 and 4 not retrieved, answer lists steps 1 and 3 only",
+   "analyst_right": false,
+   "answer_1011": "Product-D2를 처음 켜보려면 다음과 같은 단계를 따르세요: 1. 의존성 설치: Docker와 Docker Compose를 설치합니다. 2. 서비스 시작: `docker-compose up -d` 명령을 실행하여 전체 서비스를 시작합니다. 초기 구동에는 약 46초가 소요됩니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-016"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-016#102",
+     "DOC-016#105",
+     "DOC-016#103",
+     "DOC-016#100",
+     "DOC-006#37"
+    ],
+    "ctx": [
+     "DOC-016#102",
+     "DOC-016#105",
+     "DOC-016#103",
+     "DOC-016#100",
+     "DOC-006#37"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "Product-D2를 처음 켜보려면 다음 순서대로 진행해야 합니다: 1. 의존성 설치 2. 설정 파일 준비 3. 서비스 시작",
+     "analyst_right": false
+    },
+    "oracle-wholedoc": {
+     "strict": null,
+     "answer": "Product-D2를 처음 켜보려면 다음 단계부터 시작해야 합니다: 1. 의존성 설치: Docker와 Docker Compose를 설치합니다. 2. 설정 파일 준비: 환경 변수 파일(.env)을 준비하고 데이터베이스 접속 정보, API 키, 로깅 레벨 등을 설정합니다. 3. 서비스 시작: docker-compose up -d 명령으로 전체 서비스를 시작합니…",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Product-D2를 처음 켜보려면 다음 단계부터 시작해야 합니다: 1. **의존성 설치**: Docker와 Docker Compose를 설치합니다. 2. **설정 파일 준비**: 환경 변수 파일(.env)을 준비하고 데이터베이스 접속 정보, API 키, 로깅 레벨 등을 설정합니다. 3. **서비스 시작**: `docker-compose up -d` 명령으…",
+     "analyst_right": true
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-23",
+   "lane": "vector_search",
+   "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "블루/그린 배포 전략을 사용합니다. 롤백은 이전 버전의 컨테이너 이미지로 즉시 가능합니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-013"
+    ],
+    "gold_rank": 4,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-003#19",
+     "DOC-004#26",
+     "DOC-010#68",
+     "DOC-013#88",
+     "DOC-009#61"
+    ],
+    "ctx": [
+     "DOC-003#19",
+     "DOC-004#26",
+     "DOC-010#68",
+     "DOC-013#88",
+     "DOC-009#61"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "블루/그린 배포 전략을 사용하여 롤백이 가능합니다. 이전 버전의 컨테이너 이미지로 즉시 롤백할 수 있습니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "블루/그린 배포 전략을 사용하여 롤백이 가능합니다. 이전 버전의 컨테이너 이미지로 즉시 롤백할 수 있습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-24",
+   "lane": "vector_search",
+   "q": "Product-S2 DB 연결 너무 많이 열리는 거 같아. 풀 위아래 값 어떻게 잡으랬지?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Product-S2의 DB 연결 풀 위아래 값은 최소 12, 최대 90으로 설정되었습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-014"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-014#91",
+     "DOC-014#92",
+     "DOC-019#120",
+     "DOC-003#17",
+     "DOC-010#66"
+    ],
+    "ctx": [
+     "DOC-014#91",
+     "DOC-014#92",
+     "DOC-019#120",
+     "DOC-003#17",
+     "DOC-010#66"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "Product-S2 DB의 연결 풀 위아래 값은 최소 12, 최대 90으로 설정되었습니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Product-S2의 DB 연결 풀 위아래 값은 다음과 같습니다: - 최소 12 - 최대 90"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-25",
+   "lane": "vector_search",
+   "q": "알림 하나 만들려는데 어디로 뭘 보내? Product-D1 API 얘기야",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "알림 하나를 만들려면 `POST /api/v1/alerts` 엔드포인트에 데이터를 보냅니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-015"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-015#97",
+     "DOC-015#95",
+     "DOC-015#94",
+     "DOC-020#126",
+     "DOC-035#225"
+    ],
+    "ctx": [
+     "DOC-015#97",
+     "DOC-015#95",
+     "DOC-015#94",
+     "DOC-020#126",
+     "DOC-035#225"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "알림 하나를 만들려면 `/api/v1/alerts` 엔드포인트에 POST 요청을 보냅니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "알림 하나를 만들려면 `POST /api/v1/alerts` 엔드포인트에 데이터를 보냅니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-26",
+   "lane": "vector_search",
+   "q": "Product-C4 백업본 며칠 지나면 없어져? 저장해 두는 곳도 알려줘",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Product-C4의 백업본은 90일 후에 없어집니다. 백업본은 S3 호환 스토리지에 저장됩니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-018"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-018#115",
+     "DOC-013#86",
+     "DOC-038#244",
+     "DOC-008#52",
+     "DOC-008#51"
+    ],
+    "ctx": [
+     "DOC-018#115",
+     "DOC-013#86",
+     "DOC-038#244",
+     "DOC-008#52",
+     "DOC-008#51"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "Product-C4의 백업본은 90일 후에 없어집니다. 백업본은 S3 호환 스토리지에 저장됩니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Product-C4의 백업본은 90일 후에 없어집니다. 백업본은 S3 호환 스토리지에 저장됩니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-27",
+   "lane": "vector_search",
+   "q": "Product-D3 스레드풀, 코어 수 그대로 넣는 거 맞아? 권장값 좀",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right value (코어 수 × 4) but opens with 「네」 to 「코어 수 그대로 맞아?」",
+   "analyst_right": true,
+   "answer_1011": "네, Product-D3의 스레드풀 설정은 코어 수 × 4로 권장됩니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-019"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-019#121",
+     "DOC-019#120",
+     "DOC-019#122",
+     "DOC-014#92",
+     "DOC-015#99"
+    ],
+    "ctx": [
+     "DOC-019#121",
+     "DOC-019#120",
+     "DOC-019#122",
+     "DOC-014#92",
+     "DOC-015#99"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "네, 스레드풀의 코어 수를 그대로 넣는 것이 맞습니다. 권장값은 JVM 힙의 크기에 따라 다르지만, 일반적으로 코어 수 × 4를 권장합니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "네, Product-D3의 스레드풀 설정은 코어 수 × 4입니다. 권장값은 코어 수에 따라 달라집니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-28",
+   "lane": "vector_search",
+   "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "403 뱉음은 권한 없음을 의미합니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-020"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-020#127",
+     "DOC-007#45",
+     "DOC-010#65",
+     "DOC-010#66",
+     "DOC-009#59"
+    ],
+    "ctx": [
+     "DOC-020#127",
+     "DOC-007#45",
+     "DOC-010#65",
+     "DOC-010#66",
+     "DOC-009#59"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "403 뱉으면 권한 없음이라는 뜻입니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "403 뱉음은 권한 없음의 의미입니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-29",
+   "lane": "vector_search",
+   "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "보안 패치를 스테이징 환경에서 충분한 테스트 없이 프로덕션에 적용한 것이 원인입니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-001"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-001#2",
+     "DOC-001#4",
+     "DOC-001#5",
+     "DOC-001#1",
+     "DOC-003#16"
+    ],
+    "ctx": [
+     "DOC-001#2",
+     "DOC-001#4",
+     "DOC-001#5",
+     "DOC-001#1",
+     "DOC-003#16"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "보안 패치를 스테이징 환경에서 충분한 테스트 없이 프로덕션에 적용한 것이 원인입니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "보안 패치 적용 후 호환성 이슈가 발생하였습니다. 스테이징 환경에서의 충분한 테스트 없이 프로덕션에 적용된 것이 원인입니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-30",
+   "lane": "vector_search",
+   "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "chunk: the 원인 분석 chunk of the right document is not in the top 5 (other chunks of it are); the 7B abstains; gold-doc oracle fixes it",
+   "analyst_right": false,
+   "answer_1011": "주어진 정보로는 알 수 없습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-003"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-003#16",
+     "DOC-003#15",
+     "DOC-001#2",
+     "DOC-001#1",
+     "DOC-002#9"
+    ],
+    "ctx": [
+     "DOC-003#16",
+     "DOC-003#15",
+     "DOC-001#2",
+     "DOC-001#1",
+     "DOC-002#9"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "모니터링 임계값이 적절히 설정되지 않아 사전 감지가 되지 않았습니다.",
+     "analyst_right": true
+    },
+    "oracle-wholedoc": {
+     "strict": null,
+     "answer": "모니터링 임계값이 적절히 설정되지 않아 사전 감지가 되지 않았습니다.",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "모니터링 임계값이 적절히 설정되지 않아 사전 감지가 되지 않았습니다.",
+     "analyst_right": true
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-31",
+   "lane": "vector_search",
+   "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "강현우 (클라우드사업부)",
+   "vector": {
+    "gold_docs": [
+     "DOC-005"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-005#35",
+     "DOC-001#7",
+     "DOC-005#30",
+     "DOC-004#28",
+     "DOC-005#29"
+    ],
+    "ctx": [
+     "DOC-005#35",
+     "DOC-001#7",
+     "DOC-005#30",
+     "DOC-004#28",
+     "DOC-005#29"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "강현우"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "강현우 (클라우드사업부)"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-32",
+   "lane": "vector_search",
+   "q": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들 인수인계에 넣게 짚어줘",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들은 다음과 같습니다: 1. 로드밸런서 설정 복구 2. 모니터링 알림 임계값 재설정 3. 재발 방지를 위한 자동화 스크립트 작성",
+   "vector": {
+    "gold_docs": [
+     "DOC-008"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-008#50",
+     "DOC-008#54",
+     "DOC-008#51",
+     "DOC-008#56",
+     "DOC-001#5"
+    ],
+    "ctx": [
+     "DOC-008#50",
+     "DOC-008#54",
+     "DOC-008#51",
+     "DOC-008#56",
+     "DOC-001#5"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들은 다음과 같습니다: 1. 로드밸런서 설정 복구 2. 모니터링 알림 임계값 재설정 3. 재발 방지를 위한 자동화 스크립트 작성"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들은 다음과 같습니다: 1. 로드밸런서 설정 복구 2. 모니터링 알림 임계값 재설정 3. 재발 방지를 위한 자동화 스크립트 작성"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-33",
+   "lane": "vector_search",
+   "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "2주",
+   "vector": {
+    "gold_docs": [
+     "DOC-021"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-021#134",
+     "DOC-021#129",
+     "DOC-021#131",
+     "DOC-030#197",
+     "DOC-021#130"
+    ],
+    "ctx": [
+     "DOC-021#134",
+     "DOC-021#129",
+     "DOC-021#131",
+     "DOC-030#197",
+     "DOC-021#130"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "2주 연장"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "2주"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-34",
+   "lane": "vector_search",
+   "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "네, Client-D 2026년 6월 26일 중간 점검에서 추가 인력 투입 승인이 결론났으며, 주간 리포트 형식도 변경하기로 결정했습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-024"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-024#155",
+     "DOC-024#150",
+     "DOC-024#152",
+     "DOC-025#162",
+     "DOC-026#164"
+    ],
+    "ctx": [
+     "DOC-024#155",
+     "DOC-024#150",
+     "DOC-024#152",
+     "DOC-025#162",
+     "DOC-026#164"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "네, Client-D 2026년 6월 26일 중간 점검에서 추가 인력 투입 승인이 결론났으며, 주간 리포트 형식도 변경하기로 결정했습니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "네, Client-D 2026년 6월 26일 중간 점검에서 추가 인력 투입 승인이 결론났으며, 주간 리포트 형식도 변경하기로 결정되었습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-35",
+   "lane": "vector_search",
+   "q": "Client-G 2026년 5월 20일 만났을 때 돈 얼마나 썼다고 했어? 매출 말고 예산 쓴 비율",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "structured",
+   "route_ok": false,
+   "stage": "route",
+   "why": "routed structured; SQL returns NULL, NULL-row answer; oracle route answers 46%",
+   "analyst_right": false,
+   "answer_1011": "이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null). [조회 결과 1건] - budget_to_sales_ratio: null",
+   "vector": {
+    "gold_docs": [
+     "DOC-027"
+    ],
+    "gold_rank": null,
+    "gold_in_ctx": false,
+    "hits": [],
+    "ctx": [],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "deterministic",
+   "oracle": {
+    "oracle-route": {
+     "strict": null,
+     "answer": "46%",
+     "analyst_right": true
+    },
+    "oracle-docs": {
+     "strict": null,
+     "answer": "46%",
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "이 질문의 조건에 맞는 행이 없어 집계한 값이 없습니다(조회 결과 null). [조회 결과 1건] - budget_to_sales_ratio: null"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-36",
+   "lane": "vector_search",
+   "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "박민수, 오수진, 장미라, 강동현, 권소연",
+   "vector": {
+    "gold_docs": [
+     "DOC-028"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-028#178",
+     "DOC-028#179",
+     "DOC-028#180",
+     "DOC-028#184",
+     "DOC-028#182"
+    ],
+    "ctx": [
+     "DOC-028#178",
+     "DOC-028#179",
+     "DOC-028#180",
+     "DOC-028#184",
+     "DOC-028#182"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "박민수, 오수진, 장미라, 강동현, 권소연"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "박민수, 오수진, 장미라, 강동현, 권소연"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-37",
+   "lane": "vector_search",
+   "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Client-F에 Product-C1 권할 때 첫 구축비는 7917만원 써냈어요.",
+   "vector": {
+    "gold_docs": [
+     "DOC-031"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-031#203",
+     "DOC-037#239",
+     "DOC-033#215",
+     "DOC-035#227",
+     "DOC-032#209"
+    ],
+    "ctx": [
+     "DOC-031#203",
+     "DOC-037#239",
+     "DOC-033#215",
+     "DOC-035#227",
+     "DOC-032#209"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "7917만원"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Client-F에 Product-C1 권할 때 첫 구축비는 7917만원 써졌습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-38",
+   "lane": "vector_search",
+   "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Client-H에 Product-S1을 도입하는 데 테스트 및 안정화 단계는 3주를 소요했습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-033"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-033#214",
+     "DOC-034#220",
+     "DOC-040#256",
+     "DOC-031#202",
+     "DOC-035#226"
+    ],
+    "ctx": [
+     "DOC-033#214",
+     "DOC-034#220",
+     "DOC-040#256",
+     "DOC-031#202",
+     "DOC-035#226"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "테스트 및 안정화 단계는 3주를 잡았습니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Client-H에 Product-S1을 도입하는 데 테스트와 안정화 단계는 3주를 소요했습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-39",
+   "lane": "vector_search",
+   "q": "Product-C4 얘길 왜 꺼냈던 거야 Client-M한테? 제안할 때 적은 그쪽 IT 숙제 두 가지가 뭐였지",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "Client-M은 데이터 기반 의사결정 체계 구축과 개인정보보호법 강화에 따른 컴플라이언스 대응이 주요 IT 인프라의 과제였습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-038"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-038#242",
+     "DOC-038#243",
+     "DOC-038#241",
+     "DOC-034#218",
+     "DOC-037#236"
+    ],
+    "ctx": [
+     "DOC-038#242",
+     "DOC-038#243",
+     "DOC-038#241",
+     "DOC-034#218",
+     "DOC-037#236"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "Client-M은 IT/SW 분야의 스타트업으로, 대구에 위치하고 있습니다. 현재 IT 인프라의 주요 과제는 데이터 기반 의사결정 체계 구축과 개인정보보호법 강화에 따른 컴플라이언스 대응이었습니다."
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "Client-M은 데이터 기반 의사결정 체계 구축과 개인정보보호법 강화에 따른 컴플라이언스 대응이 주요 IT 숙제였습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-40",
+   "lane": "vector_search",
+   "q": "Client-O Product-S3 도입안에 투자금 회수 몇 달로 봤음?",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 답 키워드가 없다 — 정답 문서의 사실 하나로 가르면 같은 문서의 다른 사실도 정답이 된다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "none (unscorable, analyst: right)",
+   "why": "right",
+   "analyst_right": true,
+   "answer_1011": "13개월 내",
+   "vector": {
+    "gold_docs": [
+     "DOC-040"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-040#258",
+     "DOC-037#240",
+     "DOC-039#252",
+     "DOC-034#222",
+     "DOC-033#216"
+    ],
+    "ctx": [
+     "DOC-040#258",
+     "DOC-037#240",
+     "DOC-039#252",
+     "DOC-034#222",
+     "DOC-033#216"
+    ],
+    "key_chunks_in_hits": null,
+    "key_chunks_in_ctx": null
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "13개월 내"
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "13개월 내"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-55",
+   "lane": "knowledge_graph",
+   "q": "Client-G가 문제 있다고 접수했던 제품 이름 뭐였어? 조치 내용은 필요 없고",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 1/1",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "edges: the REPORTED_ISSUE edge to Product-S2 is not retrieved; the 7B names Client-G’s USES product instead",
+   "analyst_right": false,
+   "answer_1011": "Client-G가 문제라고 접수했던 제품은 Product-C2입니다.",
+   "graph": {
+    "strategy": "seeded",
+    "items": 2,
+    "items_kept": 2,
+    "gold_edges": 1,
+    "edges_in_items": 0,
+    "edges_in_ctx": 0,
+    "names_in_items": 0,
+    "names_in_ctx": 0
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": true,
+     "answer": "Client-G가 문제라고 접수했던 제품은 Product-S2였습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-59",
+   "lane": "knowledge_graph",
+   "q": "Client-N 밑에 적어둔 프로젝트 이름 뭐뭐였지, K8s 말고도 있었던 거 같은데",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 1/2",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "both projects in context; the 7B reads 「K8s 말고도」 as an exclusion and drops the K8s project",
+   "analyst_right": false,
+   "answer_1011": "Client-N 밑에 적어둔 프로젝트 이름은 \"Client-N 보안 감사 자동화\"였습니다.",
+   "graph": {
+    "strategy": "seeded",
+    "items": 3,
+    "items_kept": 3,
+    "gold_edges": 2,
+    "edges_in_items": 2,
+    "edges_in_ctx": 2,
+    "names_in_items": 2,
+    "names_in_ctx": 2
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": false,
+     "answer": "Client-N 밑에 적어둔 프로젝트는 \"Client-N 보안 감사 자동화\"였습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-60",
+   "lane": "knowledge_graph",
+   "q": "Client-R 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 정답이 project, employee 짝이다 — 이름이 다 있어도 짝이 바뀐 답을 가르지 못한다",
+   "rerun_correct": null,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "edges: LEADS edges of the two projects not retrieved; abstains (unscorable: project-person pairs); gold-edge oracle gives the right pairs",
+   "analyst_right": false,
+   "answer_1011": "주어진 정보로는 알 수 없습니다.",
+   "graph": {
+    "strategy": "seeded",
+    "items": 2,
+    "items_kept": 2,
+    "gold_edges": 4,
+    "edges_in_items": 0,
+    "edges_in_ctx": 0,
+    "names_in_items": 0,
+    "names_in_ctx": 0
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": null,
+     "answer": "Client-R 보안 감사 자동화: 강현우 Client-R MLOps 파이프라인: 조동현",
+     "analyst_right": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-01",
+   "lane": "nl2sql",
+   "q": "부서마다 사람 몇 명씩 있는지 쫙 보여줘",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "기권",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": false,
+   "stage": "route",
+   "why": "routed graph: 「부서마다」 taken as an entity name, not-found answer; oracle route is right",
+   "analyst_right": false,
+   "answer_1011": "질문에 나온 개체(부서마다)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+   "sql": {
+    "generated": null,
+    "executed": null,
+    "rewritten": null,
+    "repaired": false,
+    "ok": null,
+    "error": null,
+    "rows": 0,
+    "rows_kept": 0,
+    "gold_rows": 6,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "deterministic",
+   "oracle": {
+    "oracle-route": {
+     "strict": true,
+     "answer": "기술지원팀: 4명 경영지원팀: 8명 영업팀: 10명 보안솔루션팀: 8명 클라우드사업부: 10명 데이터플랫폼팀: 5명 [조회 결과 6건] - department_name: 기술지원팀, employee_count: 4 - department_name: 경영지원팀, employee_count: 8 - department_name: 영업팀, employee_cou…"
+    },
+    "oracle-sql": {
+     "strict": true,
+     "answer": "| 부서 이름 | 직원 수 | |-----------------|---------| | 영업팀 | 10 | | 클라우드사업부 | 10 | | 경영지원팀 | 8 | | 보안솔루션팀 | 8 | | 데이터플랫폼팀 | 5 | | 기술지원팀 | 4 | [조회 결과 6건] - dept_name: 영업팀, employee_count: 10 - dept_name: 클라우…"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-02",
+   "lane": "nl2sql",
+   "q": "22년도에 들어온 사람 명단 좀 주라, 입사일 빠른 순으로",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 15/30",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "gold over-asks: hire_date is the requested sort order, not a requested value; 15 names in the right order",
+   "analyst_right": true,
+   "answer_1011": "안소연, 황민수, 서지현, 안재원, 한도윤, 신다은, 박소연, 권진우, 서재원, 한태호, 정혜원, 오수진, 황재원, 조현우, 박은지 [조회 결과 15건] - name: 안소연 - name: 황민수 - name: 서지현 - name: 안재원 - name: 한도윤 - name: 신다은 - name: 박소연 - name: 권진우 - name: 서재원 - name: 한태호 - name: 정혜원 - name: 오수진 - name: 황재원 - name: 조현우 - name: 박은지",
+   "sql": {
+    "generated": "SELECT name FROM companyx.employees WHERE hire_date BETWEEN '2022-01-01' AND '2022-12-31' ORDER BY hire_date ASC",
+    "executed": "SELECT name FROM companyx.employees WHERE hire_date BETWEEN '2022-01-01' AND '2022-12-31' ORDER BY hire_date ASC",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 15,
+    "rows_kept": 15,
+    "gold_rows": 15,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "안소연, 황민수, 서지현, 안재원, 한도윤, 신다은, 박소연, 권진우, 서재원, 한태호, 정혜원, 오수진, 황재원, 조현우, 박은지 [조회 결과 15건] - name: 안소연, hire_date: 2022-01-07 - name: 황민수, hire_date: 2022-01-30 - name: 서지현, hire_date: 2022-02-03 - name: 안…"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-06",
+   "lane": "nl2sql",
+   "q": "부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 2/3",
+   "rerun_correct": false,
+   "routed": "hybrid",
+   "route_ok": false,
+   "stage": "scoring",
+   "why": "gold echoes the question: 부산 and IT/SW are required although the question states them; Client-C is right (route hybrid, SQL lane ran)",
+   "analyst_right": true,
+   "answer_1011": "Client-C [조회 결과 1건] - name: Client-C",
+   "sql": {
+    "generated": "SELECT c.name FROM companyx.clients c WHERE c.region = '부산' AND c.industry = 'IT/SW'",
+    "executed": "SELECT c.name FROM companyx.clients c WHERE c.region = '부산' AND c.industry = 'IT/SW'",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-route": {
+     "strict": false,
+     "answer": "Client-C [조회 결과 1건] - name: Client-C"
+    },
+    "oracle-sql": {
+     "strict": true,
+     "answer": "Client-C [조회 결과 1건] - name: Client-C, region: 부산, industry: IT/SW"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-07",
+   "lane": "nl2sql",
+   "q": "아직 베타 딱지 붙어 있는 제퓸이 남아 있나?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 6/8",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "gold over-asks: version, release_date and status required; the question asks whether beta products remain (both named)",
+   "analyst_right": true,
+   "answer_1011": "네, 아직 베타 딱지 붙어 있는 제퓸이 남아 있습니다. 남아 있는 제품은 'Product-S1'과 'Product-C4'입니다. [조회 결과 2건] - name: Product-S1 - name: Product-C4",
+   "sql": {
+    "generated": "SELECT name FROM companyx.products WHERE status = 'beta'",
+    "executed": "SELECT name FROM companyx.products WHERE status = 'beta'",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 2,
+    "rows_kept": 2,
+    "gold_rows": 2,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "네, 아직 베타 딱지 붙어 있는 제퓸이 남아 있습니다. 현재 베타 상태의 제품들은 'Product-C4'와 'Product-S1'입니다. [조회 결과 2건] - name: Product-C4, version: 2.1.0, release_date: 2024-08-01, status: beta - name: Product-S1, version: 2.9.5, r…"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-10",
+   "lane": "nl2sql",
+   "q": "중간에 취소돼 버린 계약 중에 제일 금액이 컸던 건 어디 고객사 거였어? 얼마였는지도 같이",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 1/3",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "gold over-asks: product name required; the question asks the client and the amount (both right)",
+   "analyst_right": true,
+   "answer_1011": "Client-I | 4250 [조회 결과 1건] - client_name: Client-I, contract_amount: 4250",
+   "sql": {
+    "generated": "SELECT c.name AS client_name, ct.amount AS contract_amount FROM companyx.contracts ct JOIN companyx.clients c ON ct.client_id = c.id WHERE ct.status = 'cancelled' ORDER BY ct.amount DESC LIMIT 1",
+    "executed": "SELECT c.name AS client_name, ct.amount AS contract_amount FROM companyx.contracts ct JOIN companyx.clients c ON ct.client_id = c.id WHERE ct.status = 'cancelled' ORDER BY ct.amount DESC FETCH FIRST 1 ROWS WITH TIES",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "Client-I | 4250 [조회 결과 1건] - client_name: Client-I, product_name: Product-C4, amount: 4250"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-13",
+   "lane": "nl2sql",
+   "q": "올해 2분기에 제일 돈이 된 카테고리가 뭐야? 클라우드냐 보안이냐 그런 거 말이야",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 1/2",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "MAX-subquery gold keeps the sort-key sum; the scorer drops it only for LIMIT golds; category right",
+   "analyst_right": true,
+   "answer_1011": "보안 [조회 결과 1건] - category: security",
+   "sql": {
+    "generated": "SELECT category FROM companyx.sales WHERE quarter = '2026-Q2' GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1",
+    "executed": "SELECT category FROM companyx.sales WHERE quarter = '2026-Q2' GROUP BY category ORDER BY SUM(amount) DESC FETCH FIRST 1 ROWS WITH TIES",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "보안 [조회 결과 1건] - category: security, total_amount: 10139"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-15",
+   "lane": "nl2sql",
+   "q": "지난주 영업 쪽 회의에서 Client-B 얘기가 나왔는데, 걔네한테서 잡힌 매출 전표가 실제로 몇 건인지 날짜랑 금액 쭉 뽑아줄래?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 72/72",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "「지난주」 (the meeting) applied to sale_date: 0 rows; behind it, curation keeps 13 of 36 rows even with the gold SQL",
+   "analyst_right": false,
+   "answer_1011": "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.",
+   "sql": {
+    "generated": "SELECT s.sale_date, s.amount FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id JOIN companyx.employees e ON s.manager_id = e.id WHERE c.name = 'Client-B' AND e.position = '영업' AND s.sale_date >= CURRENT_DATE - INTERVAL '7 days'",
+    "executed": "SELECT s.sale_date, s.amount FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = 'Client-B' AND s.sale_date >= CURRENT_DATE - INTERVAL '7 days'",
+    "rewritten": null,
+    "repaired": true,
+    "ok": true,
+    "error": null,
+    "rows": 0,
+    "rows_kept": 0,
+    "gold_rows": 36,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false,
+    "gate": {
+     "outcome": "repaired",
+     "reasons": [
+      "조인 조건 s.manager_id = e.id 은 없는 열을 쓴다(sales 에는 manager_id 열이 없다). sales 는 client_id → clients, contract_id → contracts, product_id → products 로만 이어진다. 질문이 묻지 않은 표의 조인은 뺀다"
+     ]
+    }
+   },
+   "answer_path": "deterministic",
+   "oracle": {
+    "oracle-sql": {
+     "strict": false,
+     "answer": "Client-B의 매출 전표는 총 12건입니다. 아래는 각 전표의 날짜와 금액입니다: 1. 2024-01-22 | 336 2. 2024-04-16 | 374 3. 2024-04-24 | 719 4. 2024-04-26 | 1186 5. 2024-04-27 | 639 6. 2024-05-08 | 442 7. 2024-07-11 | 811 8. 2024-10-…"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-17",
+   "lane": "nl2sql",
+   "q": "SSL 인증서 만료 알림으로 들어온 티켓, 어느 고객사들에서 온 거지?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 2/3",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": false,
+   "stage": "route",
+   "why": "routed semantic: no SQL lane; oracle route is right",
+   "analyst_right": false,
+   "answer_1011": "Client-F와 Client-E에서 온 티켓입니다.",
+   "sql": {
+    "generated": null,
+    "executed": null,
+    "rewritten": null,
+    "repaired": false,
+    "ok": null,
+    "error": null,
+    "rows": 0,
+    "rows_kept": 0,
+    "gold_rows": 3,
+    "ex_match": false,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-route": {
+     "strict": true,
+     "answer": "SSL 인증서 만료 알림으로 들어온 티켓은 Client-B, Client-E, Client-M에서 온 것입니다. [조회 결과 3건] - name: Client-B - name: Client-E - name: Client-M"
+    },
+    "oracle-sql": {
+     "strict": true,
+     "answer": "SSL 인증서 만료 알림으로 들어온 티켓은 Client-B, Client-E, Client-M에서 온 것입니다. [조회 결과 3건] - client_name: Client-B - client_name: Client-E - client_name: Client-M"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-18",
+   "lane": "nl2sql",
+   "q": "해결된 티켓 기준으로 접수부터 해결까지 평균 얼마나 걸렸어?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 1/1",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": true,
+   "stage": "nl2sql",
+   "why": "interpretation: status=resolved instead of resolved_at IS NOT NULL (closed tickets also carry resolved_at); gold is defensible",
+   "analyst_right": false,
+   "answer_1011": "3일 18시간 15분 40초 [조회 결과 1건] - avg_resolution_time: 3일 18시간 15분 40초",
+   "sql": {
+    "generated": "SELECT AVG(resolved_at - created_at) AS avg_resolution_time FROM companyx.support_tickets WHERE status = 'resolved'",
+    "executed": "SELECT AVG(resolved_at - created_at) AS avg_resolution_time FROM companyx.support_tickets WHERE status = 'resolved'",
+    "rewritten": null,
+    "repaired": false,
+    "ok": true,
+    "error": null,
+    "rows": 1,
+    "rows_kept": 1,
+    "gold_rows": 1,
+    "ex_match": true,
+    "rows_have_answer": false,
+    "ctx_rows_have_answer": false
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-sql": {
+     "strict": true,
+     "answer": "평균 해결 시간은 3일 19시간 56분 31초입니다. [조회 결과 1건] - avg_resolution_time: 3일 19시간 56분 31초"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-21",
+   "lane": "vector_search",
+   "q": "작년 4월 22일에 Client-B에서 Product-C2 장애 났을 때 첫 번째로 한 조치가 뭐였지?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 2025-04-22 16:33",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword not asked: incident date-time required; the first action (SSL 인증서 갱신) is right",
+   "analyst_right": true,
+   "answer_1011": "SSL 인증서 갱신",
+   "vector": {
+    "gold_docs": [
+     "DOC-002"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-002#9",
+     "DOC-002#12",
+     "DOC-002#8",
+     "DOC-002#14",
+     "DOC-001#5"
+    ],
+    "ctx": [
+     "DOC-002#9",
+     "DOC-002#12",
+     "DOC-002#8",
+     "DOC-002#14",
+     "DOC-001#5"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "SSL 인증서 갱신",
+     "number_rule": false
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "SSL 인증서 갱신",
+     "number_rule": false
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "SSL 인증서 갱신",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-23",
+   "lane": "vector_search",
+   "q": "Client-F에서 Product-D2 HTTPS 통신 실패 났던 건, 첫 대응 들어가기까지 시간 얼마나 걸렸대?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 초기 대응: 40분",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 40분 right, 「초기 대응: 40분」 not verbatim",
+   "analyst_right": true,
+   "answer_1011": "40분",
+   "vector": {
+    "gold_docs": [
+     "DOC-006"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-006#38",
+     "DOC-005#31",
+     "DOC-006#41",
+     "DOC-006#37",
+     "DOC-004#27"
+    ],
+    "ctx": [
+     "DOC-006#38",
+     "DOC-005#31",
+     "DOC-006#41",
+     "DOC-006#37",
+     "DOC-004#27"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "40분",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "40분",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "40분",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-24",
+   "lane": "vector_search",
+   "q": "2025년 3월 17일 Client-I Product-D3 건 말인데, 장애 감지까지 걸린 시간이랑 심각도가 어떻게 돼?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 장애 감지: 22분",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 22분 and Critical right",
+   "analyst_right": true,
+   "answer_1011": "2025년 3월 17일 Client-I Product-D3 건의 장애 감지까지 걸린 시간은 22분이고, 심각도는 Critical입니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-009"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-009#58",
+     "DOC-009#57",
+     "DOC-009#62",
+     "DOC-007#44",
+     "DOC-007#43"
+    ],
+    "ctx": [
+     "DOC-009#58",
+     "DOC-009#57",
+     "DOC-009#62",
+     "DOC-007#44",
+     "DOC-007#43"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "장애 감지까지 걸린 시간은 22분이었습니다. 심각도는 Critical(심각)입니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "장애 감지까지 걸린 시간은 22분이었습니다. 심각도는 Critical(심각)입니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "장애 감지까지 걸린 시간은 22분이었습니다. 심각도는 Critical(심각)입니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-25",
+   "lane": "vector_search",
+   "q": "올해 2월에 Client-J Product-S3 응답 지연 사고 보고서에서, 재발 방지로 도입해야 한다고 적힌 패턴이 뭐야?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 서킷브레이커 패턴 적용이 필요합니다, 2026-02-16 08:31",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword not asked: 서킷브레이커 패턴 right; the full sentence and the incident date-time required",
+   "analyst_right": true,
+   "answer_1011": "서킷브레이커 패턴",
+   "vector": {
+    "gold_docs": [
+     "DOC-010"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-010#67",
+     "DOC-010#64",
+     "DOC-007#46",
+     "DOC-007#43",
+     "DOC-010#66"
+    ],
+    "ctx": [
+     "DOC-010#67",
+     "DOC-010#64",
+     "DOC-007#46",
+     "DOC-007#43",
+     "DOC-010#66"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "서킷브레이커 패턴",
+     "number_rule": false
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "서킷브레이커 패턴",
+     "number_rule": false
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "서킷브레이커 패턴",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-26",
+   "lane": "vector_search",
+   "q": "장애 보고서 쭉 훑어보면 완전 복구까지 8시간 걸린 사고가 몇 건이야? 어디어디 건인지도",
+   "scorer_1011": "unscorable",
+   "scorer_reason_1011": "채점 불가: 정답 문서가 3개다 — 키워드는 몇 건, 어느 문서를 대야 하는지 말하지 않는다",
+   "rerun_correct": null,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "two of three 8-hour incidents named; the third (DOC-010) chunk is in context (unscorable: three gold documents)",
+   "analyst_right": false,
+   "answer_1011": "2건입니다. Client-E Product-D1 서비스 장애와 Client-D Product-S2 서비스 장애가 8시간 동안 완전 복구되었습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-004",
+     "DOC-005",
+     "DOC-010"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-005#34",
+     "DOC-003#20",
+     "DOC-001#6",
+     "DOC-004#27",
+     "DOC-010#69"
+    ],
+    "ctx": [
+     "DOC-005#34",
+     "DOC-003#20",
+     "DOC-001#6",
+     "DOC-004#27",
+     "DOC-010#69"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-docs": {
+     "strict": null,
+     "answer": "2건의 사고가 완전 복구까지 8시간 걸렸습니다. 사고는 다음과 같습니다: 1. Client-E Product-D1 서비스 장애 (2024-11-15) 2. Client-D Product-S2 서비스 장애 (2024-08-05)",
+     "analyst_right": false
+    },
+    "oracle-chunks": {
+     "strict": null,
+     "answer": "2건의 사고가 완전 복구까지 8시간 걸렸습니다. 사고는 다음과 같습니다: 1. Client-E Product-D1 서비스 장애 (2024-11-15) 2. Client-D Product-S2 서비스 장애 (2024-08-05)"
+    },
+    "oracle-wholedoc": {
+     "strict": null,
+     "answer": "2건의 사고가 완전 복구까지 8시간 걸렸습니다. 사고는 다음과 같습니다: 1. Client-D Product-S2 서비스 장애 (2024-08-05) 2. Client-E Product-D1 서비스 장애 (2024-11-15)",
+     "analyst_right": false
+    },
+    "expand-topdoc": {
+     "strict": null,
+     "answer": "8건의 사고가 완전 복구까지 8시간 걸렸습니다. 이 사고들은 다음과 같습니다: 1. Client-E Product-D1 서비스 장애 (2024-11-15) 2. Client-C Product-S1 서비스 장애 (2025-11-08) 3. Client-A Product-C1 서비스 장애 (2025-12-27) 4. Client-D Product-S2 서비스 …",
+     "analyst_right": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-27",
+   "lane": "vector_search",
+   "q": "Product-C2 오토스케일링은 CPU 사용률 몇 퍼센트를 기준으로 인스턴스가 늘어나?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 CPU 사용률 78% 기준으로 스케일아웃됩니다, HPA",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword not asked: 78% right; HPA required",
+   "analyst_right": true,
+   "answer_1011": "Product-C2의 오토스케일링은 CPU 사용률 78%를 기준으로 인스턴스가 늘어나요.",
+   "vector": {
+    "gold_docs": [
+     "DOC-012"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-012#81",
+     "DOC-017#110",
+     "DOC-014#92",
+     "DOC-014#93",
+     "DOC-014#91"
+    ],
+    "ctx": [
+     "DOC-012#81",
+     "DOC-017#110",
+     "DOC-014#92",
+     "DOC-014#93",
+     "DOC-014#91"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "HPA(Horizontal Pod Autoscaler)는 CPU 사용률 78%를 기준으로 인스턴스가 늘어납니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": true,
+     "answer": "HPA로 관리하며, CPU 사용률 78% 기준으로 스케일아웃됩니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Product-C2의 오토스케일링은 CPU 사용률 78%를 기준으로 인스턴스가 늘어납니다.",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-28",
+   "lane": "vector_search",
+   "q": "Product-S1 로그는 며칠이나 보관해? ELK 쪽 얘기야",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 보관 기간은 71일이며, ELK 스택",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 71일 right; 「ELK 스택」 required though the question already says ELK",
+   "analyst_right": true,
+   "answer_1011": "Product-S1 로그는 71일 동안 보관됩니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-013"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-013#87",
+     "DOC-018#116",
+     "DOC-013#86",
+     "DOC-018#115",
+     "DOC-033#216"
+    ],
+    "ctx": [
+     "DOC-013#87",
+     "DOC-018#116",
+     "DOC-013#86",
+     "DOC-018#115",
+     "DOC-033#216"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "Product-S1 로그는 71일 동안 보관됩니다.",
+     "number_rule": false
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "Product-S1 로그는 71일 동안 보관됩니다.",
+     "number_rule": false
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Product-S1의 로그는 ELK 스택을 통해 수집·분석되며, 보관 기간은 71일입니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-29",
+   "lane": "vector_search",
+   "q": "Product-S2에서 쿼리 캐시 TTL 몇 초로 잡으라고 가이드에 있었지?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 TTL 222초 설정, Redis",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword not asked: 222초 right; Redis required",
+   "analyst_right": true,
+   "answer_1011": "Product-S2에서 쿼리 캐시 TTL은 222초로 설정해야 합니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-014"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-014#91",
+     "DOC-019#120",
+     "DOC-014#92",
+     "DOC-014#93",
+     "DOC-034#222"
+    ],
+    "ctx": [
+     "DOC-014#91",
+     "DOC-019#120",
+     "DOC-014#92",
+     "DOC-014#93",
+     "DOC-034#222"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "222초",
+     "number_rule": false
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "222초",
+     "number_rule": false
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Product-S2에서 쿼리 캐시 TTL은 222초로 설정됩니다.",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-30",
+   "lane": "vector_search",
+   "q": "Product-D1 API 호출 한도가 기본이랑 프리미엄 각각 분당 몇 회야?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 기본 분당 263회, 프리미엄 분당 2130회",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 263회 and 2130회 right",
+   "analyst_right": true,
+   "answer_1011": "Product-D1 API의 기본 분당 호출 한도는 263회이고, 프리미엄 분당 호출 한도는 2130회입니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-015"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-015#99",
+     "DOC-020#128",
+     "DOC-015#98",
+     "DOC-019#121",
+     "DOC-015#97"
+    ],
+    "ctx": [
+     "DOC-015#99",
+     "DOC-020#128",
+     "DOC-015#98",
+     "DOC-019#121",
+     "DOC-015#97"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "Product-D1 API의 기본 분당 호출 한도는 263회이고, 프리미엄 분당 호출 한도는 2130회입니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": true,
+     "answer": "기본 분당 263회, 프리미엄 분당 2130회입니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Product-D1 API의 기본 분당 호출 한도는 263회이고, 프리미엄 분당 호출 한도는 2130회입니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-31",
+   "lane": "vector_search",
+   "q": "Product-D2를 새 서버에 깔려고 하는데 디스크를 몇 GB 비워 둬야 하는지 문서에 나와 있나요?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 디스크: 167GB SSD",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 167GB SSD right",
+   "analyst_right": true,
+   "answer_1011": "167GB SSD",
+   "vector": {
+    "gold_docs": [
+     "DOC-016"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-016#101",
+     "DOC-019#121",
+     "DOC-014#92",
+     "DOC-016#102",
+     "DOC-036#232"
+    ],
+    "ctx": [
+     "DOC-016#101",
+     "DOC-019#121",
+     "DOC-014#92",
+     "DOC-016#102",
+     "DOC-036#232"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "167GB SSD",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "167GB SSD",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "167GB SSD",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-32",
+   "lane": "vector_search",
+   "q": "올해 2월 20일에 Client-B랑 미팅했을 때 예산을 얼마나 쓴 상태라고 했지? 집행률로",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 예산 집행률 49%이며",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": false,
+   "stage": "route",
+   "why": "routed structured; the gate refuses the SQL; oracle route answers 49% (right)",
+   "analyst_right": false,
+   "answer_1011": "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 외래키가 아닌 열(s.contract_id = pr.contract_id)로 표를 이어서 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+   "vector": {
+    "gold_docs": [
+     "DOC-022"
+    ],
+    "gold_rank": null,
+    "gold_in_ctx": false,
+    "hits": [],
+    "ctx": [],
+    "key_chunks_in_hits": false,
+    "key_chunks_in_ctx": false
+   },
+   "answer_path": "deterministic",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-route": {
+     "strict": false,
+     "answer": "49%",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-docs": {
+     "strict": false,
+     "answer": "49%",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "49%",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 외래키가 아닌 열(s.contract_id = pr.contract_id)로 표를 이어서 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-33",
+   "lane": "vector_search",
+   "q": "작년 8월 말 Client-C 회의에서 마일스톤 2가 며칠 밀렸다고 했는지 기억이 안 나네",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 마일스톤 2가 10일 지연되고 있습니다",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 10일 right",
+   "analyst_right": true,
+   "answer_1011": "2025년 8월 말 Client-C 회의에서 마일스톤 2가 10일 밀렸다고 했습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-023"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-023#147",
+     "DOC-026#168",
+     "DOC-029#189",
+     "DOC-025#161",
+     "DOC-021#133"
+    ],
+    "ctx": [
+     "DOC-023#147",
+     "DOC-026#168",
+     "DOC-029#189",
+     "DOC-025#161",
+     "DOC-021#133"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "주어진 정보로는 알 수 없습니다.",
+     "number_rule": false,
+     "analyst_right": false
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "주어진 정보로는 알 수 없습니다.",
+     "number_rule": false
+    },
+    "oracle-wholedoc": {
+     "strict": false,
+     "answer": "마일스톤 2가 10일 지연되었다고 했습니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "2025년 8월 말 Client-C 회의에서 마일스톤 2가 10일 지연되었다고 했습니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-34",
+   "lane": "vector_search",
+   "q": "Client-E 장애 대응 회의가 6월에 있었잖아. 그때 프로젝트 진행률이 몇 퍼라고 공유됐어?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 현재 진행률 80%로 예정대로 진행 중입니다",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 80% right",
+   "analyst_right": true,
+   "answer_1011": "80%",
+   "vector": {
+    "gold_docs": [
+     "DOC-025"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-025#160",
+     "DOC-027#174",
+     "DOC-023#146",
+     "DOC-025#157",
+     "DOC-024#150"
+    ],
+    "ctx": [
+     "DOC-025#160",
+     "DOC-027#174",
+     "DOC-023#146",
+     "DOC-025#157",
+     "DOC-024#150"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "프로젝트 진행률이 80%라고 공유되었습니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "프로젝트 진행률이 80%라고 공유되었습니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "80%",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-35",
+   "lane": "vector_search",
+   "q": "Client-J 중간 점검 회의록 보면 그때 투입 인력이 몇 명이었고 몇 명 더 필요하다고 돼 있었지?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 현재 투입 인력 8명이며, 추가 인력 1명이 필요한 상황입니다",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 8명 and 1명 right",
+   "analyst_right": true,
+   "answer_1011": "Client-J 중간 점검 회의록에서 투입 인력은 8명이었고, 추가 인력 1명이 필요하다고 돼 있었습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-030"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-030#196",
+     "DOC-028#182",
+     "DOC-024#154",
+     "DOC-030#192",
+     "DOC-024#155"
+    ],
+    "ctx": [
+     "DOC-030#196",
+     "DOC-028#182",
+     "DOC-024#154",
+     "DOC-030#192",
+     "DOC-024#155"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "투입 인력은 8명이었고, 추가 인력 1명이 필요하다고 돼 있었습니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "투입 인력은 8명이었고, 추가 인력 1명이 필요하다고 돼 있었습니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Client-J 중간 점검 회의록에 따르면, 투입 인력은 8명이었고, 추가 인력 1명이 필요하다고 언급되었습니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-37",
+   "lane": "vector_search",
+   "q": "Client-G에 Product-C2 도입하자고 쓴 제안서에서 첫 투자금을 얼마로 잡앗지? 월 운영비 말고",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 초기 구축비: 4098만원",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 4098만원 right",
+   "analyst_right": true,
+   "answer_1011": "4098만원",
+   "vector": {
+    "gold_docs": [
+     "DOC-032"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-032#209",
+     "DOC-034#221",
+     "DOC-031#203",
+     "DOC-036#233",
+     "DOC-037#239"
+    ],
+    "ctx": [
+     "DOC-032#209",
+     "DOC-034#221",
+     "DOC-031#203",
+     "DOC-036#233",
+     "DOC-037#239"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "초기 구축비는 4098만원입니다.",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "초기 구축비는 4098만원입니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Client-G에 Product-C2 도입하자고 쓴 제안서에서 첫 투자금은 4098만원입니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-38",
+   "lane": "vector_search",
+   "q": "Client-I에 준 Product-S2 제안서에 장애 대응 시간이 몇 퍼센트 단축된다고 적혀 있어?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 장애 대응 시간 68% 단축",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "keyword fragment: 68% right",
+   "analyst_right": true,
+   "answer_1011": "68%",
+   "vector": {
+    "gold_docs": [
+     "DOC-034"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-034#222",
+     "DOC-034#219",
+     "DOC-036#234",
+     "DOC-033#216",
+     "DOC-032#210"
+    ],
+    "ctx": [
+     "DOC-034#222",
+     "DOC-034#219",
+     "DOC-036#234",
+     "DOC-033#216",
+     "DOC-032#210"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": true,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "68%",
+     "number_rule": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "68%",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Product-S2 도입 후 장애 대응 시간이 68% 단축된다고 적혀 있습니다.",
+     "number_rule": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-39",
+   "lane": "vector_search",
+   "q": "Client-K한테 보낸 Product-D2 제안서에서 TCO 절감률이 몇 퍼였지?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 TCO: 기존 대비 40% 절감",
+   "rerun_correct": false,
+   "routed": "semantic",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "wrong value: 28% (another proposal’s figure) while the chunk with 40% is in context; gold-doc oracle answers 40%",
+   "analyst_right": false,
+   "answer_1011": "28%",
+   "vector": {
+    "gold_docs": [
+     "DOC-036"
+    ],
+    "gold_rank": 1,
+    "gold_in_ctx": true,
+    "hits": [
+     "DOC-036#234",
+     "DOC-039#252",
+     "DOC-032#210",
+     "DOC-036#231",
+     "DOC-034#222"
+    ],
+    "ctx": [
+     "DOC-036#234",
+     "DOC-039#252",
+     "DOC-032#210",
+     "DOC-036#231",
+     "DOC-034#222"
+    ],
+    "key_chunks_in_hits": true,
+    "key_chunks_in_ctx": true
+   },
+   "answer_path": "llm",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-docs": {
+     "strict": false,
+     "answer": "40%",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "40%",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-wholedoc": {
+     "strict": false,
+     "answer": "40%",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "Client-K한테 보낸 Product-D2 제안서에서 TCO 절감률은 40%였습니다.",
+     "number_rule": true,
+     "analyst_right": true
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-40",
+   "lane": "vector_search",
+   "q": "Client-N D3 도입안에 월 운영비가 500만원으로 적혀 있었나? 실제 계약 금액이랑 헷갈려서 확인 좀",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "키워드 누락 월 운영비: 500만원",
+   "rerun_correct": false,
+   "routed": "structured",
+   "route_ok": false,
+   "stage": "route",
+   "why": "routed structured; 0 rows; oracle route answers 500만원 (right)",
+   "analyst_right": false,
+   "answer_1011": "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.",
+   "vector": {
+    "gold_docs": [
+     "DOC-039"
+    ],
+    "gold_rank": null,
+    "gold_in_ctx": false,
+    "hits": [],
+    "ctx": [],
+    "key_chunks_in_hits": false,
+    "key_chunks_in_ctx": false
+   },
+   "answer_path": "deterministic",
+   "number_rule_rerun": false,
+   "oracle": {
+    "oracle-route": {
+     "strict": false,
+     "answer": "네, Client-N의 D3 도입안에 월 운영비가 500만원으로 적혀 있습니다.",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-docs": {
+     "strict": false,
+     "answer": "네, Client-N D3 도입안에 월 운영비가 500만원으로 적혀 있습니다.",
+     "number_rule": true,
+     "analyst_right": true
+    },
+    "oracle-chunks": {
+     "strict": false,
+     "answer": "네, Client-N D3 도입안에 월 운영비가 500만원으로 적혀 있습니다.",
+     "number_rule": true
+    },
+    "expand-topdoc": {
+     "strict": false,
+     "answer": "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.",
+     "number_rule": false
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-43",
+   "lane": "knowledge_graph",
+   "q": "영업팀 멤버 전원 이름 좀 올려줘",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "누락 9/10",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "retrieval",
+   "why": "edges: 1 of 10 BELONGS_TO edges retrieved; gold-edge oracle lists all 10",
+   "analyst_right": false,
+   "answer_1011": "김지훈",
+   "graph": {
+    "strategy": "seeded",
+    "items": 2,
+    "items_kept": 2,
+    "gold_edges": 10,
+    "edges_in_items": 1,
+    "edges_in_ctx": 1,
+    "names_in_items": 1,
+    "names_in_ctx": 1
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": true,
+     "answer": "김지훈, 황민수, 강동현, 류혜원, 안재원, 신다은, 강유진, 신동현, 황준혁, 한도윤"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-46",
+   "lane": "knowledge_graph",
+   "q": "Client-U 건으로 연락할 사람이 우리 쪽에 누구 있더라? 성함이 기역이 안 나네",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "기권",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "the MANAGES_ACCOUNT edge (안소연) is in context; the 7B abstains (「연락할 사람」 not tied to account manager); also with gold edges",
+   "analyst_right": false,
+   "answer_1011": "주어진 정보로는 알 수 없습니다.",
+   "graph": {
+    "strategy": "seeded",
+    "items": 2,
+    "items_kept": 2,
+    "gold_edges": 1,
+    "edges_in_items": 1,
+    "edges_in_ctx": 1,
+    "names_in_items": 1,
+    "names_in_ctx": 1
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": false,
+     "answer": "주어진 정보로는 알 수 없습니다."
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-59",
+   "lane": "knowledge_graph",
+   "q": "Product-T2 때문에 이슈 등록한 고객사가 몇 군데야, 어디어디?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "정답 밖 Client-R, Client-W, Client-M",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "scoring",
+   "why": "gold error: edges.json has 13 REPORTED_ISSUE sources into Product-T2, the gold lists 10; the answer names all 13",
+   "analyst_right": true,
+   "answer_1011": "Product-T2 때문에 이슈 등록한 고객사는 13군데 있습니다. 각각의 고객사는 다음과 같습니다: 1. Client-Q 2. Client-C 3. Client-Y 4. Client-P 5. Client-Z 6. Client-V 7. Client-R 8. Client-W 9. Client-H 10. Client-K 11. Client-T 12. Client-S 13. Client-M",
+   "graph": {
+    "strategy": "seeded",
+    "items": 14,
+    "items_kept": 14,
+    "gold_edges": 10,
+    "edges_in_items": 10,
+    "edges_in_ctx": 10,
+    "names_in_items": 10,
+    "names_in_ctx": 10
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": true,
+     "answer": "Product-T2 때문에 이슈 등록한 고객사는 10군데 있습니다. 각각의 고객사는 다음과 같습니다: 1. Client-Q 2. Client-C 3. Client-Y 4. Client-P 5. Client-Z 6. Client-V 7. Client-H 8. Client-T 9. Client-K 10. Client-S"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-60",
+   "lane": "knowledge_graph",
+   "q": "Client-Q가 쓰는 제품 중에서 이슈까지 접수한 적 있는 게 있어? 있다면 뭐야?",
+   "scorer_1011": "wrong",
+   "scorer_reason_1011": "기권",
+   "rerun_correct": false,
+   "routed": "graph",
+   "route_ok": true,
+   "stage": "answer",
+   "why": "both edges in context with two other lines; the 7B abstains on the two-hop intersection; with only the two gold edges it answers Product-D1",
+   "analyst_right": false,
+   "answer_1011": "주어진 정보로는 알 수 없습니다.",
+   "graph": {
+    "strategy": "seeded",
+    "items": 4,
+    "items_kept": 4,
+    "gold_edges": 2,
+    "edges_in_items": 2,
+    "edges_in_ctx": 2,
+    "names_in_items": 1,
+    "names_in_ctx": 1
+   },
+   "answer_path": "llm",
+   "oracle": {
+    "oracle-edges": {
+     "strict": true,
+     "answer": "네, Client-Q가 쓰는 제품 중에서 이슈까지 접수한 적이 있습니다. 그 제품은 Product-D1입니다."
+    }
+   }
+  }
+ ]
+}
