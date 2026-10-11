@@ -306,7 +306,7 @@ export async function graphLane(
   const edgeGroups: { edges: GraphEdge[]; seedId: number }[] = [];
   let edgesAt = -1;
   // 계획이 관계를 정했으면 시드에서 그 관계로 닿은 엣지 전부가 한 근거 단위다(evidence.ts). 큐레이터는 그 단위를 통째로 싣거나 통째로
-  // 뺀다. 그 엣지가 있으면 이름으로 부른 시드의 해소 줄은 답 단계에 넘기지 않는다(아래 seedLines).
+  // 빼서, 예산이 목록 중간을 자르지 않는다.
   const unit = relTypes ? `relation:${relTypes.join("+")}` : undefined;
   let plannedEdges = 0;
   const plannedSeeds: string[] = [];
@@ -404,11 +404,10 @@ export async function graphLane(
   // 펼친 시드만 싣는다. 점수가 낮아 펼치지 않은 시드(「영업」이라는 낱말로 걸린 직원 넷)는 사실 없이
   // 이름만 늘어서 답 줄을 가렸다(홀드아웃3 #47: 「김준혁의 담당 고객사: Client-K」가 첫 줄인데 「영업
   // 담당자들에게 말 걸면 됩니다」). 감사 레코드의 seeds 에는 그대로 남는다. GRAPH_WEAK_SEEDS=1 이 옛 동작.
-  // 계획한 관계의 엣지가 있으면 그 엣지가 근거 단위다(위 unit). 질문이 이름으로 부른 시드의 줄(「Client-G — 별칭/이름 매칭 'Client-G'」)은
-  // 그 단위에 보탤 사실이 없어 싣지 않는다. 별칭으로 걸린 시드의 줄은 싣는다: 별칭에는 직급, 지역, 상태가 들어 있어 그 줄이 「왜 이 사람인가」를
-  // 말한다. 「이사 직급 달고 계신 분들 명단이랑 소속 부서」는 시드 셋이 '이사'로 걸린 줄을 빼자 소속 엣지 셋 가운데 둘만 답했다(홀드아웃4 #19).
-  const seedLines = process.env.GRAPH_WEAK_SEEDS === "1" || !expandFrom.length ? onto.hits : expandFrom;
-  items.push(...(plannedEdges ? ontologyCandidates(seedLines.filter((h) => h.via === "alias")).map((c) => ({ ...c, unit })) : ontologyCandidates(seedLines)));
+  // 계획한 관계의 엣지가 근거 단위여도(위 unit) 시드 줄은 싣는다. 별칭으로 걸린 시드의 줄은 「왜 이 사람인가」(직급, 지역, 상태)를 말하고,
+  // 이름으로 부른 시드의 줄을 빼도 고친 답은 없이 7B 답만 흔들렸다(개발용 실측: 「Product-S1 관련 고객 이슈 현황은?」 다섯 번 중 둘이
+  // 고객사 이름 없이 「9건」, 「이사 직급 … 명단이랑 소속 부서」는 시드 줄을 모두 빼자 두 번 다 셋 가운데 둘만 답했다).
+  items.push(...ontologyCandidates(process.env.GRAPH_WEAK_SEEDS === "1" || !expandFrom.length ? onto.hits : expandFrom));
 
   const strategy: GraphLaneResult["strategy"] =
     expandFrom.length && needScan
