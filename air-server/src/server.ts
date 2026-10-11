@@ -49,6 +49,7 @@ import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
 import { profile } from "./profile.js";
+import { installMcpCompat } from "./mcpcompat.js";
 
 /**
  * Two layer systems share the letter "L" and run in OPPOSITE directions. Getting
@@ -77,7 +78,7 @@ export { loadRouterOntology, loadSemanticRouter, routerOntologyState } from "./r
 const CACHE_EXCLUDED = ["audit.explain"];
 
 /** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. */
-const TRANSPORTS = ["stdio", "sse"] as const;
+const TRANSPORTS = ["stdio", "sse", "http"] as const;
 
 /**
  * MCP_TRANSPORT 를 해석하되, **모르는 값은 소리내어 거절한다.**
@@ -92,7 +93,7 @@ const TRANSPORTS = ["stdio", "sse"] as const;
  *
  * 잘못 다룬 설정은 기본값으로 메꾸는 것보다 기동을 멈추는 편이 싸다.
  */
-export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: number } {
+export function resolveTransport(): { type: "stdio" } | { type: "sse" | "http"; port: number } {
   const raw = process.env.MCP_TRANSPORT?.trim();
   if (!raw) return { type: "stdio" };
 
@@ -103,12 +104,12 @@ export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: num
     );
   }
 
-  if (raw === "sse") {
+  if (raw === "sse" || raw === "http") {
     const port = Number(process.env.MCP_PORT ?? 3510);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
     }
-    return { type: "sse", port };
+    return { type: raw, port };
   }
 
   return { type: "stdio" };
@@ -139,6 +140,9 @@ export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POS
 export function buildServer(): AirServer {
   const ds = profile();
   installInputErrorMessages();
+  const transport = resolveTransport();
+  // MCP 응답은 main(air 0.3.0)과 같게 낸다(mcpcompat.ts). 세 전송 모두 같은 엔진을 지난다.
+  installMcpCompat();
   return defineServer({
     name: "onprem-mcp-data",
     version: PACKAGE_VERSION,
@@ -172,9 +176,10 @@ export function buildServer(): AirServer {
       circuitBreakerPlugin(),
     ],
 
-    // stdio(기본) / sse — 심사자가 Claude Desktop에 붙일 때는 stdio, 컨테이너로
-    // 띄울 때는 MCP_TRANSPORT=sse. 그 둘뿐이며, 모르는 값은 위에서 이미 막았다.
-    transport: resolveTransport(),
+    // stdio(기본) / sse / http — 심사자가 Claude Desktop에 붙일 때는 stdio, 컨테이너로
+    // 띄울 때는 MCP_TRANSPORT=sse, 세션 없는 Streamable HTTP(POST /mcp)는 MCP_TRANSPORT=http.
+    // 그 셋뿐이며, 모르는 값은 위에서 이미 막았다. stdio 는 index.ts 가 stdio.ts 로 붙인다.
+    transport,
 
     // MCP 표준 표면. 도구는 "실행", 리소스는 "열람", 프롬프트는 "재사용 템플릿"이다.
     // 스키마 카드와 평가 원자료를 도구 뒤에 숨기면 호스트도 심사자도 근거를 볼 수 없다.

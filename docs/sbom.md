@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-10-08T01:09:45.834Z
+> 생성 시각 2026-10-11T13:58:25.190Z
 > npm 패키지 110개(직접 6 / 전이 104) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 96 · ISC 9 · Apache-2.0 2 · BSD-3-Clause 2 · BSD-2-Clause 1.
 > 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 `LICENSE`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(`node scripts/sbom.mjs`).
@@ -10,8 +10,8 @@
 
 | 번호 | 라이브러리명 | 버전 | 라이선스 | 공식 저장소 URL | 사용 목적 및 주요 기능 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | @airmcp-dev/core | 0.3.0 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
-| 2 | @modelcontextprotocol/sdk | 1.31.0 | MIT | https://github.com/modelcontextprotocol/typescript-sdk | MCP 공식 TypeScript SDK. 프롬프트 인자 검증(promptargs.ts)이 직접 쓰고 air 도 이 위에서 동작 |
+| 1 | @airmcp-dev/core | 0.5.2 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리 |
+| 2 | @modelcontextprotocol/sdk | 1.31.0 | MIT | https://github.com/modelcontextprotocol/typescript-sdk | MCP 공식 TypeScript SDK. stdio 줄 구분(stdio.ts)과 main 과 같은 MCP 응답(mcpcompat.ts)이 직접 쓴다. air 0.5 는 SDK 없이 동작 |
 | 3 | @types/node | 26.6.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 4 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 5 | pg | 8.23.1 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |

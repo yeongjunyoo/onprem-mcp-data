@@ -28,6 +28,7 @@ import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
 import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter, resolveTransport } from "./server.js";
+import { serveStdio } from "./stdio.js";
 import { DEFAULT_MODEL } from "./llm.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
@@ -98,11 +99,17 @@ async function main(): Promise<void> {
       : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
 
-  buildServer().start();
+  const server = buildServer();
+  if (resolveTransport().type !== "stdio") {
+    await server.start();
+    return;
+  }
+  // air 0.5.2 의 stdio 전송은 MCP 의 줄 구분을 읽지 못한다. stdio 는 stdio.ts 가 붙인다.
+  await serveStdio(server);
   // stdio 클라이언트가 입력을 닫으면(클라이언트 종료, 터미널의 Ctrl+D) 서버도 끝낸다. MCP stdio 전송의 종료 절차가
   // 이렇다. 종전에는 DB 풀과 air 의 타이머가 이벤트 루프를 붙잡아 클라이언트가 사라진 뒤에도 서버가 남았다
-  // (2026-10-07 실측: 입력을 닫아도 40초 넘게 남음). SSE 로 띄운 서버는 stdin 과 무관하니 건드리지 않는다.
-  if (resolveTransport().type === "stdio") process.stdin.once("end", () => void shutdown(0));
+  // (2026-10-07 실측: 입력을 닫아도 40초 넘게 남음). SSE 와 HTTP 로 띄운 서버는 stdin 과 무관하니 건드리지 않는다.
+  process.stdin.once("end", () => void shutdown(0));
 }
 
 main().catch(async (e) => {

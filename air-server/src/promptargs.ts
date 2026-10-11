@@ -13,19 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// prompts/get 이 받은 인자를 버리던 결함의 우회. 상류(@airmcp-dev/core)가 고쳐지면 이 파일을 지운다.
+// prompts/get 이 받은 인자를 검사하는 스키마. 선언(definePrompt 의 arguments)에서 만든다.
 //
-// air 0.3.0 은 프롬프트를 MCP SDK 에 `server.prompt(name, description, cb)` 로 등록한다. 인자 스키마가
-// 없는 이 오버로드는 SDK 에서 「인자 없는 프롬프트」다. 그래서 prompts/list 는 arguments 를 싣지 않고,
-// prompts/get 은 받은 arguments 를 버린 채 cb(extra) 를 부른다. 질문을 넣어 불러도 템플릿의 질문
-// 칸이 늘 비어 있었다(2026-10-06 MCP 서버 시험 R19). air 가 쥔 McpServer 는 private 이라 밖에서
-// 다시 등록할 수 없다(docs/roadmap.md 「상류에 열려 있는 것」).
-//
-// 그래서 SDK 의 prompt() 를 한 번 감싼다. 우리가 인자를 선언한 프롬프트가 그 세 인자 형태로 등록될
-// 때만, 선언(definePrompt 의 arguments)으로 만든 인자 스키마를 끼워 SDK 의 네 인자 형태로 넘긴다.
-// 그러면 SDK 가 목록에 arguments 를 싣고, get 에서 필수 인자를 검사한 뒤 값을 cb 에 넘긴다.
-// 다른 호출은 손대지 않는다.
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+// air 0.3.0 은 프롬프트를 인자 스키마 없는 SDK 오버로드로 등록해 받은 인자를 버렸고(2026-10-06 MCP 서버 시험 R19),
+// 그때는 이 파일이 SDK 의 prompt() 를 감싸 이 스키마를 끼워 넣었다. air 0.5.2 엔진은 선언한 인자를 목록에 싣고
+// 핸들러에 그대로 넘기지만 필수 인자를 검사하지 않는다. 그래서 mcpcompat.ts 의 prompts/get 이 이 스키마로
+// main 과 같은 검사와 같은 오류 문장(「Invalid arguments for prompt …」)을 낸다.
 import { z } from "zod";
 import { isBlankQuery } from "./queryinput.js";
 
@@ -35,13 +28,10 @@ interface DeclaredArg {
   required?: boolean;
 }
 
-const DECLARED = new Map<string, DeclaredArg[]>();
-let wrapped = false;
-
 /** 필수 인자는 빈 값(공백, 보이지 않는 문자뿐)도 빠진 인자처럼 거절한다. 도구의 빈 질문과 같은 판정이다(queryinput.ts). 종전에는
- * question="" 를 받아 질문 칸이 빈 템플릿을 돌려줬다(랜덤 테스트 사전 점검 3차 X04). describe 는 refine 뒤에 건다. prompts/list 는
- * 인자 스키마의 description 을 그대로 읽는데, refine 이 감싼 바깥에 없으면 설명이 빠진다. */
-function argsShape(args: DeclaredArg[]) {
+ * question="" 를 받아 질문 칸이 빈 템플릿을 돌려줬다(랜덤 테스트 사전 점검 3차 X04). describe 는 refine 뒤에 건다. 인자 스키마의
+ * description 이 refine 이 감싼 바깥에 없으면 설명이 빠진다. */
+export function promptArgsShape(args: DeclaredArg[]) {
   return Object.fromEntries(
     args.map((a) => {
       const s = a.required
@@ -51,22 +41,4 @@ function argsShape(args: DeclaredArg[]) {
       return [a.name, a.required ? described : described.optional()];
     }),
   );
-}
-
-/** 프롬프트 정의를 그대로 돌려주고, 선언한 인자가 MCP 로 오가게 한다. */
-export function exposeArguments<T extends { name: string; arguments?: DeclaredArg[] }>(prompts: T[]): T[] {
-  for (const p of prompts) if (p.arguments?.length) DECLARED.set(p.name, p.arguments);
-  if (!wrapped) {
-    wrapped = true;
-    const proto = McpServer.prototype as unknown as { prompt: (...a: unknown[]) => unknown };
-    const sdkPrompt = proto.prompt;
-    proto.prompt = function (this: McpServer, ...a: unknown[]) {
-      const declared = DECLARED.get(a[0] as string);
-      if (declared && a.length === 3 && typeof a[1] === "string" && typeof a[2] === "function") {
-        return sdkPrompt.call(this, a[0], a[1], argsShape(declared), a[2]);
-      }
-      return sdkPrompt.apply(this, a);
-    };
-  }
-  return prompts;
 }

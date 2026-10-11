@@ -249,7 +249,12 @@ async function main() {
     process.env.MCP_TRANSPORT = "   ";
     ok(resolveTransport().type === "stdio", "공백만 있는 값은 미지정과 같다");
 
-    for (const bad of ["http", "HTTP", "websocket", "sse2", "stdio2"]) {
+    // air 0.5.2 부터 http(세션 없는 Streamable HTTP)를 받는다. 포트는 sse 와 같은 MCP_PORT 다.
+    process.env.MCP_TRANSPORT = "http";
+    const http = resolveTransport();
+    ok(http.type === "http" && http.port === 3600, "http 는 Streamable HTTP 로 받고 MCP_PORT 를 쓴다");
+
+    for (const bad of ["HTTP", "websocket", "sse2", "stdio2"]) {
       process.env.MCP_TRANSPORT = bad;
       let threw = false;
       try {
@@ -394,21 +399,26 @@ async function main() {
   }
   // 서버 정의가 여섯 모두에 이 계약을 거는가. buildServer() 는 air dedup 의 타이머가 프로세스를 붙잡으므로
   // 자식 프로세스에서 부르고 끝낸다. 검증이 핸들러보다 먼저 막으니 DB 도 모델도 필요 없다.
+  // 클라이언트가 받는 MCP 응답 그대로 잰다: tools/call 요청을 server.fetch(air 엔진 + mcpcompat.ts)로 보낸다.
+  // callTool() 은 air 미들웨어만 지나므로 MCP 응답(isError, 오류 문장)과 다르다.
+  const MCP_CALL = `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+       const s = buildServer();
+       const call = async (name, args) => { const r = await (await s.fetch(new Request("http://localhost/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) }))).json(); return (r.result?.isError ? "isError " : "") + (r.result?.content?.[0]?.text ?? JSON.stringify(r)); };`;
   const wiring = spawnSync(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const s = buildServer(); const out = {};
-       for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) out[t] = await s.callTool(t, { query: " " });
+      `${MCP_CALL}
+       const out = {};
+       for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) out[t] = await call(t, { query: " " });
        process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
     ],
     { encoding: "utf8", timeout: 30_000 },
   );
   const wired = JSON.parse(wiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
   for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) {
-    ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
+    ok(String(wired[t]).startsWith("isError ") && String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 isError 로 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
   }
 
   // --- audit.explain format: json 과 text 말고는 입력 검증에서 거절한다(G17 ⑪). 종전에는 xml 을 조용히 json 으로 돌려줬다 ---
@@ -446,14 +456,14 @@ async function main() {
     [
       "--input-type=module",
       "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const out = await buildServer().callTool("audit.explain", { query: "질문", format: "xml" });
+      `${MCP_CALL}
+       const out = await call("audit.explain", { query: "질문", format: "xml" });
        process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
     ],
     { encoding: "utf8", timeout: 30_000 },
   );
   const fmtWired = String(JSON.parse(fmtWiring.stdout.split("\n@@")[1] ?? '""'));
-  ok(fmtWired.includes('format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml"'), `서버 정의의 audit.explain 이 format=xml 을 거절한다 (got ${fmtWired.slice(0, 160)})`);
+  ok(fmtWired === 'isError MCP error -32602: Input validation error: Invalid arguments for tool audit.explain: format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml" at format', `서버 정의의 audit.explain 이 format=xml 을 거절한다 (got ${fmtWired.slice(0, 160)})`);
 
   // --- 긴 인자와 budget(랜덤 테스트 3차 G20, G24, F20, F21, X01): 넘는 길이와 1 미만, 소수 budget 은 입력 검증에서 거절한다 ---
   // 종전에는 sanitizer 가 10,000자에서 말없이 잘라 다른 질의를 실행했고, budget -1 과 0.5 는 근거를 모두 버린 빈 컨텍스트가 됐다.
@@ -510,11 +520,11 @@ async function main() {
     [
       "--input-type=module",
       "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const s = buildServer(); const out = {};
-       out.sql = await s.callTool("sql.query", { sql: "SELECT 1" + " ".repeat(10000) });
-       for (const t of ["retrieve", "ask"]) out[t] = await s.callTool(t, { query: "질문", budget: 0.5 });
-       out.route = await s.callTool("route", { query: "가".repeat(10001) });
+      `${MCP_CALL}
+       const out = {};
+       out.sql = await call("sql.query", { sql: "SELECT 1" + " ".repeat(10000) });
+       for (const t of ["retrieve", "ask"]) out[t] = await call(t, { query: "질문", budget: 0.5 });
+       out.route = await call("route", { query: "가".repeat(10001) });
        process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
     ],
     { encoding: "utf8", timeout: 30_000 },
@@ -548,68 +558,71 @@ async function main() {
     [
       "--input-type=module",
       "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const out = await buildServer().callTool("sql.query", {});
+      `${MCP_CALL}
+       const out = await call("sql.query", {});
        process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
     ],
     { encoding: "utf8", timeout: 30_000 },
   );
   const sqlWired = String(JSON.parse(sqlWiring.stdout.split("\n@@")[1] ?? '""'));
-  ok(sqlWired.includes("Required (expected string, received undefined)"), `서버 정의가 빠진 인자 문장을 건다 (got ${sqlWired.slice(0, 160)})`);
+  ok(sqlWired === "isError MCP error -32602: Input validation error: Invalid arguments for tool sql.query: Required (expected string, received undefined) at sql", `서버 정의가 빠진 인자 문장을 건다(TC-042) (got ${sqlWired.slice(0, 160)})`);
 
   // --- prompts/get: 받은 인자가 템플릿에 들어간다 ---
-  // air 0.3.0 은 프롬프트를 인자 스키마 없는 `prompt(name, description, cb)` 로 등록해, SDK 가 인자를 버린 채
-  // cb 를 불렀다(질문 칸이 빈 템플릿). 같은 호출 형태로 등록해 prompts/list 와 prompts/get 을 SDK 로 잰다.
+  // air 0.3.0 은 프롬프트를 인자 스키마 없는 SDK 오버로드로 등록해 받은 인자를 버렸다(질문 칸이 빈 템플릿). air 0.5.2 엔진은
+  // 인자를 넘기지만 필수 인자를 검사하지 않는다(mcpcompat.ts 가 검사한다). 클라이언트가 보내는 요청 그대로 server.fetch 로 잰다.
   {
-    const mcp = new McpServer({ name: "t", version: "0" });
     const defs = buildPrompts();
-    for (const p of defs) {
-      // server-runner.js registerPromptToServer 와 같은 형태
-      const cb = async (args: Record<string, string>) => ({
-        messages: (await p.handler(args || {})).map((m) => ({ role: m.role, content: { type: "text" as const, text: m.content } })),
-      });
-      (mcp.prompt as unknown as (...a: unknown[]) => unknown)(p.name, p.description || "", cb);
-    }
-    const client = await connect(mcp);
-    const listed = (await client.listPrompts()).prompts;
-    for (const p of defs) {
-      const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
-      const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
-      ok(have === want, `prompts/list 가 ${p.name} 의 인자와 설명을 싣는다 (want ${want}, got ${have})`);
-      const values = Object.fromEntries((p.arguments ?? []).map((a) => [a.name, `인자값-${a.name}-7`]));
-      const got = await client.getPrompt({ name: p.name, arguments: values });
-      const text = got.messages.map((m) => (m.content as { text?: string }).text ?? "").join("\n");
-      for (const [k, v] of Object.entries(values)) ok(text.includes(v), `prompts/get ${p.name}: 인자 ${k} 가 본문에 들어간다`);
-    }
-    let missing = "";
-    try {
-      await client.getPrompt({ name: "grounded-answer", arguments: { question: "질문" } });
-    } catch (e) {
-      missing = String(e);
-    }
-    ok(missing.includes("context") && missing.includes("Required"), `필수 인자가 빠지면 빈 칸 템플릿 대신 거절한다 (got ${missing.slice(0, 160)})`);
-    // 빈 필수 인자도 빠진 인자처럼 거절한다(랜덤 테스트 3차 X04: question="" 에 질문 칸이 빈 템플릿).
-    for (const [name, args] of [
+    const asked = defs.map((p) => ({ name: p.name, values: Object.fromEntries((p.arguments ?? []).map((a) => [a.name, `인자값-${a.name}-7`])) }));
+    const blankCases = [
       ["grounded-answer", { question: "", context: "" }],
       ["grounded-answer", { question: "   ", context: "[SQL 결과] total_revenue=23859" }],
       ["nl2sql-with-schema-card", { question: "　" }],
       ["review-generated-sql", { question: "매출", sql: "" }],
-    ] as const) {
-      let blank = "";
-      try {
-        await client.getPrompt({ name, arguments: { ...args } });
-      } catch (e) {
-        blank = String(e);
-      }
+    ] as const;
+    const promptWiring = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
+         const s = buildServer();
+         const rpc = async (method, params) => (await (await s.fetch(new Request("http://localhost/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }))).json());
+         const out = { list: await rpc("prompts/list", {}), got: {}, blank: [] };
+         for (const a of ${JSON.stringify(asked)}) out.got[a.name] = await rpc("prompts/get", { name: a.name, arguments: a.values });
+         out.missing = await rpc("prompts/get", { name: "grounded-answer", arguments: { question: "질문" } });
+         for (const [name, args] of ${JSON.stringify(blankCases)}) out.blank.push(await rpc("prompts/get", { name, arguments: args }));
+         out.tc039 = await rpc("prompts/get", { name: "grounded-answer", arguments: { question: "2025년 3분기 총 매출액은 얼마야?", context: "[SQL 결과] total_revenue=23859" } });
+         process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
+      ],
+      { encoding: "utf8", timeout: 30_000 },
+    );
+    type Reply = {
+      result?: { prompts?: { name: string; arguments?: { name: string; required?: boolean; description?: string }[] }[]; messages?: { content: { text?: string } }[] };
+      error?: { code: number; message: string };
+    };
+    const wired = JSON.parse(promptWiring.stdout.split("\n@@")[1] ?? "{}") as { list?: Reply; got?: Record<string, Reply>; missing?: Reply; blank?: Reply[]; tc039?: Reply };
+    const listed = wired.list?.result?.prompts ?? [];
+    const errorOf = (r?: Reply) => (r?.error ? `${r.error.code} ${r.error.message}` : JSON.stringify(r ?? {}));
+    for (const p of defs) {
+      const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
+      const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
+      ok(have === want, `prompts/list 가 ${p.name} 의 인자와 설명을 싣는다 (want ${want}, got ${have})`);
+      const values = asked.find((a) => a.name === p.name)?.values ?? {};
+      const text = (wired.got?.[p.name]?.result?.messages ?? []).map((m) => m.content.text ?? "").join("\n");
+      for (const [k, v] of Object.entries(values)) ok(text.includes(v), `prompts/get ${p.name}: 인자 ${k} 가 본문에 들어간다`);
+    }
+    const missing = errorOf(wired.missing);
+    ok(missing.includes("context") && missing.includes("Required"), `필수 인자가 빠지면 빈 칸 템플릿 대신 거절한다 (got ${missing.slice(0, 160)})`);
+    // 빈 필수 인자도 빠진 인자처럼 거절한다(랜덤 테스트 3차 X04: question="" 에 질문 칸이 빈 템플릿).
+    blankCases.forEach(([name, args], i) => {
+      const blank = errorOf(wired.blank?.[i]);
       const empty = Object.entries(args).filter(([, v]) => !v.trim()).map(([k]) => k);
       ok(
         blank.includes("-32602") && blank.includes(`Invalid arguments for prompt ${name}`) && empty.every((k) => blank.includes(`${k} 인자가 비어 있습니다`)),
         `prompts/get ${name} 의 빈 필수 인자(${empty.join(", ")})는 거절한다 (got ${blank.slice(0, 200)})`,
       );
-    }
-    const tc039 = await client.getPrompt({ name: "grounded-answer", arguments: { question: "2025년 3분기 총 매출액은 얼마야?", context: "[SQL 결과] total_revenue=23859" } });
-    ok(((tc039.messages[0].content as { text?: string }).text ?? "").includes("[질문] 2025년 3분기 총 매출액은 얼마야?"), "값이 있는 인자는 종전처럼 템플릿에 들어간다(TC-039)");
-    await client.close();
+    });
+    ok((wired.tc039?.result?.messages?.[0]?.content.text ?? "").includes("[질문] 2025년 3분기 총 매출액은 얼마야?"), "값이 있는 인자는 종전처럼 템플릿에 들어간다(TC-039)");
   }
 
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);

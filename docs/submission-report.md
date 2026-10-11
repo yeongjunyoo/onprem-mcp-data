@@ -34,7 +34,7 @@
 ### 개발환경
 
 - 언어와 런타임: TypeScript 5.9, Node.js 20 LTS
-- MCP 프레임워크: air(@airmcp-dev/core 0.3.0), 도구 정의는 defineServer와 defineTool
+- MCP 프레임워크: air(@airmcp-dev/core 0.5.2), 도구 정의는 defineServer와 defineTool
 - 데이터 저장소: PostgreSQL 16, pgvector 0.8.6, primary와 streaming replica 구성
 - 모델 런타임: Ollama 0.32.14(2026-08-18 실측). 생성 모델 qwen2.5-coder:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
 - 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
