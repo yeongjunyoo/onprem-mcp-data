@@ -1,0 +1,23 @@
+{
+  "note": "홀드아웃 1차와 2차의 vector_search 문항에는 정답 문서가 없다(1차는 도구 라벨만, 2차는 basis 에 문서 유형만 있다). 문서 검색 순위를 재려고 정답 문서를 붙였다. 규칙은 vector_gold.json 의 신탁과 같다: 문서가 정답인 조건은 keywords 를 전부 담는 것(대소문자 무시)이고, type 이 있으면 그 유형의 문서로 좁힌다. 2차의 type 은 각 문항의 basis 를 옮긴 것이다. 코퍼스에 답하는 문서가 없는 문항은 unscorable 에 이유를 적고 분모에서 뺀다.",
+  "labelled": "2026-10-11. 문서 원문만 보고 붙였다. 질문 유형 분류기(air-server/src/doctype.ts)는 이보다 앞선 커밋 ef4e76a 에서 고정했고, 문서 유형 필터를 켠 측정은 이 파일을 쓴 뒤에 돌렸다.",
+  "items": [
+    { "set": "holdout1", "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘", "unscorable": "Product-S2 설치 가이드가 코퍼스에 없다. 시스템 요구사항 섹션은 Product-C1(DOC-011)과 Product-D2(DOC-016) 설치 가이드에만 있다." },
+    { "set": "holdout1", "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘", "unscorable": "Product-S1 설치 가이드가 코퍼스에 없다. 시스템 요구사항 섹션은 Product-C1(DOC-011)과 Product-D2(DOC-016) 설치 가이드에만 있다." },
+    { "set": "holdout1", "q": "데이터베이스 백업과 복원 절차가 궁금해", "keywords": ["백업"], "type": null },
+    { "set": "holdout1", "q": "보안 감사 대비 점검 항목이 뭐야?", "keywords": ["보안", "점검"], "type": null },
+    { "set": "holdout1", "q": "클라우드 인프라 이전 계획을 세우고 싶어", "keywords": ["클라우드", "마이그레이션"], "type": null },
+    { "set": "holdout1", "q": "서버 성능 튜닝 방법을 알려줘", "keywords": ["튜닝"], "type": null },
+    { "set": "holdout1", "q": "API 인증 방식과 토큰 갱신 방법을 알려줘", "keywords": ["토큰"], "type": null },
+    { "set": "holdout2", "q": "신규 입사자가 개발 환경 세팅하려면 뭐부터 해야 해?", "keywords": ["설치 절차"], "type": "technical_doc" },
+    { "set": "holdout2", "q": "지난번 디스크 꽉 찼을 때 어떻게 복구했더라?", "keywords": ["디스크"], "type": "incident_report" },
+    { "set": "holdout2", "q": "재해 복구 절차가 문서로 정리된 게 있나?", "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 재해 복구를 다루는 문서도 없다." },
+    { "set": "holdout2", "q": "로그 수집 파이프라인을 어떤 식으로 꾸렸는지 설명해줘", "keywords": ["로그를 수집"], "type": "technical_doc" },
+    { "set": "holdout2", "q": "지난 분기 회고에서 나온 개선 안건 뭐였지?", "keywords": ["개선"], "type": "meeting_note" },
+    { "set": "holdout2", "q": "고객사에 낸 제안서 중에 아키텍처 설명한 부분 찾아줘", "keywords": [], "type": "proposal" },
+    { "set": "holdout2", "q": "권한 요청은 어떤 절차를 밟아야 하는지 알려줘", "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 권한 요청 절차를 다루는 문서도 없다." },
+    { "set": "holdout2", "q": "네트워크 지연 때문에 생긴 사고 기록 있어?", "keywords": ["지연"], "type": "incident_report" },
+    { "set": "holdout2", "q": "모니터링 알람 임계값은 어떤 기준으로 잡았어?", "keywords": ["grafana"], "type": "technical_doc" },
+    { "set": "holdout2", "q": "개인정보 처리할 때 지켜야 하는 원칙이 뭐야?", "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 개인정보 처리 원칙을 다루는 문서도 없다." }
+  ]
+}

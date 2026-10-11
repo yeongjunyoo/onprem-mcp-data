@@ -46,6 +46,7 @@
     "companyx:ask": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx -- dist/cli/companyx-ask-eval.js",
     "companyx:audit": "node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-audit-export.js",
     "companyx:boundary": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-route-boundary.js",
+    "companyx:docrank": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-doctype-eval.js",
     "companyx:holdout": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama -- dist/cli/companyx-holdout-route-eval.js",
     "companyx:holdout2": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama HOLDOUT=eval/companyx/holdout2_route.json -- dist/cli/companyx-holdout-route-eval.js",
     "companyx:holdout3": "node node_modules/typescript/bin/tsc && node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama HOLDOUT=eval/companyx/holdout3_route.json -- dist/cli/companyx-holdout-route-eval.js",
