@@ -1,6 +1,6 @@
 # air 패치와 전송 설정
 
-이 서버는 MCP 프레임워크 air(`@airmcp-dev/core`) 0.5.2 의 자체 엔진과 전송(stdio, SSE, Streamable HTTP)으로 돈다. 0.5.2 에서 우리가 찾은 결함은 air 저장소에 수정 PR 로 올렸고, 릴리스에 들어오기 전까지는 npm 배포본 0.5.2 에 같은 수정을 얹은 tarball 을 저장소에 두고 쓴다(`air-server/vendor/`). 우리 쪽 우회 코드는 두지 않는다.
+이 서버는 MCP 프레임워크 air(`@airmcp-dev/core`) 0.5.2 의 자체 엔진과 전송(stdio, SSE, Streamable HTTP)으로 돈다. 0.5.2 에서 우리가 찾은 결함 다섯은 air 저장소에 수정 PR 로 올렸고(SSE 의 Origin 검사는 올릴 준비 중), 릴리스에 들어오기 전까지는 npm 배포본 0.5.2 에 같은 수정을 얹은 tarball 을 저장소에 두고 쓴다(`air-server/vendor/`). 우리 쪽 우회 코드는 두지 않는다.
 
 ## tarball 에 든 것
 
