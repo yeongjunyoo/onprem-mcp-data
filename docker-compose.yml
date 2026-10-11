@@ -79,7 +79,7 @@ services:
   # The air MCP server. Behind the "full" profile so the default `docker compose
   # up` brings up only the verified substrate (db + ollama); the server runs on
   # the host during dev/eval (cd air-server && npm i && npm run build && npm start).
-  # The image's npm ci applies air-server/patches to air (docs/air-patch.md).
+  # The image's npm ci installs the patched air tarball from air-server/vendor (docs/air-patch.md).
   mcp:
     profiles: ["full"]
     build: ./air-server

@@ -104,14 +104,14 @@
 
 ### 상류(upstream)에 열려 있는 것
 
-**air 0.5.2 의 결함 다섯을 상류에 고쳐 올렸고, 릴리스되기 전까지 같은 수정을 패치로 얹는다.**
+**air 0.5.2 의 결함 다섯을 상류에 고쳐 올렸고, 릴리스되기 전까지 같은 수정을 얹은 tarball 을 쓴다.**
 airmcp-dev/air PR [#3](https://github.com/airmcp-dev/air/pull/3)(stdio 줄 단위 프레이밍),
 [#5](https://github.com/airmcp-dev/air/pull/5)(도구 결과의 `isError`), [#7](https://github.com/airmcp-dev/air/pull/7)(Zod 에서 JSON Schema 로의 변환),
 [#9](https://github.com/airmcp-dev/air/pull/9)(`prompts/get` 필수 인자), [#11](https://github.com/airmcp-dev/air/pull/11)(Streamable HTTP 의 Origin 검사, 바인딩, `GET`, 버전 헤더)과
-air main 42cf9e0 의 `ping` 수정이다. 패치와 지우는 조건은 [docs/air-patch.md](air-patch.md) 에 있다.
+air main 42cf9e0 의 `ping` 수정, 그리고 아직 올리지 않은 SSE 의 Origin 검사다. tarball 에 든 것과 지우는 조건은 [docs/air-patch.md](air-patch.md) 에 있다.
 
-- **재현과 확인**: `node air-server/dist/surfaces.test.js` 가 서버 정의를 air 의 stdio 와 HTTP 전송에 얹어 여섯 수정을 응답으로 확인한다. 패치가 빠지면 실패한다.
-- **아직 올리지 않은 것**: air 의 SSE 전송은 Origin 을 검사하지 않는다. 목록에 없는 도구 호출은 `-32601` 로 돌아온다(스펙 예시는 `-32602`). `initialize` 는 2025-11-25 와 2024-11-05 만 그대로 돌려주어, 2025-06-18 만 아는 클라이언트는 2025-11-25 를 받는다.
+- **재현과 확인**: `node air-server/dist/surfaces.test.js` 가 서버 정의를 air 의 stdio, HTTP, SSE 전송에 얹어 이 수정들을 응답으로 확인한다. 패치가 빠지면 실패한다.
+- **아직 올리지 않은 것**: air 의 SSE 전송이 Origin 을 검사하지 않는 것은 고쳐서 tarball 에 넣었고(003 패치), 상류 PR 은 아직 올리지 않았다. 목록에 없는 도구 호출은 `-32601` 로 돌아온다(스펙 예시는 `-32602`). `initialize` 는 2025-11-25 와 2024-11-05 만 그대로 돌려주어, 2025-06-18 만 아는 클라이언트는 2025-11-25 를 받는다.
 
 종전 항목인 「프레임워크가 프롬프트 인자를 MCP 목록에 싣지 않는다」([#139](https://github.com/yeongjunyoo/onprem-mcp-data/issues/139),
 air 0.2.0 과 0.3.0)는 air 0.5 가 선언한 인자를 목록에 싣고 받은 인자를 핸들러에 넘기면서 풀렸다. 그 우회였던

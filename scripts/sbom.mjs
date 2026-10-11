@@ -27,10 +27,9 @@ const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
 
 // 직접 의존성의 사용 목적 — 사람이 유지하는 유일한 수기 항목.
 const PURPOSE = {
-  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 프로토콜 엔진, 도구 등록, 입력 검증, stdio/SSE/HTTP 전송, 라이프사이클 관리. 상류 수정 패치를 얹는다(docs/air-patch.md)',
+  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 프로토콜 엔진, 도구 등록, 입력 검증, stdio/SSE/HTTP 전송, 라이프사이클 관리. npm 배포본 0.5.2 에 상류 수정 패치를 얹은 air-server/vendor 의 tarball 이다(docs/air-patch.md)',
   pg: 'PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링',
   zod: '도구 입력과 route 출력의 스키마(air 가 검증과 JSON Schema 변환에 쓴다)',
-  'patch-package': '설치 도구(개발 전용). npm ci 때 air-server/patches 를 @airmcp-dev/core 에 댄다',
   typescript: '빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일',
   '@types/node': '타입 정의(개발 전용)',
   '@types/pg': '타입 정의(개발 전용)',
@@ -131,6 +130,12 @@ out.push(`> 생성 = \`node scripts/sbom.mjs\`. 근거 = \`air-server/node_modul
 out.push(`> 생성 시각 ${new Date().toISOString()}`);
 out.push(`> npm 패키지 ${installed.length}개(직접 ${directRows.length} / 전이 ${transitive.length}) + 런타임 구성요소 ${RUNTIME.length}개.`);
 out.push(`> 라이선스 분포: ${[...licenseCount.entries()].sort((a, b) => b[1] - a[1]).map(([l, c]) => `${l} ${c}`).join(' · ')}.`);
+// air 는 레지스트리 판이 아니라 패치 얹은 로컬 tarball 이다. 무엇에서 무엇을 바꿨는지 해시로 적는다(air-vendor.json 이 정본).
+const vendorManifest = path.join(app, 'vendor', 'air-vendor.json');
+if (fs.existsSync(vendorManifest)) {
+  const v = JSON.parse(fs.readFileSync(vendorManifest, 'utf8'));
+  out.push(`> \`${v.package}\` ${v.version} = npm 배포본 ${v.base.version}(\`${v.base.integrity}\`)에 패치 ${v.patches.length}개(${v.patches.map((x) => x.file.replace(/\.patch$/, '')).join(', ')})를 얹은 \`air-server/vendor/${v.file}\`(\`${v.integrity}\`). 만드는 법과 지우는 때는 \`docs/air-patch.md\`.`);
+}
 out.push(`> 직접 작성한 소스코드 라이선스 = **Apache-2.0**(OSI 인증, 레포 \`LICENSE\`). 카피레프트(GPL/AGPL/LGPL/MPL/EPL/CDDL/SSPL/OSL/EUPL) 의존성 **0건**, 라이선스 미표기 **0건** → 라이선스 충돌 없음. 이 두 수치는 설치 트리를 훑어 **검사한 결과**이며, 위반이 있으면 이 파일 생성이 실패한다(\`node scripts/sbom.mjs\`).`);
 out.push('');
 out.push('## 1. 직접 의존성 및 런타임 구성요소');
