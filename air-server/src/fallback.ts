@@ -26,6 +26,7 @@ import type { RetrieveResult } from "./pipeline.js";
 import { NO_TABLE } from "./nl2sql.js";
 import { entityLikeName } from "./notfound.js";
 import { namedDocumentInHits } from "./evidence.js";
+import { describeError } from "./errors.js";
 
 const LANE_OF: Record<Route, Lane | null> = { structured: "nl2sql", semantic: "vector_search", graph: "knowledge_graph", hybrid: null };
 const ROUTE_OF: Record<Lane, { route: Route; tools: string[] }> = {
@@ -93,38 +94,46 @@ export function runnerUp(query: string, d: RouteDecision, why: string): RouteDec
   return { ...d, route, tools, graphPlan, rationale: `${d.rationale}; ${chosen} came back empty (${why}) -> runner-up ${next}` };
 }
 
-/** 라우팅 결정으로 레인을 돌리고(run), 확신 없이 고른 레인이 빈손이면 다음 순위 레인을 한 번 돌린다. 그 레인이 근거를 냈으면(usable)
- * 그 결과로, 아니면 처음 결과로 답한다. 다음 순위를 돌렸으면 audit.route_fallback 에 남는다. */
+/** 라우팅 결정으로 레인을 돌리고(run), 확신 없이 고른 레인이 빈손이면 다음 순위 레인을 한 번 돌린다. 그 레인이 근거를 냈으면(rejected 가
+ * undefined) 그 결과로, 아니면 처음 결과로 답한다. 다음 순위를 돌렸으면 audit.route_fallback 에 남고, 쓰지 않았으면 그 이유(rejected)도 남는다. */
 export async function withRunnerUp(
   query: string,
   decision: RouteDecision,
   run: (d: RouteDecision) => Promise<RetrieveResult>,
-  usable: (r: RetrieveResult) => Promise<boolean>,
+  rejected: (r: RetrieveResult) => Promise<string | undefined>,
 ): Promise<RetrieveResult> {
   const first = await run(decision);
   const why = emptyLane(first);
   const alt = why ? runnerUp(query, decision, why) : undefined;
   if (!why || !alt) return first;
   const second = await run(alt);
-  const used = await usable(second);
-  const fallback = { from: decision.route, to: alt.route, reason: why, used };
-  return used ? { ...second, audit: { ...second.audit, route_fallback: fallback } } : { ...first, audit: { ...first.audit, route_fallback: fallback } };
+  const no = await rejected(second);
+  const fallback = { from: decision.route, to: alt.route, reason: why, used: no === undefined, ...(no !== undefined ? { rejected: no } : {}) };
+  return no === undefined ? { ...second, audit: { ...second.audit, route_fallback: fallback } } : { ...first, audit: { ...first.audit, route_fallback: fallback } };
 }
 
-/** 다음 순위 레인의 결과가 답할 근거인가. 정형은 값이 있는 행, 그래프는 해소한 개체의 엣지다. 문서 레인은 상위 k 조각이 늘 있으므로
- * 그것만으로는 근거가 아니다. 질문이 식별자, 날짜, 종류로 문서 하나를 분명히 가리키고(evidence.ts namedDocument, 식별자 집합만으로 고른
- * 것은 빼고) 검색이 그 문서를 찾았을 때만 근거로 본다. */
-export async function runnerUpUsable(pool: Pool, query: string, r: RetrieveResult): Promise<boolean> {
-  if (emptyLane(r) !== undefined || r.audit.branch_errors.length) return false;
-  if (r.route === "structured") return Boolean(r.sql.result?.ok && r.sql.result.rows.length && !r.sql.refused && !r.sql.absent);
-  if (r.route === "graph") return Boolean(r.graph && r.graph.strategy !== "unresolved" && !r.not_found && (r.graph.edgeCount > 0 || r.graph.ranking?.length));
-  if (r.route === "semantic" && r.vector?.ok) {
-    try {
-      const named = await namedDocumentInHits(pool, query, r.vector.hits);
-      return Boolean(named && !named.by_identifier_set);
-    } catch {
-      return false;
-    }
+/** 다음 순위 레인의 결과를 쓰지 않을 이유. 근거가 있으면 undefined. 정형은 값이 있는 행, 그래프는 해소한 개체의 엣지가 근거다. 문서 레인은
+ * 상위 k 조각이 늘 있으므로 그것만으로는 근거가 아니다. 질문이 식별자, 날짜, 종류로 문서 하나를 분명히 가리키고(evidence.ts namedDocument,
+ * 식별자 집합만으로 고른 것은 빼고) 검색이 그 문서를 찾았을 때만 근거로 본다. 문서 제목을 읽다 실패하면 그 오류가 이유다. */
+export async function runnerUpRejection(pool: Pool, query: string, r: RetrieveResult): Promise<string | undefined> {
+  if (r.audit.branch_errors.length) return `lane failure: ${r.audit.branch_errors.join(" / ")}`;
+  const empty = emptyLane(r);
+  if (empty !== undefined) return empty;
+  if (r.route === "structured") {
+    return r.sql.result?.ok && r.sql.result.rows.length && !r.sql.refused && !r.sql.absent ? undefined : "no rows to answer from";
   }
-  return false;
+  if (r.route === "graph") {
+    return r.graph && r.graph.strategy !== "unresolved" && !r.not_found && (r.graph.edgeCount > 0 || r.graph.ranking?.length) ? undefined : "no edge to answer from";
+  }
+  if (r.route === "semantic" && r.vector?.ok) {
+    let named;
+    try {
+      named = await namedDocumentInHits(pool, query, r.vector.hits);
+    } catch (err) {
+      return `reading document titles failed: ${describeError(err)}`;
+    }
+    if (!named) return "the question names no single document the search found";
+    return named.by_identifier_set ? "the document is picked by its identifier set only" : undefined;
+  }
+  return "no usable evidence";
 }

@@ -62,8 +62,8 @@ export interface AuditRecord {
     signals: { structured: string[]; semantic: string[]; graph: string[] };
     rationale: string;
     deterministic: true;
-    /** 확신 없이 고른 레인이 빈손이라 다음 순위 레인을 돌렸을 때만(fallback.ts). used 가 아니면 답은 처음 레인의 결과다. */
-    fallback?: { from: string; to: string; reason: string; used: boolean };
+    /** 확신 없이 고른 레인이 빈손이라 다음 순위 레인을 돌렸을 때만(fallback.ts). used 가 아니면 답은 처음 레인의 결과이고 rejected 가 그 이유다. */
+    fallback?: { from: string; to: string; reason: string; used: boolean; rejected?: string };
   };
   retrieval: {
     sql: {
@@ -358,7 +358,7 @@ export function renderAudit(rec: AuditRecord): string {
     ...(rec.routing.fallback
       ? [
           `다음 순위 레인: ${rec.routing.fallback.from} 이 빈손(${rec.routing.fallback.reason}) -> ${rec.routing.fallback.to} ` +
-            (rec.routing.fallback.used ? "의 근거로 답했다" : "도 근거가 없어 처음 레인의 결과로 답했다"),
+            (rec.routing.fallback.used ? "의 근거로 답했다" : `의 결과를 쓰지 않고(${rec.routing.fallback.rejected ?? "근거 없음"}) 처음 레인의 결과로 답했다`),
         ]
       : []),
     `SQL: ${rec.retrieval.sql.text ? `${rec.retrieval.sql.ok ? "실행" : "거부"}${rec.retrieval.sql.repaired ? " (1회 교정)" : ""}` : rec.retrieval.sql.refused ? `실행 안 함(생성 문장 ${rec.retrieval.sql.refused.kind})` : rec.retrieval.sql.absent ? `만들지 않음(없는 항목 ${rec.retrieval.sql.absent})` : "해당 없음"}`,

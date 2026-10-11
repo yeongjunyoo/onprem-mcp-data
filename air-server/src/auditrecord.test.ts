@@ -272,8 +272,8 @@ function main() {
   const withFb = buildAuditRecord(base({ route: "semantic", audit: { ...base().audit, route_fallback: fbk } } as unknown as Partial<RetrieveResult>));
   ok(JSON.stringify(withFb.routing.fallback) === JSON.stringify(fbk), "다음 순위 레인이 routing.fallback 에 실린다");
   ok(renderAudit(withFb).includes("다음 순위 레인: structured 이 빈손(0 rows) -> semantic 의 근거로 답했다"), "요약에도 나온다");
-  const tried = buildAuditRecord(base({ audit: { ...base().audit, route_fallback: { ...fbk, used: false } } } as unknown as Partial<RetrieveResult>));
-  ok(renderAudit(tried).includes("도 근거가 없어 처음 레인의 결과로 답했다"), "시도만 했으면 그렇다고 적는다");
+  const tried = buildAuditRecord(base({ audit: { ...base().audit, route_fallback: { ...fbk, used: false, rejected: "no rows to answer from" } } } as unknown as Partial<RetrieveResult>));
+  ok(renderAudit(tried).includes("의 결과를 쓰지 않고(no rows to answer from) 처음 레인의 결과로 답했다"), "시도만 했으면 쓰지 않은 이유와 함께 적는다");
   ok(r1.routing.fallback === undefined && !renderAudit(r1).includes("다음 순위"), "돌리지 않았으면 필드도 줄도 없다");
 
   console.log(`\nauditrecord.test: ${pass} passed, ${fail} failed`);

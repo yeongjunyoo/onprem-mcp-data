@@ -16,7 +16,7 @@
 // 다음 순위 레인(fallback.ts) 테스트. DB 도 모델도 없이 돈다. 판단은 레인의 결과 상태로만 하므로 결과를 직접 만들어 넣는다.
 import type { Pool } from "pg";
 
-import { emptyLane, runnerUp, runnerUpUsable, withRunnerUp } from "./fallback.js";
+import { emptyLane, runnerUp, runnerUpRejection, withRunnerUp } from "./fallback.js";
 import type { RetrieveResult } from "./pipeline.js";
 import type { Lane, RouteDecision } from "./router.js";
 import { NO_TABLE } from "./nl2sql.js";
@@ -108,22 +108,24 @@ const sem = (lane: Lane, scores: Record<Lane, number>) => ({ lane, margin: 0.03,
   ok(runnerUp("q", decision("structured", { productState: { word: "단종" } }), "x") === undefined, "제품 상태 질문은 전용 길이다");
 }
 
-// ── 다음 순위 결과가 근거인가 ───────────────────────────────────────────
+// ── 다음 순위 결과를 쓰지 않을 이유 ─────────────────────────────────────
 {
   const titles = ["[회의록] Client-X 정기 미팅 (2026-02-20)", "[장애보고] Client-X Product-Z1 서비스 장애 (2025-04-22)", "[기술문서] Product-Z1 설치 가이드"];
   const pool = { query: async () => ({ rows: titles.map((title, i) => ({ title, first: i })) }) } as unknown as Pool;
   const hit = (title: string) => ({ id: 1, title: `${title} — 기본 정보`, body: "b", score: 0.8 });
   const vec = (hits: ReturnType<typeof hit>[]) => result({ route: "semantic", vector: { ok: true, hits, embedder: "t" } });
-  ok(await runnerUpUsable(pool, "올해 2월 20일 Client-X 미팅에서 예산 얼마 썼대?", vec([hit(titles[0])])), "날짜로 문서 하나를 가리키고 검색이 그 문서를 찾았다");
-  ok(!(await runnerUpUsable(pool, "올해 2월 20일 Client-X 미팅에서 예산 얼마 썼대?", vec([hit(titles[1])]))), "검색이 그 문서를 찾지 못했으면 근거가 아니다");
-  ok(!(await runnerUpUsable(pool, "2019년에 입사한 직원 목록", vec([hit(titles[0])]))), "문서를 가리키지 않은 질문의 상위 조각은 근거가 아니다");
-  ok(!(await runnerUpUsable(pool, "Client-X 관련 내용", vec([hit(titles[0])]))), "식별자 집합만으로 고른 문서는 근거로 보지 않는다");
+  ok((await runnerUpRejection(pool, "올해 2월 20일 Client-X 미팅에서 예산 얼마 썼대?", vec([hit(titles[0])]))) === undefined, "날짜로 문서 하나를 가리키고 검색이 그 문서를 찾았으면 쓴다");
+  ok(/names no single document/.test((await runnerUpRejection(pool, "올해 2월 20일 Client-X 미팅에서 예산 얼마 썼대?", vec([hit(titles[1])]))) ?? ""), "검색이 그 문서를 찾지 못했으면 쓰지 않는다");
+  ok(/names no single document/.test((await runnerUpRejection(pool, "2019년에 입사한 직원 목록", vec([hit(titles[0])]))) ?? ""), "문서를 가리키지 않은 질문의 상위 조각은 쓰지 않는다");
+  ok(/identifier set only/.test((await runnerUpRejection(pool, "Client-X 관련 내용", vec([hit(titles[0])]))) ?? ""), "식별자 집합만으로 고른 문서는 쓰지 않는다");
   const broken = { query: async () => { throw new Error("down"); } } as unknown as Pool;
-  ok(!(await runnerUpUsable(broken, "올해 2월 20일 Client-X 미팅", vec([hit(titles[0])]))), "제목을 못 읽으면 근거가 아니다");
-  ok(await runnerUpUsable(pool, "q", result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(3) } })), "정형은 값이 있는 행");
-  ok(!(await runnerUpUsable(pool, "q", result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(0) } }))), "0건은 근거가 아니다");
-  ok(await runnerUpUsable(pool, "q", result({ route: "graph", graph: { strategy: "seeded", seeds: [], edgeCount: 2, items: [] } })), "그래프는 엣지");
-  ok(!(await runnerUpUsable(pool, "q", result({ route: "graph", graph: { strategy: "unresolved", seeds: [], edgeCount: 0, items: [] } }))), "못 찾은 그래프는 근거가 아니다");
+  ok(/reading document titles failed: .*down/.test((await runnerUpRejection(broken, "올해 2월 20일 Client-X 미팅", vec([hit(titles[0])]))) ?? ""), "제목을 못 읽으면 그 오류가 이유다");
+  ok((await runnerUpRejection(pool, "q", result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(3) } }))) === undefined, "정형은 값이 있는 행이면 쓴다");
+  ok((await runnerUpRejection(pool, "q", result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(0) } }))) === "0 rows", "0건이면 그 사유");
+  ok((await runnerUpRejection(pool, "q", result({ route: "structured", sql: { text: null, absent: "나이" } }))) === "no rows to answer from", "없는 항목은 근거가 아니다");
+  ok((await runnerUpRejection(pool, "q", result({ route: "graph", graph: { strategy: "seeded", seeds: [], edgeCount: 2, items: [] } }))) === undefined, "그래프는 엣지가 있으면 쓴다");
+  ok((await runnerUpRejection(pool, "q", result({ route: "graph", graph: { strategy: "unresolved", seeds: [], edgeCount: 0, items: [] } }))) !== undefined, "못 찾은 그래프는 쓰지 않는다");
+  ok(/^lane failure: vector: down/.test((await runnerUpRejection(pool, "q", result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(3) }, audit: { ...audit, branch_errors: ["vector: down"] } }))) ?? ""), "레인 장애가 있으면 쓰지 않고 그 장애가 이유다");
 }
 
 // ── 묶음: 첫 레인, 다음 레인, 감사 ─────────────────────────────────────
@@ -136,19 +138,19 @@ const sem = (lane: Lane, scores: Record<Lane, number>) => ({ lane, margin: 0.03,
     runs.push(x.route);
     return x.route === "structured" ? empty : good;
   };
-  const used = await withRunnerUp("q", d, run, async () => true);
+  const used = await withRunnerUp("q", d, run, async () => undefined);
   ok(runs.join() === "structured,semantic" && used.route === "semantic", "빈손이면 다음 순위를 돌려 그 결과로 답한다");
   ok(JSON.stringify(used.audit.route_fallback) === JSON.stringify({ from: "structured", to: "semantic", reason: "0 rows", used: true }), `감사에 남는다 (got ${JSON.stringify(used.audit.route_fallback)})`);
   runs.length = 0;
-  const kept = await withRunnerUp("q", d, run, async () => false);
-  ok(runs.join() === "structured,semantic" && kept.route === "structured" && kept.audit.route_fallback?.used === false, "다음 순위도 근거가 없으면 처음 결과로 답하고 시도했다고 남긴다");
+  const kept = await withRunnerUp("q", d, run, async () => "no rows to answer from");
+  ok(runs.join() === "structured,semantic" && kept.route === "structured" && kept.audit.route_fallback?.used === false && kept.audit.route_fallback.rejected === "no rows to answer from", "다음 순위도 근거가 없으면 처음 결과로 답하고 쓰지 않은 이유를 남긴다");
   runs.length = 0;
   const confident = decision("structured", { gate: { scores: { nl2sql: 3, vector_search: 0, knowledge_graph: 0 }, pick: "nl2sql", margin: 3, confident: true } });
-  const once = await withRunnerUp("q", confident, run, async () => true);
+  const once = await withRunnerUp("q", confident, run, async () => undefined);
   ok(runs.join() === "structured" && once.audit.route_fallback === undefined, "규칙이 확신했으면 한 번만 돈다");
   runs.length = 0;
   const full = result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(2) } });
-  const plain = await withRunnerUp("q", d, async (x) => (runs.push(x.route), full), async () => true);
+  const plain = await withRunnerUp("q", d, async (x) => (runs.push(x.route), full), async () => undefined);
   ok(runs.join() === "structured" && plain === full, "빈손이 아니면 그대로");
 }
 

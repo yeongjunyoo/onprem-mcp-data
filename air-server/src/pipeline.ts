@@ -76,7 +76,7 @@ import { describeError } from "./errors.js";
 import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, type NotFound } from "./notfound.js";
 import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
-import { runnerUpUsable, withRunnerUp } from "./fallback.js";
+import { runnerUpRejection, withRunnerUp } from "./fallback.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -134,8 +134,8 @@ export interface RetrieveResult {
     /** 답 단계가 받은 근거 단위(evidence.ts). 질문이 가리킨 문서 하나의 절 전부(document)이거나 계획한 관계의 엣지 전부(relation)일 때만. */
     evidence_unit?: EvidenceUnit;
     /** 확신 없이 고른 레인(from)이 빈손이라(reason) 다음 순위 레인(to)을 돌렸을 때만(fallback.ts). used 면 답은 to 레인의 근거로 했고,
-     * 아니면 to 레인도 근거를 내지 못해 from 레인의 결과 그대로다. */
-    route_fallback?: { from: RouteDecision["route"]; to: RouteDecision["route"]; reason: string; used: boolean };
+     * 아니면 to 레인의 결과를 쓰지 않은 이유(rejected)와 함께 from 레인의 결과 그대로다. */
+    route_fallback?: { from: RouteDecision["route"]; to: RouteDecision["route"]; reason: string; used: boolean; rejected?: string };
     // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
     not_found?: NotFound;
     missing_entities?: NotFound[];
@@ -755,7 +755,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     query,
     decision,
     (d) => runLanes(query, d, deps),
-    (r) => runnerUpUsable(deps.pool, query, r),
+    (r) => runnerUpRejection(deps.pool, query, r),
   );
 }
 

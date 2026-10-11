@@ -166,7 +166,7 @@ export function buildResources() {
                 "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing:
                 "선택된 레인과 근거가 된 어휘, 결정론 여부. fallback 은 규칙이 확신하지 못한 채 고른 레인이 빈손(0건, null 집계, 실행 전 검사 거부, 이름이 아닌 낱말을 못 찾음)이라 "
-                + "다음 순위 레인을 돌렸을 때만 붙는다: {from, to, reason, used}. used 가 false 면 다음 순위도 근거를 내지 못해 답은 from 레인의 결과다",
+                + "다음 순위 레인을 돌렸을 때만 붙는다: {from, to, reason, used, rejected}. used 가 false 면 다음 순위 레인의 결과를 쓰지 않은 이유가 rejected 이고 답은 from 레인의 결과다",
               retrieval:
                 "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null. "
                 + "sql.refused 는 생성 모델이 만들었지만 실행하지 않은 문장이 있을 때만 붙는다. {kind, text}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
