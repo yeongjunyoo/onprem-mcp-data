@@ -1,0 +1,546 @@
+{
+  "note": "NL2SQL 실행 일치(질문이 묻지 않은 id 열을 뺀 채점, companyx-sql-eval.ts). 카드 셋: annotated(기본 주석 카드), compact(한 줄 카드), comments(카탈로그 주석 카드, SQL_CARD=comments, sql/companyx/comments.sql). 두 빌드의 annotated, compact 생성 프롬프트는 개발 50문항 모두 바이트 단위로 같다. 사업자 10문항은 홀드아웃3 실행과 홀드아웃4 실행에 함께 들어 있어 실행마다 한 번씩 잰다. 합계는 세트별 중앙값의 합이다.",
+  "conditions": {
+    "model": "qwen2.5-coder:7b (host Ollama 0.40.2, 127.0.0.1:11434, 다른 세션과 GPU 공유)",
+    "decoding": "temperature 0, seed 42, num_ctx 4096 (llm.ts 그대로). 생성 프롬프트 토큰: annotated 1,470, compact 562, comments 2,233(사본 DB 실측, 같은 질문)",
+    "database": "mcpdata_g20a (시연 DB 의 pg_dump 사본, 2026-10-11). comments 를 재는 동안 sql/companyx/comments.sql 을 걸어 두었다",
+    "client_deadline": "OLLAMA_TIMEOUT_MS=1200000 (다른 세션의 폭주 생성 뒤에 줄 서도 실행이 죽지 않게. 출력과 무관하다)",
+    "groups": {
+      "base": "c7c1083 빌드, 같은 카드 3회 연달아(annotated, compact)",
+      "branch": "feat/schema-comments 빌드. comments 는 3회 연달아, annotated 와 compact 는 그 뒤 1회씩",
+      "mix": "feat/schema-comments 빌드, 세 카드를 회차마다 순서를 바꿔 번갈아 3회"
+    },
+    "determinism": "temperature 0, seed 고정이어도 정오가 흔들린다. 같은 카드를 연달아 돌린 3회는 정오가 같았지만(공백, 별칭만 다름) 다른 카드 실행 뒤에 돈 회차는 몇 문항씩 바뀌었다(서버의 프롬프트 캐시 상태가 다르다). 그래서 세 카드를 번갈아 돌린 mix 3회를 더했다.",
+    "truncation": "Ollama 로그에서 4096 문맥 요청의 프롬프트는 최대 2,682토큰이었고 잘린 요청은 없었다"
+  },
+  "sets": {
+    "sponsor": 10,
+    "holdout3": 20,
+    "holdout4": 20
+  },
+  "variants": {
+    "annotated": {
+      "files": [
+        "base-annotated-holdout3-r1.json",
+        "base-annotated-holdout3-r2.json",
+        "base-annotated-holdout3-r3.json",
+        "base-annotated-holdout4-r1.json",
+        "base-annotated-holdout4-r2.json",
+        "base-annotated-holdout4-r3.json",
+        "branch-annotated-holdout3-r1.json",
+        "branch-annotated-holdout4-r1.json",
+        "mix-annotated-holdout3-r1.json",
+        "mix-annotated-holdout3-r2.json",
+        "mix-annotated-holdout3-r3.json",
+        "mix-annotated-holdout4-r1.json",
+        "mix-annotated-holdout4-r2.json",
+        "mix-annotated-holdout4-r3.json"
+      ],
+      "runs": {
+        "sponsor": 14,
+        "holdout3": 7,
+        "holdout4": 7
+      },
+      "scores": {
+        "sponsor": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "holdout3": [
+          14,
+          14,
+          14,
+          13,
+          13,
+          13,
+          13
+        ],
+        "holdout4": [
+          13,
+          13,
+          13,
+          13,
+          13,
+          13,
+          13
+        ]
+      },
+      "by_group": {
+        "base": {
+          "sponsor": [
+            8,
+            8,
+            8,
+            8,
+            8,
+            8
+          ],
+          "holdout3": [
+            14,
+            14,
+            14
+          ],
+          "holdout4": [
+            13,
+            13,
+            13
+          ]
+        },
+        "branch": {
+          "sponsor": [
+            8,
+            8
+          ],
+          "holdout3": [
+            13
+          ],
+          "holdout4": [
+            13
+          ]
+        },
+        "mix": {
+          "sponsor": [
+            8,
+            8,
+            8,
+            8,
+            8,
+            8
+          ],
+          "holdout3": [
+            13,
+            13,
+            13
+          ],
+          "holdout4": [
+            13,
+            13,
+            13
+          ]
+        }
+      },
+      "median": {
+        "sponsor": 8,
+        "holdout3": 13,
+        "holdout4": 13
+      },
+      "mean": {
+        "sponsor": 8,
+        "holdout3": 13.43,
+        "holdout4": 13
+      },
+      "dev_total_median": 34,
+      "schema_card": "annotated",
+      "schema_card_chars": 3549
+    },
+    "compact": {
+      "files": [
+        "base-compact-holdout3-r1.json",
+        "base-compact-holdout3-r2.json",
+        "base-compact-holdout3-r3.json",
+        "base-compact-holdout4-r1.json",
+        "base-compact-holdout4-r2.json",
+        "base-compact-holdout4-r3.json",
+        "branch-compact-holdout3-r1.json",
+        "branch-compact-holdout4-r1.json",
+        "mix-compact-holdout3-r1.json",
+        "mix-compact-holdout3-r2.json",
+        "mix-compact-holdout3-r3.json",
+        "mix-compact-holdout4-r1.json",
+        "mix-compact-holdout4-r2.json",
+        "mix-compact-holdout4-r3.json"
+      ],
+      "runs": {
+        "sponsor": 14,
+        "holdout3": 7,
+        "holdout4": 7
+      },
+      "scores": {
+        "sponsor": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "holdout3": [
+          11,
+          11,
+          11,
+          11,
+          11,
+          11,
+          11
+        ],
+        "holdout4": [
+          11,
+          11,
+          11,
+          11,
+          11,
+          11,
+          11
+        ]
+      },
+      "by_group": {
+        "base": {
+          "sponsor": [
+            7,
+            7,
+            7,
+            7,
+            7,
+            7
+          ],
+          "holdout3": [
+            11,
+            11,
+            11
+          ],
+          "holdout4": [
+            11,
+            11,
+            11
+          ]
+        },
+        "branch": {
+          "sponsor": [
+            7,
+            7
+          ],
+          "holdout3": [
+            11
+          ],
+          "holdout4": [
+            11
+          ]
+        },
+        "mix": {
+          "sponsor": [
+            7,
+            7,
+            7,
+            7,
+            7,
+            7
+          ],
+          "holdout3": [
+            11,
+            11,
+            11
+          ],
+          "holdout4": [
+            11,
+            11,
+            11
+          ]
+        }
+      },
+      "median": {
+        "sponsor": 7,
+        "holdout3": 11,
+        "holdout4": 11
+      },
+      "mean": {
+        "sponsor": 7,
+        "holdout3": 11,
+        "holdout4": 11
+      },
+      "dev_total_median": 29,
+      "schema_card": "compact",
+      "schema_card_chars": 1441
+    },
+    "comments": {
+      "files": [
+        "branch-comments-holdout3-r1.json",
+        "branch-comments-holdout3-r2.json",
+        "branch-comments-holdout3-r3.json",
+        "branch-comments-holdout4-r1.json",
+        "branch-comments-holdout4-r2.json",
+        "branch-comments-holdout4-r3.json",
+        "mix-comments-holdout3-r1.json",
+        "mix-comments-holdout3-r2.json",
+        "mix-comments-holdout3-r3.json",
+        "mix-comments-holdout4-r1.json",
+        "mix-comments-holdout4-r2.json",
+        "mix-comments-holdout4-r3.json"
+      ],
+      "runs": {
+        "sponsor": 12,
+        "holdout3": 6,
+        "holdout4": 6
+      },
+      "scores": {
+        "sponsor": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "holdout3": [
+          13,
+          13,
+          13,
+          13,
+          13,
+          13
+        ],
+        "holdout4": [
+          13,
+          13,
+          13,
+          13,
+          13,
+          13
+        ]
+      },
+      "by_group": {
+        "branch": {
+          "sponsor": [
+            7,
+            7,
+            7,
+            7,
+            7,
+            7
+          ],
+          "holdout3": [
+            13,
+            13,
+            13
+          ],
+          "holdout4": [
+            13,
+            13,
+            13
+          ]
+        },
+        "mix": {
+          "sponsor": [
+            7,
+            7,
+            7,
+            7,
+            7,
+            7
+          ],
+          "holdout3": [
+            13,
+            13,
+            13
+          ],
+          "holdout4": [
+            13,
+            13,
+            13
+          ]
+        }
+      },
+      "median": {
+        "sponsor": 7,
+        "holdout3": 13,
+        "holdout4": 13
+      },
+      "mean": {
+        "sponsor": 7,
+        "holdout3": 13,
+        "holdout4": 13
+      },
+      "dev_total_median": 33,
+      "schema_card": "comments",
+      "schema_card_chars": 5002
+    }
+  },
+  "interleaved_only": {
+    "annotated": {
+      "sponsor": 8,
+      "holdout3": 13,
+      "holdout4": 13,
+      "total": 34
+    },
+    "compact": {
+      "sponsor": 7,
+      "holdout3": 11,
+      "holdout4": 11,
+      "total": 29
+    },
+    "comments": {
+      "sponsor": 7,
+      "holdout3": 13,
+      "holdout4": 13,
+      "total": 33
+    }
+  },
+  "rule": {
+    "text": "comments 는 개발 합계가 annotated 이상이고 어느 세트도 1문항 넘게 떨어지지 않을 때만 기본값 후보다. 아니면 보고만 하고 annotated 를 유지한다. 최종 결정은 봉인 세트에서 따로 한다.",
+    "aggregate": "세트별 모든 실행의 중앙값",
+    "annotated_total": 34,
+    "comments_total": 33,
+    "drop_by_set": {
+      "sponsor": 1,
+      "holdout3": 0,
+      "holdout4": 0
+    },
+    "comments_is_candidate": false
+  },
+  "sensitivity": {
+    "baseline_only_annotated": {
+      "note": "c7c1083 빌드 3회 연달아만 쓴 annotated",
+      "median": {
+        "sponsor": 8,
+        "holdout3": 14,
+        "holdout4": 13
+      },
+      "total": 35
+    },
+    "sponsor_unasked_id_dropped": {
+      "note": "사업자 문항에도 홀드아웃과 같은 규칙(질문이 id 를 묻지 않으면 정답의 id 열을 뺀다)을 쓴 재채점. 저장한 예측 SQL 을 사본 DB 에서 다시 실행했다. companyx-sql-eval.ts 는 이 규칙을 홀드아웃 문항에만 쓴다",
+      "sponsor_scores": {
+        "annotated": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "compact": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "comments": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ]
+      },
+      "changed_items": {
+        "comments": [
+          "CX-SQL-07 +"
+        ]
+      },
+      "dev_total_median": {
+        "annotated": 34,
+        "compact": 29,
+        "comments": 34
+      },
+      "comments_is_candidate": true
+    }
+  },
+  "differing_questions": {
+    "CX-SQL-07": {
+      "annotated": "14/14",
+      "compact": "0/14",
+      "comments": "0/12"
+    },
+    "h3-01": {
+      "annotated": "7/7",
+      "compact": "7/7",
+      "comments": "0/6"
+    },
+    "h3-04": {
+      "annotated": "4/7",
+      "compact": "7/7",
+      "comments": "6/6"
+    },
+    "h3-09": {
+      "annotated": "3/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    },
+    "h3-12": {
+      "annotated": "7/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    },
+    "h3-13": {
+      "annotated": "3/7",
+      "compact": "0/7",
+      "comments": "0/6"
+    },
+    "h3-15": {
+      "annotated": "7/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    },
+    "h4-13": {
+      "annotated": "0/7",
+      "compact": "7/7",
+      "comments": "0/6"
+    },
+    "h4-17": {
+      "annotated": "7/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    },
+    "h4-18": {
+      "annotated": "7/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    },
+    "h4-19": {
+      "annotated": "7/7",
+      "compact": "0/7",
+      "comments": "6/6"
+    }
+  },
+  "generated_at": "2026-10-11T14:28:44.181Z"
+}
