@@ -1,0 +1,1055 @@
+{
+ "note": "채점 규칙 v2 의 회귀 사례. 답은 기록 파일에서 그대로 옮겼다(record-1011: 2026-10-11 개발 기록 companyx-doctype-score-<set>-off.json, published-1002: eval/results/companyx-scorecard-holdout4.json, oracle-*: 2026-10-11 진단의 오라클 재실행). expect.right 는 우리 채점기가 아니라 진단의 분석가 판정(답을 정답 basis, 정답 SQL 행, 데이터셋과 사람이 대조한 것)이다. 진단에 판정이 없는 두 행(published-1002 의 h4-06, h4-33)은 직접 읽어 정했고 label 에 그렇게 적었다. SQL 의 gold 는 정답 SQL 을 읽기 전용 DB 사본(mcpdata_diag)에서 실행해 sqlGoldFromResult 로 바꾼 행이다. scorecard.test 가 이 파일로 v1(공개 수치의 규칙)은 진단의 「채점기가 못 본 정답」을 틀리고, v2 는 맞히며, 실제로 틀린 답은 v1, v2 모두 틀리는지 본다.",
+ "generated_at": "2026-10-11T16:14:38.711Z",
+ "sql": [
+  {
+   "set": "holdout4",
+   "id": "h4-06",
+   "source": "record-1011",
+   "label": "artifact: gold value stated in the question",
+   "q": "부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?",
+   "answer": "Client-C [조회 결과 1건] - name: Client-C",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold echoes the question: 부산 and IT/SW are required although the question states them; Client-C is right (route hybrid, SQL lane ran)"
+   },
+   "gold": {
+    "gold_id": "h4-06",
+    "rows": [
+     {
+      "name": "Client-C",
+      "region": "부산",
+      "industry": "IT/SW"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-02",
+   "source": "record-1011",
+   "label": "artifact: gold projects a column the question does not ask",
+   "q": "22년도에 들어온 사람 명단 좀 주라, 입사일 빠른 순으로",
+   "answer": "안소연, 황민수, 서지현, 안재원, 한도윤, 신다은, 박소연, 권진우, 서재원, 한태호, 정혜원, 오수진, 황재원, 조현우, 박은지 [조회 결과 15건] - name: 안소연 - name: 황민수 - name: 서지현 - name: 안재원 - name: 한도윤 - name: 신다은 - name: 박소연 - name: 권진우 - name: 서재원 - name: 한태호 - name: 정혜원 - name: 오수진 - name: 황재원 - name: 조현우 - name: 박은지",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold over-asks: hire_date is the requested sort order, not a requested value; 15 names in the right order"
+   },
+   "gold": {
+    "gold_id": "h4-02",
+    "rows": [
+     {
+      "name": "안소연",
+      "hire_date": "2022-01-07"
+     },
+     {
+      "name": "황민수",
+      "hire_date": "2022-01-30"
+     },
+     {
+      "name": "서지현",
+      "hire_date": "2022-02-03"
+     },
+     {
+      "name": "안재원",
+      "hire_date": "2022-02-08"
+     },
+     {
+      "name": "한도윤",
+      "hire_date": "2022-02-25"
+     },
+     {
+      "name": "신다은",
+      "hire_date": "2022-03-07"
+     },
+     {
+      "name": "박소연",
+      "hire_date": "2022-04-06"
+     },
+     {
+      "name": "권진우",
+      "hire_date": "2022-04-24"
+     },
+     {
+      "name": "서재원",
+      "hire_date": "2022-05-14"
+     },
+     {
+      "name": "한태호",
+      "hire_date": "2022-06-30"
+     },
+     {
+      "name": "정혜원",
+      "hire_date": "2022-07-16"
+     },
+     {
+      "name": "오수진",
+      "hire_date": "2022-08-16"
+     },
+     {
+      "name": "황재원",
+      "hire_date": "2022-08-30"
+     },
+     {
+      "name": "조현우",
+      "hire_date": "2022-09-02"
+     },
+     {
+      "name": "박은지",
+      "hire_date": "2022-11-28"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "hire_date": "date"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-07",
+   "source": "record-1011",
+   "label": "artifact: gold projects columns the question does not ask",
+   "q": "아직 베타 딱지 붙어 있는 제퓸이 남아 있나?",
+   "answer": "네, 아직 베타 딱지 붙어 있는 제퓸이 남아 있습니다. 남아 있는 제품은 'Product-S1'과 'Product-C4'입니다. [조회 결과 2건] - name: Product-S1 - name: Product-C4",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold over-asks: version, release_date and status required; the question asks whether beta products remain (both named)"
+   },
+   "gold": {
+    "gold_id": "h4-07",
+    "rows": [
+     {
+      "name": "Product-C4",
+      "version": "2.1.0",
+      "release_date": "2024-08-01",
+      "status": "beta"
+     },
+     {
+      "name": "Product-S1",
+      "version": "2.9.5",
+      "release_date": "2025-04-24",
+      "status": "beta"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "release_date": "date"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-10",
+   "source": "record-1011",
+   "label": "artifact: gold projects a column the question does not ask",
+   "q": "중간에 취소돼 버린 계약 중에 제일 금액이 컸던 건 어디 고객사 거였어? 얼마였는지도 같이",
+   "answer": "Client-I | 4250 [조회 결과 1건] - client_name: Client-I, contract_amount: 4250",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold over-asks: product name required; the question asks the client and the amount (both right)"
+   },
+   "gold": {
+    "gold_id": "h4-10",
+    "rows": [
+     {
+      "client_name": "Client-I",
+      "product_name": "Product-C4",
+      "amount": 4250
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-13",
+   "source": "record-1011",
+   "label": "artifact: MAX-subquery gold keeps the sort key",
+   "q": "올해 2분기에 제일 돈이 된 카테고리가 뭐야? 클라우드냐 보안이냐 그런 거 말이야",
+   "answer": "보안 [조회 결과 1건] - category: security",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: MAX-subquery gold keeps the sort-key sum; the scorer drops it only for LIMIT golds; category right"
+   },
+   "gold": {
+    "gold_id": "h4-13",
+    "rows": [
+     {
+      "category": "security",
+      "total_amount": "10139"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-03",
+   "source": "record-1011",
+   "label": "artifact: gold projects columns the question does not ask",
+   "q": "Product-D2 말고 Product-D1 고르면 월 요금 얼마나 더 붙어?",
+   "answer": "220 [조회 결과 1건] - price_difference: 220",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold over-asks: gold projects both monthly prices and the difference; the question asks only how much more (220, right)"
+   },
+   "gold": {
+    "gold_id": "h3-03",
+    "rows": [
+     {
+      "d1_price_monthly": 400,
+      "d2_price_monthly": 180,
+      "extra_monthly": 220
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-15",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "지난주 영업 쪽 회의에서 Client-B 얘기가 나왔는데, 걔네한테서 잡힌 매출 전표가 실제로 몇 건인지 날짜랑 금액 쭉 뽑아줄래?",
+   "answer": "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.",
+   "state": "empty",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: 「지난주」 (the meeting) applied to sale_date: 0 rows; behind it, curation keeps 13 of 36 rows even with the gold SQL"
+   },
+   "gold": {
+    "gold_id": "h4-15",
+    "rows": [
+     {
+      "id": 6,
+      "sale_date": "2024-01-22",
+      "amount": 336
+     },
+     {
+      "id": 398,
+      "sale_date": "2024-04-16",
+      "amount": 374
+     },
+     {
+      "id": 31,
+      "sale_date": "2024-04-24",
+      "amount": 719
+     },
+     {
+      "id": 25,
+      "sale_date": "2024-04-26",
+      "amount": 1186
+     },
+     {
+      "id": 482,
+      "sale_date": "2024-04-27",
+      "amount": 639
+     },
+     {
+      "id": 63,
+      "sale_date": "2024-05-08",
+      "amount": 442
+     },
+     {
+      "id": 55,
+      "sale_date": "2024-07-11",
+      "amount": 811
+     },
+     {
+      "id": 3,
+      "sale_date": "2024-10-05",
+      "amount": 850
+     },
+     {
+      "id": 496,
+      "sale_date": "2024-11-01",
+      "amount": 516
+     },
+     {
+      "id": 376,
+      "sale_date": "2024-11-26",
+      "amount": 531
+     },
+     {
+      "id": 281,
+      "sale_date": "2024-12-14",
+      "amount": 1240
+     },
+     {
+      "id": 102,
+      "sale_date": "2024-12-16",
+      "amount": 654
+     },
+     {
+      "id": 494,
+      "sale_date": "2024-12-24",
+      "amount": 720
+     },
+     {
+      "id": 110,
+      "sale_date": "2025-02-04",
+      "amount": 729
+     },
+     {
+      "id": 51,
+      "sale_date": "2025-02-13",
+      "amount": 824
+     },
+     {
+      "id": 183,
+      "sale_date": "2025-02-28",
+      "amount": 632
+     },
+     {
+      "id": 41,
+      "sale_date": "2025-06-19",
+      "amount": 175
+     },
+     {
+      "id": 385,
+      "sale_date": "2025-08-02",
+      "amount": 650
+     },
+     {
+      "id": 247,
+      "sale_date": "2025-09-24",
+      "amount": 234
+     },
+     {
+      "id": 436,
+      "sale_date": "2025-09-25",
+      "amount": 330
+     },
+     {
+      "id": 146,
+      "sale_date": "2025-09-26",
+      "amount": 596
+     },
+     {
+      "id": 464,
+      "sale_date": "2025-09-29",
+      "amount": 640
+     },
+     {
+      "id": 366,
+      "sale_date": "2025-10-12",
+      "amount": 294
+     },
+     {
+      "id": 497,
+      "sale_date": "2025-10-15",
+      "amount": 578
+     },
+     {
+      "id": 18,
+      "sale_date": "2025-10-19",
+      "amount": 857
+     },
+     {
+      "id": 437,
+      "sale_date": "2025-10-27",
+      "amount": 507
+     },
+     {
+      "id": 195,
+      "sale_date": "2025-11-05",
+      "amount": 111
+     },
+     {
+      "id": 35,
+      "sale_date": "2025-11-14",
+      "amount": 618
+     },
+     {
+      "id": 405,
+      "sale_date": "2025-11-16",
+      "amount": 229
+     },
+     {
+      "id": 440,
+      "sale_date": "2025-12-02",
+      "amount": 282
+     },
+     {
+      "id": 418,
+      "sale_date": "2025-12-03",
+      "amount": 1285
+     },
+     {
+      "id": 419,
+      "sale_date": "2025-12-03",
+      "amount": 547
+     },
+     {
+      "id": 81,
+      "sale_date": "2026-01-09",
+      "amount": 461
+     },
+     {
+      "id": 466,
+      "sale_date": "2026-01-15",
+      "amount": 832
+     },
+     {
+      "id": 399,
+      "sale_date": "2026-03-14",
+      "amount": 898
+     },
+     {
+      "id": 15,
+      "sale_date": "2026-06-09",
+      "amount": 729
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "sale_date": "date"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-17",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "SSL 인증서 만료 알림으로 들어온 티켓, 어느 고객사들에서 온 거지?",
+   "answer": "Client-F와 Client-E에서 온 티켓입니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: routed semantic: no SQL lane; oracle route is right"
+   },
+   "gold": {
+    "gold_id": "h4-17",
+    "rows": [
+     {
+      "client_name": "Client-B"
+     },
+     {
+      "client_name": "Client-E"
+     },
+     {
+      "client_name": "Client-M"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-18",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "해결된 티켓 기준으로 접수부터 해결까지 평균 얼마나 걸렸어?",
+   "answer": "3일 18시간 15분 40초 [조회 결과 1건] - avg_resolution_time: 3일 18시간 15분 40초",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: interpretation: status=resolved instead of resolved_at IS NOT NULL (closed tickets also carry resolved_at); gold is defensible"
+   },
+   "gold": {
+    "gold_id": "h4-18",
+    "rows": [
+     {
+      "avg_resolution_time": "3일 19시간 56분 31.172초"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "avg_resolution_time": "duration"
+    }
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-01",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "부서마다 사람 몇 명씩 있는지 쫙 보여줘",
+   "answer": "질문에 나온 개체(부서마다)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+   "state": "empty",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: routed graph: 「부서마다」 taken as an entity name, not-found answer; oracle route is right"
+   },
+   "gold": {
+    "gold_id": "h4-01",
+    "rows": [
+     {
+      "dept_name": "영업팀",
+      "employee_count": "10"
+     },
+     {
+      "dept_name": "클라우드사업부",
+      "employee_count": "10"
+     },
+     {
+      "dept_name": "경영지원팀",
+      "employee_count": "8"
+     },
+     {
+      "dept_name": "보안솔루션팀",
+      "employee_count": "8"
+     },
+     {
+      "dept_name": "데이터플랫폼팀",
+      "employee_count": "5"
+     },
+     {
+      "dept_name": "기술지원팀",
+      "employee_count": "4"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-10",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "2025년에 접수된 티켓 중 해결까지 오래 걸린 거 세 개만. 해결 안 된 건 빼고 제목하고 걸린 시간",
+   "answer": "제목: 컨테이너 OOM 발생, Pod 재시작 반복, 스테이징 환경 장애 걸린 시간: 593044초, 585249초, 578423초 [조회 결과 3건] - title: 컨테이너 OOM 발생, time_taken: 593044 - title: Pod 재시작 반복, time_taken: 585249 - title: 스테이징 환경 장애, time_taken: 578423",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: wrong filter column (resolved_at year instead of created_at) and hours as a number instead of an interval"
+   },
+   "gold": {
+    "gold_id": "h3-10",
+    "rows": [
+     {
+      "id": 61,
+      "title": "메모리 누수 의심",
+      "resolution_time": "6일 21시간 50분 21초"
+     },
+     {
+      "id": 84,
+      "title": "대시보드 로딩 오류",
+      "resolution_time": "6일 21시간 15분 40초"
+     },
+     {
+      "id": 30,
+      "title": "컨테이너 OOM 발생",
+      "resolution_time": "6일 20시간 44분 4초"
+     }
+    ],
+    "ordered": false,
+    "limited": true,
+    "tied": [],
+    "types": {
+     "resolution_time": "duration"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-19",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "2025년에 시작한 계약에서 취소된 거, 구독/프로젝트/유지보수 각각 몇개임?",
+   "answer": "2025년에 시작한 계약 중 취소된 건수는 다음과 같습니다: - 구독: 3건 - 프로젝트: 4건 - 유지보수: 주어진 정보로는 알 수 없습니다 [조회 결과 2건] - contract_type: subscription, cancelled_contracts: 3 - contract_type: project, cancelled_contracts: 4",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: no upper bound on 2025 (2026 contracts counted) and the zero-count type dropped by GROUP BY"
+   },
+   "gold": {
+    "gold_id": "h3-19",
+    "rows": [
+     {
+      "contract_type": "maintenance",
+      "cancelled_count": "0"
+     },
+     {
+      "contract_type": "project",
+      "cancelled_count": "4"
+     },
+     {
+      "contract_type": "subscription",
+      "cancelled_count": "2"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-20",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "서울에서 2026년 상반기 제일 돈 잘 들어온 달 언제야? 그달 금액도 궁금",
+   "answer": "서울에서 2026년 상반기 가장 많은 돈이 들어온 달은 1월입니다. 그 달의 금액은 12,289입니다. [조회 결과 1건] - half_year: 상반기, total_amount: 12289",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: grouped by quarter; the half-year gate then forced half-year grouping although the question asks the best month inside H1"
+   },
+   "gold": {
+    "gold_id": "h3-20",
+    "rows": [
+     {
+      "month": "2026-02",
+      "sales_amount": "2969"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "month": "month"
+    }
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-13",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "예산 얼마 잡혀 있었지, Client-E 로그 분석 시스템? 시작 날짜도 같이 줘",
+   "answer": "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 표에 없는 열로 표를 이어서(projects 에는 product_id 열이 없다) 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+   "state": "empty",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: unstable: 10-11 run generated a join on a missing column (projects.product_id) that the gate refused; both reruns today generated a correct query"
+   },
+   "gold": {
+    "gold_id": "h3-13",
+    "rows": [
+     {
+      "name": "Client-E 로그 분석 시스템",
+      "budget": 10413,
+      "start_date": "2024-05-29"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {
+     "start_date": "date"
+    }
+   }
+  },
+  {
+   "set": "sponsor30",
+   "id": "s30-06",
+   "source": "record-1011",
+   "label": "real failure",
+   "q": "가장 많은 프로젝트를 진행 중인 고객사는?",
+   "answer": "공동 1위가 2건입니다: Client-AC, Client-J. [조회 결과 2건] - name: Client-AC - name: Client-J",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: interpretation: 「진행 중인」 read as status=in_progress; gold counts all projects (wording is ambiguous)"
+   },
+   "gold": {
+    "gold_id": "CX-SQL-06",
+    "rows": [
+     {
+      "name": "Client-AC",
+      "n": "4"
+     }
+    ],
+    "ordered": true,
+    "limited": true,
+    "tied": [
+     "Client-AC",
+     "Client-E"
+    ],
+    "types": {}
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-06",
+   "source": "published-1002",
+   "label": "real failure (graph lane, invented clients); read by hand, not in the diagnosis",
+   "q": "부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?",
+   "answer": "부산의 IT/SW 업종 고객사는 Client-S1, Client-S3, Client-D3입니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "real failure (graph lane, invented clients); read by hand, not in the diagnosis"
+   },
+   "gold": {
+    "gold_id": "h4-06",
+    "rows": [
+     {
+      "name": "Client-C",
+      "region": "부산",
+      "industry": "IT/SW"
+     }
+    ],
+    "ordered": false,
+    "limited": false,
+    "tied": [],
+    "types": {}
+   }
+  }
+ ],
+ "vector": [
+  {
+   "set": "holdout4",
+   "id": "h4-23",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "40분",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 40분 right, 「초기 대응: 40분」 not verbatim"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-24",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "2025년 3월 17일 Client-I Product-D3 건의 장애 감지까지 걸린 시간은 22분이고, 심각도는 Critical입니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 22분 and Critical right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-30",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "Product-D1 API의 기본 분당 호출 한도는 263회이고, 프리미엄 분당 호출 한도는 2130회입니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 263회 and 2130회 right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-31",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "167GB SSD",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 167GB SSD right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-33",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "2025년 8월 말 Client-C 회의에서 마일스톤 2가 10일 밀렸다고 했습니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 10일 right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-34",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "80%",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 80% right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-35",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "Client-J 중간 점검 회의록에서 투입 인력은 8명이었고, 추가 인력 1명이 필요하다고 돼 있었습니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 8명 and 1명 right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-37",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "4098만원",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 4098만원 right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-38",
+   "source": "record-1011",
+   "label": "artifact: number right, keyword fragment not verbatim",
+   "answer": "68%",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 68% right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-21",
+   "source": "record-1011",
+   "label": "artifact: keyword the question does not ask",
+   "answer": "SSL 인증서 갱신",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword not asked: incident date-time required; the first action (SSL 인증서 갱신) is right"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-25",
+   "source": "record-1011",
+   "label": "artifact: keyword the question does not ask",
+   "answer": "서킷브레이커 패턴",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword not asked: 서킷브레이커 패턴 right; the full sentence and the incident date-time required"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-27",
+   "source": "record-1011",
+   "label": "artifact: keyword the question does not ask",
+   "answer": "Product-C2의 오토스케일링은 CPU 사용률 78%를 기준으로 인스턴스가 늘어나요.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword not asked: 78% right; HPA required"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-28",
+   "source": "record-1011",
+   "label": "artifact: keyword the question does not ask",
+   "answer": "Product-S1 로그는 71일 동안 보관됩니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword fragment: 71일 right; 「ELK 스택」 required though the question already says ELK"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-29",
+   "source": "record-1011",
+   "label": "artifact: keyword the question does not ask",
+   "answer": "Product-S2에서 쿼리 캐시 TTL은 222초로 설정해야 합니다.",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: keyword not asked: 222초 right; Redis required"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-33",
+   "source": "published-1002",
+   "label": "answer is the asked value only (10일); read by hand, not in the diagnosis",
+   "answer": "10일",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "answer is the asked value only (10일); read by hand, not in the diagnosis"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-39",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "28%",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: wrong value: 28% (another proposal’s figure) while the chunk with 40% is in context; gold-doc oracle answers 40%"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-32",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "이 질문으로는 믿을 수 있는 조회를 만들지 못해 답하지 않았습니다. 생성된 SQL 이 외래키가 아닌 열(s.contract_id = pr.contract_id)로 표를 이어서 실행하지 않았습니다. 무엇을 알고 싶은지 조금 더 구체적으로 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」, 「기술지원팀 직원 목록과 연봉을 알려줘」",
+   "state": "empty",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: routed structured; the gate refuses the SQL; oracle route answers 49% (right)"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-40",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "이 질문의 조건으로 조회한 결과가 0건입니다. 조건에 맞는 데이터가 없습니다.",
+   "state": "empty",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: routed structured; 0 rows; oracle route answers 500만원 (right)"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-26",
+   "source": "record-1011",
+   "label": "real failure (unscorable: three gold documents)",
+   "answer": "2건입니다. Client-E Product-D1 서비스 장애와 Client-D Product-S2 서비스 장애가 8시간 동안 완전 복구되었습니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: two of three 8-hour incidents named; the third (DOC-010) chunk is in context (unscorable: three gold documents)"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-33",
+   "source": "oracle-docs",
+   "label": "real failure in the oracle-docs run (abstains)",
+   "answer": "주어진 정보로는 알 수 없습니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis: oracle-docs broke h4-33 (abstains)"
+   }
+  }
+ ],
+ "graph": [
+  {
+   "set": "holdout4",
+   "id": "h4-59",
+   "source": "record-1011",
+   "label": "artifact: wrong gold (10 of 13 reporters)",
+   "answer": "Product-T2 때문에 이슈 등록한 고객사는 13군데 있습니다. 각각의 고객사는 다음과 같습니다: 1. Client-Q 2. Client-C 3. Client-Y 4. Client-P 5. Client-Z 6. Client-V 7. Client-R 8. Client-W 9. Client-H 10. Client-K 11. Client-T 12. Client-S 13. Client-M",
+   "state": "ok",
+   "expect": {
+    "right": true,
+    "basis": "diagnosis analyst: gold error: edges.json has 13 REPORTED_ISSUE sources into Product-T2, the gold lists 10; the answer names all 13"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-59",
+   "source": "oracle-edges",
+   "label": "the oracle fed the old 10-name gold edges; the answer lists 10 of the 13 reporters",
+   "answer": "Product-T2 때문에 이슈 등록한 고객사는 10군데 있습니다. 각각의 고객사는 다음과 같습니다: 1. Client-Q 2. Client-C 3. Client-Y 4. Client-P 5. Client-Z 6. Client-V 7. Client-H 8. Client-T 9. Client-K 10. Client-S",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "dataset: graph/edges.json has 13 REPORTED_ISSUE sources into Product-T2; this answer names 10"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-43",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "김지훈",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: edges: 1 of 10 BELONGS_TO edges retrieved; gold-edge oracle lists all 10"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-46",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "주어진 정보로는 알 수 없습니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: the MANAGES_ACCOUNT edge (안소연) is in context; the 7B abstains (「연락할 사람」 not tied to account manager); also with gold edges"
+   }
+  },
+  {
+   "set": "holdout4",
+   "id": "h4-60",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "주어진 정보로는 알 수 없습니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: both edges in context with two other lines; the 7B abstains on the two-hop intersection; with only the two gold edges it answers Product-D1"
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-55",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "Client-G가 문제라고 접수했던 제품은 Product-C2입니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: edges: the REPORTED_ISSUE edge to Product-S2 is not retrieved; the 7B names Client-G’s USES product instead"
+   }
+  },
+  {
+   "set": "holdout3",
+   "id": "h3-59",
+   "source": "record-1011",
+   "label": "real failure",
+   "answer": "Client-N 밑에 적어둔 프로젝트 이름은 \"Client-N 보안 감사 자동화\"였습니다.",
+   "state": "ok",
+   "expect": {
+    "right": false,
+    "basis": "diagnosis analyst: both projects in context; the 7B reads 「K8s 말고도」 as an exclusion and drops the K8s project"
+   }
+  }
+ ]
+}

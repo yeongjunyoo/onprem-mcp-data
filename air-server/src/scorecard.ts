@@ -52,6 +52,24 @@
 //            채점 불가다. 「정답 문서의 사실 하나」로 가르면 같은 문서의 다른 사실(검토자 대신 대응자)도
 //            정답이 된다.
 //   채점 불가 문항은 언제나 오답으로 판정하되 분모에서 뺀다. 이유는 결과 행의 unscorable 에 남는다.
+//
+// 규칙 판(CX_RULES). 위는 v1 이다. 공개 수치(사업자 28/30, 봉인 홀드아웃4 27/59)는 v1 로 냈고, CX_RULES=v1 이
+// 그 규칙을 그대로 다시 낸다. 기본값 v2 는 2026-10-11 진단(답이 맞았는데 채점기가 못 본 21건)에서 정답의 뜻이나
+// 데이터셋으로 설명되는 결함만 고쳤다. 고친 규칙마다 진단이 실제로 틀렸다고 본 답이 계속 틀리는지 scorecard.test 가 본다.
+//   수가 든 키워드  「초기 대응: 40분」은 꼬리표가 아니라 값을 묻는다. 키워드의 수가 전부 같은 값, 같은 단위로 답에
+//            있으면 댄 것이다(40분). 수가 없는 키워드는 v1 그대로 글자로 본다. 한 문항에 같은 단위의 수가 둘 이상이면
+//            꼬리표(기본, 프리미엄)와 값의 짝이 엇갈린 답(기본 2130회, 프리미엄 263회)은 오답이다. 방향어(절감, 증가)는
+//            보지 않는다 — 개발 세트에서는 질문이 방향을 말한다(절감률, 단축된다고).
+//   질문이 말한 값  모든 정답 행에서 같은 글자 값이고 질문에 이미 있으면(부산, IT/SW) 요구하지 않는다. 그 열은 질문의
+//            조건을 되풀이할 뿐이다. 행마다 다른 값(어느 행의 값인지 가르는 이름)과 수는 그대로 요구한다. 빼면 요구가
+//            하나도 남지 않을 때는 빼지 않는다(「Client-A 가 부산에 있어?」는 부산을 대야 한다). 벡터 키워드도 같다.
+//   묻는 것 라벨  eval/companyx/gold_labels.json. 정답 SQL 의 결과 열 가운데 질문이 묻는 열(asked_columns), 정답 키워드
+//            가운데 질문이 묻는 부분(required_facts). 질문과 정답만 본 두 라벨러가 따로 썼고 합은 합집합이다(엄격한 쪽).
+//            라벨은 정답을 좁힐 뿐 넓히지 않는다 — 열은 결과 열에서, 사실은 키워드의 부분 문자열에서만 고른다.
+//   정답 정정  같은 파일의 errata. 데이터셋과 어긋난 정답(h4-59: edges.json 의 신고 고객사 13곳 중 10곳만 적었다)을
+//            데이터셋 값으로 바꾼다. v1 은 원래 정답을 쓴다.
+//   하지 않은 것  `= (SELECT MAX(...))` 정답을 LIMIT 처럼 보고 정렬 값을 빼는 규칙. 그런 정답 다섯 중 셋(h3-20, h4-10,
+//            h4-20)은 질문이 그 값을 묻는다(「그달 금액도」, 「얼마였는지도」). 묻는지는 라벨이 정한다.
 import type { AskResult } from "./pipeline.js";
 import type { GraphNode } from "./companyx.js";
 
@@ -63,6 +81,26 @@ export const LANE_ROUTE: Record<Lane, string> = {
   vector_search: "semantic",
   knowledge_graph: "graph",
 };
+
+/** 채점 규칙 판. v1 은 공개 수치를 낸 규칙, v2 는 진단이 찾은 결함을 고친 규칙(머리말). */
+export type ScoreRules = "v1" | "v2";
+
+/** CX_RULES. 비우면 v2. 모르는 이름이면 던진다 — 오타가 조용히 다른 규칙으로 돌면 두 수치를 섞는다. */
+export function parseRules(v: string | undefined): ScoreRules {
+  const s = (v ?? "").trim() || "v2";
+  if (s === "v1" || s === "v2") return s;
+  throw new Error(`CX_RULES=${v} 를 모른다 — v1, v2 중 하나다`);
+}
+
+/** 문항 하나의 라벨(eval/companyx/gold_labels.json). v2 만 쓴다. */
+export interface ItemLabels {
+  /** SQL: 답이 값을 대야 하는 정답 결과 열 */
+  asked_columns?: string[];
+  /** 벡터: 답이 대야 하는 정답 키워드의 부분 문자열 */
+  required_facts?: string[];
+  /** 그래프 정정: 데이터셋으로 확인한 정답 이름(errata) */
+  gold_answer_names?: string[];
+}
 
 // ── 응답 상태 ───────────────────────────────────────────────────────────
 //
@@ -377,6 +415,101 @@ export function hasKeyword(text: string, key: string): boolean {
   return new RegExp(head + body + tail).test(clean(text));
 }
 
+// ── 수가 든 키워드 (v2) ─────────────────────────────────────────────────
+//
+// 봉인 홀드아웃4 의 키워드는 정답 문서의 문장 조각이다(「초기 대응: 40분」). 질문은 값을 묻고(「첫 대응 들어가기까지
+// 시간 얼마나 걸렸대?」) 「40분」이 답이다. 꼬리표까지 글자 그대로 요구하면 옳은 답이 틀린다. 그래서 수가 든 키워드는
+// 수마다 같은 값, 같은 단위를 답에서 찾는다. 다른 값(28% 대 40%)과 다른 단위(40초 대 40분)는 그대로 틀린다.
+
+const KW_UNIT = "만\\s*원|억\\s*원|천\\s*원|원|%|퍼센트|GB|MB|TB|KB|ms|시간|개월|초|분|일|주|년|회|명|건|개|배";
+// 날짜와 시각의 조각(2025-04-22 의 04, 16:33 의 33)과 이름의 일부(Product-C2 의 2)는 수가 아니다.
+const KW_NUM = new RegExp(
+  `(?<![A-Za-z0-9_.:/-])(\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.(\\d+))?(?![-:/.]\\d)(?:\\s*(${KW_UNIT}))?`,
+  "gi",
+);
+
+interface Atom {
+  value: number;
+  unit: string;
+  start: number;
+  end: number;
+}
+
+/** 글에 적힌 수와 단위. 「4,098만 원」은 4098 과 만원이다. 「5월 10일」의 10일과 「13시 24분」의 24분은 날짜와 시각이라 뺀다. */
+export function numberAtoms(text: string): Atom[] {
+  return [...text.matchAll(KW_NUM)]
+    .filter((m) => {
+      const before = text.slice(0, m.index ?? 0);
+      const unit = (m[3] ?? "").replace(/\s+/g, "");
+      if (unit === "일" && /월\s*$/.test(before)) return false;
+      if (unit === "분" && /\d\s*시\s*$/.test(before)) return false;
+      return true;
+    })
+    .map((m) => ({
+      value: Number(`${m[1].replace(/,/g, "")}${m[2] ? `.${m[2]}` : ""}`),
+      unit: (m[3] ?? "").replace(/\s+/g, "").replace("퍼센트", "%").toUpperCase(),
+      start: m.index ?? 0,
+      end: (m.index ?? 0) + m[0].length,
+    }));
+}
+
+/** v2 키워드 판정. 글자 그대로 있으면(v1) 댄 것이다. 수가 든 키워드는 수마다 같은 값, 같은 단위가 답에 있으면 댄 것이다.
+ * 질문(q)이 이미 말한 수(「마일스톤 2가 며칠 밀렸다고」의 2)는 요구하지 않는다 — 빼면 남는 수가 없을 때만 빼지 않는다
+ * (「500만원으로 적혀 있었나?」는 500만원을 대야 한다). 수가 없는 키워드(「Critical」, 「서킷브레이커」)는 v1 과 같다. */
+export function hasKeywordValue(text: string, key: string, q = ""): boolean {
+  if (hasKeyword(text, key)) return true;
+  if (/^\d{4}-\d{2}-\d{2}/.test(key.trim())) return false; // 날짜 키워드는 hasKeyword 가 이미 값으로 봤다
+  const atoms = numberAtoms(key);
+  if (!atoms.length) return false;
+  const inQ = numberAtoms(q);
+  const asked = atoms.filter((a) => !inQ.some((x) => x.value === a.value && x.unit === a.unit));
+  const want = asked.length ? asked : atoms;
+  const have = numberAtoms(text);
+  return want.every((w) => have.some((h) => h.value === w.value && h.unit === w.unit));
+}
+
+/** 키워드의 수마다 바로 앞의 낱말 두 개(꼬리표). 「기본 분당 263회」의 263회 → 기본, 분당. */
+function labelledAtoms(key: string): { atom: Atom; words: string[] }[] {
+  const atoms = numberAtoms(key);
+  return atoms.map((atom, i) => ({
+    atom,
+    words: key
+      .slice(i ? atoms[i - 1].end : 0, atom.start)
+      .split(/[^가-힣A-Za-z]+/)
+      .filter((w) => w.length >= 2)
+      .slice(-2),
+  }));
+}
+
+const positions = (text: string, word: string): number[] => {
+  const out: number[] = [];
+  for (let i = text.indexOf(word); i >= 0; i = text.indexOf(word, i + 1)) out.push(i);
+  return out;
+};
+
+/** 같은 단위의 값 둘이 꼬리표와 엇갈렸는가(기본 2130회, 프리미엄 263회). 요구하는 사실(keys)의 수마다 그 사실이 나온
+ * 정답 키워드(sources)에서 꼬리표를 찾는다. 두 값의 꼬리표가 다른 낱말일 때만 본다. 답에 꼬리표와 값이 같은 차례로 놓인
+ * 자리가 하나라도 있으면 엇갈리지 않았다(「기본과 프리미엄 각각 263회, 2130회」도 맞다). 엇갈린 짝을 돌려준다. */
+export function crossedValues(answer: string, keys: string[], sources: string[]): string[] {
+  const labelled = sources.flatMap(labelledAtoms);
+  const wanted = keys.flatMap((k) => numberAtoms(k));
+  const items = labelled.filter((l) => wanted.some((w) => w.value === l.atom.value && w.unit === l.atom.unit));
+  const valueAt = (a: Atom) => numberAtoms(answer).filter((h) => h.value === a.value && h.unit === a.unit).map((h) => h.start);
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const [a, b] = [items[i], items[j]];
+      if (a.atom.unit !== b.atom.unit || a.atom.value === b.atom.value) continue;
+      const pa = a.words.filter((w) => !b.words.includes(w)).flatMap((w) => positions(answer, w));
+      const pb = b.words.filter((w) => !a.words.includes(w)).flatMap((w) => positions(answer, w));
+      const [va, vb] = [valueAt(a.atom), valueAt(b.atom)];
+      if (!pa.length || !pb.length || !va.length || !vb.length) continue;
+      const same = pa.some((p) => pb.some((q) => va.some((x) => vb.some((y) => p !== q && x !== y && p < q === x < y))));
+      if (!same) return [`${a.words.join(" ")} ${a.atom.value}${a.atom.unit}`, `${b.words.join(" ")} ${b.atom.value}${b.atom.unit}`];
+    }
+  }
+  return [];
+}
+
 // ── 판정 ────────────────────────────────────────────────────────────────
 
 export interface Verdict {
@@ -424,6 +557,8 @@ export interface SqlGold {
   tied: string[];
   /** 값으로 가르는 열(날짜, 시각, 달, 기간). 없는 열은 수 또는 글자다 */
   types?: Record<string, ValueKind>;
+  /** v2 라벨: 질문이 묻는 결과 열. 없으면 askedColumns 의 기본 규칙 */
+  asked?: string[];
 }
 
 const isNumeric = (v: unknown) => /^-?\d+(\.\d+)?$/.test(String(v));
@@ -436,6 +571,27 @@ export function askedColumns(rows: Record<string, unknown>[], limited: boolean):
   return limited && textCols.length ? textCols : cols;
 }
 
+/** 라벨이 고른 열이 정답 결과에 실제로 있는가. 없는 열 이름은 라벨의 오탈자다 — 조용히 빼면 그 문항이 느슨해진다. */
+export function checkAskedColumns(asked: string[], rows: Record<string, unknown>[]): string[] {
+  const have = new Set(rows.length ? Object.keys(rows[0]) : []);
+  return asked.filter((c) => !have.has(c) || isIdCol(c));
+}
+
+/** v2 에서 답이 값을 대야 하는 열. 라벨이 있으면 라벨, 없으면 v1 기본 규칙. 그중 모든 행에서 같은 글자 값이고 질문에 이미
+ * 있는 열(질문 조건의 되풀이)은 뺀다. 빼고 남는 열이 없으면 빼지 않는다. */
+export function requiredColumns(q: string, gold: SqlGold, rules: ScoreRules): string[] {
+  const base = askedColumns(gold.rows, gold.limited);
+  if (rules === "v1") return base;
+  const cols = gold.asked?.length ? gold.asked : base;
+  const echo = cols.filter((c) => {
+    if (gold.types?.[c]) return false;
+    const v = gold.rows[0]?.[c];
+    if (v === null || v === undefined || isNumeric(v)) return false;
+    return gold.rows.every((r) => String(r[c]) === String(v)) && hasText(q, String(v));
+  });
+  return echo.length && echo.length < cols.length ? cols.filter((c) => !echo.includes(c)) : cols;
+}
+
 type CellKind = ValueKind | "number" | "text";
 const MATCH: Record<CellKind, (text: string, value: string) => boolean> = {
   number: hasNumber,
@@ -446,10 +602,17 @@ const MATCH: Record<CellKind, (text: string, value: string) => boolean> = {
   duration: hasDuration,
 };
 
-export function scoreSql(answer: string, q: string, gold: SqlGold, cat: Catalog, state: AnswerState): Verdict {
+export function scoreSql(
+  answer: string,
+  q: string,
+  gold: SqlGold,
+  cat: Catalog,
+  state: AnswerState,
+  rules: ScoreRules = "v1",
+): Verdict {
   const early = common(answer, cat, state);
   if (early) return early;
-  const cols = askedColumns(gold.rows, gold.limited);
+  const cols = requiredColumns(q, gold, rules);
   const req = gold.rows.flatMap((r) =>
     cols.map((c) => ({ value: String(r[c]), kind: (gold.types?.[c] ?? (isNumeric(r[c]) ? "number" : "text")) as CellKind })),
   );
@@ -549,19 +712,33 @@ export interface KeyedVectorGold {
   keys: string[];
   docs: { id: string; text: string }[];
   source: string;
+  /** v2: keys 가 나온 정답 키워드 전부. 수의 꼬리표(기본, 프리미엄)를 여기서 찾는다 */
+  sources?: string[];
 }
 
 /** 답 키워드가 있는 벡터 문항(홀드아웃 4차). 키워드를 전부 댔으면 「정답 문서의 사실로 답했다」도 성립한다 —
  * 키워드가 그 문서의 원문이다. 그래서 앵커 규칙 대신 키워드가 앵커가 된다. 사업자 문항의 키워드는 주제어라
- * 이 규칙을 쓰지 않는다(scoreVector). */
-export function scoreVectorKeyed(answer: string, q: string, gold: KeyedVectorGold, cat: Catalog, state: AnswerState): Verdict {
+ * 이 규칙을 쓰지 않는다(scoreVector). v2 는 수가 든 키워드를 값으로 보고, 값과 꼬리표가 엇갈린 답을 틀린다. */
+export function scoreVectorKeyed(
+  answer: string,
+  q: string,
+  gold: KeyedVectorGold,
+  cat: Catalog,
+  state: AnswerState,
+  rules: ScoreRules = "v1",
+): Verdict {
   const early = common(answer, cat, state);
   if (early) return early;
   const required = gold.keys;
   if (!required.length || !gold.docs.length) return verdict(false, "답 키워드가 없다", { required });
   if (abstainsFirst(answer)) return verdict(false, "기권", { required, missing: required });
-  const missing = required.filter((k) => !hasKeyword(answer, k));
+  const has = rules === "v2" ? (t: string, k: string) => hasKeywordValue(t, k, q) : hasKeyword;
+  const missing = required.filter((k) => !has(answer, k));
   if (missing.length) return verdict(false, `키워드 누락 ${missing.join(", ")}`, { required, missing });
+  if (rules === "v2") {
+    const crossed = crossedValues(answer, required, gold.sources ?? required);
+    if (crossed.length) return verdict(false, `값과 꼬리표가 엇갈린다 ${crossed.join(" / ")}`, { required, missing: crossed });
+  }
   const inQ = new Set([...q.matchAll(ID_TOKEN)].map((m) => m[0]));
   const outside = uniq([...answer.matchAll(ID_TOKEN)].map((m) => m[0]))
     .filter((id) => !inQ.has(id) && !gold.docs.some((d) => valueRe(id).test(d.text)));
@@ -674,11 +851,11 @@ function durationText(v: unknown): string | null {
 }
 
 /** node-postgres 결과를 정답으로 바꾼다. 행이 없거나 묻는 칸에 NULL 이나 모르는 형이 있으면 채점 불가다 —
- * 「없다」는 답과 기권을, 「미해결」과 NULL 을 규칙으로 가를 수 없다. */
+ * 「없다」는 답과 기권을, 「미해결」과 NULL 을 규칙으로 가를 수 없다. v2 라벨(asked)이 있으면 묻는 칸은 라벨의 열이다. */
 export function sqlGoldFromResult(
   rows: Record<string, unknown>[],
   fields: SqlField[],
-  opts: { ordered: boolean; limited: boolean; tied: string[] },
+  opts: { ordered: boolean; limited: boolean; tied: string[]; asked?: string[] },
 ): GoldOrWhy<SqlGold> {
   if (!rows.length) return { unscorable: "정답이 빈 결과다 — 「없다」는 답과 기권을 규칙으로 가를 수 없다" };
   const oid = new Map(fields.map((f) => [f.name, f.dataTypeID]));
@@ -713,11 +890,16 @@ export function sqlGoldFromResult(
     }
     if (kind) types[c] = kind;
   }
-  const broken = askedColumns(out, opts.limited).filter((c) => bad.has(c));
+  const asked = opts.asked?.length ? opts.asked : undefined;
+  if (asked) {
+    const wrong = checkAskedColumns(asked, out);
+    if (wrong.length) throw new Error(`라벨의 asked_columns ${wrong.join(", ")} 가 정답 결과 열(${Object.keys(rows[0]).join(", ")})에 없다`);
+  }
+  const broken = (asked ?? askedColumns(out, opts.limited)).filter((c) => bad.has(c));
   if (broken.length) {
     return { unscorable: `묻는 칸에 ${broken.map((c) => `${c}(${bad.get(c)})`).join(", ")} — 답의 표현을 규칙으로 가를 수 없다` };
   }
-  return { gold: { rows: out, ordered: opts.ordered, limited: opts.limited, tied: opts.tied, types } };
+  return { gold: { rows: out, ordered: opts.ordered, limited: opts.limited, tied: opts.tied, types, ...(asked ? { asked } : {}) } };
 }
 
 /** 정답 행으로 만든 모범 답. 값 열은 정답 문자열과 다른 표기로 쓴다 — 판정이 표기가 아니라 값을 보는지까지
@@ -735,14 +917,15 @@ export function idealSqlAnswer(g: SqlGold): string {
     }
     return kind === "timestamp" ? s.slice(0, 16) : s;
   };
-  const cols = askedColumns(g.rows, g.limited);
+  // 라벨 열과 v1 기본 열을 다 싣는다 — 어느 규칙으로 채점해도 모범 답이 정답이어야 한다.
+  const cols = uniq([...askedColumns(g.rows, g.limited), ...(g.asked ?? [])]);
   return g.rows.map((r) => cols.map((c) => show(r[c], g.types?.[c])).join(" ")).join(", ");
 }
 
 /** 그래프 문항의 정답 — gold_answer_names. 정답 개체가 두 종류면(프로젝트와 사람의 짝) 이름이 다 있어도
- * 짝이 바뀐 답을 가르지 못하므로 채점 불가다. */
-export function holdoutKgGold(it: HoldoutItem, cat: Catalog): GoldOrWhy<KgGold> {
-  const names = uniq(it.gold_answer_names ?? []);
+ * 짝이 바뀐 답을 가르지 못하므로 채점 불가다. v2 정정(errata)이 있으면 names 가 정답 이름을 대신한다. */
+export function holdoutKgGold(it: HoldoutItem, cat: Catalog, corrected?: string[]): GoldOrWhy<KgGold> {
+  const names = uniq(corrected ?? it.gold_answer_names ?? []);
   if (!names.length) return { unscorable: "정답 이름이 없다" };
   const unknown = names.filter((n) => !cat.kindOf.has(n));
   if (unknown.length) return { unscorable: `그래프에 없는 정답 이름 ${unknown.join(", ")}` };
@@ -751,8 +934,15 @@ export function holdoutKgGold(it: HoldoutItem, cat: Catalog): GoldOrWhy<KgGold> 
   return { gold: { names, kind: kinds[0], absent: false } };
 }
 
-/** 벡터 문항의 정답 — gold_keywords 와 gold_docs(4차는 확장자 없이, 3차는 .md 를 붙여 적었다). */
-export function holdoutVectorGold(it: HoldoutItem, docs: Map<string, string>): GoldOrWhy<KeyedVectorGold> {
+/** 벡터 문항의 정답 — gold_keywords 와 gold_docs(4차는 확장자 없이, 3차는 .md 를 붙여 적었다).
+ * v2 라벨(facts)이 있으면 답이 댈 것은 라벨의 사실이다. 사실은 정답 키워드의 부분 문자열이어야 한다 — 라벨은 정답을
+ * 좁힐 뿐 새 정답을 만들지 않는다. 라벨러는 질문이 이미 말한 부분을 뺐고, 확인 질문(「500만원으로 적혀 있었나?」)은
+ * 그 값을 남겼다. 그래서 라벨의 사실에는 「질문에 있으면 뺀다」를 다시 걸지 않는다. */
+export function holdoutVectorGold(
+  it: HoldoutItem,
+  docs: Map<string, string>,
+  opts: { rules?: ScoreRules; facts?: string[] } = {},
+): GoldOrWhy<KeyedVectorGold> {
   const ids = (it.gold_docs ?? []).map((d) => d.replace(/\.md$/, ""));
   if (!ids.length) return { unscorable: "정답 문서가 없다" };
   const lost = ids.filter((id) => !docs.has(id));
@@ -763,9 +953,15 @@ export function holdoutVectorGold(it: HoldoutItem, docs: Map<string, string>): G
   const text = docs.get(ids[0]) as string;
   const absentKeys = keys.filter((k) => !hasKeyword(text, k));
   if (absentKeys.length) return { unscorable: `정답 문서에 없는 키워드 ${absentKeys.join(", ")}` };
+  const facts = opts.rules === "v2" && opts.facts?.length ? opts.facts : null;
+  if (facts) {
+    const foreign = facts.filter((f) => !keys.some((k) => k.includes(f)));
+    if (foreign.length) throw new Error(`${it.id} 라벨의 required_facts ${foreign.join(", ")} 가 정답 키워드의 부분 문자열이 아니다`);
+    return { gold: { keys: facts, docs: [{ id: ids[0], text }], source: "gold_labels.required_facts", sources: keys } };
+  }
   const need = keys.filter((k) => !hasKeyword(it.q, k));
   if (!need.length) return { unscorable: "키워드가 전부 질문에 있다 — 답이 따로 대야 할 사실이 없다" };
-  return { gold: { keys: need, docs: [{ id: ids[0], text }], source: "holdout.gold_keywords" } };
+  return { gold: { keys: need, docs: [{ id: ids[0], text }], source: "holdout.gold_keywords", sources: keys } };
 }
 
 // ── 문항 ────────────────────────────────────────────────────────────────
@@ -792,13 +988,19 @@ const unscorableItem = (it: HoldoutItem, why: string): ScoreItem => ({
   judge: () => verdict(false, `채점 불가: ${why}`),
 });
 
-export function holdoutSqlItem(it: HoldoutItem, g: GoldOrWhy<SqlGold>, cat: Catalog): ScoreItem {
+export function holdoutSqlItem(it: HoldoutItem, g: GoldOrWhy<SqlGold>, cat: Catalog, rules: ScoreRules = "v1"): ScoreItem {
   if ("unscorable" in g) return unscorableItem(it, g.unscorable);
-  return { id: it.id, q: it.q, lane: "nl2sql", ideal: idealSqlAnswer(g.gold), judge: (a, s) => scoreSql(a, it.q, g.gold, cat, s) };
+  return {
+    id: it.id,
+    q: it.q,
+    lane: "nl2sql",
+    ideal: idealSqlAnswer(g.gold),
+    judge: (a, s) => scoreSql(a, it.q, g.gold, cat, s, rules),
+  };
 }
 
-export function holdoutKgItem(it: HoldoutItem, cat: Catalog): ScoreItem {
-  const g = holdoutKgGold(it, cat);
+export function holdoutKgItem(it: HoldoutItem, cat: Catalog, rules: ScoreRules = "v1", labels?: ItemLabels): ScoreItem {
+  const g = holdoutKgGold(it, cat, rules === "v2" ? labels?.gold_answer_names : undefined);
   if ("unscorable" in g) return unscorableItem(it, g.unscorable);
   return {
     id: it.id,
@@ -809,34 +1011,67 @@ export function holdoutKgItem(it: HoldoutItem, cat: Catalog): ScoreItem {
   };
 }
 
-export function holdoutVectorItem(it: HoldoutItem, docs: Map<string, string>, cat: Catalog): ScoreItem {
-  const g = holdoutVectorGold(it, docs);
+export function holdoutVectorItem(
+  it: HoldoutItem,
+  docs: Map<string, string>,
+  cat: Catalog,
+  rules: ScoreRules = "v1",
+  labels?: ItemLabels,
+): ScoreItem {
+  const g = holdoutVectorGold(it, docs, { rules, facts: labels?.required_facts });
   if ("unscorable" in g) return unscorableItem(it, g.unscorable);
   return {
     id: it.id,
     q: it.q,
     lane: "vector_search",
     ideal: g.gold.keys.join(" / "),
-    judge: (a, s) => ({ ...scoreVectorKeyed(a, it.q, g.gold, cat, s), gold_source: g.gold.source }),
+    judge: (a, s) => ({ ...scoreVectorKeyed(a, it.q, g.gold, cat, s, rules), gold_source: g.gold.source }),
   };
 }
 
 /** 홀드아웃 한 문항. CLI 와 오프라인 단위 테스트가 이 함수 하나로 만든다 — 정답을 두 길로 만들면 한쪽만
- * 고친다. nl2sql 정답은 DB 가 있어야 하므로 호출부가 실행해서 넘긴다(없으면 채점 불가). */
+ * 고친다. nl2sql 정답은 DB 가 있어야 하므로 호출부가 실행해서 넘긴다(없으면 채점 불가). 규칙 판과 라벨도 여기로
+ * 넘긴다 — v1 이면 라벨과 정정을 쓰지 않는다. SQL 라벨은 호출부가 정답(sqlGoldFromResult 의 asked)에 넣는다. */
 export function holdoutItem(
   it: HoldoutItem,
-  ctx: { docs: Map<string, string>; cat: Catalog; sql?: GoldOrWhy<SqlGold> },
+  ctx: { docs: Map<string, string>; cat: Catalog; sql?: GoldOrWhy<SqlGold>; rules?: ScoreRules; labels?: ItemLabels },
 ): ScoreItem {
+  const rules = ctx.rules ?? "v1";
   switch (it.expected) {
     case "nl2sql":
-      return holdoutSqlItem(it, ctx.sql ?? { unscorable: "정답 SQL 을 실행하지 않았다" }, ctx.cat);
+      return holdoutSqlItem(it, ctx.sql ?? { unscorable: "정답 SQL 을 실행하지 않았다" }, ctx.cat, rules);
     case "knowledge_graph":
-      return holdoutKgItem(it, ctx.cat);
+      return holdoutKgItem(it, ctx.cat, rules, ctx.labels);
     case "vector_search":
-      return holdoutVectorItem(it, ctx.docs, ctx.cat);
+      return holdoutVectorItem(it, ctx.docs, ctx.cat, rules, ctx.labels);
     default:
       return unscorableItem(it, `모르는 레인 ${String(it.expected)}`);
   }
+}
+
+// ── 라벨 파일 ───────────────────────────────────────────────────────────
+
+export const LABELS_FILE = "eval/companyx/gold_labels.json";
+
+export interface GoldLabelsFile {
+  /** 문항 id(CX-SQL-01, h3-01, h4-21) → 질문이 묻는 열, 사실 */
+  items: Record<string, Pick<ItemLabels, "asked_columns" | "required_facts">>;
+  /** 문항 id → 데이터셋으로 확인한 정답 정정 */
+  errata: Record<string, { gold_answer_names: string[]; gold_edges?: { source: string; relation: string; target: string }[] }>;
+}
+
+/** 문항 하나의 v2 라벨. asked 면 묻는 열과 사실, errata 면 정답 정정을 싣는다. 정정은 라벨이 아니라 정답 고침이라
+ * v2 면 늘 쓰고(CX_LABELS=0 이어도), 묻는 것 라벨은 끌 수 있다. 실을 것이 없으면 undefined. */
+export function labelsFor(
+  file: GoldLabelsFile | null,
+  id: string | undefined,
+  use: { asked: boolean; errata: boolean } = { asked: true, errata: true },
+): ItemLabels | undefined {
+  if (!file || !id) return undefined;
+  const it = use.asked ? file.items?.[id] : undefined;
+  const fix = use.errata ? file.errata?.[id] : undefined;
+  if (!it && !fix) return undefined;
+  return { ...(it ?? {}), ...(fix ? { gold_answer_names: fix.gold_answer_names } : {}) };
 }
 
 export const ABSTAIN = "주어진 정보로는 알 수 없습니다.";
@@ -925,5 +1160,37 @@ export function selfCheckPrimitives(): string[] {
     if (f(t, g) !== want) fails.push(`${name}(${JSON.stringify(t)}, ${g}) 가 ${!want} 다`);
   }
   if (formatDuration(597_021) !== "6일 21시간 50분 21초") fails.push(`formatDuration(597021) 가 ${formatDuration(597_021)} 다`);
+
+  // v2 키워드: 수는 같은 값, 같은 단위여야 한다. 다른 값, 다른 단위, 날짜와 시각 속의 수, 이름 속의 수는 아니다.
+  const kv: [string, string, boolean][] = [
+    ["40분", "초기 대응: 40분", true],
+    ["초기 대응 140분", "초기 대응: 40분", false],
+    ["40초", "초기 대응: 40분", false],
+    ["28%", "TCO: 기존 대비 40% 절감", false],
+    ["4,098만 원", "초기 구축비: 4098만원", true],
+    ["4,100만원", "초기 구축비: 4098만원", false],
+    ["투입 인력은 8명이었고 추가 인력 1명", "현재 투입 인력 8명이며, 추가 인력 1명이 필요한 상황입니다", true],
+    ["투입 인력은 8명", "현재 투입 인력 8명이며, 추가 인력 1명이 필요한 상황입니다", false],
+    ["2025년 4월 10일 회의", "10일 지연", false],
+    ["13시 24분 접수", "소요: 24분", false],
+    ["Product-C2 관련", "2개", false],
+    ["Critical 입니다", "Critical", true],
+    ["critical 이 아니라 high", "HPA", false],
+    ["2024년 8월 5일 발생", "2024-08-05", true],
+  ];
+  for (const [t, g, want] of kv) {
+    if (hasKeywordValue(t, g) !== want) fails.push(`hasKeywordValue(${JSON.stringify(t)}, ${g}) 가 ${!want} 다`);
+  }
+  const keys = ["기본 분당 263회", "프리미엄 분당 2130회"];
+  const crossed: [string, boolean][] = [
+    ["기본 분당 263회, 프리미엄 분당 2130회", false],
+    ["기본과 프리미엄 각각 263회, 2130회", false],
+    ["프리미엄은 2130회, 기본은 263회", false],
+    ["기본 2130회, 프리미엄 263회", true],
+    ["기본과 프리미엄 각각 2130회, 263회", true],
+  ];
+  for (const [t, want] of crossed) {
+    if ((crossedValues(t, ["263회", "2130회"], keys).length > 0) !== want) fails.push(`crossedValues(${JSON.stringify(t)}) 가 ${!want} 다`);
+  }
   return fails;
 }
