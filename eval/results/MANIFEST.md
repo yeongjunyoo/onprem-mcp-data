@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**61/73 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**67/79 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -16,9 +16,13 @@
 
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
+| `answer-diagnosis-2026-10-11-rescored.json` | 368,863 | `04eb00ed53fad1d1` | 2026-10-11T16:19:14 |
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
 | `companyx-audit.json` | 80,374 | `7886754623b0598f` | 2026-10-01T17:18:46 |
+| `companyx-doctype-score-holdout3-off-rescored.json` | 78,176 | `291f41bf0c278e59` | 2026-10-11T16:19:08 |
+| `companyx-doctype-score-holdout4-off-rescored.json` | 68,647 | `0b7aee0a0836f2e0` | 2026-10-11T16:19:09 |
+| `companyx-doctype-score-sponsor30-off-rescored.json` | 35,567 | `587fc8aaad274381` | 2026-10-11T16:19:08 |
 | `companyx-holdout-route.json` | 12,996 | `af42f06c98cf6151` | 2026-10-01T17:08:44 |
 | `companyx-holdout2-route.json` | 13,496 | `56da66723060e44b` | 2026-10-01T17:09:19 |
 | `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
@@ -47,7 +51,9 @@
 | `companyx-scorecard-holdout3-b1024.json` | 49,460 | `efa2c93f907a23e6` | 2026-09-30T13:42:20 |
 | `companyx-scorecard-holdout3-b256.json` | 49,964 | `84b861bf92b7db17` | 2026-09-30T13:36:21 |
 | `companyx-scorecard-holdout3-b512.json` | 49,519 | `d891b338c5aa5533` | 2026-09-30T13:39:19 |
+| `companyx-scorecard-holdout4-rescored.json` | 68,415 | `65c3eec886e5148e` | 2026-10-11T16:19:07 |
 | `companyx-scorecard-holdout4.json` | 54,866 | `724ceae0cb880082` | 2026-10-01T18:31:40 |
+| `companyx-scorecard-rescored.json` | 35,177 | `960de8a94bfe0376` | 2026-10-11T16:19:06 |
 | `companyx-scorecard.json` | 28,669 | `9283689ac3a7b391` | 2026-10-01T17:32:57 |
 | `companyx-sql-answerfix-gpu-card-base.json` | 12,953 | `294014ff00e41cba` | 2026-10-01T02:15:29 |
 | `companyx-sql-answerfix-gpu-card-new.json` | 13,010 | `4d998a01b01bacdb` | 2026-10-01T02:16:28 |
@@ -88,7 +94,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 3,546 | `b202fd8d1aba22db` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 3,623 | `799e1517d354d8a4` | 2026-09-30T00:00:00 |
 
 ## 재생성
 
