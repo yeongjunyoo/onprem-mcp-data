@@ -66,7 +66,11 @@ export const ROUTE_OUTPUT_SCHEMA = {
     .object({ lane: z.string(), margin: z.number(), applied: z.boolean(), nearest_anchor: z.string() })
     .nullable()
     .describe("규칙이 확신하지 못했을 때 임베딩 앵커 비교 결과. 규칙이 결정했으면 null"),
-  deterministic: z.boolean().describe("항상 true. 생성 모델을 부르지 않고, 같은 임베딩 모델이면 같은 결정"),
+  deterministic: z
+    .boolean()
+    .describe(
+      "생성 모델을 부르지 않았으면 true(기본). 같은 임베딩 모델이면 같은 결정. ROUTER_LLM_STAGE=1 의 셋째 단계가 생성 모델을 불렀으면 false",
+    ),
   entity_lexicon: z.number().describe("기동 때 적재한 온톨로지 개체 수. 0이면 타입쌍 추론 없이 돈다"),
   semantic_anchors: z.number().describe("임베딩해 둔 시맨틱 앵커 수. 0이면 규칙만 쓴다"),
 };

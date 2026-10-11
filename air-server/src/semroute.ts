@@ -29,6 +29,7 @@
 import type { Embedder } from "./embedder.js";
 import { profile } from "./profile.js";
 import { mentionTerms } from "./graph.js";
+import { llmStageEnabled, llmLaneToolsReady, llmLaneVerdict } from "./llmroute.js";
 import {
   route,
   maskEntities,
@@ -223,7 +224,11 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
   if (d.gate.confident || !embedder || !semanticReady()) return d;
   const v = await semanticVerdict(query, embedder);
   if (!v) return d;
-  if (v.margin < SEMANTIC_MIN_MARGIN) return { ...d, semantic: v };
+  if (v.margin < SEMANTIC_MIN_MARGIN) {
+    // 셋째 단계(기본 꺼짐). 규칙도 시맨틱도 격차가 문턱 밑일 때만 생성 모델이 레인 도구 설명을 보고 고른다.
+    if (llmStageEnabled() && llmLaneToolsReady()) return llmStage(query, d, v);
+    return { ...d, semantic: v };
+  }
   // 계약, 티켓, 장애처럼 그래프에 관계로 없는 항목을 묻는 질문은 그래프 앵커(「고객 제일 많이 맡은 사람」)가 가까워도
   // 그래프로 보내지 않는다. 그래프에는 그 답이 없어 맡은 고객사 수 순위가 답이 됐다(랜덤 테스트 사전 점검 2차 R1).
   // 규칙의 결정을 그대로 둔다(시맨틱도 확신이 없을 때와 같다).
@@ -258,5 +263,37 @@ export async function routeQuery(query: string, embedder?: Embedder): Promise<Ro
     graphPlan: plan,
     rationale: `rule margin ${d.gate.margin} < gate; semantic ${v.lane} (anchor "${v.nearest.text}", margin ${v.margin.toFixed(3)})`,
     semantic: { ...v, applied: true },
+  };
+}
+
+/** 셋째 단계. 모델이 고른 레인으로 결정을 바꾸되, 시맨틱 판정에 거는 그래프 가드 둘(그래프에 없는 표 명사, 출발할
+ * 개체가 없는 그래프 판정)을 똑같이 건다. 단계가 실패하면 규칙의 결정을 그대로 두고 실패 사유를 결정과 근거에 남긴다. */
+async function llmStage(query: string, d: RouteDecision, v: NonNullable<RouteDecision["semantic"]>): Promise<RouteDecision> {
+  const q = query.trim();
+  const l = await llmLaneVerdict(q);
+  const base = `rule margin ${d.gate.margin} < gate; semantic margin ${v.margin.toFixed(3)} < ${SEMANTIC_MIN_MARGIN}`;
+  if ("error" in l) {
+    return { ...d, semantic: v, llm: { applied: false, ms: l.ms, error: l.error }, rationale: `${d.rationale}; ${base}; llm stage failed (${l.error}), rule decision kept` };
+  }
+  const tried = { lane: l.lane, tool: l.tool, via: l.via, ms: l.ms };
+  const noun = l.lane === "knowledge_graph" ? tableOnlyNoun(q) : undefined;
+  if (noun) {
+    return { ...d, semantic: v, llm: { applied: false, ...tried }, rationale: `${d.rationale}; ${base}; llm ${l.tool} not applied: table noun ${noun} has no graph edge` };
+  }
+  const t = TOOLS_OF[l.lane];
+  const superlative = d.structuredHits.includes("superlative");
+  const rel = d.typePair?.relation ?? (v.nearest.lane === "knowledge_graph" ? v.nearest.type : undefined);
+  const plan = l.lane === "knowledge_graph" ? buildGraphPlan(q, rel ? [rel] : [], superlative) : undefined;
+  if (plan && d.gate.pick !== null && d.gate.pick !== "knowledge_graph" && !plan.aggregate && !plan.filter && !mentionTerms(query).length) {
+    return { ...d, semantic: v, llm: { applied: false, ...tried }, rationale: `${d.rationale}; ${base}; llm ${l.tool} not applied: no entity named to start from` };
+  }
+  return {
+    ...d,
+    route: t.route,
+    tools: t.tools,
+    graphPlan: plan,
+    rationale: `${base}; llm ${l.tool} -> ${l.lane}`,
+    semantic: v,
+    llm: { applied: true, ...tried },
   };
 }

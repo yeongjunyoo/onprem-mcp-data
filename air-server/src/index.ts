@@ -29,6 +29,7 @@ import { probeGeneration, probeOllama, probeServing, reportOllama } from "./pref
 import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter, resolveTransport } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
+import { installLlmLaneTools, listLaneTools, llmStageEnabled, LANE_TOOL_NAMES } from "./llmroute.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
  *
@@ -98,7 +99,17 @@ async function main(): Promise<void> {
       : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
 
-  buildServer().start();
+  const server = buildServer();
+  // 라우터 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)는 tools/list 와 같은 레인 도구 설명과 스키마를 본다.
+  if (llmStageEnabled()) {
+    const n = installLlmLaneTools(await listLaneTools(server.tools()));
+    console.error(
+      n === LANE_TOOL_NAMES.length
+        ? `[router] 셋째 단계(생성 모델) 켜짐: 규칙과 시맨틱이 둘 다 확신하지 못한 질문만 레인 도구 ${n}개 중에서 고른다`
+        : `[router] 셋째 단계를 켰지만 레인 도구가 ${n}개뿐이라 돌지 않는다`,
+    );
+  }
+  server.start();
   // stdio 클라이언트가 입력을 닫으면(클라이언트 종료, 터미널의 Ctrl+D) 서버도 끝낸다. MCP stdio 전송의 종료 절차가
   // 이렇다. 종전에는 DB 풀과 air 의 타이머가 이벤트 루프를 붙잡아 클라이언트가 사라진 뒤에도 서버가 남았다
   // (2026-10-07 실측: 입력을 닫아도 40초 넘게 남음). SSE 로 띄운 서버는 stdin 과 무관하니 건드리지 않는다.

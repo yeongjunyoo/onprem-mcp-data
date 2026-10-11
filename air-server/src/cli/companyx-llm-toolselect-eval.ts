@@ -43,6 +43,8 @@ import { route, installOntology } from "../router.js";
 import { routeQuery, installSemanticRouter } from "../semroute.js";
 import { getEmbedder } from "../embedder.js";
 import { DEFAULT_MODEL } from "../llm.js";
+import { TOOL_SELECT_OPTIONS, TOOL_SELECT_SYSTEM, installLlmLaneTools, listLaneTools, llmStageEnabled } from "../llmroute.js";
+import { buildServer } from "../server.js";
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const MODEL = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
@@ -59,13 +61,10 @@ const LANE_OF_ROUTE: Record<string, string> = {
   graph: "knowledge_graph",
   hybrid: "hybrid",
 };
-// num_predict 상한. 도구 호출 하나는 200토큰을 넘지 않는다. 상한이 없으면 Ollama 는 끝없이 생성한다(-1 기본값에
-// 문맥 이동). 2026-10-11 설명 변형 하나에서 반복 생성이 2만 토큰을 넘겨 fetch 가 5분 만에 끊기고 문항이 오류로 빠졌다.
-// 상한 안에서 끝나는 출력은 탐욕 디코딩이라 상한이 있든 없든 같다.
-const GEN_OPTIONS = { temperature: 0, seed: 42, num_ctx: 8192, num_predict: 512 };
-const SYSTEM =
-  "당신은 사내 데이터 질의 어시스턴트입니다. 사용자 질문에 답하려면 먼저 제공된 도구 중 하나를 호출해 " +
-  "데이터를 가져와야 합니다. 질문에 가장 알맞은 도구 하나를 골라 호출하세요.";
+// 시스템 문장과 생성 설정은 라우터 셋째 단계(llmroute.ts)와 같은 상수다. 여기서 잰 선택 정확도가 그 단계의 정확도다.
+// 생성 설정의 num_predict 상한이 왜 있는지는 llmroute.ts 에 적었다.
+const GEN_OPTIONS = TOOL_SELECT_OPTIONS;
+const SYSTEM = TOOL_SELECT_SYSTEM;
 
 const SETS: Record<string, { path: string; label: "tool" | "expected" }> = {
   sponsor30: { path: "datasets/companyx-v1.0/questions.json", label: "tool" },
@@ -198,6 +197,17 @@ async function main() {
     if (sem.error) throw new Error(`시맨틱 앵커 임베딩 실패: ${sem.error}`);
   }
 
+  // ROUTER_LLM_STAGE=1 이면 router 열이 3단계 라우터(규칙 → 시맨틱 → LLM)다. 셋째 단계는 서버와 같은 레인 도구를 본다 —
+  // 서버가 쓰는 listLaneTools 의 결과가 tools/list 와 다르면 여기서 잰 값이 서버의 값이 아니므로 멈춘다.
+  const llmStage = llmStageEnabled();
+  if (llmStage) {
+    const sortByName = (xs: McpTool[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
+    const served = JSON.stringify(sortByName(tools).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })));
+    const inProcess = JSON.stringify(sortByName(await listLaneTools(buildServer().tools())));
+    if (served !== inProcess) throw new Error("셋째 단계가 서버 안에서 만드는 레인 도구가 tools/list 와 다르다");
+    if (installLlmLaneTools(tools) !== LANE_TOOLS.length) throw new Error("셋째 단계에 레인 도구 넷을 걸지 못했다");
+  }
+
   const want = (process.env.TOOLSELECT_SETS ?? "sponsor30,holdout1,holdout2,holdout3").split(",");
   const rows: Record<string, unknown>[] = [];
   const bySet: Record<string, { n: number; llm: number; rule_only: number; router: number; no_tool: number; errors: number }> = {};
@@ -221,13 +231,15 @@ async function main() {
       }
       const llm = c.tool ? LANE_OF_TOOL[c.tool] ?? `other:${c.tool}` : "none";
       const ruleOnly = LANE_OF_ROUTE[route(it.q).route];
-      const router = LANE_OF_ROUTE[(await routeQuery(it.q, embedder)).route];
+      const decision = await routeQuery(it.q, embedder);
+      const router = LANE_OF_ROUTE[decision.route];
+      const routerVia = decision.llm ? (decision.llm.applied ? "llm" : "llm_kept_rule") : decision.semantic?.applied ? "semantic" : "rule";
       s.n++;
       if (llm === it.expected) s.llm++;
       if (ruleOnly === it.expected) s.rule_only++;
       if (router === it.expected) s.router++;
       if (llm === "none") s.no_tool++;
-      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, llm_ms: c.ms, llm_raw: c.raw });
+      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, router_via: routerVia, llm_ms: c.ms, llm_raw: c.raw });
       console.log(`${llm === it.expected ? "O" : "X"} llm=${llm.padEnd(15)} router=${router.padEnd(15)} 기대=${it.expected} :: ${it.q}`);
     }
   }
@@ -240,9 +252,11 @@ async function main() {
   const out = {
     note:
       "LLM 자율 도구 선택(MCP tools/list 의 description 만 보고 고름) 대 규칙 라우터, 규칙+시맨틱 라우터. " +
-      "후보는 레인 도구 넷. 채점은 도구 → 레인 매핑의 문자열 일치, LLM 판정자 없음. llm_ms 는 CPU 추론 시간.",
+      "후보는 레인 도구 넷. 채점은 도구 → 레인 매핑의 문자열 일치, LLM 판정자 없음. llm_ms 는 CPU 추론 시간." +
+      (llmStage ? " ROUTER_LLM_STAGE=1 실행이라 router 열은 3단계 라우터(규칙 → 시맨틱 → LLM)다. router_via 가 어느 단계가 정했는지다." : ""),
     model: MODEL,
     options: GEN_OPTIONS,
+    router_llm_stage: llmStage,
     ollama_host: HOST,
     embedder: embedder?.name ?? "none (rule only)",
     tool_descriptions: Object.fromEntries(tools.map((t) => [t.name, t.description ?? ""])),
@@ -251,6 +265,7 @@ async function main() {
     total,
     llm_ms_median: ms[Math.floor(ms.length / 2)] ?? null,
     llm_via: rows.reduce<Record<string, number>>((a, r) => ((a[r.llm_via as string] = (a[r.llm_via as string] ?? 0) + 1), a), {}),
+    router_via: rows.reduce<Record<string, number>>((a, r) => (r.router_via ? ((a[r.router_via as string] = (a[r.router_via as string] ?? 0) + 1), a) : a), {}),
     rows,
     generated_at: new Date().toISOString(),
   };
@@ -263,7 +278,12 @@ async function main() {
   console.log(JSON.stringify({ by_set: bySet, total, llm_ms_median: out.llm_ms_median }, null, 2));
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// 끝나면 바로 내린다. ROUTER_LLM_STAGE=1 실행은 레인 도구를 대조하려고 buildServer() 를 부르는데, air 플러그인의 타이머가
+// 이벤트 루프를 붙잡아 결과를 다 쓴 뒤에도 프로세스가 남았다(2026-10-11 실측).
+main().then(
+  () => process.exit(0),
+  (e) => {
+    console.error(e);
+    process.exit(1);
+  },
+);

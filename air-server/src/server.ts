@@ -31,6 +31,7 @@ import {
 } from "@airmcp-dev/core";
 import { SQL_TOOL, VECTOR_TOOL } from "./router.js";
 import { routeQuery } from "./semroute.js";
+import { llmStageEnabled } from "./llmroute.js";
 import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
@@ -141,6 +142,8 @@ export function buildServer(): AirServer {
   // 레인 도구 설명에 적은 표·문서·관계 목록은 Company-X 데이터셋의 것이다. 다른 프로파일(smoke, bench)에서는 빼서
   // 없는 표와 문서를 있다고 말하지 않는다.
   const cx = (text: string) => (ds.name === "companyx" ? text : "");
+  // 라우터 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)를 켜면 라우팅이 생성 모델을 부를 수 있다. 켰을 때만 설명이 그렇게 말한다.
+  const llmStage = llmStageEnabled();
   installInputErrorMessages();
   return defineServer({
     name: "onprem-mcp-data",
@@ -190,7 +193,10 @@ export function buildServer(): AirServer {
           "한국어 질문 하나를 어느 데이터 레인으로 보낼지 결정만 한다. 조회도 답변도 하지 않는다. " +
           "레인: structured → sql.query(표의 값·집계), semantic → vector.search(문서 서술), " +
           "graph → ontology.search + graph.expand(개체 사이 관계), hybrid → sql.query 와 vector.search 병렬. " +
-          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. 생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). " +
+          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. " +
+          (llmStage
+            ? "둘 다 확신하지 못한 질문만 생성 모델이 레인 도구 설명을 보고 고른다(ROUTER_LLM_STAGE=1, temperature 0). "
+            : "생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). ") +
           "예: 「서울 지역 매출 상위 5개 고객사를 알려줘」→ structured, 「Product-C1 설치 방법이 궁금해」→ semantic, " +
           "「Client-A가 사용 중인 제품 목록은?」→ graph. " +
           "돌려주는 것: route, lane, tools(부를 도구), 판단 근거 신호와 rationale. " +
@@ -266,7 +272,10 @@ export function buildServer(): AirServer {
         description:
           "질문 하나로 조회 전 과정을 돌리고 답을 만들기 직전의 근거(컨텍스트)를 돌려준다: route → 고른 레인 병렬 조회" +
           "(sql.query ∥ vector.search, 또는 지식그래프의 개체 해소·관계 확장·관계 집계) → RRF 융합 → 구조 보존 큐레이션. " +
-          "라우팅·RRF·큐레이션은 결정론이고, 구조화 레인의 SQL 은 로컬 7B 가 스키마 카드로 만든다. 최종 답은 만들지 않는다. " +
+          (llmStage
+            ? "RRF·큐레이션은 결정론이고, 라우팅은 규칙과 시맨틱이 둘 다 확신하지 못한 질문만 생성 모델이 고른다(ROUTER_LLM_STAGE=1). "
+            : "라우팅·RRF·큐레이션은 결정론이고, ") +
+          "구조화 레인의 SQL 은 로컬 7B 가 스키마 카드로 만든다. 최종 답은 만들지 않는다. " +
           "답하는 질문: 레인을 미리 모르는 자연어 질문 전부. 호출하는 LLM 이 근거를 직접 읽고 답을 쓸 때 쓴다. " +
           "예: 「평균 연봉이 가장 높은 부서는 어디야?」, 「Kubernetes 관련 장애 대응 방법은?」, 「진행 중인 프로젝트를 이끄는 직원 목록」. " +
           "돌려주는 것: route, context, audit(라우팅 근거, 레인별 후보 수, branch_errors, 큐레이션 통계. " +

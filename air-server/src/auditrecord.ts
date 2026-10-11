@@ -60,7 +60,8 @@ export interface AuditRecord {
     tools: string[];
     signals: { structured: string[]; semantic: string[]; graph: string[] };
     rationale: string;
-    deterministic: true;
+    /** 규칙과 임베딩만으로 정했으면 true. 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)가 생성 모델을 불렀으면 false. */
+    deterministic: boolean;
   };
   retrieval: {
     sql: {
@@ -291,7 +292,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         graph: (routeAudit.graph_signals as string[]) ?? [],
       },
       rationale: String(routeAudit.rationale ?? ""),
-      deterministic: true,
+      deterministic: routeAudit.deterministic !== false,
     },
     retrieval: {
       sql: {
