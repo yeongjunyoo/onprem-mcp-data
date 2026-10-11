@@ -78,8 +78,11 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
     sqlSchema: "companyx",
     vectorTable: "companyx.documents",
     nl2sql: companyxNL2SQL,
-    // MCP 스키마 리소스가 보여 주는 카드 = 생성 프롬프트가 쓰는 카드.
-    schemaCard: companyxSchemaCard(),
+    // MCP 스키마 리소스가 보여 주는 카드 = 생성 프롬프트가 쓰는 카드. 부를 때마다 묻는다 — SQL_CARD=comments 의 카드는
+    // 모듈을 읽은 뒤 기동 때 카탈로그에서 만들어지므로 값을 모듈 적재 때 굳히면 종전 카드가 남는다.
+    get schemaCard() {
+      return companyxSchemaCard();
+    },
     description: "리원에이스 공식 데이터셋 Company-X(8테이블 818행 / 문서 40건 / 그래프 133노드·354엣지)",
     // The official DDL says vector(768). Measured on this corpus, BGE-M3 truncated
     // to 768 keeps hit@5 = 1.00, so the schema is used verbatim instead of widened.

@@ -41,6 +41,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Pool } from "./db.js";
 import { type Embedder, toVectorLiteral } from "./embedder.js";
+import { readCommentsSql } from "./schemacomments.js";
 
 export const CX_SCHEMA = "companyx";
 
@@ -341,6 +342,8 @@ export interface LoadReport {
   entityLinks: number;
   embeddingDim: number;
   ddlDeviations: string[];
+  /** 표를 만든 뒤 건 주석(sql/companyx/comments.sql). 파일이 없으면 null 이고 주석 없이 적재한다. */
+  comments: { file: string; tables: number; columns: number } | null;
 }
 
 /** Apply the official DDL + data into `companyx`, then ingest docs and the graph. */
@@ -374,6 +377,9 @@ export async function loadCompanyX(
     await client.query(ddl);
     await client.query(dataSql);
     await client.query(KG_DDL(s));
+    // 컬럼 주석은 표가 생긴 뒤에만 걸 수 있다. 갓 적재한 DB 도 SQL_CARD=comments 카드를 쓸 수 있게 같은 트랜잭션에서 건다.
+    const commentsSql = await readCommentsSql(s);
+    if (commentsSql) await client.query(commentsSql.sql);
 
     // --- graph -> entities / aliases / relations / entity_links ---
     const { nodes, edges } = await loadGraph(dir);
@@ -469,6 +475,9 @@ export async function loadCompanyX(
       entityLinks: Number(linkCount.rows[0].n),
       embeddingDim: opts.embedDim,
       ddlDeviations: deviations,
+      comments: commentsSql
+        ? { file: "sql/companyx/comments.sql", tables: commentsSql.tables, columns: commentsSql.columns }
+        : null,
     };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

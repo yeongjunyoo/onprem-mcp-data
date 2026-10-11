@@ -29,6 +29,7 @@ import { probeGeneration, probeOllama, probeServing, reportOllama } from "./pref
 import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter, resolveTransport } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
+import { loadCompanyxSchemaCard } from "./nl2sql.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
  *
@@ -97,6 +98,10 @@ async function main(): Promise<void> {
       ? `[router] 시맨틱 폴백 없음(${sem.error})`
       : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
+
+  // SQL_CARD=comments 면 카탈로그 주석으로 NL2SQL 스키마 카드를 만들어 둔다(한 번 읽고 캐시, 결과는 stderr 에 한 줄).
+  // 다른 카드면 아무것도 읽지 않는다.
+  if (profile().name === "companyx") await loadCompanyxSchemaCard();
 
   buildServer().start();
   // stdio 클라이언트가 입력을 닫으면(클라이언트 종료, 터미널의 Ctrl+D) 서버도 끝낸다. MCP stdio 전송의 종료 절차가
