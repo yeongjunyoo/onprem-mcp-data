@@ -1,0 +1,229 @@
+{
+  "what": "companyx.document_types — 원문의 첫 제목과 섹션 구성으로 정한 문서 유형(doctype.ts tagDocument). 사업자 index.json 은 대조에만 썼다.",
+  "docs": 40,
+  "counts": {
+    "incident_report": 10,
+    "technical_doc": 10,
+    "meeting_note": 10,
+    "proposal": 10
+  },
+  "unclassified": [],
+  "basis": {
+    "heading+sections": 40
+  },
+  "chunks_by_type": {
+    "incident_report": 70,
+    "meeting_note": 70,
+    "proposal": 60,
+    "technical_doc": 58
+  },
+  "cross_check": {
+    "docs_in_dataset": 40,
+    "db_vs_files_mismatch": [],
+    "db_vs_index_json_mismatch": [],
+    "missing_in_db": []
+  },
+  "tags": [
+    {
+      "doc_id": "DOC-001",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-002",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-003",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-004",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-005",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-006",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-007",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-008",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-009",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-010",
+      "doc_type": "incident_report",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-011",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-012",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-013",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-014",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-015",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-016",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-017",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-018",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-019",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-020",
+      "doc_type": "technical_doc",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-021",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-022",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-023",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-024",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-025",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-026",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-027",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-028",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-029",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-030",
+      "doc_type": "meeting_note",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-031",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-032",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-033",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-034",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-035",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-036",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-037",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-038",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-039",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    },
+    {
+      "doc_id": "DOC-040",
+      "doc_type": "proposal",
+      "basis": "heading+sections"
+    }
+  ],
+  "generated_at": "2026-10-11T14:09:55.474Z"
+}

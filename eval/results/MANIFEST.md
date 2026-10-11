@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**61/73 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**70/82 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -19,6 +19,15 @@
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
 | `companyx-audit.json` | 80,374 | `7886754623b0598f` | 2026-10-01T17:18:46 |
+| `companyx-doctype-baseline.json` | 142,211 | `82dc6647d35bdb28` | 2026-10-11T13:56:25 |
+| `companyx-doctype-score-holdout3-off.json` | 52,376 | `e9a2f9d1534080a1` | 2026-10-11T14:16:35 |
+| `companyx-doctype-score-holdout3-on.json` | 52,330 | `eaff250ed6e28d6b` | 2026-10-11T14:18:19 |
+| `companyx-doctype-score-holdout4-off.json` | 55,235 | `9c3cddb8117e3f73` | 2026-10-11T14:19:13 |
+| `companyx-doctype-score-holdout4-on.json` | 55,065 | `50c2592ad796b38d` | 2026-10-11T14:20:41 |
+| `companyx-doctype-score-sponsor30-off.json` | 28,948 | `c0356a6cf5e8df8d` | 2026-10-11T14:13:01 |
+| `companyx-doctype-score-sponsor30-on.json` | 28,417 | `2c7967133b7c160b` | 2026-10-11T14:14:16 |
+| `companyx-doctype-tags.json` | 5,023 | `eb34f66cf79660f7` | 2026-10-11T14:09:55 |
+| `companyx-doctype.json` | 384,328 | `c85811a46e8b62da` | 2026-10-11T14:26:25 |
 | `companyx-holdout-route.json` | 12,996 | `af42f06c98cf6151` | 2026-10-01T17:08:44 |
 | `companyx-holdout2-route.json` | 13,496 | `56da66723060e44b` | 2026-10-01T17:09:19 |
 | `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
@@ -88,7 +97,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 3,546 | `b202fd8d1aba22db` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 3,703 | `ddca125af78756e8` | 2026-09-30T00:00:00 |
 
 ## 재생성
 

@@ -1,0 +1,6963 @@
+{
+  "what": "문서 질문의 최종 목록(retrieve().curated.kept) 순위. 표제는 item(목록 항목 기준), doc 은 서로 다른 문서 기준.",
+  "sql_lane": "nl2sql 을 부르지 않았다(null). hybrid 로 간 문항은 생성 SQL 행이 빠진 목록이다.",
+  "configs": [
+    "base",
+    "hybrid"
+  ],
+  "embedder": "ollama:bge-m3@768",
+  "corpus_embedder_cosine": 1,
+  "routing": {
+    "ontology": {
+      "entities": 264,
+      "typePairs": 10
+    },
+    "semantic": {
+      "anchors": 175
+    }
+  },
+  "database": "localhost:5433/mcpdata_g20b",
+  "input_hashes": {
+    "eval/companyx/vector_gold.json": "3a241c221e55d4c7",
+    "eval/companyx/doc_gold_holdout12.json": "571022941e7506eb",
+    "eval/companyx/holdout_route.json": "79031d568953c15a",
+    "eval/companyx/holdout2_route.json": "6353f029efcea1e9",
+    "eval/companyx/holdout3_route.json": "9340fcafbde9cb58",
+    "eval/companyx/holdout4_route.json": "6bc177c5be85949d"
+  },
+  "summary": {
+    "sponsor30": {
+      "base": {
+        "item": {
+          "n": 10,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        },
+        "doc": {
+          "n": 10,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 10,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        },
+        "doc": {
+          "n": 10,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        }
+      }
+    },
+    "vector_gold": {
+      "base": {
+        "item": {
+          "n": 68,
+          "hit@1": 0.794,
+          "hit@3": 0.882,
+          "hit@5": 0.897,
+          "mrr": 0.836
+        },
+        "doc": {
+          "n": 68,
+          "hit@1": 0.794,
+          "hit@3": 0.882,
+          "hit@5": 0.897,
+          "mrr": 0.837
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 68,
+          "hit@1": 0.662,
+          "hit@3": 0.882,
+          "hit@5": 0.897,
+          "mrr": 0.77
+        },
+        "doc": {
+          "n": 68,
+          "hit@1": 0.662,
+          "hit@3": 0.882,
+          "hit@5": 0.897,
+          "mrr": 0.77
+        }
+      }
+    },
+    "holdout1": {
+      "base": {
+        "item": {
+          "n": 5,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        },
+        "doc": {
+          "n": 5,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 5,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        },
+        "doc": {
+          "n": 5,
+          "hit@1": 1,
+          "hit@3": 1,
+          "hit@5": 1,
+          "mrr": 1
+        }
+      }
+    },
+    "holdout2": {
+      "base": {
+        "item": {
+          "n": 7,
+          "hit@1": 0.571,
+          "hit@3": 0.714,
+          "hit@5": 0.857,
+          "mrr": 0.671
+        },
+        "doc": {
+          "n": 7,
+          "hit@1": 0.571,
+          "hit@3": 0.714,
+          "hit@5": 0.857,
+          "mrr": 0.671
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 7,
+          "hit@1": 0.571,
+          "hit@3": 0.571,
+          "hit@5": 0.714,
+          "mrr": 0.618
+        },
+        "doc": {
+          "n": 7,
+          "hit@1": 0.571,
+          "hit@3": 0.571,
+          "hit@5": 0.714,
+          "mrr": 0.624
+        }
+      }
+    },
+    "holdout3": {
+      "base": {
+        "item": {
+          "n": 20,
+          "hit@1": 0.85,
+          "hit@3": 0.9,
+          "hit@5": 0.95,
+          "mrr": 0.887
+        },
+        "doc": {
+          "n": 20,
+          "hit@1": 0.85,
+          "hit@3": 0.9,
+          "hit@5": 0.95,
+          "mrr": 0.887
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 20,
+          "hit@1": 0.7,
+          "hit@3": 0.85,
+          "hit@5": 0.9,
+          "mrr": 0.785
+        },
+        "doc": {
+          "n": 20,
+          "hit@1": 0.7,
+          "hit@3": 0.9,
+          "hit@5": 0.95,
+          "mrr": 0.802
+        }
+      }
+    },
+    "holdout4": {
+      "base": {
+        "item": {
+          "n": 20,
+          "hit@1": 0.9,
+          "hit@3": 0.9,
+          "hit@5": 0.9,
+          "mrr": 0.9
+        },
+        "doc": {
+          "n": 20,
+          "hit@1": 0.9,
+          "hit@3": 0.9,
+          "hit@5": 0.9,
+          "mrr": 0.9
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 20,
+          "hit@1": 0.8,
+          "hit@3": 0.9,
+          "hit@5": 0.9,
+          "mrr": 0.842
+        },
+        "doc": {
+          "n": 20,
+          "hit@1": 0.8,
+          "hit@3": 0.9,
+          "hit@5": 0.9,
+          "mrr": 0.842
+        }
+      }
+    },
+    "total": {
+      "base": {
+        "item": {
+          "n": 130,
+          "hit@1": 0.831,
+          "hit@3": 0.892,
+          "hit@5": 0.915,
+          "mrr": 0.864
+        },
+        "doc": {
+          "n": 130,
+          "hit@1": 0.831,
+          "hit@3": 0.892,
+          "hit@5": 0.915,
+          "mrr": 0.864
+        }
+      },
+      "hybrid": {
+        "item": {
+          "n": 130,
+          "hit@1": 0.723,
+          "hit@3": 0.877,
+          "hit@5": 0.9,
+          "mrr": 0.802
+        },
+        "doc": {
+          "n": 130,
+          "hit@1": 0.723,
+          "hit@3": 0.885,
+          "hit@5": 0.908,
+          "mrr": 0.805
+        }
+      }
+    }
+  },
+  "classifier": {
+    "filtered": 90,
+    "scored": 130,
+    "right": 89,
+    "wrong": [
+      {
+        "id": "vg-10",
+        "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+        "type": "technical_doc",
+        "gold_types": [
+          "incident_report"
+        ]
+      }
+    ]
+  },
+  "rows": [
+    {
+      "set": "sponsor30",
+      "id": "s30-v1",
+      "q": "최근 서버 장애 사례와 원인을 알려줘",
+      "gold": [
+        "DOC-001",
+        "DOC-002",
+        "DOC-003",
+        "DOC-004",
+        "DOC-005",
+        "DOC-006",
+        "DOC-007",
+        "DOC-008",
+        "DOC-009",
+        "DOC-010"
+      ],
+      "gold_source": "vector_gold.type",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애",
+          "topic:incident_report:원인"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-003",
+          "DOC-009",
+          "DOC-001",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-003",
+          "DOC-009",
+          "DOC-001",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v2",
+      "q": "Product-C1 설치 방법이 궁금해",
+      "gold": [
+        "DOC-011"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:설치"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-011",
+          "DOC-031"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-011",
+          "DOC-031"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v3",
+      "q": "Kubernetes 관련 장애 대응 방법은?",
+      "gold": [
+        "DOC-001",
+        "DOC-002",
+        "DOC-003",
+        "DOC-004",
+        "DOC-005",
+        "DOC-006",
+        "DOC-007",
+        "DOC-008",
+        "DOC-009",
+        "DOC-010"
+      ],
+      "gold_source": "vector_gold.type",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-008",
+          "DOC-003",
+          "DOC-001",
+          "DOC-016",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-008",
+          "DOC-001",
+          "DOC-002",
+          "DOC-003",
+          "DOC-016",
+          "DOC-004",
+          "DOC-005",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v4",
+      "q": "성능 최적화를 위한 DB 튜닝 방법 알려줘",
+      "gold": [
+        "DOC-014",
+        "DOC-019"
+      ],
+      "gold_source": "vector_gold.gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:성능 최적화",
+          "topic:technical_doc:튜닝"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v5",
+      "q": "보안 취약점 점검 관련 내용이 있어?",
+      "gold": [
+        "DOC-001",
+        "DOC-002",
+        "DOC-003",
+        "DOC-004",
+        "DOC-005",
+        "DOC-006",
+        "DOC-007",
+        "DOC-008",
+        "DOC-009",
+        "DOC-010",
+        "DOC-021",
+        "DOC-022",
+        "DOC-023",
+        "DOC-024",
+        "DOC-025",
+        "DOC-026",
+        "DOC-027",
+        "DOC-028",
+        "DOC-029",
+        "DOC-030"
+      ],
+      "gold_source": "questions.hint(incident_report+meeting_note)",
+      "gold_types": [
+        "incident_report",
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-029",
+          "DOC-024",
+          "DOC-028",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-024",
+          "DOC-029",
+          "DOC-022",
+          "DOC-028"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v6",
+      "q": "백업 정책은 어떻게 되어 있어?",
+      "gold": [
+        "DOC-013",
+        "DOC-018"
+      ],
+      "gold_source": "vector_gold.gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:백업"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v7",
+      "q": "API 인증 방식은 뭐야?",
+      "gold": [
+        "DOC-011",
+        "DOC-012",
+        "DOC-013",
+        "DOC-014",
+        "DOC-015",
+        "DOC-016",
+        "DOC-017",
+        "DOC-018",
+        "DOC-019",
+        "DOC-020"
+      ],
+      "gold_source": "questions.hint(technical_doc)",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-012"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-012"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v8",
+      "q": "고객사 미팅에서 논의된 일정 지연 이슈는?",
+      "gold": [
+        "DOC-021",
+        "DOC-022",
+        "DOC-023",
+        "DOC-024",
+        "DOC-025",
+        "DOC-026",
+        "DOC-027",
+        "DOC-028",
+        "DOC-029",
+        "DOC-030"
+      ],
+      "gold_source": "questions.hint(meeting_note)",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:미팅"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-023",
+          "DOC-021",
+          "DOC-026",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-023",
+          "DOC-021",
+          "DOC-029",
+          "DOC-026",
+          "DOC-027"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v9",
+      "q": "클라우드 마이그레이션 제안서 내용 보여줘",
+      "gold": [
+        "DOC-031",
+        "DOC-032",
+        "DOC-033",
+        "DOC-034",
+        "DOC-035",
+        "DOC-036",
+        "DOC-037",
+        "DOC-038",
+        "DOC-039",
+        "DOC-040"
+      ],
+      "gold_source": "questions.hint(proposal)",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:마이그레이션"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-032",
+          "DOC-035",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-031",
+          "DOC-035",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "sponsor30",
+      "id": "s30-v10",
+      "q": "SSL 인증서 관련 장애가 있었어?",
+      "gold": [
+        "DOC-002",
+        "DOC-005",
+        "DOC-006"
+      ],
+      "gold_source": "vector_gold.gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:SSL",
+          "topic:incident_report:인증서",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-004",
+          "DOC-020"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-004",
+          "DOC-020"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-1",
+      "q": "Client-A와의 회의에서 결정된 사항은?",
+      "gold": [
+        "DOC-021"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-030",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-022",
+          "DOC-025",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-2",
+      "q": "SSL 인증서 만료로 인한 장애가 있었나요?",
+      "gold": [
+        "DOC-005",
+        "DOC-006"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:SSL",
+          "topic:incident_report:인증서",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-006",
+          "DOC-005",
+          "DOC-002",
+          "DOC-020",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-020",
+          "DOC-004",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-3",
+      "q": "Product-S2 성능 튜닝 방법 알려줘",
+      "gold": [
+        "DOC-014"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:튜닝"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-4",
+      "q": "제안서에서 언급된 ROI는?",
+      "gold": [
+        "DOC-031",
+        "DOC-032",
+        "DOC-033",
+        "DOC-034",
+        "DOC-035",
+        "DOC-036",
+        "DOC-037",
+        "DOC-038",
+        "DOC-039",
+        "DOC-040"
+      ],
+      "gold_source": "vector_gold.type",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:ROI"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-038",
+          "DOC-040",
+          "DOC-031",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-034",
+          "DOC-033",
+          "DOC-032",
+          "DOC-038",
+          "DOC-040",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-5",
+      "q": "DB 연결 풀 고갈 문제 해결 방법",
+      "gold": [
+        "DOC-003",
+        "DOC-008",
+        "DOC-010"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-008",
+          "DOC-010",
+          "DOC-019",
+          "DOC-014"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-008",
+          "DOC-010",
+          "DOC-019",
+          "DOC-014"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-6",
+      "q": "디스크 입출력 성능이 한계에 도달해 데이터베이스 조회가 끊긴 사고는 어느 고객사였나",
+      "gold": [
+        "DOC-001"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-009",
+          "DOC-001",
+          "DOC-004",
+          "DOC-008",
+          "DOC-003"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-009",
+          "DOC-004",
+          "DOC-014",
+          "DOC-008",
+          "DOC-015",
+          "DOC-019",
+          "DOC-003"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-7",
+      "q": "Client-A 사고에서 복구까지 걸린 총 시간은",
+      "gold": [
+        "DOC-001"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:복구"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-003",
+          "DOC-002",
+          "DOC-007",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-002",
+          "DOC-003",
+          "DOC-004",
+          "DOC-007",
+          "DOC-005",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-8",
+      "q": "트래픽을 나눠 주는 장비의 상태 점검이 실패해 분산이 안 된 첫 번째 사례",
+      "gold": [
+        "DOC-002"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-004",
+          "DOC-003",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-004",
+          "DOC-003",
+          "DOC-014",
+          "DOC-019",
+          "DOC-024",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-9",
+      "q": "Client-B 장애의 심각도 등급은 무엇이었나",
+      "gold": [
+        "DOC-002"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애",
+          "topic:incident_report:심각도"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-001",
+          "DOC-003",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-001",
+          "DOC-003",
+          "DOC-004",
+          "DOC-005",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-10",
+      "q": "커넥션 풀이 바닥나서 응답이 밀린 Client-C 사고의 조치 항목",
+      "gold": [
+        "DOC-003"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:커넥션 풀"
+        ]
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-008",
+          "DOC-003",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-001",
+          "DOC-003",
+          "DOC-008",
+          "DOC-002",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-11",
+      "q": "전체 서비스가 멈춘 등급의 장애를 겪은 고객사는",
+      "gold": [
+        "DOC-004"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-004",
+          "DOC-010",
+          "DOC-003",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-004",
+          "DOC-005",
+          "DOC-010",
+          "DOC-003",
+          "DOC-006",
+          "DOC-007",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-12",
+      "q": "보안 패치를 올린 뒤 호환성 문제가 터진 사고들",
+      "gold": [
+        "DOC-001",
+        "DOC-004"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-004",
+          "DOC-029",
+          "DOC-022",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-004",
+          "DOC-028",
+          "DOC-029",
+          "DOC-022",
+          "DOC-012",
+          "DOC-017",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-13",
+      "q": "인증서 유효기간이 지나 암호화 통신이 끊긴 Client-E 사고의 대응",
+      "gold": [
+        "DOC-005"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:인증서"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-034",
+          "DOC-001",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-14",
+      "q": "Client-F에서 발생한 HTTPS 통신 실패 사고는 언제였나",
+      "gold": [
+        "DOC-006"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-006",
+          "DOC-005",
+          "DOC-002",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-005",
+          "DOC-006",
+          "DOC-002",
+          "DOC-004",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-15",
+      "q": "컨테이너가 메모리 한계로 계속 재시작된 사고",
+      "gold": [
+        "DOC-007"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-007",
+          "DOC-001",
+          "DOC-003",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-007",
+          "DOC-001",
+          "DOC-009",
+          "DOC-003",
+          "DOC-013",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-16",
+      "q": "Client-G 사고에서 감지까지 몇 분 걸렸는지",
+      "gold": [
+        "DOC-007"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-007",
+          "DOC-008",
+          "DOC-003",
+          "DOC-002",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-002",
+          "DOC-003",
+          "DOC-007",
+          "DOC-001",
+          "DOC-008",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-17",
+      "q": "가장 높은 심각도로 분류된 Client-H 사고의 원인 분석",
+      "gold": [
+        "DOC-008"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:심각도",
+          "topic:incident_report:원인"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-008",
+          "DOC-003",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-001",
+          "DOC-008",
+          "DOC-002",
+          "DOC-003",
+          "DOC-004",
+          "DOC-033",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-18",
+      "q": "Client-I에서 새벽이 아닌 오후에 발생한 크리티컬 등급 사고",
+      "gold": [
+        "DOC-009"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-009",
+          "DOC-007",
+          "DOC-008",
+          "DOC-001",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-001",
+          "DOC-009",
+          "DOC-002",
+          "DOC-007",
+          "DOC-003",
+          "DOC-008",
+          "DOC-004",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-19",
+      "q": "2026년에 접수된 장애 보고서가 있나",
+      "gold": [
+        "DOC-010"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "kind",
+        "cues": [
+          "kind:incident_report:장애 보고",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-010",
+          "DOC-008",
+          "DOC-002",
+          "DOC-007",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-010",
+          "DOC-002",
+          "DOC-001",
+          "DOC-008",
+          "DOC-003",
+          "DOC-007",
+          "DOC-025",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-20",
+      "q": "외부 의존 서비스의 지연이 번져 2026년에 터진 사고의 권고 패턴",
+      "gold": [
+        "DOC-010"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-008",
+          "DOC-007",
+          "DOC-010",
+          "DOC-005",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-010",
+          "DOC-008",
+          "DOC-005",
+          "DOC-007",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-21",
+      "q": "장애 대응 담당이 조예진이었던 보고서",
+      "gold": [
+        "DOC-001",
+        "DOC-002",
+        "DOC-007"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "kind",
+        "cues": [
+          "kind:incident_report:보고서",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-002",
+          "DOC-007",
+          "DOC-008",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-002",
+          "DOC-003",
+          "DOC-007",
+          "DOC-004",
+          "DOC-008",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-22",
+      "q": "Product-C1을 올리려면 디스크 용량이 얼마나 필요한가",
+      "gold": [
+        "DOC-011"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-011",
+          "DOC-031",
+          "DOC-019",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-011",
+          "DOC-001",
+          "DOC-031",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-23",
+      "q": "서비스가 처음 뜨는 데 걸리는 시간이 38초라고 적힌 문서",
+      "gold": [
+        "DOC-011"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-011",
+          "DOC-016",
+          "DOC-003",
+          "DOC-002",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 4,
+        "doc": 4,
+        "docs": [
+          "DOC-001",
+          "DOC-002",
+          "DOC-003",
+          "DOC-011",
+          "DOC-016",
+          "DOC-004",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-24",
+      "q": "메모리는 최소 몇 기가를 잡아야 Product-D2를 설치할 수 있나",
+      "gold": [
+        "DOC-016"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:설치"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-016",
+          "DOC-019",
+          "DOC-014",
+          "DOC-011"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-016",
+          "DOC-019",
+          "DOC-006",
+          "DOC-014",
+          "DOC-036",
+          "DOC-011"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-25",
+      "q": "Product-C2의 오토스케일링은 CPU 사용률 몇 퍼센트에서 동작하나",
+      "gold": [
+        "DOC-012"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:오토스케일"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-014",
+          "DOC-017",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-014",
+          "DOC-002",
+          "DOC-032",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-26",
+      "q": "메시지를 비동기로 주고받는 큐로 무엇을 쓰는지",
+      "gold": [
+        "DOC-012",
+        "DOC-017"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-020",
+          "DOC-015",
+          "DOC-018"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-020",
+          "DOC-015",
+          "DOC-018"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-27",
+      "q": "서비스 간 통신을 상호 인증 방식으로 암호화한다고 설계된 제품",
+      "gold": [
+        "DOC-012",
+        "DOC-017"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-034",
+          "DOC-040"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-005",
+          "DOC-012",
+          "DOC-017",
+          "DOC-006",
+          "DOC-034",
+          "DOC-015",
+          "DOC-020",
+          "DOC-040"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-28",
+      "q": "Product-S1의 백업은 며칠 동안 보관되나",
+      "gold": [
+        "DOC-013"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:백업"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-013",
+          "DOC-018",
+          "DOC-033",
+          "DOC-003"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-013",
+          "DOC-018",
+          "DOC-003",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-29",
+      "q": "응답 시간 상위 백분위 기준이 330밀리초로 잡힌 운영 문서",
+      "gold": [
+        "DOC-013"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [
+          "DOC-030",
+          "DOC-019",
+          "DOC-009",
+          "DOC-007",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-030",
+          "DOC-013",
+          "DOC-018",
+          "DOC-019",
+          "DOC-026",
+          "DOC-009",
+          "DOC-007",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-30",
+      "q": "로그를 121일간 보관한다고 명시한 제품",
+      "gold": [
+        "DOC-018"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:로그"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-014",
+          "DOC-019",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-31",
+      "q": "무중단 배포를 위해 두 벌의 환경을 번갈아 쓰는 전략",
+      "gold": [
+        "DOC-013",
+        "DOC-018"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-013",
+          "DOC-018",
+          "DOC-012",
+          "DOC-017",
+          "DOC-014"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-012",
+          "DOC-013",
+          "DOC-017",
+          "DOC-018",
+          "DOC-011",
+          "DOC-016",
+          "DOC-014"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-32",
+      "q": "Product-S2의 커넥션 풀 최대값은 얼마인가",
+      "gold": [
+        "DOC-014"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:커넥션 풀"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-33",
+      "q": "가비지 컬렉션 최대 정지 시간을 102밀리초로 맞추라는 지침",
+      "gold": [
+        "DOC-014"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-013",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-002",
+          "DOC-001",
+          "DOC-014",
+          "DOC-019",
+          "DOC-003",
+          "DOC-004",
+          "DOC-013",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-34",
+      "q": "Product-D3의 쿼리 캐시 만료 시간은",
+      "gold": [
+        "DOC-019"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:캐시"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-35",
+      "q": "콘텐츠 전송망을 붙이면 캐시 적중률을 91퍼센트까지 올릴 수 있다는 문서",
+      "gold": [
+        "DOC-019"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:캐시"
+        ]
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-026",
+          "DOC-031",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-019",
+          "DOC-014",
+          "DOC-026",
+          "DOC-031",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-36",
+      "q": "Product-D1 API에서 분당 요청 한도를 넘기면 어떤 코드가 오나",
+      "gold": [
+        "DOC-015"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-005",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-37",
+      "q": "프리미엄 등급의 분당 호출 상한이 3167회인 제품",
+      "gold": [
+        "DOC-020"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-38",
+      "q": "토큰을 발급받는 엔드포인트 경로가 무엇인지",
+      "gold": [
+        "DOC-015",
+        "DOC-020"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:토큰",
+          "topic:technical_doc:엔드포인트"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-020",
+          "DOC-015",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-020",
+          "DOC-015",
+          "DOC-034",
+          "DOC-011",
+          "DOC-016"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-39",
+      "q": "Client-A 미팅에서 보안 점검 결과 몇 건이 나왔나",
+      "gold": [
+        "DOC-021"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:미팅"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-024",
+          "DOC-028",
+          "DOC-022",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-022",
+          "DOC-028",
+          "DOC-024",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-40",
+      "q": "일정이 2주 늘어나기로 합의된 회의",
+      "gold": [
+        "DOC-021",
+        "DOC-029",
+        "DOC-030"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-021",
+          "DOC-029",
+          "DOC-022",
+          "DOC-023"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-025",
+          "DOC-030",
+          "DOC-021",
+          "DOC-029",
+          "DOC-022",
+          "DOC-023"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-41",
+      "q": "Client-B와의 회의에서 예산은 얼마나 집행됐다고 보고됐나",
+      "gold": [
+        "DOC-022"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-42",
+      "q": "본사 3층에서 열린 Client-C 회의의 진행률",
+      "gold": [
+        "DOC-023"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-023",
+          "DOC-027",
+          "DOC-025",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-023",
+          "DOC-025",
+          "DOC-026",
+          "DOC-027",
+          "DOC-021",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-43",
+      "q": "추가 인력 두 명이 더 필요하다고 보고된 회의",
+      "gold": [
+        "DOC-024"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-028",
+          "DOC-024",
+          "DOC-030",
+          "DOC-022",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-024",
+          "DOC-028",
+          "DOC-030",
+          "DOC-022",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-44",
+      "q": "진행률이 80퍼센트라고 공유된 화상회의",
+      "gold": [
+        "DOC-025"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-025",
+          "DOC-027",
+          "DOC-023",
+          "DOC-022",
+          "DOC-024"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-025",
+          "DOC-023",
+          "DOC-027",
+          "DOC-024",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-45",
+      "q": "응답 시간이 기준을 넘는 구간이 발견돼 캐싱 전략을 다시 보자고 한 회의",
+      "gold": [
+        "DOC-026",
+        "DOC-030"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-026",
+          "DOC-028",
+          "DOC-023"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-026",
+          "DOC-030",
+          "DOC-021",
+          "DOC-022",
+          "DOC-028",
+          "DOC-023"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-46",
+      "q": "Client-G 회의에서 예산 집행률은 몇 퍼센트로 보고됐나",
+      "gold": [
+        "DOC-027"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-47",
+      "q": "킥오프 성격으로 열린 Client-H 미팅의 참석 인원",
+      "gold": [
+        "DOC-028"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:킥오프",
+          "kind:meeting_note:미팅",
+          "topic:meeting_note:참석"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028",
+          "DOC-021",
+          "DOC-022",
+          "DOC-023",
+          "DOC-027"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-48",
+      "q": "다음 스프린트에 보안 패치를 먼저 넣기로 한 회의",
+      "gold": [
+        "DOC-028"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의",
+          "topic:meeting_note:스프린트"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028",
+          "DOC-024",
+          "DOC-026",
+          "DOC-027",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028",
+          "DOC-024",
+          "DOC-021",
+          "DOC-026",
+          "DOC-022",
+          "DOC-027",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-49",
+      "q": "Client-I 회의에서 마일스톤이 며칠 밀렸다고 했나",
+      "gold": [
+        "DOC-029"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의",
+          "topic:meeting_note:마일스톤"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-029",
+          "DOC-023",
+          "DOC-026",
+          "DOC-021",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-025",
+          "DOC-029",
+          "DOC-021",
+          "DOC-023",
+          "DOC-022",
+          "DOC-026",
+          "DOC-024"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-50",
+      "q": "고객사 사무실을 직접 방문해서 진행한 회의",
+      "gold": [
+        "DOC-030"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-029",
+          "DOC-024",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-021",
+          "DOC-030",
+          "DOC-022",
+          "DOC-029",
+          "DOC-023",
+          "DOC-024",
+          "DOC-025"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-51",
+      "q": "투입 인력이 여덟 명이라고 보고된 회의",
+      "gold": [
+        "DOC-030"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-024",
+          "DOC-028",
+          "DOC-025"
+        ],
+        "route": "hybrid",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-024",
+          "DOC-025",
+          "DOC-030",
+          "DOC-028",
+          "DOC-022"
+        ],
+        "route": "hybrid",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-52",
+      "q": "검증 환경을 먼저 만들고 본 환경에 적용하자고 결정한 회의들",
+      "gold": [
+        "DOC-026",
+        "DOC-027"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-026",
+          "DOC-027",
+          "DOC-028",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-026",
+          "DOC-027",
+          "DOC-028",
+          "DOC-012",
+          "DOC-017",
+          "DOC-030",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-53",
+      "q": "교육 분야 대기업을 대상으로 한 클라우드 전환 제안",
+      "gold": [
+        "DOC-031"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-032",
+          "DOC-035",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-035",
+          "DOC-032",
+          "DOC-034",
+          "DOC-037",
+          "DOC-033",
+          "DOC-040"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-54",
+      "q": "Client-F 제안서의 초기 구축 비용은 얼마인가",
+      "gold": [
+        "DOC-031"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:구축 비"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-037",
+          "DOC-033",
+          "DOC-035",
+          "DOC-032"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-033",
+          "DOC-032",
+          "DOC-035",
+          "DOC-037",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-55",
+      "q": "광주에 있는 미디어 스타트업에 낸 제안서",
+      "gold": [
+        "DOC-032"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-040",
+          "DOC-035",
+          "DOC-038",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-035",
+          "DOC-040",
+          "DOC-038",
+          "DOC-031",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-56",
+      "q": "규모가 작은 회사를 겨냥한 클라우드 이전 도구를 제안한 문서",
+      "gold": [
+        "DOC-032"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-031",
+          "DOC-038",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-031",
+          "DOC-035",
+          "DOC-013",
+          "DOC-018",
+          "DOC-038"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-57",
+      "q": "제주 소재 에너지 기업에 제로트러스트 보안을 제안한 건",
+      "gold": [
+        "DOC-033"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-033",
+          "DOC-034",
+          "DOC-040",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-033",
+          "DOC-034",
+          "DOC-012",
+          "DOC-017",
+          "DOC-040",
+          "DOC-037",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-58",
+      "q": "건설 분야 고객에게 엔드포인트 보안과 암호화를 제안한 문서",
+      "gold": [
+        "DOC-034"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:technical_doc:엔드포인트"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-020",
+          "DOC-015",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-033",
+          "DOC-032",
+          "DOC-020",
+          "DOC-015",
+          "DOC-012"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-59",
+      "q": "Client-I 제안의 총소유비용 절감률은",
+      "gold": [
+        "DOC-034"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-033",
+          "DOC-037",
+          "DOC-031",
+          "DOC-038"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-031",
+          "DOC-034",
+          "DOC-033",
+          "DOC-032",
+          "DOC-037",
+          "DOC-038"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-60",
+      "q": "공공기관 스타트업에 실시간 데이터 파이프라인을 제안한 건",
+      "gold": [
+        "DOC-035"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-035",
+          "DOC-038",
+          "DOC-032",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-035",
+          "DOC-038",
+          "DOC-032",
+          "DOC-011",
+          "DOC-034",
+          "DOC-012"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-61",
+      "q": "부산 제조업 고객에게 자연어 질의가 되는 대시보드를 제안한 문서",
+      "gold": [
+        "DOC-036"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-036",
+          "DOC-013",
+          "DOC-040",
+          "DOC-018"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-036",
+          "DOC-031",
+          "DOC-013",
+          "DOC-032",
+          "DOC-040",
+          "DOC-018",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-62",
+      "q": "금융권 고객에게 인프라 모니터링과 알림을 제안한 건",
+      "gold": [
+        "DOC-037"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-037",
+          "DOC-034",
+          "DOC-033",
+          "DOC-031"
+        ],
+        "route": "hybrid",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-037",
+          "DOC-031",
+          "DOC-034",
+          "DOC-040",
+          "DOC-033",
+          "DOC-001",
+          "DOC-002"
+        ],
+        "route": "hybrid",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-63",
+      "q": "대구의 IT 스타트업에 배포 자동화 도구를 제안한 문서",
+      "gold": [
+        "DOC-038"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-038",
+          "DOC-036",
+          "DOC-039",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-036",
+          "DOC-038",
+          "DOC-039",
+          "DOC-037",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-64",
+      "q": "이상 탐지를 머신러닝으로 하는 플랫폼을 제안받은 고객사",
+      "gold": [
+        "DOC-039"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-65",
+      "q": "의료 바이오 대기업에 인증 관리 시스템을 제안한 건",
+      "gold": [
+        "DOC-040"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-040",
+          "DOC-037",
+          "DOC-031",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-040",
+          "DOC-031",
+          "DOC-037",
+          "DOC-012",
+          "DOC-017",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-66",
+      "q": "운영 비용을 39퍼센트 줄일 수 있다고 적힌 제안서",
+      "gold": [
+        "DOC-040"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:운영 비"
+        ]
+      },
+      "base": {
+        "item": 5,
+        "doc": 4,
+        "docs": [
+          "DOC-037",
+          "DOC-031",
+          "DOC-036",
+          "DOC-040"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 10,
+        "doc": 8,
+        "docs": [
+          "DOC-032",
+          "DOC-037",
+          "DOC-031",
+          "DOC-033",
+          "DOC-034",
+          "DOC-036",
+          "DOC-035",
+          "DOC-040"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-67",
+      "q": "구축 2단계에만 8주가 걸린다고 잡은 제안서",
+      "gold": [
+        "DOC-036",
+        "DOC-040"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-032",
+          "DOC-034",
+          "DOC-036",
+          "DOC-040",
+          "DOC-031"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-036",
+          "DOC-032",
+          "DOC-040",
+          "DOC-031",
+          "DOC-033",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "vector_gold",
+      "id": "vg-68",
+      "q": "투자 회수 기간을 18개월로 본 제안",
+      "gold": [
+        "DOC-034"
+      ],
+      "gold_source": "vector_gold.keywords",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:투자 회수"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-031",
+          "DOC-033",
+          "DOC-038",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-031",
+          "DOC-033",
+          "DOC-032",
+          "DOC-038",
+          "DOC-035",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-12",
+      "q": "Product-S2 초기 설정과 필수 요구사항을 알려줘",
+      "gold": [],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [],
+      "unscorable": "Product-S2 설치 가이드가 코퍼스에 없다. 시스템 요구사항 섹션은 Product-C1(DOC-011)과 Product-D2(DOC-016) 설치 가이드에만 있다.",
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:요구사항"
+        ]
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-13",
+      "q": "Product-S1 초기 설정과 필수 요구사항을 알려줘",
+      "gold": [],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [],
+      "unscorable": "Product-S1 설치 가이드가 코퍼스에 없다. 시스템 요구사항 섹션은 Product-C1(DOC-011)과 Product-D2(DOC-016) 설치 가이드에만 있다.",
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:요구사항"
+        ]
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-14",
+      "q": "데이터베이스 백업과 복원 절차가 궁금해",
+      "gold": [
+        "DOC-013",
+        "DOC-018"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:백업"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-016",
+          "DOC-036",
+          "DOC-039"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-016",
+          "DOC-011",
+          "DOC-036",
+          "DOC-039"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-15",
+      "q": "보안 감사 대비 점검 항목이 뭐야?",
+      "gold": [
+        "DOC-021",
+        "DOC-022",
+        "DOC-024",
+        "DOC-028",
+        "DOC-029"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-024",
+          "DOC-028",
+          "DOC-021",
+          "DOC-029",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-024",
+          "DOC-021",
+          "DOC-028",
+          "DOC-022",
+          "DOC-029"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 5
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-16",
+      "q": "클라우드 인프라 이전 계획을 세우고 싶어",
+      "gold": [
+        "DOC-031",
+        "DOC-032",
+        "DOC-033",
+        "DOC-035"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-032",
+          "DOC-035",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-035",
+          "DOC-024",
+          "DOC-032",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-17",
+      "q": "서버 성능 튜닝 방법을 알려줘",
+      "gold": [
+        "DOC-014",
+        "DOC-019"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:튜닝"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout1",
+      "id": "h1-18",
+      "q": "API 인증 방식과 토큰 갱신 방법을 알려줘",
+      "gold": [
+        "DOC-015",
+        "DOC-020"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:토큰"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-002",
+          "DOC-012"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-11",
+      "q": "신규 입사자가 개발 환경 세팅하려면 뭐부터 해야 해?",
+      "gold": [
+        "DOC-011",
+        "DOC-016"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-027",
+          "DOC-011",
+          "DOC-035",
+          "DOC-031",
+          "DOC-026"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 5,
+        "doc": 5,
+        "docs": [
+          "DOC-027",
+          "DOC-026",
+          "DOC-012",
+          "DOC-017",
+          "DOC-011",
+          "DOC-035",
+          "DOC-031",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-12",
+      "q": "지난번 디스크 꽉 찼을 때 어떻게 복구했더라?",
+      "gold": [
+        "DOC-001",
+        "DOC-009"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:복구"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-009",
+          "DOC-001",
+          "DOC-006",
+          "DOC-002",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-009",
+          "DOC-006",
+          "DOC-002",
+          "DOC-011",
+          "DOC-016",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-13",
+      "q": "재해 복구 절차가 문서로 정리된 게 있나?",
+      "gold": [],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [],
+      "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 재해 복구를 다루는 문서도 없다.",
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:복구"
+        ]
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-14",
+      "q": "로그 수집 파이프라인을 어떤 식으로 꾸렸는지 설명해줘",
+      "gold": [
+        "DOC-013",
+        "DOC-018"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:로그"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-014",
+          "DOC-019",
+          "DOC-026"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-014",
+          "DOC-019",
+          "DOC-026",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-15",
+      "q": "지난 분기 회고에서 나온 개선 안건 뭐였지?",
+      "gold": [
+        "DOC-021",
+        "DOC-022",
+        "DOC-024",
+        "DOC-028",
+        "DOC-029",
+        "DOC-030"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "topic",
+        "cues": [
+          "topic:meeting_note:안건"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-16",
+      "q": "고객사에 낸 제안서 중에 아키텍처 설명한 부분 찾아줘",
+      "gold": [
+        "DOC-031",
+        "DOC-032",
+        "DOC-033",
+        "DOC-034",
+        "DOC-035",
+        "DOC-036",
+        "DOC-037",
+        "DOC-038",
+        "DOC-039",
+        "DOC-040"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:technical_doc:아키텍처"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-037",
+          "DOC-033",
+          "DOC-036",
+          "DOC-039"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-012",
+          "DOC-017",
+          "DOC-037",
+          "DOC-031",
+          "DOC-033",
+          "DOC-032",
+          "DOC-036"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-17",
+      "q": "권한 요청은 어떤 절차를 밟아야 하는지 알려줘",
+      "gold": [],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [],
+      "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 권한 요청 절차를 다루는 문서도 없다.",
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-18",
+      "q": "네트워크 지연 때문에 생긴 사고 기록 있어?",
+      "gold": [
+        "DOC-003",
+        "DOC-005",
+        "DOC-006",
+        "DOC-007",
+        "DOC-008",
+        "DOC-010"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-010",
+          "DOC-008",
+          "DOC-007",
+          "DOC-005"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-005",
+          "DOC-008",
+          "DOC-007",
+          "DOC-010",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-19",
+      "q": "모니터링 알람 임계값은 어떤 기준으로 잡았어?",
+      "gold": [
+        "DOC-013",
+        "DOC-018"
+      ],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 5,
+        "doc": 5,
+        "docs": [
+          "DOC-029",
+          "DOC-003",
+          "DOC-002",
+          "DOC-009",
+          "DOC-013"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 8,
+        "doc": 6,
+        "docs": [
+          "DOC-002",
+          "DOC-003",
+          "DOC-029",
+          "DOC-001",
+          "DOC-009",
+          "DOC-013"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout2",
+      "id": "h2-20",
+      "q": "개인정보 처리할 때 지켜야 하는 원칙이 뭐야?",
+      "gold": [],
+      "gold_source": "eval/companyx/doc_gold_holdout12.json",
+      "gold_types": [],
+      "unscorable": "basis 가 정책문서인데 코퍼스에 정책 문서가 없다. 개인정보 처리 원칙을 다루는 문서도 없다.",
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-21",
+      "q": "Product-C1 일단 띄우려먄 어케 해",
+      "gold": [
+        "DOC-011"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-031",
+          "DOC-011",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 4,
+        "doc": 3,
+        "docs": [
+          "DOC-031",
+          "DOC-001",
+          "DOC-011"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-22",
+      "q": "Product-D2 처음 켜보려는데 뭐부터 만져야 됨",
+      "gold": [
+        "DOC-016"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-016",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-006",
+          "DOC-016",
+          "DOC-036"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-23",
+      "q": "Product-S1 올렸다가 이상하면 전으로 되돌리려먼 어떻게 해?",
+      "gold": [
+        "DOC-013"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 4,
+        "doc": 4,
+        "docs": [
+          "DOC-003",
+          "DOC-004",
+          "DOC-010",
+          "DOC-013",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 8,
+        "doc": 5,
+        "docs": [
+          "DOC-003",
+          "DOC-004",
+          "DOC-033",
+          "DOC-010",
+          "DOC-013",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-24",
+      "q": "Product-S2 DB 연결 너무 많이 열리는 거 같아. 풀 위아래 값 어떻게 잡으랬지?",
+      "gold": [
+        "DOC-014"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-003",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-003",
+          "DOC-010",
+          "DOC-019",
+          "DOC-004",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-25",
+      "q": "알림 하나 만들려는데 어디로 뭘 보내? Product-D1 API 얘기야",
+      "gold": [
+        "DOC-015"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-005",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-26",
+      "q": "Product-C4 백업본 며칠 지나면 없어져? 저장해 두는 곳도 알려줘",
+      "gold": [
+        "DOC-018"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:백업"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-018",
+          "DOC-013",
+          "DOC-038",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 3,
+        "doc": 2,
+        "docs": [
+          "DOC-008",
+          "DOC-018",
+          "DOC-013",
+          "DOC-038"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-27",
+      "q": "Product-D3 스레드풀, 코어 수 그대로 넣는 거 맞아? 권장값 좀",
+      "gold": [
+        "DOC-019"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:스레드풀"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-019",
+          "DOC-014",
+          "DOC-015"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-019",
+          "DOC-014",
+          "DOC-009",
+          "DOC-039",
+          "DOC-015"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-28",
+      "q": "Product-S3가 403 뱉음. 이거 무슨 뜻임?",
+      "gold": [
+        "DOC-020"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-020",
+          "DOC-007",
+          "DOC-010",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-020",
+          "DOC-010",
+          "DOC-007",
+          "DOC-040",
+          "DOC-009"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-29",
+      "q": "Client-A 2025년 12월 27일 Product-C1 터진 거, 패치 넣기 전에 뭘 안 해서 그랬대?",
+      "gold": [
+        "DOC-001"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-003"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-001",
+          "DOC-003"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-30",
+      "q": "미리 못 알아챈 이유가 뭐였냐면, Client-C Product-S1 2025년 11월 8일 사고 말이야",
+      "gold": [
+        "DOC-003"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-001",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-003",
+          "DOC-001",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-31",
+      "q": "Client-E Product-D1 2024년 11월 15일 사고, 검토한 사람 누구였더라? 대응한 사람 말고",
+      "gold": [
+        "DOC-005"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-001",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-001",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-32",
+      "q": "Client-H Product-C4 2025년 4월 26일 장애 때 해둔 조치들 인수인계에 넣게 짚어줘",
+      "gold": [
+        "DOC-008"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-008",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-008",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-33",
+      "q": "Client-A 2025년 4월 21일 얘기할 때 일정 결국 얼마나 더 주기로 했더라?",
+      "gold": [
+        "DOC-021"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-021",
+          "DOC-030",
+          "DOC-007"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-34",
+      "q": "Client-D 2026년 6월 26일 중간 점검, 사람 더 넣자는 얘기 결론 났어? 리포트도 바꾸기로 했나",
+      "gold": [
+        "DOC-024"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:중간 점검"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-024",
+          "DOC-025",
+          "DOC-026"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-024",
+          "DOC-025",
+          "DOC-026"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-35",
+      "q": "Client-G 2026년 5월 20일 만났을 때 돈 얼마나 썼다고 했어? 매출 말고 예산 쓴 비율",
+      "gold": [
+        "DOC-027"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-36",
+      "q": "Client-H 2025년 3월 20일 킥오프 들어왔던 사람 이름만 공유해줘",
+      "gold": [
+        "DOC-028"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:킥오프"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-028",
+          "DOC-022",
+          "DOC-027"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-37",
+      "q": "Client-F에 Product-C1 권할 때 첫 구축비 얼마 써냈더라? 실제 계약액 말고 제안한 숫자",
+      "gold": [
+        "DOC-031"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:구축비"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-037",
+          "DOC-033",
+          "DOC-035",
+          "DOC-032"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-031",
+          "DOC-001",
+          "DOC-037",
+          "DOC-033",
+          "DOC-035",
+          "DOC-032",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-38",
+      "q": "Client-H에 Product-S1 넣자는 안, 테스트랑 안정화에는 몇 주 잡았지?",
+      "gold": [
+        "DOC-033"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-033",
+          "DOC-034",
+          "DOC-040",
+          "DOC-031",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-003",
+          "DOC-033",
+          "DOC-034",
+          "DOC-040",
+          "DOC-031",
+          "DOC-008",
+          "DOC-035"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 10
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-39",
+      "q": "Product-C4 얘길 왜 꺼냈던 거야 Client-M한테? 제안할 때 적은 그쪽 IT 숙제 두 가지가 뭐였지",
+      "gold": [
+        "DOC-038"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-038",
+          "DOC-034",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-038",
+          "DOC-008",
+          "DOC-034",
+          "DOC-001",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout3",
+      "id": "h3-40",
+      "q": "Client-O Product-S3 도입안에 투자금 회수 몇 달로 봤음?",
+      "gold": [
+        "DOC-040"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "topic",
+        "cues": [
+          "topic:proposal:도입"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-040",
+          "DOC-037",
+          "DOC-039",
+          "DOC-034",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-040",
+          "DOC-037",
+          "DOC-010",
+          "DOC-039",
+          "DOC-034",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-21",
+      "q": "작년 4월 22일에 Client-B에서 Product-C2 장애 났을 때 첫 번째로 한 조치가 뭐였지?",
+      "gold": [
+        "DOC-002"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-002",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-22",
+      "q": "장애 보고서들 중에 전체 서비스 중단까지 갔던 사고가 하나 있잖아요. 어느 고객사 거였고 며칠이었는지 알려주세요",
+      "gold": [
+        "DOC-004"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "kind",
+        "cues": [
+          "kind:incident_report:장애 보고",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-004",
+          "DOC-009",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-004",
+          "DOC-005",
+          "DOC-009",
+          "DOC-006",
+          "DOC-007",
+          "DOC-008"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-23",
+      "q": "Client-F에서 Product-D2 HTTPS 통신 실패 났던 건, 첫 대응 들어가기까지 시간 얼마나 걸렸대?",
+      "gold": [
+        "DOC-006"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-006",
+          "DOC-005",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-006",
+          "DOC-005",
+          "DOC-036",
+          "DOC-004",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-24",
+      "q": "2025년 3월 17일 Client-I Product-D3 건 말인데, 장애 감지까지 걸린 시간이랑 심각도가 어떻게 돼?",
+      "gold": [
+        "DOC-009"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "topic",
+        "cues": [
+          "topic:incident_report:장애",
+          "topic:incident_report:심각도"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-009",
+          "DOC-007"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-009",
+          "DOC-007",
+          "DOC-002"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-25",
+      "q": "올해 2월에 Client-J Product-S3 응답 지연 사고 보고서에서, 재발 방지로 도입해야 한다고 적힌 패턴이 뭐야?",
+      "gold": [
+        "DOC-010"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "kind",
+        "cues": [
+          "kind:incident_report:보고서",
+          "topic:incident_report:재발",
+          "topic:proposal:도입"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-010",
+          "DOC-007"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-010",
+          "DOC-007",
+          "DOC-005",
+          "DOC-006"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-26",
+      "q": "장애 보고서 쭉 훑어보면 완전 복구까지 8시간 걸린 사고가 몇 건이야? 어디어디 건인지도",
+      "gold": [
+        "DOC-004",
+        "DOC-005",
+        "DOC-010"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "incident_report"
+      ],
+      "classifier": {
+        "type": "incident_report",
+        "basis": "kind",
+        "cues": [
+          "kind:incident_report:장애 보고",
+          "topic:incident_report:장애",
+          "topic:incident_report:복구"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-005",
+          "DOC-003",
+          "DOC-001",
+          "DOC-004",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 3,
+        "doc": 3,
+        "docs": [
+          "DOC-001",
+          "DOC-003",
+          "DOC-005",
+          "DOC-004",
+          "DOC-002",
+          "DOC-010"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-27",
+      "q": "Product-C2 오토스케일링은 CPU 사용률 몇 퍼센트를 기준으로 인스턴스가 늘어나?",
+      "gold": [
+        "DOC-012"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:오토스케일"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-014"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-012",
+          "DOC-017",
+          "DOC-002",
+          "DOC-014",
+          "DOC-032"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-28",
+      "q": "Product-S1 로그는 며칠이나 보관해? ELK 쪽 얘기야",
+      "gold": [
+        "DOC-013"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "topic",
+        "cues": [
+          "topic:technical_doc:로그",
+          "topic:technical_doc:ELK"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-013",
+          "DOC-018",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-013",
+          "DOC-018",
+          "DOC-003",
+          "DOC-033"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-29",
+      "q": "Product-S2에서 쿼리 캐시 TTL 몇 초로 잡으라고 가이드에 있었지?",
+      "gold": [
+        "DOC-014"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": "technical_doc",
+        "basis": "kind",
+        "cues": [
+          "kind:technical_doc:가이드",
+          "topic:technical_doc:캐시"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-014",
+          "DOC-019",
+          "DOC-001",
+          "DOC-034",
+          "DOC-004"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-30",
+      "q": "Product-D1 API 호출 한도가 기본이랑 프리미엄 각각 분당 몇 회야?",
+      "gold": [
+        "DOC-015"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-015",
+          "DOC-020",
+          "DOC-019"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 6
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-31",
+      "q": "Product-D2를 새 서버에 깔려고 하는데 디스크를 몇 GB 비워 둬야 하는지 문서에 나와 있나요?",
+      "gold": [
+        "DOC-016"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "technical_doc"
+      ],
+      "classifier": {
+        "type": null,
+        "basis": "none",
+        "cues": []
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-016",
+          "DOC-019",
+          "DOC-014",
+          "DOC-036"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-016",
+          "DOC-019",
+          "DOC-006",
+          "DOC-014",
+          "DOC-036",
+          "DOC-001"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-32",
+      "q": "올해 2월 20일에 Client-B랑 미팅했을 때 예산을 얼마나 쓴 상태라고 했지? 집행률로",
+      "gold": [
+        "DOC-022"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:미팅"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-33",
+      "q": "작년 8월 말 Client-C 회의에서 마일스톤 2가 며칠 밀렸다고 했는지 기억이 안 나네",
+      "gold": [
+        "DOC-023"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의",
+          "topic:meeting_note:마일스톤"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-023",
+          "DOC-026",
+          "DOC-029",
+          "DOC-025",
+          "DOC-021"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 2,
+        "doc": 2,
+        "docs": [
+          "DOC-025",
+          "DOC-023",
+          "DOC-026",
+          "DOC-021",
+          "DOC-029",
+          "DOC-022"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-34",
+      "q": "Client-E 장애 대응 회의가 6월에 있었잖아. 그때 프로젝트 진행률이 몇 퍼라고 공유됐어?",
+      "gold": [
+        "DOC-025"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:회의",
+          "topic:incident_report:장애"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-025",
+          "DOC-027",
+          "DOC-023",
+          "DOC-024"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-025",
+          "DOC-027",
+          "DOC-023",
+          "DOC-024"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-35",
+      "q": "Client-J 중간 점검 회의록 보면 그때 투입 인력이 몇 명이었고 몇 명 더 필요하다고 돼 있었지?",
+      "gold": [
+        "DOC-030"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:중간 점검",
+          "kind:meeting_note:회의"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-028",
+          "DOC-024"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-030",
+          "DOC-024",
+          "DOC-028"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-36",
+      "q": "Client-F 1월 중간 점검에서 POC 환경부터 만들기로 했던 것 같은데 결정 사항 원문이 정확히 뭐였어?",
+      "gold": [
+        "DOC-026"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "meeting_note"
+      ],
+      "classifier": {
+        "type": "meeting_note",
+        "basis": "kind",
+        "cues": [
+          "kind:meeting_note:중간 점검",
+          "topic:meeting_note:결정 사항"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-026",
+          "DOC-027",
+          "DOC-028",
+          "DOC-030"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-026",
+          "DOC-027",
+          "DOC-030",
+          "DOC-024",
+          "DOC-028"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 7
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-37",
+      "q": "Client-G에 Product-C2 도입하자고 쓴 제안서에서 첫 투자금을 얼마로 잡앗지? 월 운영비 말고",
+      "gold": [
+        "DOC-032"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:도입",
+          "topic:proposal:운영비"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-034",
+          "DOC-031",
+          "DOC-036",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-032",
+          "DOC-031",
+          "DOC-034",
+          "DOC-036",
+          "DOC-037"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-38",
+      "q": "Client-I에 준 Product-S2 제안서에 장애 대응 시간이 몇 퍼센트 단축된다고 적혀 있어?",
+      "gold": [
+        "DOC-034"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:장애 대응 시간"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-036",
+          "DOC-033",
+          "DOC-032"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-034",
+          "DOC-004",
+          "DOC-036",
+          "DOC-009",
+          "DOC-033",
+          "DOC-001",
+          "DOC-002",
+          "DOC-032"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 9
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-39",
+      "q": "Client-K한테 보낸 Product-D2 제안서에서 TCO 절감률이 몇 퍼였지?",
+      "gold": [
+        "DOC-036"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "kind",
+        "cues": [
+          "kind:proposal:제안",
+          "topic:proposal:TCO"
+        ]
+      },
+      "base": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-036",
+          "DOC-039",
+          "DOC-032",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector"
+        ],
+        "kept": 5
+      },
+      "hybrid": {
+        "item": 1,
+        "doc": 1,
+        "docs": [
+          "DOC-036",
+          "DOC-039",
+          "DOC-032",
+          "DOC-034"
+        ],
+        "route": "semantic",
+        "lanes": [
+          "vector",
+          "keyword"
+        ],
+        "kept": 8
+      }
+    },
+    {
+      "set": "holdout4",
+      "id": "h4-40",
+      "q": "Client-N D3 도입안에 월 운영비가 500만원으로 적혀 있었나? 실제 계약 금액이랑 헷갈려서 확인 좀",
+      "gold": [
+        "DOC-039"
+      ],
+      "gold_source": "gold_docs",
+      "gold_types": [
+        "proposal"
+      ],
+      "classifier": {
+        "type": "proposal",
+        "basis": "topic",
+        "cues": [
+          "topic:proposal:도입",
+          "topic:proposal:운영비"
+        ]
+      },
+      "base": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      },
+      "hybrid": {
+        "item": null,
+        "doc": null,
+        "docs": [],
+        "route": "structured",
+        "lanes": [],
+        "kept": 0
+      }
+    }
+  ],
+  "generated_at": "2026-10-11T13:56:25.385Z"
+}

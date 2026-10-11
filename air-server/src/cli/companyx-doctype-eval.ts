@@ -184,8 +184,8 @@ interface Ranks {
   doc: number | null;
   /** 목록에 나온 문서를 처음 나온 차례로(앞 8건). */
   docs: string[];
-  /** 목록 항목의 출처 그대로(documents#조각 id 등). 구성끼리 목록이 같은지 대조하는 데 쓴다. */
-  sources: string[];
+  /** 목록 항목의 출처를 차례대로 공백으로 이은 것(documents#조각 id 등). 구성끼리 목록이 같은지 대조하는 데 쓴다. */
+  sources: string;
   route: string;
   lanes: string[];
   kept: number;
@@ -208,7 +208,7 @@ function ranksOf(r: RetrieveResult, gold: string[], docOfChunk: Map<number, stri
     item: itemIdx >= 0 ? itemIdx + 1 : null,
     doc: docIdx >= 0 ? docIdx + 1 : null,
     docs: distinct.slice(0, 8),
-    sources: r.curated.kept.map((it) => it.source),
+    sources: r.curated.kept.map((it) => it.source).join(" "),
     route: r.route,
     lanes: r.fusion_lanes ?? [],
     kept: r.curated.kept.length,
