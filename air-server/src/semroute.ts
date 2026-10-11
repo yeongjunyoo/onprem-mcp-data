@@ -118,12 +118,16 @@ export function semanticState(): { anchors: number; embedder: string } {
   return { anchors: ANCHORS.length, embedder: EMBEDDER_NAME };
 }
 
-/** 기동 시 1회. 앵커를 임베딩해 둔다. 실패하면 비워 두고 규칙만으로 돈다. */
-export async function installSemanticRouter(embedder: Embedder): Promise<{ anchors: number; error?: string }> {
+/** 기동 시 1회. 앵커를 임베딩해 둔다. 실패하면 비워 두고 규칙만으로 돈다.
+ * anchors 는 앵커 세트를 견주는 실측(cli/companyx-anchor-audit.ts)만 바꿔 넣는다. */
+export async function installSemanticRouter(
+  embedder: Embedder,
+  anchors: Record<Lane, Record<string, string[]>> = ROUTE_ANCHORS,
+): Promise<{ anchors: number; error?: string }> {
   const out: AnchorVec[] = [];
   try {
     for (const lane of LANES) {
-      for (const [type, texts] of Object.entries(ROUTE_ANCHORS[lane])) {
+      for (const [type, texts] of Object.entries(anchors[lane])) {
         for (const text of texts) out.push({ lane, type, text, vec: await embedder.embed(text) });
       }
     }
