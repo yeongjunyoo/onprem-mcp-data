@@ -31,6 +31,7 @@
 //
 // 사용: npm run companyx:toolselect   (EMBEDDER=ollama, Ollama 필요)
 //       TOOLSELECT_SETS=holdout4 로 봉인 세트만 따로 잰다.
+//       TOOLSELECT_OUT=eval/results/<이름>.json 으로 결과 파일 경로를 바꾼다.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -58,6 +59,10 @@ const LANE_OF_ROUTE: Record<string, string> = {
   graph: "knowledge_graph",
   hybrid: "hybrid",
 };
+// num_predict 상한. 도구 호출 하나는 200토큰을 넘지 않는다. 상한이 없으면 Ollama 는 끝없이 생성한다(-1 기본값에
+// 문맥 이동). 2026-10-11 설명 변형 하나에서 반복 생성이 2만 토큰을 넘겨 fetch 가 5분 만에 끊기고 문항이 오류로 빠졌다.
+// 상한 안에서 끝나는 출력은 탐욕 디코딩이라 상한이 있든 없든 같다.
+const GEN_OPTIONS = { temperature: 0, seed: 42, num_ctx: 8192, num_predict: 512 };
 const SYSTEM =
   "당신은 사내 데이터 질의 어시스턴트입니다. 사용자 질문에 답하려면 먼저 제공된 도구 중 하나를 호출해 " +
   "데이터를 가져와야 합니다. 질문에 가장 알맞은 도구 하나를 골라 호출하세요.";
@@ -127,7 +132,9 @@ async function listServerTools(root: string): Promise<McpTool[]> {
   }
 }
 
-async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
+type Choice = { tool: string | null; via: string; ms: number; raw?: string };
+
+async function chooseTool(q: string, tools: McpTool[]): Promise<Choice> {
   const t0 = Date.now();
   const res = await fetch(`${HOST}/api/chat`, {
     method: "POST",
@@ -135,7 +142,7 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string |
     body: JSON.stringify({
       model: MODEL,
       stream: false,
-      options: { temperature: 0, seed: 42, num_ctx: 8192 },
+      options: GEN_OPTIONS,
       messages: [
         { role: "system", content: SYSTEM },
         { role: "user", content: q },
@@ -149,19 +156,20 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string |
   if (!res.ok) throw new Error(`Ollama /api/chat ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { message?: { content?: string; tool_calls?: { function?: { name?: string } }[] } };
   const called = data.message?.tool_calls?.[0]?.function?.name;
-  if (called) return { tool: called, via: "tool_calls", ms: Date.now() - t0 };
+  if (called) return { tool: called, via: "tool_calls", ms: Date.now() - t0, raw: JSON.stringify(data.message?.tool_calls).slice(0, 300) };
   // qwen2.5-coder 는 호출을 tool_calls 필드 대신 본문에 JSON 으로 적기도 한다. 호스트마다
   // 파싱이 다르므로, 본문에 도구 이름이 있으면 그것을 선택으로 읽고 경로를 따로 센다.
   // 이것을 빼면 모델의 선택 능력이 아니라 출력 형식을 재게 된다.
   const content = data.message?.content ?? "";
   const named = LANE_TOOLS.find((t) => content.includes(t)) ?? null;
-  return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0 };
+  // 본문 원문을 남긴다. 도구 이름이 둘 이상 적힌 본문과 도구를 안 고른 본문을 나중에 원문으로 가른다.
+  return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0, raw: content.slice(0, 300) };
 }
 
 /** 한 문항의 호출이 실패해도 실험 전체를 죽이지 않는다. GPU 를 다른 작업과 나눠 쓰면
  * 응답이 5분을 넘겨 fetch 가 끊긴다(2026-09-30 실측). 한 번 다시 부르고, 그래도 안 되면
  * 그 문항을 오류로 세고 넘어간다 — 오류는 선택이 아니므로 정답에도 오답에도 넣지 않는다. */
-async function chooseToolOrError(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
+async function chooseToolOrError(q: string, tools: McpTool[]): Promise<Choice> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await chooseTool(q, tools);
@@ -219,7 +227,7 @@ async function main() {
       if (ruleOnly === it.expected) s.rule_only++;
       if (router === it.expected) s.router++;
       if (llm === "none") s.no_tool++;
-      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, llm_ms: c.ms });
+      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, llm_ms: c.ms, llm_raw: c.raw });
       console.log(`${llm === it.expected ? "O" : "X"} llm=${llm.padEnd(15)} router=${router.padEnd(15)} 기대=${it.expected} :: ${it.q}`);
     }
   }
@@ -234,6 +242,7 @@ async function main() {
       "LLM 자율 도구 선택(MCP tools/list 의 description 만 보고 고름) 대 규칙 라우터, 규칙+시맨틱 라우터. " +
       "후보는 레인 도구 넷. 채점은 도구 → 레인 매핑의 문자열 일치, LLM 판정자 없음. llm_ms 는 CPU 추론 시간.",
     model: MODEL,
+    options: GEN_OPTIONS,
     ollama_host: HOST,
     embedder: embedder?.name ?? "none (rule only)",
     tool_descriptions: Object.fromEntries(tools.map((t) => [t.name, t.description ?? ""])),
@@ -245,9 +254,12 @@ async function main() {
     rows,
     generated_at: new Date().toISOString(),
   };
+  // TOOLSELECT_OUT 로 결과 파일을 따로 둔다(저장소 루트 기준 경로). 설명을 바꿔 가며 재는 실험이 커밋된 결과를 덮지 않게 한다.
   const suffix = want.length === 1 ? `-${want[0]}` : "";
-  await mkdir(resolve(root, "eval/results"), { recursive: true });
-  await writeFile(resolve(root, `eval/results/companyx-toolselect${suffix}.json`), JSON.stringify(out, null, 2) + "\n");
+  const outPath = resolve(root, process.env.TOOLSELECT_OUT ?? `eval/results/companyx-toolselect${suffix}.json`);
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, JSON.stringify(out, null, 2) + "\n");
+  console.error(`결과: ${outPath}`);
   console.log(JSON.stringify({ by_set: bySet, total, llm_ms_median: out.llm_ms_median }, null, 2));
 }
 
