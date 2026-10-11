@@ -49,7 +49,7 @@ const rows = (n: number, row: Record<string, unknown> = { n: 1 }) => ({ ok: true
   ok(/42703/.test(emptyLane(sql({ result: { ok: false, rows: [], rowCount: 0, columns: [], truncated: false, error: "column x does not exist (42703)" } })) ?? ""), "생성 SQL 오류");
   ok(emptyLane(sql({ result: { ok: false, rows: [], rowCount: 0, columns: [], truncated: false, error: "connect ECONNREFUSED" } })) === undefined, "연결 오류는 장애라 빈손이 아니다");
   ok(emptyLane(sql({ text: null, refused: { kind: "UPDATE", text: "UPDATE t SET a = 1" } })) === undefined, "쓰기 요청 거절은 그대로 답이다");
-  ok(/no table/.test(emptyLane(sql({ text: null, refused: { kind: NO_TABLE, text: "SELECT 1" } })) ?? ""), "테이블을 읽지 않는 상수 SELECT");
+  ok(emptyLane(sql({ text: null, refused: { kind: NO_TABLE, text: "SELECT 1" } })) === undefined, "테이블을 읽지 않는 상수 SELECT 도 그대로 답이다(데이터에 없는 질문)");
   ok(emptyLane(sql({ text: null, absent: "나이" })) === undefined, "없는 항목은 그대로 답이다");
   ok(emptyLane(sql({ text: "SELECT * FROM t WHERE name = '서울물산'", result: rows(0), missing: [{ reason: "not_in_database", query_entity: "서울물산", candidates: [] }] })) === undefined, "없는 개체를 찾은 0건은 그대로 답이다");
   ok(emptyLane(result({ route: "structured", sql: { text: "SELECT 1 FROM t", result: rows(0) }, audit: { ...audit, branch_errors: ["vector: down"] } })) === undefined, "레인 장애가 있으면 빈손으로 보지 않는다");

@@ -19,11 +19,12 @@
 // 「부서마다」를 개체로 찾다 못 찾았다(홀드아웃4 #1). 넷 다 규칙이 확신하지 못해 시맨틱 폴백이 고른 레인이었고, 시맨틱의 2위 레인이
 // 바로 맞는 레인이었다(2026-10-11 진단). 판단은 레인의 결과 상태(못 찾음, 0건, null, 거부)로만 하고 질문의 낱말은 보지 않는다.
 // 확신한 규칙의 결과는 그대로다: 데이터에 없는 고객사(사업자 24번 「서울물산」)는 확신한 규칙이 그래프로 보내 「찾지 못했습니다」가 답이다.
-// 이름처럼 생긴 낱말을 못 찾은 것, 데이터에 없는 항목, 쓰기 요청, 대상 없는 측정 낱말은 빈손이 아니라 그 자체로 답이다.
+// 이름처럼 생긴 낱말을 못 찾은 것, 데이터에 없는 항목, 쓰기 요청, 테이블을 읽지 않는 SELECT, 대상 없는 측정 낱말은 빈손이 아니라 그 자체로 답이다.
+// 테이블을 읽지 않는 SELECT 까지 빈손으로 보았더니 「오늘 서울 날씨 어때?」가 그래프로 넘어가 별칭 「서울」의 엣지 39줄을 받고 「알 수 없습니다」만
+// 남았다(시험항목 밖 리허설 질문, 2026-10-12 실측).
 import type { Pool } from "./db.js";
 import { LANES, SQL_TOOL, VECTOR_TOOL, ONTOLOGY_TOOL, GRAPH_TOOL, buildGraphPlan, type Lane, type Route, type RouteDecision } from "./router.js";
 import type { RetrieveResult } from "./pipeline.js";
-import { NO_TABLE } from "./nl2sql.js";
 import { entityLikeName } from "./notfound.js";
 import { namedDocumentInHits } from "./evidence.js";
 import { describeError } from "./errors.js";
@@ -52,7 +53,8 @@ export function emptyLane(r: RetrieveResult): string | undefined {
   if (r.audit.branch_errors.length) return undefined;
   if (r.route === "structured") {
     const s = r.sql;
-    if (s.refused) return s.refused.kind === NO_TABLE ? "the generated SELECT reads no table" : undefined;
+    // 생성 모델이 쓰기 문장이나 테이블을 읽지 않는 SELECT(「오늘 서울 날씨 어때?」)를 냈으면 그것이 답이다(쓰기 거절, 데이터에 없는 질문).
+    if (s.refused) return undefined;
     if (s.absent || s.gate?.vague) return undefined;
     if ((s.missing ?? []).some((nf) => s.text?.includes(nf.query_entity))) return undefined;
     if (s.gate?.outcome === "refused") return "the pre-execution check refused the generated SQL";
