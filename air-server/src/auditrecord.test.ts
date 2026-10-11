@@ -267,6 +267,15 @@ function main() {
   ok(renderAudit(withRel).includes("근거 단위: 관계 BELONGS_TO 엣지 10건 (시드 영업팀)"), "요약에 관계 단위가 나온다");
   ok(r1.context.evidence_unit === undefined && !renderAudit(r1).includes("근거 단위"), "단위가 없으면 필드도 줄도 없다");
 
+  // --- 12. 다음 순위 레인(fallback.ts) ---
+  const fbk = { from: "structured", to: "semantic", reason: "0 rows", used: true };
+  const withFb = buildAuditRecord(base({ route: "semantic", audit: { ...base().audit, route_fallback: fbk } } as unknown as Partial<RetrieveResult>));
+  ok(JSON.stringify(withFb.routing.fallback) === JSON.stringify(fbk), "다음 순위 레인이 routing.fallback 에 실린다");
+  ok(renderAudit(withFb).includes("다음 순위 레인: structured 이 빈손(0 rows) -> semantic 의 근거로 답했다"), "요약에도 나온다");
+  const tried = buildAuditRecord(base({ audit: { ...base().audit, route_fallback: { ...fbk, used: false } } } as unknown as Partial<RetrieveResult>));
+  ok(renderAudit(tried).includes("도 근거가 없어 처음 레인의 결과로 답했다"), "시도만 했으면 그렇다고 적는다");
+  ok(r1.routing.fallback === undefined && !renderAudit(r1).includes("다음 순위"), "돌리지 않았으면 필드도 줄도 없다");
+
   console.log(`\nauditrecord.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
 }

@@ -22,7 +22,8 @@
       "degraded",
       "notfound",
       "scorecard",
-      "evidence"
+      "evidence",
+      "fallback"
     ],
     "integration": [
       "db",

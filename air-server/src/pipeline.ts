@@ -76,6 +76,7 @@ import { describeError } from "./errors.js";
 import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, type NotFound } from "./notfound.js";
 import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
+import { runnerUpUsable, withRunnerUp } from "./fallback.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -132,6 +133,9 @@ export interface RetrieveResult {
     curate: ReturnType<typeof curateAudit>;
     /** 답 단계가 받은 근거 단위(evidence.ts). 질문이 가리킨 문서 하나의 절 전부(document)이거나 계획한 관계의 엣지 전부(relation)일 때만. */
     evidence_unit?: EvidenceUnit;
+    /** 확신 없이 고른 레인(from)이 빈손이라(reason) 다음 순위 레인(to)을 돌렸을 때만(fallback.ts). used 면 답은 to 레인의 근거로 했고,
+     * 아니면 to 레인도 근거를 내지 못해 from 레인의 결과 그대로다. */
+    route_fallback?: { from: RouteDecision["route"]; to: RouteDecision["route"]; reason: string; used: boolean };
     // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
     not_found?: NotFound;
     missing_entities?: NotFound[];
@@ -741,17 +745,27 @@ function backReferenceResult(query: string, mark: string, budget: number): Retri
  * the execution-match eval measures, so eval == live). Inject `nl2sql:
  * templateNL2SQL` for an offline, zero-LLM deterministic fast-path. */
 export async function retrieve(query: string, deps: RetrieveDeps): Promise<RetrieveResult> {
+  // 앞 대화를 가리키는 말만 있는 질문(「그럼 2위는?」)은 라우팅 전에 끝낸다(router.ts backReferenceOnly).
+  const backRef = backReferenceOnly(query);
+  if (backRef) return backReferenceResult(query, backRef, deps.budget ?? DEFAULT_BUDGET);
+
+  // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
+  // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
+  const decision = await routeQuery(query, deps.embedder);
+  return withRunnerUp(
+    query,
+    decision,
+    (d) => runLanes(query, d, deps),
+    (r) => runnerUpUsable(deps.pool, query, r),
+  );
+}
+
+/** 라우팅 결정 하나로 레인을 돌리고 융합, 큐레이션까지 한 결과. */
+async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDeps): Promise<RetrieveResult> {
   const { pool, embedder } = deps;
   const nl2sql = deps.nl2sql ?? profile().nl2sql;
   const k = deps.k ?? 5;
   const budget = deps.budget ?? DEFAULT_BUDGET;
-
-  // 앞 대화를 가리키는 말만 있는 질문(「그럼 2위는?」)은 라우팅 전에 끝낸다(router.ts backReferenceOnly).
-  const backRef = backReferenceOnly(query);
-  if (backRef) return backReferenceResult(query, backRef, budget);
-
-  // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만.
-  const decision = await routeQuery(query, embedder);
   // 문서 개수 질문은 벡터 검색 대신 문서 제목을 센다(documentCount). 두 개체의 관계 질문은 두 개체 사이의 엣지만 읽는다(pairEdges).
   const docCount = decision.docCount;
   const pair = decision.pair;
