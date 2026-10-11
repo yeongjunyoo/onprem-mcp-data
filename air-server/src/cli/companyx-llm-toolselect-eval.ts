@@ -61,6 +61,17 @@ const LANE_OF_ROUTE: Record<string, string> = {
   graph: "knowledge_graph",
   hybrid: "hybrid",
 };
+
+/** 본문에서 가장 먼저 나오는 레인 도구 이름. 없으면 null. */
+function firstNamedTool(content: string): string | null {
+  let first: string | null = null;
+  let at = Infinity;
+  for (const t of LANE_TOOLS) {
+    const i = content.indexOf(t);
+    if (i >= 0 && i < at) [first, at] = [t, i];
+  }
+  return first;
+}
 // 시스템 문장과 생성 설정은 라우터 셋째 단계(llmroute.ts)와 같은 상수다. 여기서 잰 선택 정확도가 그 단계의 정확도다.
 // 생성 설정의 num_predict 상한이 왜 있는지는 llmroute.ts 에 적었다.
 const GEN_OPTIONS = TOOL_SELECT_OPTIONS;
@@ -159,8 +170,9 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<Choice> {
   // qwen2.5-coder 는 호출을 tool_calls 필드 대신 본문에 JSON 으로 적기도 한다. 호스트마다
   // 파싱이 다르므로, 본문에 도구 이름이 있으면 그것을 선택으로 읽고 경로를 따로 센다.
   // 이것을 빼면 모델의 선택 능력이 아니라 출력 형식을 재게 된다.
+  // 호출을 여럿 적으면 모델이 먼저 적은 도구가 선택이다(고정 목록 순서로 고르면 sql.query 가 늘 이긴다).
   const content = data.message?.content ?? "";
-  const named = LANE_TOOLS.find((t) => content.includes(t)) ?? null;
+  const named = firstNamedTool(content);
   // 본문 원문을 남긴다. 도구 이름이 둘 이상 적힌 본문과 도구를 안 고른 본문을 나중에 원문으로 가른다.
   return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0, raw: content.slice(0, 300) };
 }
