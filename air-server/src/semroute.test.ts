@@ -202,9 +202,9 @@ const marker = new MarkerEmbedder();
 
 // ── route 도구 출력은 공개한 스키마를 통과한다 ──────────────────────────
 //
-// SDK 는 outputSchema 를 추가 필드 금지로 공개하고, 엄격한 클라이언트(MCP Inspector 2.8)는
-// 스키마 밖의 필드가 하나라도 있으면 결과를 거부한다. 규칙 결정, 시맨틱 적용, 시맨틱 박빙 세
-// 경우의 출력을 같은 엄격도로 검사한다.
+// 출력과 공개 스키마는 같은 칸을 가진다(routeschema.ts). air 0.3.0 의 SDK 는 outputSchema 를 추가 필드 금지로
+// 공개했고 엄격한 클라이언트(MCP Inspector 2.8)는 스키마 밖의 필드가 하나라도 있으면 결과를 거부했다. 규칙 결정,
+// 시맨틱 적용, 시맨틱 박빙 세 경우의 출력을 그 엄격도로 검사한다.
 {
   const strict = z.object(ROUTE_OUTPUT_SCHEMA).strict();
   await installSemanticRouter(marker);
@@ -219,7 +219,7 @@ const marker = new MarkerEmbedder();
   const failures = outs.map((o) => strict.safeParse(o)).filter((r) => !r.success).map((r) => (r.success ? "" : r.error.issues[0]?.message));
   eq(failures, [], "route 출력 세 경우가 공개 스키마를 통과한다");
   ok(!strict.safeParse({ ...outs[0], surprise: 1 }).success, "스키마 밖의 필드는 거부된다(클라이언트와 같은 엄격도)");
-  // 공개 JSON Schema 는 안쪽 객체(graph_plan)의 추가 필드도 막는다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
+  // 안쪽 객체(graph_plan)도 같은 엄격도로 본다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
   const plan = ROUTE_OUTPUT_SCHEMA.graph_plan.unwrap().strict();
   const plans = [
     route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan,

@@ -5,8 +5,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# install deps first (layer cache)
+# install deps first (layer cache). npm ci's postinstall applies patches/ to @airmcp-dev/core with patch-package and
+# fails the build if a patch does not apply (docs/air-patch.md), so the patches must be in place before it runs.
 COPY package.json package-lock.json ./
+COPY patches ./patches
 RUN npm ci
 
 # build

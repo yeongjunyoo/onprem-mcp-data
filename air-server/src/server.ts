@@ -28,6 +28,7 @@ import {
   sanitizerPlugin,
   jsonLoggerPlugin,
   type AirServer,
+  type TransportConfig,
 } from "@airmcp-dev/core";
 import { SQL_TOOL, VECTOR_TOOL } from "./router.js";
 import { routeQuery } from "./semroute.js";
@@ -40,10 +41,11 @@ import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 import { clampK, entityIdError } from "./sqltrust.js";
 import { readFileSync } from "node:fs";
+import { isIP } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { budgetParam, formatParam, installInputErrorMessages, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
+import { budgetParam, formatParam, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -76,8 +78,11 @@ export { loadRouterOntology, loadSemanticRouter, routerOntologyState } from "./r
  * 여기서 빼면 레코드 표기도 함께 바뀐다 — 선언과 표기가 갈리지 않는다. */
 const CACHE_EXCLUDED = ["audit.explain"];
 
-/** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. */
-const TRANSPORTS = ["stdio", "sse"] as const;
+/** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. http 는 air 의 세션 없는 Streamable HTTP(POST /mcp)다. */
+const TRANSPORTS = ["stdio", "sse", "http"] as const;
+
+/** sse 와 http 의 기본 바인딩. 루프백만 듣는다. 다른 기기나 컨테이너 밖에서 붙으려면 MCP_HOST 를 준다. */
+const DEFAULT_MCP_HOST = "127.0.0.1";
 
 /**
  * MCP_TRANSPORT 를 해석하되, **모르는 값은 소리내어 거절한다.**
@@ -91,10 +96,15 @@ const TRANSPORTS = ["stdio", "sse"] as const;
  * 어느 쪽에 붙었는지 모르게 되는 문제. 같은 잣대를 우리 코드에도 댄다.
  *
  * 잘못 다룬 설정은 기본값으로 메꾸는 것보다 기동을 멈추는 편이 싸다.
+ *
+ * 돌려주는 값은 air 의 transport 설정 그대로다(`satisfies TransportConfig`). host 와 allowedOrigins 는 air 에
+ * 기본값이 있어도 여기서 정한다. 바인딩과 허용 출처는 보안 설정이라 의존성의 기본값이 바뀌어도 따라가지 않게 한다.
+ * allowedOrigins 는 air-server/patches 의 패치(airmcp-dev/air#11)가 더한 칸이라, 패치가 빠진 air 에서는 이 파일이
+ * 컴파일되지 않는다(docs/air-patch.md).
  */
-export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: number } {
+export function resolveTransport() {
   const raw = process.env.MCP_TRANSPORT?.trim();
-  if (!raw) return { type: "stdio" };
+  if (!raw) return { type: "stdio" } satisfies TransportConfig;
 
   if (!(TRANSPORTS as readonly string[]).includes(raw)) {
     throw new Error(
@@ -102,16 +112,47 @@ export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: num
         `  조용히 stdio 로 떨어뜨리면 어느 전송으로 돌고 있는지 알 수 없게 된다 — 그래서 멈춘다.`,
     );
   }
+  if (raw === "stdio") return { type: "stdio" } satisfies TransportConfig;
 
-  if (raw === "sse") {
-    const port = Number(process.env.MCP_PORT ?? 3510);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
-    }
-    return { type: "sse", port };
+  const port = Number(process.env.MCP_PORT ?? 3510);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
   }
+  const host = resolveHost();
+  if (raw === "sse") return { type: "sse", port, host } satisfies TransportConfig;
+  return { type: "http", port, host, allowedOrigins: resolveAllowedOrigins() } satisfies TransportConfig;
+}
 
-  return { type: "stdio" };
+/** MCP_HOST: 바인딩 주소. 비우면 루프백(127.0.0.1). 주소나 호스트 이름이 아니면(포트나 스킴을 붙인 값) 기동을 멈춘다. */
+function resolveHost(): string {
+  const host = process.env.MCP_HOST?.trim();
+  if (!host) return DEFAULT_MCP_HOST;
+  if (isIP(host) === 0 && !/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(host)) {
+    throw new Error(`MCP_HOST="${host}" 는 바인딩할 주소가 아니다. IP 나 호스트 이름만 쓴다(예: 127.0.0.1, 0.0.0.0). 포트는 MCP_PORT 로 준다.`);
+  }
+  return host;
+}
+
+/**
+ * MCP_ALLOWED_ORIGINS: http 전송이 루프백 출처 말고 더 받을 브라우저 Origin(쉼표로 구분, 예: https://app.example.com).
+ * 비우면 루프백 출처(localhost, 127.0.0.1, [::1], 포트 무관)만 받고 나머지 Origin 은 403 이다. Origin 을 보내지 않는
+ * 클라이언트(Inspector CLI, SDK, curl)는 이 검사와 상관없다. 출처는 스킴, 호스트, 포트까지 정확히 적는다. `*` 는 DNS
+ * 리바인딩 방어를 끄는 값이라 받지 않는다.
+ */
+function resolveAllowedOrigins(): string[] {
+  const raw = process.env.MCP_ALLOWED_ORIGINS?.trim();
+  if (!raw) return [];
+  return raw.split(",").map((o) => {
+    const origin = o.trim();
+    const parsed = URL.canParse(origin) ? new URL(origin) : undefined;
+    if (!parsed || !/^https?:$/.test(parsed.protocol) || parsed.origin !== origin) {
+      throw new Error(
+        `MCP_ALLOWED_ORIGINS 의 "${origin}" 는 출처가 아니다. 스킴, 호스트, 포트만 적는다(예: https://app.example.com, http://192.168.0.5:8080). ` +
+          `경로, 끝의 슬래시, * 는 받지 않는다.`,
+      );
+    }
+    return origin;
+  });
 }
 
 /** 버전 정본은 package.json 하나다.
@@ -138,7 +179,6 @@ export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POS
 
 export function buildServer(): AirServer {
   const ds = profile();
-  installInputErrorMessages();
   return defineServer({
     name: "onprem-mcp-data",
     version: PACKAGE_VERSION,
@@ -172,8 +212,9 @@ export function buildServer(): AirServer {
       circuitBreakerPlugin(),
     ],
 
-    // stdio(기본) / sse — 심사자가 Claude Desktop에 붙일 때는 stdio, 컨테이너로
-    // 띄울 때는 MCP_TRANSPORT=sse. 그 둘뿐이며, 모르는 값은 위에서 이미 막았다.
+    // stdio(기본) / sse / http — 심사자가 Claude Desktop에 붙일 때는 stdio, 네트워크로 붙일 때는
+    // MCP_TRANSPORT=sse 나 http(세션 없는 Streamable HTTP, POST /mcp). 셋 다 air 의 전송이 그대로 받는다.
+    // 모르는 값은 위에서 이미 막았다.
     transport: resolveTransport(),
 
     // MCP 표준 표면. 도구는 "실행", 리소스는 "열람", 프롬프트는 "재사용 템플릿"이다.

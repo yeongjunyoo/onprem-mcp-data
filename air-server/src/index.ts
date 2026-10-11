@@ -98,10 +98,11 @@ async function main(): Promise<void> {
       : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
 
-  buildServer().start();
+  await buildServer().start();
   // stdio 클라이언트가 입력을 닫으면(클라이언트 종료, 터미널의 Ctrl+D) 서버도 끝낸다. MCP stdio 전송의 종료 절차가
-  // 이렇다. 종전에는 DB 풀과 air 의 타이머가 이벤트 루프를 붙잡아 클라이언트가 사라진 뒤에도 서버가 남았다
-  // (2026-10-07 실측: 입력을 닫아도 40초 넘게 남음). SSE 로 띄운 서버는 stdin 과 무관하니 건드리지 않는다.
+  // 이렇다. air 의 stdio 전송은 입력이 닫혀도 읽기만 멈추고, DB 풀과 air 의 타이머가 이벤트 루프를 붙잡아 클라이언트가
+  // 사라진 뒤에도 서버가 남는다(2026-10-07 실측: 입력을 닫아도 40초 넘게 남음). SSE 와 HTTP 로 띄운 서버는 stdin 과
+  // 무관하니 건드리지 않는다.
   if (resolveTransport().type === "stdio") process.stdin.once("end", () => void shutdown(0));
 }
 
