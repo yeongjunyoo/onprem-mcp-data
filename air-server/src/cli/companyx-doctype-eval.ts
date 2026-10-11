@@ -26,10 +26,13 @@
 //              holdout3·4  각 문항의 gold_docs
 // 봉인 홀드아웃은 읽지 않는다. 세트 목록은 아래 SETS 에 박혀 있고 환경변수로 늘릴 수 없다.
 //
-// 구성(CX_CONFIGS, 기본은 넷 다): base           배포 기본값(밀집 레인만)
-//                                 filter         DOC_TYPE_FILTER=1 (질문 유형이 확실하면 문서 레인을 그 유형으로 거른다)
-//                                 hybrid         KEYWORD_LANE=1 (밀집 + 키워드를 RRF 로)
-//                                 hybrid_filter  둘 다
+// 구성(CX_CONFIGS, 기본은 다섯 다): base           배포 기본값(밀집 레인만)
+//                                   filter         DOC_TYPE_FILTER=1 (질문 유형이 확실하면 문서 레인을 그 유형으로 거른다)
+//                                   hybrid         KEYWORD_LANE=1 (밀집 + 키워드를 RRF 로)
+//                                   hybrid_filter  둘 다
+//                                   oracle         상한 진단 — 분류기 대신 정답 문서의 유형으로 거른다(밀집). 후보가 아니다.
+// 번짐 점검(CX_SPILL=1, 기본 켬): 문서 질문이 아닌 개발용 문항(사업자 30의 정형·그래프, 홀드아웃 1~4 의 정형·그래프)에서
+// 필터가 최종 목록을 바꾸는지 base 와 filter 의 목록 출처를 대조한다.
 // 지표: hit@1, hit@3, hit@5, MRR. 순위는 목록 항목 기준(item, 표제)과 서로 다른 문서 기준(doc) 둘 다 적는다. 정답 문서가 목록에
 // 없으면 순위 없음(MRR 0)이다.
 //
@@ -45,7 +48,7 @@ import { getEmbedder } from "../embedder.js";
 import { initRouting } from "../routerinit.js";
 import { retrieve, type RetrieveResult } from "../pipeline.js";
 import { keywordIndexReady } from "../keyword.js";
-import { questionDocType } from "../doctype.js";
+import { questionDocType, type DocType } from "../doctype.js";
 import { shutdown } from "../exit.js";
 import { CX_SCHEMA, assertCorpusEmbedder, datasetDir, loadQuestions, requireCompanyxProfile, requireDataset } from "../companyx.js";
 
@@ -68,6 +71,8 @@ const CONFIGS = {
   filter: { DOC_TYPE_FILTER: "1", KEYWORD_LANE: undefined },
   hybrid: { DOC_TYPE_FILTER: undefined, KEYWORD_LANE: "1" },
   hybrid_filter: { DOC_TYPE_FILTER: "1", KEYWORD_LANE: "1" },
+  // 상한 진단: 분류기 대신 정답 문서의 유형으로 거른다(정답이 한 유형일 때만). 후보가 아니라 이 방식이 낼 수 있는 최대치다.
+  oracle: { DOC_TYPE_FILTER: "1", KEYWORD_LANE: undefined },
 } as const;
 type ConfigName = keyof typeof CONFIGS;
 
@@ -179,6 +184,8 @@ interface Ranks {
   doc: number | null;
   /** 목록에 나온 문서를 처음 나온 차례로(앞 8건). */
   docs: string[];
+  /** 목록 항목의 출처 그대로(documents#조각 id 등). 구성끼리 목록이 같은지 대조하는 데 쓴다. */
+  sources: string[];
   route: string;
   lanes: string[];
   kept: number;
@@ -201,6 +208,7 @@ function ranksOf(r: RetrieveResult, gold: string[], docOfChunk: Map<number, stri
     item: itemIdx >= 0 ? itemIdx + 1 : null,
     doc: docIdx >= 0 ? docIdx + 1 : null,
     docs: distinct.slice(0, 8),
+    sources: r.curated.kept.map((it) => it.source),
     route: r.route,
     lanes: r.fusion_lanes ?? [],
     kept: r.curated.kept.length,
@@ -223,7 +231,7 @@ function metrics(ranks: (number | null)[]) {
 async function main() {
   requireDataset();
   requireCompanyxProfile();
-  const configs = (process.env.CX_CONFIGS ?? "base,filter,hybrid,hybrid_filter")
+  const configs = (process.env.CX_CONFIGS ?? "base,filter,hybrid,hybrid_filter,oracle")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean) as ConfigName[];
@@ -289,13 +297,55 @@ ${e instanceof Error ? e.message : String(e)}
           if (v === undefined) delete process.env[k];
           else process.env[k] = v;
         }
-        const r = await retrieve(item.q, { pool, embedder, nl2sql: async () => null, repair: false });
+        const oracleType = goldTypes.length === 1 ? (goldTypes[0] as DocType) : null;
+        const r = await retrieve(item.q, {
+          pool,
+          embedder,
+          nl2sql: async () => null,
+          repair: false,
+          ...(c === "oracle" ? { docType: oracleType } : {}),
+        });
         row[c] = ranksOf(r, item.gold, docOfChunk, docOfTitle);
       }
       const marks = configs.map((c) => `${c}=${(row[c] as Ranks).item ?? "-"}`).join(" ");
       console.log(`${item.id.padEnd(8)} ${marks.padEnd(48)} cls=${cls.type ?? "-"} gold=${goldTypes.join("+")} :: ${item.q}`);
     }
     rows.push(row);
+  }
+  // 번짐 점검: 문서 질문이 아닌 문항에서 필터가 최종 목록을 바꾸는가(base 대 filter, 같은 가짜 SQL 레인).
+  const spill: { set: string; id: string; q: string; route: string; type: string | null; base: string[]; filter: string[] }[] = [];
+  let spillChecked = 0;
+  if (process.env.CX_SPILL !== "0") {
+    const others: { set: string; id: string; q: string }[] = [];
+    (await loadQuestions(datasetDir())).forEach((x, i) => {
+      if (x.tool !== "vector_search") others.push({ set: "sponsor30", id: `s30-${i + 1}`, q: x.q });
+    });
+    for (const set of ["holdout1", "holdout2", "holdout3", "holdout4"] as const) {
+      const route = JSON.parse(await readFile(resolve(root, HOLDOUT_ROUTE[set]), "utf8")) as { items: { id?: string; q: string; expected: string }[] };
+      route.items.forEach((it, i) => {
+        if (it.expected !== "vector_search") others.push({ set, id: it.id ?? `${set}-${i + 1}`, q: it.q });
+      });
+    }
+    for (const o of others) {
+      const lists: Record<string, string[]> = {};
+      let route = "";
+      for (const c of ["base", "filter"] as const) {
+        for (const [k, v] of Object.entries(CONFIGS[c])) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+        const r = await retrieve(o.q, { pool, embedder, nl2sql: async () => null, repair: false });
+        lists[c] = r.curated.kept.map((it) => it.source);
+        route = r.route;
+      }
+      spillChecked++;
+      if (JSON.stringify(lists.base) !== JSON.stringify(lists.filter)) {
+        spill.push({ ...o, route, type: questionDocType(o.q).type, base: lists.base, filter: lists.filter });
+      }
+    }
+    console.log(`
+번짐 점검: 문서 질문이 아닌 ${spillChecked}문항 중 필터가 최종 목록을 바꾼 문항 ${spill.length}`);
+    for (const x of spill) console.log(`  ${x.id} route=${x.route} type=${x.type} :: ${x.q}`);
   }
   for (const [k, v] of Object.entries(saved)) {
     if (v === undefined) delete process.env[k];
@@ -342,12 +392,14 @@ ${e instanceof Error ? e.message : String(e)}
         const u = new URL(process.env.DATABASE_URL ?? "postgresql://localhost:5433/mcpdata");
         return `${u.hostname}:${u.port}/${u.pathname.replace(/^\//, "")}`;
       } catch {
+        // 주소를 읽지 못해도 평가는 계속한다. 결과 파일에는 읽지 못했다고 적힌다.
         return "(주소 형식 불명)";
       }
     })(),
     input_hashes: inputs,
     summary,
     classifier,
+    spillover: process.env.CX_SPILL === "0" ? "건너뜀(CX_SPILL=0)" : { checked: spillChecked, changed: spill.length, items: spill },
     rows,
     generated_at: new Date().toISOString(),
   };

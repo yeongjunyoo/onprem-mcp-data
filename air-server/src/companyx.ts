@@ -41,6 +41,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Pool } from "./db.js";
 import { type Embedder, toVectorLiteral } from "./embedder.js";
+import { DOC_TYPES, tagDocument, type DocTag } from "./doctype.js";
 
 export const CX_SCHEMA = "companyx";
 
@@ -171,6 +172,15 @@ export async function loadDocChunks(dir = datasetDir()): Promise<DocChunk[]> {
     });
   }
   return chunks;
+}
+
+/** 문서마다 원문의 첫 제목과 섹션 구성으로 정한 유형(doctype.ts tagDocument). 사업자 index.json 의 type 은 보지 않는다. */
+export async function loadDocTypes(dir = datasetDir()): Promise<{ docId: string; tag: DocTag }[]> {
+  const docsDir = join(dir, "documents");
+  const index: DocIndexEntry[] = JSON.parse(await readFile(join(docsDir, "index.json"), "utf-8"));
+  const out: { docId: string; tag: DocTag }[] = [];
+  for (const entry of index) out.push({ docId: entry.id, tag: tagDocument(await readFile(join(docsDir, entry.filename), "utf-8")) });
+  return out;
 }
 
 // ---------- graph ----------
@@ -321,15 +331,32 @@ CREATE INDEX ON ${s}.relations (dst_entity_id);
 CREATE INDEX ON ${s}.entity_links (entity_id);
 CREATE INDEX ON ${s}.entity_links (source_table, source_pk);
 
--- Read model for vector.search (id/title/body/embedding contract) over the
--- official document_chunks table. A view keeps ONE physical store.
-CREATE VIEW ${s}.documents AS
+${DOC_TYPES_DDL(s)}
+${documentsViewSql(s)};
+`;
+
+/** 문서 유형 곁테이블. 공식 document_chunks 의 모양은 바꾸지 않는다(그래프 곁테이블과 같은 방식). 유형을 못 정한 문서도 행을 두고
+ * doc_type 을 비우며 basis 에 이유(conflict, none)를 남긴다. */
+export const DOC_TYPES_DDL = (s: string) => `
+CREATE TABLE IF NOT EXISTS ${s}.document_types (
+  doc_id   varchar(20) PRIMARY KEY,
+  doc_type text CHECK (doc_type IS NULL OR doc_type IN (${DOC_TYPES.map((t) => `'${t}'`).join(", ")})),
+  basis    text NOT NULL
+);`;
+
+/** vector.search 의 읽기 모델(id/title/body/embedding 계약 + doc_type). 공식 document_chunks 위의 뷰라 저장소는 하나다.
+ * doc_type 은 곁테이블에서 읽는 식이라 이 열만 갱신할 수 없고, 나머지 열(embedding)은 종전처럼 뷰로 갱신된다.
+ * 새 열은 끝에 붙인다 — CREATE OR REPLACE VIEW 는 기존 열 순서를 바꾸지 못한다. */
+export function documentsViewSql(s: string, opts: { replace?: boolean; docType?: boolean } = {}): string {
+  const docType = opts.docType ?? true;
+  return `${opts.replace ? "CREATE OR REPLACE VIEW" : "CREATE VIEW"} ${s}.documents AS
   SELECT id,
          (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
          content AS body,
-         embedding
-    FROM ${s}.document_chunks;
-`;
+         embedding${docType ? `,
+         (SELECT t.doc_type FROM ${s}.document_types t WHERE t.doc_id = document_chunks.doc_id) AS doc_type` : ""}
+    FROM ${s}.document_chunks`;
+}
 
 export interface LoadReport {
   schema: string;
@@ -341,6 +368,59 @@ export interface LoadReport {
   entityLinks: number;
   embeddingDim: number;
   ddlDeviations: string[];
+  /** 유형별 문서 수와 유형을 못 정한 문서(document_types). */
+  docTypes: DocTypeCounts;
+}
+
+export interface DocTypeCounts {
+  counts: Record<string, number>;
+  unclassified: { docId: string; basis: string; heading: string }[];
+}
+
+function docTypeCounts(rows: { docId: string; tag: DocTag }[]): DocTypeCounts {
+  const counts: Record<string, number> = Object.fromEntries(DOC_TYPES.map((t) => [t, 0]));
+  for (const r of rows) if (r.tag.type) counts[r.tag.type]++;
+  return {
+    counts,
+    unclassified: rows.filter((r) => !r.tag.type).map((r) => ({ docId: r.docId, basis: r.tag.basis, heading: r.tag.heading })),
+  };
+}
+
+/** 이미 적재된 DB 에 문서 유형을 단다. 멱등이다 — 곁테이블을 만들고(없으면), 조각을 문서별로 이어 붙인 원문으로 유형을 다시
+ * 정해 덮어쓰고, 뷰에 doc_type 을 붙인다. 다시 적재(companyx:load)하지 않아도 된다. 조각은 섹션 제목 줄을 그대로 담고 있어
+ * (chunkMarkdown) 이어 붙이면 첫 제목과 섹션 구성이 원문과 같다. */
+export async function ensureDocumentTypes(pool: Pool, schema = CX_SCHEMA): Promise<DocTypeCounts & { docs: number }> {
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error(`unsafe schema: ${schema}`);
+  const docs = await pool.query<{ doc_id: string; text: string }>(
+    `SELECT doc_id, string_agg(content, E'\\n\\n' ORDER BY chunk_index) AS text
+       FROM ${schema}.document_chunks GROUP BY doc_id ORDER BY doc_id`,
+  );
+  const rows = docs.rows.map((d) => ({ docId: d.doc_id, tag: tagDocument(d.text) }));
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(DOC_TYPES_DDL(schema));
+    for (const r of rows) {
+      await client.query(
+        `INSERT INTO ${schema}.document_types (doc_id, doc_type, basis) VALUES ($1,$2,$3)
+         ON CONFLICT (doc_id) DO UPDATE SET doc_type = EXCLUDED.doc_type, basis = EXCLUDED.basis`,
+        [r.docId, r.tag.type, r.tag.basis],
+      );
+    }
+    // 조각이 사라진 문서의 꼬리표는 지운다(다시 적재하지 않고 조각만 지운 경우).
+    await client.query(`DELETE FROM ${schema}.document_types WHERE doc_id <> ALL($1::varchar[])`, [rows.map((r) => r.docId)]);
+    await client.query(documentsViewSql(schema, { replace: true }));
+    await client.query(`DO $$ BEGIN
+      IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'mcp_ro') THEN GRANT SELECT ON ${schema}.document_types TO mcp_ro; END IF;
+    END $$`);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+  return { docs: rows.length, ...docTypeCounts(rows) };
 }
 
 /** Apply the official DDL + data into `companyx`, then ingest docs and the graph. */
@@ -430,6 +510,11 @@ export async function loadCompanyX(
         [c.docId, c.chunkIndex, c.content, JSON.stringify(c.metadata)],
       );
     }
+    // 문서 유형: 원문의 첫 제목과 섹션 구성으로 정한다(문서 유형 필터 DOC_TYPE_FILTER 가 쓴다).
+    const docTypes = await loadDocTypes(dir);
+    for (const d of docTypes) {
+      await client.query(`INSERT INTO ${s}.document_types (doc_id, doc_type, basis) VALUES ($1,$2,$3)`, [d.docId, d.tag.type, d.tag.basis]);
+    }
 
     // Least-privilege access for the sql.query tool (same boundary as public/bench):
     // mcp_ro may SELECT the sponsor tables and nothing else.
@@ -469,6 +554,7 @@ export async function loadCompanyX(
       entityLinks: Number(linkCount.rows[0].n),
       embeddingDim: opts.embedDim,
       ddlDeviations: deviations,
+      docTypes: docTypeCounts(docTypes),
     };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

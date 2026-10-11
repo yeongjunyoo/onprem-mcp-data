@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 import { getPool, closePool, type Pool } from "../db.js";
 import { getEmbedder, HashEmbedder, OllamaEmbedder, TruncatedEmbedder, type Embedder } from "../embedder.js";
 import { vectorSearch } from "../vector.js";
-import { computeCompanyXVectors, datasetDir, CX_SCHEMA, requireDataset } from "../companyx.js";
+import { computeCompanyXVectors, datasetDir, documentsViewSql, CX_SCHEMA, requireDataset } from "../companyx.js";
 
 interface GoldItem {
   q: string;
@@ -69,16 +69,13 @@ async function realignAndBackfill(pool: Pool, emb: Embedder): Promise<{ updated:
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // 뷰를 다시 만들 때 문서 유형 열(doc_type)을 잃지 않는다. 곁테이블이 있는 DB 에서만 붙인다(없는 DB 는 종전 모양).
+    const typed = await client.query<{ t: string | null }>(`SELECT to_regclass('${CX_SCHEMA}.document_types')::text AS t`);
     await client.query(`DROP VIEW IF EXISTS ${CX_SCHEMA}.documents`);
     await client.query(
       `ALTER TABLE ${CX_SCHEMA}.document_chunks ALTER COLUMN embedding TYPE vector(${emb.dim}) USING NULL`,
     );
-    await client.query(
-      `CREATE VIEW ${CX_SCHEMA}.documents AS
-         SELECT id, (metadata->>'title') || ' — ' || (metadata->>'section') AS title,
-                content AS body, embedding
-           FROM ${CX_SCHEMA}.document_chunks`,
-    );
+    await client.query(documentsViewSql(CX_SCHEMA, { docType: Boolean(typed.rows[0]?.t) }));
     for (const [id, vec] of vectors) {
       await client.query(`UPDATE ${CX_SCHEMA}.documents SET embedding = $1::vector WHERE id = $2`, [vec, id]);
     }

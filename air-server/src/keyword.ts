@@ -55,6 +55,13 @@ export async function keywordIndexReady(pool: Pool, table: string): Promise<bool
   return Number(r.rows[0]?.n ?? 0) > 0;
 }
 
+export interface KeywordSearchOptions {
+  /** 문서 유형 필터. view 는 doc_type 열이 있는 벡터 뷰(같은 id)다. 유형을 모르는 문서(doc_type NULL)는 남긴다. */
+  docType?: { type: string; view: string };
+}
+
+const IDENT = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/;
+
 /**
  * 키워드 검색. 색인이 없으면 실패가 아니라 빈 결과를 돌려준다.
  * 레인 하나가 준비되지 않았다고 파이프라인 전체가 죽으면 안 된다.
@@ -64,23 +71,28 @@ export async function keywordSearch(
   query: string,
   k: number,
   table: string,
+  opts: KeywordSearchOptions = {},
 ): Promise<KeywordSearchResult> {
   const normalized = normalizeQuery(query);
   if (!normalized.tsquery) {
     return { ok: true, hits: [], normalized };
   }
   const limit = Math.max(1, Math.min(50, k));
+  const typed = opts.docType;
   try {
+    if (typed && !IDENT.test(typed.view)) throw new Error(`unsafe view identifier: ${typed.view}`);
     const r = await pool.query<{ id: number; title: string; body: string; score: number }>(
       `SELECT c.id,
               coalesce(c.metadata->>'title', '') || ' — ' || coalesce(c.metadata->>'section', '') AS title,
               c.content AS body,
               ts_rank_cd(c.search_tokens, to_tsquery('simple', $1)) AS score
          FROM ${table} c
-        WHERE c.search_tokens @@ to_tsquery('simple', $1)
+        WHERE c.search_tokens @@ to_tsquery('simple', $1)${
+          typed ? ` AND c.id IN (SELECT v.id FROM ${typed.view} v WHERE v.doc_type = $2 OR v.doc_type IS NULL)` : ""
+        }
         ORDER BY score DESC, c.id ASC
         LIMIT ${limit}`,
-      [normalized.tsquery],
+      typed ? [normalized.tsquery, typed.type] : [normalized.tsquery],
     );
     return { ok: true, hits: r.rows.map((row) => ({ ...row, score: Number(row.score) })), normalized };
   } catch (e) {

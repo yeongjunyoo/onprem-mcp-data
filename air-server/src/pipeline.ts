@@ -38,7 +38,8 @@ import {
 import { routeQuery } from "./semroute.js";
 import { sqlQuery, columnsForSql, type SqlResult } from "./sql.js";
 import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./keyword.js";
-import { vectorSearch, type VectorResult } from "./vector.js";
+import { docTypeReady, vectorSearch, type VectorResult } from "./vector.js";
+import { questionDocType, type DocType } from "./doctype.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
 import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
@@ -83,6 +84,8 @@ export interface RetrieveDeps {
   k?: number; // vector top-k (default 5)
   budget?: number; // curator token budget (default DEFAULT_BUDGET)
   repair?: boolean; // retry a rejected SQL once with the DB error (default true)
+  /** 문서 유형 필터(DOC_TYPE_FILTER=1)가 쓸 유형을 질문 분류기 대신 정해 준다. null 은 거르지 않음. 평가의 상한 측정용이다. */
+  docType?: DocType | null;
 }
 
 export interface RetrieveResult {
@@ -137,7 +140,18 @@ export interface RetrieveResult {
     graph_fitted?: string[];
     /** 생성 SQL 의 실행 전 검사가 무엇을 거부했는지(sqltrust.ts). 거부한 것이 있을 때만. */
     sql_gate?: SqlGate;
+    /** 문서 유형 필터(DOC_TYPE_FILTER=1)가 켜졌고 문서 레인이 돌았을 때만. 질문에서 읽은 유형과 걸린 말, 실제로 걸렀는지. */
+    doc_type?: DocTypeAudit;
   };
+}
+
+export interface DocTypeAudit {
+  type: DocType | null;
+  basis: string;
+  cues: string[];
+  /** 문서 레인을 그 유형으로 걸렀는가. 유형이 없거나(확실하지 않음) 표에 doc_type 열이 없으면 false 이고 reason 에 이유를 적는다. */
+  applied: boolean;
+  reason?: string;
 }
 
 function routeAudit(d: RouteDecision) {
@@ -780,8 +794,36 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(missing.length ? { missing } : {}),
     };
   })();
+  // 문서 유형 필터(리원에이스 서면 답변 10-03 Q4). **기본은 꺼져 있다** — DOC_TYPE_FILTER=1 로 켠다. 질문이 묻는 문서 유형이 확실할
+  // 때만(doctype.ts questionDocType) 문서 레인(벡터, 키워드)을 RRF 전에 그 유형으로 거른다. 유형을 모르는 문서는 거르지 않는다.
+  // 표에 doc_type 열이 없으면(다른 프로파일, 유형을 달기 전의 DB) 거르지 않고 audit.doc_type 에 그 이유를 남긴다.
+  const docTypeAsk =
+    wantVec && process.env.DOC_TYPE_FILTER === "1"
+      ? deps.docType !== undefined
+        ? { type: deps.docType, basis: "caller", cues: [] }
+        : questionDocType(query)
+      : undefined;
+  const docTypeGate: Promise<DocTypeAudit | undefined> = docTypeAsk
+    ? (async () => {
+        const base = { type: docTypeAsk.type, basis: docTypeAsk.basis, cues: docTypeAsk.cues.map((c) => `${c.type}:${c.word}`) };
+        if (!docTypeAsk.type) return { ...base, applied: false, reason: "유형이 확실하지 않다" };
+        const ready = await docTypeReady(pool).catch((e: unknown) => {
+          // 열 확인이 실패하면 거르지 않는다. 그 사실은 reason 으로 audit 에 남는다.
+          return e instanceof Error ? e.message : String(e);
+        });
+        if (ready === true) return { ...base, applied: true };
+        return { ...base, applied: false, reason: ready === false ? `${profile().vectorTable} 에 doc_type 열이 없다` : `doc_type 열 확인 실패: ${ready}` };
+      })()
+    : Promise.resolve(undefined);
+  const filterType = async (): Promise<string | undefined> => {
+    const g = await docTypeGate;
+    return g?.applied && g.type ? g.type : undefined;
+  };
   const vecBranch: Promise<VectorResult | undefined> = wantVec
-    ? vectorSearch(pool, embedder, query, k)
+    ? (async () => {
+        const docType = await filterType();
+        return vectorSearch(pool, embedder, query, k, undefined, docType ? { docType } : {});
+      })()
     : Promise.resolve(undefined);
   // The graph lane (L5): resolve the query's entities, then BFS their typed edges.
   // Runs concurrently with the other branches and is isolated the same way.
@@ -803,21 +845,24 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     ? (async () => {
         const table = profile().name === "companyx" ? "companyx.document_chunks" : profile().vectorTable;
         if (!(await keywordIndexReady(pool, table))) return undefined;
-        return keywordSearch(pool, query, k, table);
+        const docType = await filterType();
+        return keywordSearch(pool, query, k, table, docType ? { docType: { type: docType, view: profile().vectorTable } } : {});
       })()
     : Promise.resolve(undefined);
 
   const docBranch: Promise<DocCountResult | undefined> = docCount ? documentCount(pool, docCount) : Promise.resolve(undefined);
   const pairBranch: Promise<GraphResult | undefined> = pair ? pairEdges(pool, pair.a, pair.b, kgSchema()) : Promise.resolve(undefined);
 
-  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled, pairSettled] = await Promise.allSettled([
+  const [sqlSettled, vecSettled, graphSettled, kwSettled, docSettled, pairSettled, docTypeSettled] = await Promise.allSettled([
     sqlBranch,
     vecBranch,
     graphBranch,
     keywordBranch,
     docBranch,
     pairBranch,
+    docTypeGate,
   ]);
+  const docTypeAudit = docTypeSettled.status === "fulfilled" ? docTypeSettled.value : undefined;
   const docResult = docSettled.status === "fulfilled" ? docSettled.value : undefined;
   const pairOut = pairSettled.status === "fulfilled" ? pairSettled.value : undefined;
   const pairResult = pair && pairOut ? { ...pair, ...pairOut } : undefined;
@@ -967,6 +1012,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
       ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
       ...(sql.gate ? { sql_gate: sql.gate } : {}),
+      ...(docTypeAudit ? { doc_type: docTypeAudit } : {}),
     },
   };
 }

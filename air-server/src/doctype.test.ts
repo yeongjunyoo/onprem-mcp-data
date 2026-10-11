@@ -19,6 +19,9 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOC_TYPES, isDocType, questionDocType, tagDocument, type DocType } from "./doctype.js";
+import { retrieve } from "./pipeline.js";
+import type { Pool } from "./db.js";
+import type { Embedder } from "./embedder.js";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -135,6 +138,83 @@ eq(qt("로그인이 안 돼"), null, "로그인 → 로그 아님");
 
 eq([...DOC_TYPES], ["incident_report", "technical_doc", "meeting_note", "proposal"], "유형 넷");
 ok(isDocType("proposal") && !isDocType("policy") && !isDocType(null), "isDocType");
+
+// ── 검색 경로에 거는 자리(retrieve) — 가짜 풀로 SQL 만 본다 ─────────────
+//
+// DOC_TYPE_FILTER=1 이고 질문 유형이 확실하면 벡터와 키워드 레인 SQL 에 유형 조건이 붙는다. 유형을 모르는 문서(NULL)는 남긴다.
+// 표에 doc_type 열이 없거나 유형이 확실하지 않으면 거르지 않고 audit.doc_type 에 이유를 남긴다. 스위치가 꺼져 있으면 아무것도 안 바뀐다.
+{
+  const zero: Embedder = { name: "test:zero", dim: 4, embed: async () => [0, 0, 0, 1] };
+  const recording = (docTypeColumn: boolean) => {
+    const log: { sql: string; params: unknown[] }[] = [];
+    const pool = {
+      query: async (sql: string, params: unknown[] = []) => {
+        log.push({ sql, params });
+        if (/column_name = 'doc_type'/.test(sql)) return { rows: [{ n: docTypeColumn ? "1" : "0" }], rowCount: 1 };
+        if (/column_name = 'search_tokens'/.test(sql)) return { rows: [{ n: "1" }], rowCount: 1 };
+        if (/embedding <=>/.test(sql)) return { rows: [{ id: 7, title: "t", body: "b", score: 0.9 }], rowCount: 1 };
+        if (/ts_rank_cd/.test(sql)) return { rows: [{ id: 8, title: "t2", body: "b2", score: 0.5 }], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+      },
+    } as unknown as Pool;
+    return { pool, log };
+  };
+  const vecSql = (log: { sql: string; params: unknown[] }[]) => log.find((l) => /embedding <=>/.test(l.sql));
+  const kwSql = (log: { sql: string; params: unknown[] }[]) => log.find((l) => /ts_rank_cd/.test(l.sql));
+  const saved = { f: process.env.DOC_TYPE_FILTER, k: process.env.KEYWORD_LANE };
+  const env = (f?: string, k?: string) => {
+    if (f === undefined) delete process.env.DOC_TYPE_FILTER;
+    else process.env.DOC_TYPE_FILTER = f;
+    if (k === undefined) delete process.env.KEYWORD_LANE;
+    else process.env.KEYWORD_LANE = k;
+  };
+  const Q = "Product-Q9 설치 가이드 전체를 보여 줘";
+  try {
+    env("1", "1");
+    {
+      const { pool, log } = recording(true);
+      const r = await retrieve(Q, { pool, embedder: zero });
+      const v = vecSql(log);
+      const k = kwSql(log);
+      ok(Boolean(v), `벡터 레인이 돈다(route=${r.route})`);
+      ok(/\(doc_type = \$3 OR doc_type IS NULL\)/.test(v?.sql ?? ""), "벡터 SQL 에 유형 조건이 붙고 유형 모르는 문서는 남긴다");
+      eq(v?.params[2], "technical_doc", "벡터 SQL 의 유형 값");
+      ok(/v\.doc_type = \$2 OR v\.doc_type IS NULL/.test(k?.sql ?? ""), "키워드 SQL 에도 같은 유형 조건이 붙는다(RRF 전)");
+      eq(k?.params[1], "technical_doc", "키워드 SQL 의 유형 값");
+      eq([r.audit.doc_type?.type, r.audit.doc_type?.applied, r.audit.doc_type?.basis], ["technical_doc", true, "kind"], "audit 에 유형과 적용 여부");
+      ok((r.audit.doc_type?.cues ?? []).includes("technical_doc:가이드"), "audit 에 걸린 말");
+    }
+    {
+      // 표에 doc_type 열이 없으면(유형을 달기 전의 DB, smoke·bench) 거르지 않고 이유를 남긴다.
+      const { pool, log } = recording(false);
+      const r = await retrieve(Q, { pool, embedder: zero });
+      ok(!/doc_type/.test(vecSql(log)?.sql ?? "doc_type"), "열이 없으면 벡터 SQL 에 유형 조건이 없다");
+      ok(!/doc_type/.test(kwSql(log)?.sql ?? "doc_type"), "열이 없으면 키워드 SQL 에도 없다");
+      eq(r.audit.doc_type?.applied, false, "열이 없으면 applied=false");
+      ok(/doc_type 열이 없다/.test(r.audit.doc_type?.reason ?? ""), "열이 없다는 이유가 audit 에 남는다");
+    }
+    {
+      // 유형 이름이 둘이면 거르지 않는다.
+      const { pool, log } = recording(true);
+      const r = await retrieve("회의록하고 제안서 둘 다 보여 줘", { pool, embedder: zero });
+      ok(Boolean(vecSql(log)) && !/doc_type/.test(vecSql(log)?.sql ?? ""), "유형이 확실하지 않으면 벡터 SQL 에 유형 조건이 없다");
+      eq([r.audit.doc_type?.type, r.audit.doc_type?.applied, r.audit.doc_type?.basis], [null, false, "ambiguous"], "audit: 확실하지 않음");
+      ok(!log.some((l) => /column_name = 'doc_type'/.test(l.sql)), "거를 유형이 없으면 열 확인도 하지 않는다");
+    }
+    env(undefined, "1");
+    {
+      // 스위치가 꺼져 있으면(기본값) 종전과 같다.
+      const { pool, log } = recording(true);
+      const r = await retrieve(Q, { pool, embedder: zero });
+      ok(Boolean(vecSql(log)) && !/doc_type/.test(vecSql(log)?.sql ?? ""), "기본값: 벡터 SQL 그대로");
+      ok(Boolean(kwSql(log)) && !/doc_type/.test(kwSql(log)?.sql ?? ""), "기본값: 키워드 SQL 그대로");
+      ok(!log.some((l) => /column_name = 'doc_type'/.test(l.sql)), "기본값: 열 확인도 하지 않는다");
+      eq(r.audit.doc_type, undefined, "기본값: audit 에 doc_type 이 없다");
+    }
+  } finally {
+    env(saved.f, saved.k);
+  }
+}
 
 // ── 사업자 문서 40건 — 데이터셋이 있을 때만 ──────────────────────────
 //
