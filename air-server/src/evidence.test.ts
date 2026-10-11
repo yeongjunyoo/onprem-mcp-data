@@ -170,6 +170,7 @@ const GUIDE: DocChunk[] = [
   const unit = r.audit.evidence_unit;
   ok(unit?.kind === "document" && unit.title === DOC && unit.sections === 3 && unit.chunks === 7 && unit.hits_in_document === 1, `감사에 근거 단위가 남는다 (got ${JSON.stringify(unit)})`);
   ok(r.audit.branch_errors.length === 0, "오류 없음");
+  ok(r.audit.candidates.vector === 2 && r.vector?.hits.length === 2, `레인의 후보 수와 결과는 검색이 찾은 상위 k 그대로다 (got ${r.audit.candidates.vector})`);
 
   const multi = await retrieve("Product-Z1 관련 장애 보고서들 정리해줘", { pool, embedder });
   ok(multi.audit.evidence_unit === undefined && multi.curated.kept.length === 2, "문서 여럿을 묻는 질문은 상위 k 그대로");

@@ -812,15 +812,16 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       ...(missing.length ? { missing } : {}),
     };
   })();
-  // 문서 레인만 도는 질문이 문서 하나를 가리키면(evidence.ts namedDocument) 상위 k 조각 대신 그 문서의 절을 문서 순서대로 싣는다.
-  // hybrid 는 다른 레인의 근거와 예산을 나눠 쓰므로 상위 k 그대로다. 문서를 읽다 실패하면 상위 k 를 두고 그 사실을 branch_errors 에 남긴다.
-  const vecBranch: Promise<{ result: VectorResult; unit?: EvidenceUnit; sections?: number[]; error?: string } | undefined> = wantVec
+  // 문서 레인만 도는 질문이 문서 하나를 가리키면(evidence.ts namedDocument) 상위 k 조각 대신 그 문서의 절을 문서 순서대로 싣는다(unitHits).
+  // 레인의 결과(result, audit.candidates.vector)는 검색이 찾은 상위 k 그대로다. hybrid 는 다른 레인의 근거와 예산을 나눠 쓰므로 상위 k 를 싣는다.
+  // 문서를 읽다 실패하면 상위 k 를 두고 그 사실을 branch_errors 에 남긴다.
+  const vecBranch: Promise<{ result: VectorResult; unit?: EvidenceUnit; unitHits?: VectorResult["hits"]; sections?: number[]; error?: string } | undefined> = wantVec
     ? (async () => {
         const result = await vectorSearch(pool, embedder, query, k);
         if (!result.ok || decision.route !== "semantic") return { result };
         try {
           const doc = await documentEvidence(pool, query, result.hits, budget);
-          return doc ? { result: { ...result, hits: doc.hits }, unit: doc.unit, sections: doc.units } : { result };
+          return doc ? { result, unit: doc.unit, unitHits: doc.hits, sections: doc.units } : { result };
         } catch (err) {
           return { result, error: describeError(err) };
         }
@@ -921,7 +922,7 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   if (vecResult?.ok) {
     const docUnit = vec?.unit?.kind === "document" ? vec.unit.title : undefined;
     lists.push(
-      vecResult.hits.map((h, i) => ({
+      (vec?.unitHits ?? vecResult.hits).map((h, i) => ({
         key: `documents#${h.id}`,
         value: {
           kind: "chunk" as const,
