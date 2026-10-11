@@ -71,7 +71,7 @@ npm run demo:ollama                                      # 도구 8종부터 장
 
 `npm run demo`는 네트워크 없이 돕니다. 도구 호출, 3레인 합의, 로컬 7B 답변, 장애 주입 후 응답까지 한 화면에서 확인할 수 있습니다.
 
-MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP_TRANSPORT=sse`로 전송 방식을 바꿀 수 있습니다.
+MCP 클라이언트에 붙이려면 stdio로 서버를 띄우면 됩니다. `MCP_TRANSPORT=sse`로 전송 방식을 바꿀 수 있고, `MCP_TRANSPORT=http`로 띄우면 세션 없는 Streamable HTTP(`POST http://localhost:3510/mcp`, 포트는 `MCP_PORT`)로 받습니다.
 
 클라이언트 설정 파일(예: Claude Desktop의 `claude_desktop_config.json`)에 그대로 넣으면 됩니다.
 `<저장소>`만 실제 경로로 바꾸세요.

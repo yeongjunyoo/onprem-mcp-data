@@ -49,7 +49,7 @@ card, dataset manifest, evaluation index, active profile, audit-record schema an
 list **without calling a tool**. Prompts expose the exact grounded-answer and NL2SQL templates
 the server itself runs — not a paraphrase; a unit test asserts full-text equality with the
 runtime builders. All three surfaces are exercised over the wire, not just enumerated:
-To attach an MCP client, run the server over stdio. `MCP_TRANSPORT=sse` switches the transport.
+To attach an MCP client, run the server over stdio. `MCP_TRANSPORT=sse` switches the transport, and `MCP_TRANSPORT=http` serves stateless Streamable HTTP at `POST http://localhost:3510/mcp` (port: `MCP_PORT`).
 
 Paste this into your client config (e.g. Claude Desktop's `claude_desktop_config.json`),
 replacing `<repo>` with the actual path.
