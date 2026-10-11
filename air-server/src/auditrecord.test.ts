@@ -257,6 +257,16 @@ function main() {
   ok(partial.missing_entities?.[0]?.query_entity === "서울물산" && partial.not_found === undefined, "레코드에 missing_entities 가 실리고 not_found 는 없다");
   ok(r1.missing_entities === undefined, "없는 개체가 없으면 필드도 없다");
 
+  // --- 11. 근거 단위(evidence.ts) ---
+  const docUnit = { kind: "document" as const, title: "[기술문서] Product-Z1 설치 가이드", named_by: ["식별자 Product-Z1"], sections: 3, sections_total: 3, chunks: 7, hits_in_document: 2 };
+  const withDoc = buildAuditRecord(base({ route: "semantic", audit: { ...base().audit, evidence_unit: docUnit } } as unknown as Partial<RetrieveResult>));
+  ok(JSON.stringify(withDoc.context.evidence_unit) === JSON.stringify(docUnit), "문서 단위가 context.evidence_unit 에 실린다");
+  ok(renderAudit(withDoc).includes("근거 단위: 문서 「[기술문서] Product-Z1 설치 가이드」 절 3/3개, 조각 7개"), "요약에도 문서 단위가 나온다");
+  const relUnit = { kind: "relation" as const, relations: ["BELONGS_TO"], seeds: ["영업팀"], edges: 10 };
+  const withRel = buildAuditRecord(base({ route: "graph", audit: { ...base().audit, evidence_unit: relUnit } } as unknown as Partial<RetrieveResult>));
+  ok(renderAudit(withRel).includes("근거 단위: 관계 BELONGS_TO 엣지 10건 (시드 영업팀)"), "요약에 관계 단위가 나온다");
+  ok(r1.context.evidence_unit === undefined && !renderAudit(r1).includes("근거 단위"), "단위가 없으면 필드도 줄도 없다");
+
   console.log(`\nauditrecord.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);
 }

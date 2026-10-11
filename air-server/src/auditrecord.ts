@@ -29,6 +29,7 @@
 //   3. 정책은 "거부했다"가 아니라 "무엇을, 왜"까지 적는다. 사유 없는 거부 기록은 감사에 쓸모가 없다.
 import type { AskResult, RetrieveResult } from "./pipeline.js";
 import type { GraphTruncation } from "./graph.js";
+import type { EvidenceUnit } from "./evidence.js";
 import type { NotFound } from "./notfound.js";
 import { sqlGatePolicy } from "./sqltrust.js";
 import { NO_TABLE } from "./nl2sql.js";
@@ -86,6 +87,8 @@ export interface AuditRecord {
     budget_tokens: number | null;
     tokens_used: number | null;
     broken_rows: number | null;
+    /** 컨텍스트를 이룬 근거 단위(evidence.ts). 질문이 가리킨 문서 하나의 절이거나 계획한 관계의 엣지 전부일 때만. */
+    evidence_unit?: EvidenceUnit;
   };
   policies: PolicyVerdict[];
   /** 답변이 있을 때만. 컨텍스트 밖 개체를 답이 언급했는지. fixed 는 생성 답의 근거 밖 이름을 목록에서 뺐거나(removed) 근거에 없다고
@@ -320,6 +323,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       tokens_used: curate?.tokens_used ?? null,
       // 큐레이터의 계약: 행 구조를 깨지 않는다. 0이 아니면 계약 위반이다.
       broken_rows: curate?.broken_rows ?? null,
+      ...(a.evidence_unit ? { evidence_unit: a.evidence_unit } : {}),
     },
     policies,
     branch_errors: a.branch_errors,
@@ -352,6 +356,9 @@ export function renderAudit(rec: AuditRecord): string {
     `후보: sql ${rec.retrieval.candidates.sql} / vector ${rec.retrieval.candidates.vector} / graph ${rec.retrieval.candidates.graph} -> 융합 ${rec.retrieval.candidates.fused}`,
     `컨텍스트: ${rec.context.items}항목 ${rec.context.chars}자`,
   ];
+  const u = rec.context.evidence_unit;
+  if (u?.kind === "document") lines.push(`근거 단위: 문서 「${u.title}」 절 ${u.sections}/${u.sections_total}개, 조각 ${u.chunks}개 (${u.named_by.join(", ")})`);
+  if (u?.kind === "relation") lines.push(`근거 단위: 관계 ${u.relations.join("+")} 엣지 ${u.edges}건 (시드 ${u.seeds.join(", ")})`);
   for (const p of rec.policies) lines.push(`정책 ${p.policy}: ${p.verdict} — ${p.detail}`);
   if (rec.grounding) {
     lines.push(

@@ -21,7 +21,8 @@
       "errors",
       "degraded",
       "notfound",
-      "scorecard"
+      "scorecard",
+      "evidence"
     ],
     "integration": [
       "db",

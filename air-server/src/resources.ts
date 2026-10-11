@@ -171,7 +171,10 @@ export function buildResources() {
                 + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT)이고, 이때 sql.text 는 null 이다(실행한 SQL 없음). "
                 + "sql.absent 는 질문이 묻는 항목(나이, 성별, 고객사의 직원 수 등)이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목 이름이다",
               fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
-              context: "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약)",
+              context:
+                "큐레이션 결과. broken_rows는 항상 0이어야 한다(큐레이터 계약). evidence_unit 은 컨텍스트가 근거 단위로 만들어졌을 때만 붙는다: "
+                + "{kind: document, title, named_by, sections, sections_total, chunks, hits_in_document}(질문이 식별자·날짜·종류로 문서 하나를 가리켜 상위 조각 대신 그 문서의 절을 문서 순서대로 실음) "
+                + "또는 {kind: relation, relations, seeds, edges}(계획한 관계가 시드에서 낸 엣지 전부를 한 단위로 실음). 큐레이터는 단위를 통째로 싣거나 통째로 뺀다",
               policies: "실제로 발동한 정책만 기록한다",
               grounding:
                 "답변이 컨텍스트 밖 개체를 만들었는지. **ask 처럼 답변을 만드는 경로에서만 붙는다** — retrieve 감사에는 없다",

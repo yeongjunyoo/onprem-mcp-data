@@ -75,6 +75,7 @@ import type { Candidate } from "./candidate.js";
 import { describeError } from "./errors.js";
 import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, type NotFound } from "./notfound.js";
 import { outsideContextMentions } from "./auditrecord.js";
+import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -129,6 +130,8 @@ export interface RetrieveResult {
     candidates: { sql: number; vector: number; graph: number; fused: number };
     branch_errors: string[];
     curate: ReturnType<typeof curateAudit>;
+    /** 답 단계가 받은 근거 단위(evidence.ts). 질문이 가리킨 문서 하나의 절 전부(document)이거나 계획한 관계의 엣지 전부(relation)일 때만. */
+    evidence_unit?: EvidenceUnit;
     // retrieve 도구는 audit 만 돌려주므로 두 상태를 여기에도 싣는다.
     not_found?: NotFound;
     missing_entities?: NotFound[];
@@ -170,6 +173,8 @@ export interface GraphLaneResult {
   missing?: NotFound[];
   /** missing 이 있을 때 답 단계와 탐색 계획이 쓰는 질문. 없는 개체가 든 마디를 뺐다. */
   answer_query?: string;
+  /** 계획한 관계가 시드에서 엣지를 냈을 때 그 근거 단위(evidence.ts). */
+  evidence?: Extract<EvidenceUnit, { kind: "relation" }>;
   error?: string;
 }
 
@@ -296,6 +301,11 @@ export async function graphLane(
   // 모아야 해서다(seedEdgeCandidates). 자리는 처음 펼친 한 홉 시드의 자리 그대로다.
   const edgeGroups: { edges: GraphEdge[]; seedId: number }[] = [];
   let edgesAt = -1;
+  // 계획이 관계를 정했으면 시드에서 그 관계로 닿은 엣지 전부가 한 근거 단위다(evidence.ts). 큐레이터는 그 단위를 통째로 싣거나 통째로
+  // 뺀다. 그 엣지가 있으면 이름으로 부른 시드의 해소 줄은 답 단계에 넘기지 않는다(아래 seedLines).
+  const unit = relTypes ? `relation:${relTypes.join("+")}` : undefined;
+  let plannedEdges = 0;
+  const plannedSeeds: string[] = [];
   for (const hit of expandFrom) {
     // 계획의 엣지가 이 시드의 타입에 닿지 않으면 온톨로지 타입 그래프로 경로를 맞춘다.
     // GRAPH_PATH_FIT=0 은 검증용 제거 스위치다(고치기 전 동작).
@@ -312,13 +322,17 @@ export async function graphLane(
     if (!exp.ok) return { seeds, edgeCount, strategy: "seeded", items, error: exp.error, ...partial };
     truncated ??= exp.truncated;
     edgeCount += exp.edges.length;
-    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId, walk.hops.length));
+    if (unit && exp.edges.length) {
+      plannedEdges += exp.edges.length;
+      plannedSeeds.push(hit.canonicalName);
+    }
+    if (walk && walk.hops.length > 1) items.push(...pathCandidates(exp.edges, hit.entityId, walk.hops.length).map((c) => (unit ? { ...c, unit } : c)));
     else {
       if (edgesAt < 0) edgesAt = items.length;
       edgeGroups.push({ edges: exp.edges, seedId: hit.entityId });
     }
   }
-  if (edgesAt >= 0) items.splice(edgesAt, 0, ...seedEdgeCandidates(edgeGroups));
+  if (edgesAt >= 0) items.splice(edgesAt, 0, ...seedEdgeCandidates(edgeGroups).map((c) => (unit ? { ...c, unit } : c)));
 
   // Relation-level scan: needed when the question names no node (aggregate /
   // status-filtered listings), and harmless as an addition when it names both.
@@ -386,7 +400,11 @@ export async function graphLane(
   // 펼친 시드만 싣는다. 점수가 낮아 펼치지 않은 시드(「영업」이라는 낱말로 걸린 직원 넷)는 사실 없이
   // 이름만 늘어서 답 줄을 가렸다(홀드아웃3 #47: 「김준혁의 담당 고객사: Client-K」가 첫 줄인데 「영업
   // 담당자들에게 말 걸면 됩니다」). 감사 레코드의 seeds 에는 그대로 남는다. GRAPH_WEAK_SEEDS=1 이 옛 동작.
-  items.push(...ontologyCandidates(process.env.GRAPH_WEAK_SEEDS === "1" || !expandFrom.length ? onto.hits : expandFrom));
+  // 계획한 관계의 엣지가 있으면 그 엣지가 근거 단위다(위 unit). 질문이 이름으로 부른 시드의 줄(「Client-G — 별칭/이름 매칭 'Client-G'」)은
+  // 그 단위에 보탤 사실이 없어 싣지 않는다. 별칭으로 걸린 시드의 줄은 싣는다: 별칭에는 직급, 지역, 상태가 들어 있어 그 줄이 「왜 이 사람인가」를
+  // 말한다. 「이사 직급 달고 계신 분들 명단이랑 소속 부서」는 시드 셋이 '이사'로 걸린 줄을 빼자 소속 엣지 셋 가운데 둘만 답했다(홀드아웃4 #19).
+  const seedLines = process.env.GRAPH_WEAK_SEEDS === "1" || !expandFrom.length ? onto.hits : expandFrom;
+  items.push(...(plannedEdges ? ontologyCandidates(seedLines.filter((h) => h.via === "alias")).map((c) => ({ ...c, unit })) : ontologyCandidates(seedLines)));
 
   const strategy: GraphLaneResult["strategy"] =
     expandFrom.length && needScan
@@ -408,6 +426,7 @@ export async function graphLane(
     items,
     ...(truncated ? { truncated } : {}),
     ...(fitted.length ? { fitted } : {}),
+    ...(plannedEdges ? { evidence: { kind: "relation" as const, relations: relTypes!, seeds: plannedSeeds, edges: plannedEdges } } : {}),
     ...partial,
   };
 }
@@ -780,8 +799,19 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       ...(missing.length ? { missing } : {}),
     };
   })();
-  const vecBranch: Promise<VectorResult | undefined> = wantVec
-    ? vectorSearch(pool, embedder, query, k)
+  // 문서 레인만 도는 질문이 문서 하나를 가리키면(evidence.ts namedDocument) 상위 k 조각 대신 그 문서의 절을 문서 순서대로 싣는다.
+  // hybrid 는 다른 레인의 근거와 예산을 나눠 쓰므로 상위 k 그대로다. 문서를 읽다 실패하면 상위 k 를 두고 그 사실을 branch_errors 에 남긴다.
+  const vecBranch: Promise<{ result: VectorResult; unit?: EvidenceUnit; sections?: number[]; error?: string } | undefined> = wantVec
+    ? (async () => {
+        const result = await vectorSearch(pool, embedder, query, k);
+        if (!result.ok || decision.route !== "semantic") return { result };
+        try {
+          const doc = await documentEvidence(pool, query, result.hits, budget);
+          return doc ? { result: { ...result, hits: doc.hits }, unit: doc.unit, sections: doc.units } : { result };
+        } catch (err) {
+          return { result, error: describeError(err) };
+        }
+      })()
     : Promise.resolve(undefined);
   // The graph lane (L5): resolve the query's entities, then BFS their typed edges.
   // Runs concurrently with the other branches and is isolated the same way.
@@ -824,7 +854,8 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const sql: RetrieveResult["sql"] = sqlSettled.status === "fulfilled" ? sqlSettled.value : { text: null };
   const sqlText = sql.text;
   const sqlResult = sql.result;
-  const vecResult = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
+  const vec = vecSettled.status === "fulfilled" ? vecSettled.value : undefined;
+  const vecResult = vec?.result;
   const graphLaneOut = graphSettled.status === "fulfilled" ? graphSettled.value : undefined;
   const graphResult = graphLaneOut && decision.route === "hybrid" ? hybridGraph(graphLaneOut) : graphLaneOut;
   const kwResult = kwSettled.status === "fulfilled" ? kwSettled.value : undefined;
@@ -849,6 +880,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   if (vecResult && !vecResult.ok) {
     branchErrors.push(`vector: ${vecResult.error ?? "unknown"}`);
   }
+  if (vec?.error) branchErrors.push(`vector: document unit: ${vec.error}`);
   if (docSettled.status === "rejected") branchErrors.push(`documents: ${String(docSettled.reason)}`);
   if (docResult && !docResult.ok) branchErrors.push(`documents: ${docResult.error ?? "unknown"}`);
   if (pairSettled.status === "rejected") branchErrors.push(`graph: ${String(pairSettled.reason)}`);
@@ -874,10 +906,16 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     listLanes.push("sql");
   }
   if (vecResult?.ok) {
+    const docUnit = vec?.unit?.kind === "document" ? vec.unit.title : undefined;
     lists.push(
-      vecResult.hits.map((h) => ({
+      vecResult.hits.map((h, i) => ({
         key: `documents#${h.id}`,
-        value: { kind: "chunk", text: `${h.title}: ${h.body}`, source: `documents#${h.id}` },
+        value: {
+          kind: "chunk" as const,
+          text: `${h.title}: ${h.body}`,
+          source: `documents#${h.id}`,
+          ...(docUnit !== undefined && vec?.sections ? { unit: `document:${docUnit}#${vec.sections[i]}` } : {}),
+        },
       })),
     );
     listLanes.push("vector");
@@ -897,7 +935,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     lists.push(
       graphResult.items.map((it, i) => ({
         key: it.canonicalKey,
-        value: { kind: "chunk" as const, text: it.text, source: `graph#${i}` },
+        value: { kind: "chunk" as const, text: it.text, source: `graph#${i}`, ...(it.unit ? { unit: it.unit } : {}) },
       })),
     );
     listLanes.push("graph");
@@ -927,6 +965,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   // --- RRF merge -> L4 curation ---
   const fused = rrfMerge(lists);
   const curated = curate(query, fused.map((f) => f.value), budget);
+  const evidenceUnit: EvidenceUnit | undefined = vec?.unit ?? graphResult?.evidence;
 
   return {
     query,
@@ -962,6 +1001,7 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
       },
       branch_errors: branchErrors,
       curate: curateAudit(curated),
+      ...(evidenceUnit ? { evidence_unit: evidenceUnit } : {}),
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
       ...(graphResult?.missing?.length ? { missing_entities: graphResult.missing } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
@@ -1816,22 +1856,12 @@ export function textListAnswer(r: RetrieveResult, query: string): string | undef
   return `조회 결과 ${total}건입니다.\n${lines.join("\n")}${rest > 0 ? `\n- 외 ${rest}건` : ""}`;
 }
 
-/** 문서 전체나 최근을 묻는 말. 복수 「들」과 모든, 전체, 전부는 문서 낱말에 붙을 때만 본다(「보고서들」, 「모든 회의록」). 「설치
- * 단계들」, 「설치 가이드 전체 절차」, 「보고서를 만들 때」는 한 문서 안의 질문이다(규칙 오탐 검토 2026-10-08). 「정리」는 정리해
- * 달라는 요청일 때만(「문서로 정리된 게 있나?」는 아니다). */
-const ALL_OR_RECENT =
-  /(?:문서|보고서|회의록|매뉴얼|가이드|제안서|자료|기록|사례|장애|이슈)들(?=[은는이가을를의에과와도만]|\s|$|[?？!.,])|(?:모든|전부|전체|여러)\s*(?:문서|보고서|회의록|매뉴얼|가이드|제안서|자료|기록|사례|장애|이슈)|정리\s*(?:해|하여|좀)|요즘|최근/;
-/** 문서 사이를 견주는 최상급(「장애 복구에 가장 오래 걸린 장애는?」). 상위 조각 다섯으로는 모든 문서를 견줄 수 없는데 고지 없이 두 번째로
- * 짧은 「2시간」을 답했다(랜덤 테스트 사전 점검 5차 P11). 문서 낱말과 함께일 때만 본다. */
-const DOC_SUPERLATIVE = /(?:가장|제일)\s*(?:길|오래|많|짧|적)/;
-const DOC_WORD = /장애|보고서|회의|문서|매뉴얼/;
-
 /** 문서 레인 답이 검색 상위 조각만 본 것을 밝히는 줄. 「장애 보고서들에 나온 장애 원인을 정리해줘」에 세 유형 가운데 하나만,
- * 「요즘 서버 장애 난 거 원인이 뭐였어?」에 최근이 아닌 장애의 원인을 답했다(랜덤 테스트 사전 점검 3차 Q10). 질문이 전체, 정리,
- * 최근, 문서 사이의 최상급을 물을 때만 붙인다. */
+ * 「요즘 서버 장애 난 거 원인이 뭐였어?」에 최근이 아닌 장애의 원인을 답했다(랜덤 테스트 사전 점검 3차 Q10). 「장애 복구에 가장 오래 걸린
+ * 장애는?」에는 고지 없이 두 번째로 짧은 「2시간」을 답했다(5차 P11). 질문이 문서 여럿을 훑거나 견줄 때만(evidence.ts asksAcrossDocuments)
+ * 붙인다. 「설치 단계들」, 「설치 가이드 전체 절차」, 「보고서를 만들 때」는 한 문서 안의 질문이다(규칙 오탐 검토 2026-10-08). */
 export function documentScopeNote(r: RetrieveResult, query: string): string | undefined {
-  const scope = ALL_OR_RECENT.test(query) || (DOC_SUPERLATIVE.test(query) && DOC_WORD.test(query));
-  if (r.route !== "semantic" || r.documents || !r.vector?.ok || !scope) return undefined;
+  if (r.route !== "semantic" || r.documents || !r.vector?.ok || !asksAcrossDocuments(query)) return undefined;
   const n = r.curated.kept.filter((it) => it.source.startsWith("documents#")).length;
   if (!n) return undefined;
   const recent = /요즘|최근/.test(query);
