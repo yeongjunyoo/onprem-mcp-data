@@ -27,9 +27,10 @@ const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
 
 // 직접 의존성의 사용 목적 — 사람이 유지하는 유일한 수기 항목.
 const PURPOSE = {
-  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 도구 등록, transport, 라이프사이클 관리',
-  '@modelcontextprotocol/sdk': 'MCP 공식 TypeScript SDK. 프롬프트 인자 검증(promptargs.ts)이 직접 쓰고 air 도 이 위에서 동작',
+  '@airmcp-dev/core': 'MCP 서버 프레임워크(air). 프로토콜 엔진, 도구 등록, 입력 검증, stdio/SSE/HTTP 전송, 라이프사이클 관리. 상류 수정 패치를 얹는다(docs/air-patch.md)',
   pg: 'PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링',
+  zod: '도구 입력과 route 출력의 스키마(air 가 검증과 JSON Schema 변환에 쓴다)',
+  'patch-package': '설치 도구(개발 전용). npm ci 때 air-server/patches 를 @airmcp-dev/core 에 댄다',
   typescript: '빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일',
   '@types/node': '타입 정의(개발 전용)',
   '@types/pg': '타입 정의(개발 전용)',
@@ -74,7 +75,8 @@ const walk = (dir, scoped = false) => {
 };
 function normalizeRepo(url, name) {
   if (!url) return `https://www.npmjs.com/package/${name}`;
-  let u = url.replace(/^git\+/, '').replace(/^git:\/\//, 'https://').replace(/^git@github\.com:/, 'https://github.com/').replace(/^ssh:\/\/git@/, 'https://').replace(/\.git$/, '');
+  // npm 의 단축 표기 `github:owner/repo` 는 앞에 https://github.com/ 을 붙이면 죽은 링크가 된다(patch-package, yaml).
+  let u = url.replace(/^github:/, 'https://github.com/').replace(/^git\+/, '').replace(/^git:\/\//, 'https://').replace(/^git@github\.com:/, 'https://github.com/').replace(/^ssh:\/\/git@/, 'https://').replace(/\.git$/, '');
   if (!u.startsWith('http')) u = `https://github.com/${u}`;
   // 2026-08-18: 제출 docx 의 URL 112건을 실제로 열어 보니 **하나가 죽어 있었다** -
   // `https://git@github.com/EventSource/eventsource`. npm 필드가
