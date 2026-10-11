@@ -18,7 +18,8 @@
 // 유형마다 semroute.ts 의 유형 정의와 기존 표현 다섯, 데이터셋(스키마, 문서, 그래프)만 보고 썼다. dev 질문
 // (sponsor30, holdout 1~3)과 결과 파일은 이 파일을 커밋한 뒤에 연다. 말투는 사내 메신저를 섞는다: 존댓말과 반말,
 // 줄임말, 조사 생략, 어순 바꿈, 아주 짧은 말과 맥락이 앞에 오는 긴 말, 오타 몇 개, 속어 동사(띄우다, 만지다, 돌리다).
-// 고유명과 하루 날짜는 maskEntities 와 같은 자리표시로 쓴다.
+// 고유명과 하루 날짜는 maskEntities 와 같은 자리표시로 쓴다. 처음 쓴 283개 가운데 dev 문항을 거의 베낀 것으로 걸린
+// 다섯은 뺐다(cli/companyx-anchor-audit.ts, eval/results/companyx-anchor-paraphrase.json 의 removed).
 import type { Lane } from "./router.js";
 
 export const PARAPHRASE_ANCHORS: Record<Lane, Record<string, string[]>> = {
@@ -78,7 +79,6 @@ export const PARAPHRASE_ANCHORS: Record<Lane, Record<string, string[]>> = {
       "전체 직원 수 알려주세요",
       "{부서} 몇 명이에요",
       "직급별로 사람 몇 명씩",
-      "평균 연봉 얼마임",
       "차장 연봉 평균이랑 최고치",
       "22년 이후 입사자 수",
       "연봉 총합 부서별로 묶어서 보여줄래",
@@ -324,8 +324,6 @@ export const PARAPHRASE_ANCHORS: Record<Lane, Record<string, string[]>> = {
       "{직원}님 어디 소속이세요",
       "{직원} 팀 어디임",
       "{부서} 구성원 알려줘요",
-      "{부서} 소속 직원들",
-      "{직원}이랑 같은 팀 사람",
       "{부서} 멤버 리스트",
       "{직원} 부서명",
       "{직원}한테 업무 협조 요청하려는데 어느 부서 분인지 먼저 알려줄래요",
@@ -355,7 +353,6 @@ export const PARAPHRASE_ANCHORS: Record<Lane, Record<string, string[]>> = {
       "{직원}님 담당 플젝 뭐예요",
       "{프로젝트} 책임자 누구",
       "{프로젝트} 리드 누가 해",
-      "{직원}이 이끄는 프로젝트 목록",
       "{직원} 요새 무슨 프로젝트 돌리고 있어",
       "{프로젝트} 담당 매니저 이름",
       "프로젝트 제일 많이 맡은 사람",
@@ -364,7 +361,6 @@ export const PARAPHRASE_ANCHORS: Record<Lane, Record<string, string[]>> = {
     HAS_PROJECT: [
       "{고객사} 건으로 돌아가는 플젝 있어요?",
       "{고객사}에서 발주한 프로젝트",
-      "{프로젝트} 고객사 어디야",
       "{프로젝트} 발주처",
       "{고객사} 프로젝트 몇 개 있음",
       "{고객사}랑 하고 있는 구축 사업 뭐뭐",

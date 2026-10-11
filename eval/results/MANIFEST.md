@@ -16,7 +16,7 @@
 
 | 파일 | 크기 | sha256(16) | 자체 생성시각 |
 |---|---:|---|---|
-| `companyx-anchor-paraphrase.json` | 277,310 | `c556b6515ef6b27a` | 2026-10-11T14:53:59 |
+| `companyx-anchor-paraphrase.json` | 277,464 | `1a134246ee2f3e9c` | 2026-10-11T15:04:20 |
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
 | `companyx-audit.json` | 80,374 | `7886754623b0598f` | 2026-10-01T17:18:46 |

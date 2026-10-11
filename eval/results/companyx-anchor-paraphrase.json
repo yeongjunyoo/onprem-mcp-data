@@ -63,6 +63,11 @@
       "{프로젝트} 고객사 어디야"
     ]
   },
+  "consistency": {
+    "removed_by_audit_matches_thresholds": true,
+    "cleaned_is_ROUTE_ANCHORS": true,
+    "augmented_is_INSTALLED_ANCHORS": true
+  },
   "audit": {
     "pairs": 68700,
     "distribution": {
@@ -582,22 +587,22 @@
         "source": "current",
         "lane": "knowledge_graph",
         "type": "HEAD_IS",
-        "anchor": "{부서} 팀장 누구야",
-        "id": "sponsor30#27",
-        "q_masked": "{부서} 팀장은 누구야?",
-        "cos": 0.9828,
-        "dice": 0.7273,
+        "anchor": "{부서} 누가 이끌어",
+        "id": "h3-60",
+        "q_masked": "{고객사} 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
+        "cos": 0.699,
+        "dice": 0.2963,
         "containment": 0.8
       },
       {
         "source": "current",
         "lane": "knowledge_graph",
         "type": "HEAD_IS",
-        "anchor": "{부서} 누가 이끌어",
-        "id": "h3-60",
-        "q_masked": "{고객사} 프로젝트 각각 누가 이끌어? 프로젝트랑 사람 짝 맞춰줘",
-        "cos": 0.699,
-        "dice": 0.2963,
+        "anchor": "{부서} 팀장 누구야",
+        "id": "sponsor30#27",
+        "q_masked": "{부서} 팀장은 누구야?",
+        "cos": 0.9828,
+        "dice": 0.7273,
         "containment": 0.8
       },
       {
@@ -8585,5 +8590,5 @@
     }
   },
   "embed_calls": 599,
-  "generated_at": "2026-10-11T14:53:59.813Z"
+  "generated_at": "2026-10-11T15:04:20.215Z"
 }

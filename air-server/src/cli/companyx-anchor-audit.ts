@@ -24,6 +24,9 @@
 //    떨어지지 않아야 후보다.
 //
 // AUDIT_ONLY=1 이면 1만 하고 끝난다. 문턱은 분포만 보고(라우터 정확도를 보기 전에) 정했다.
+// 감사가 뺀 앵커는 표에서 지웠고 REMOVED_BY_AUDIT 에 남긴다. 「기존」은 표에 그것을 되돌린 세트라 지금 돌려도 같은 비교가
+// 나온다. 문턱이 다시 고른 것이 REMOVED_BY_AUDIT 와 다르거나 정제, 증강이 지금 표(ROUTE_ANCHORS, INSTALLED_ANCHORS)와
+// 다르면 실패로 끝난다.
 // 사용: npm run companyx:anchors   (EMBEDDER=ollama 필요)
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -32,7 +35,7 @@ import { fileURLToPath } from "node:url";
 
 import { requireCompanyxProfile, loadGraph } from "../companyx.js";
 import { route, installOntology, maskEntities, RULE_MIN_MARGIN, LANES, type Lane } from "../router.js";
-import { routeQuery, semanticVerdict, installSemanticRouter, ROUTE_ANCHORS, SEMANTIC_MIN_MARGIN } from "../semroute.js";
+import { routeQuery, semanticVerdict, installSemanticRouter, ROUTE_ANCHORS, INSTALLED_ANCHORS, SEMANTIC_MIN_MARGIN } from "../semroute.js";
 import { PARAPHRASE_ANCHORS } from "../semparaphrase.js";
 import { getEmbedder, type Embedder } from "../embedder.js";
 
@@ -66,6 +69,45 @@ const NEAR_COPY = {
 
 /** semroute.ts 머리 주석이 적은 홀드아웃 2차 오답 낱말. 이 낱말이 든 문항에 맞춰 쓴 앵커가 문턱에 걸리는지로 문턱을 검증한다. */
 const DOCUMENTED_HOLDOUT2_WORDS = ["깔려 있는 데", "끼고 있는 사람", "몇 군데", "인원수", "세팅", "사고 기록"];
+
+/** 감사가 거의 베낀 것으로 걸러 표에서 지운 앵커(1b1873e 의 실측). current 는 ROUTE_ANCHORS, paraphrase 는 semparaphrase.ts 에 있던 것이다. */
+const REMOVED_BY_AUDIT: { source: "current" | "paraphrase"; lane: Lane; type: string; text: string }[] = [
+  { source: "current", lane: "knowledge_graph", type: "BELONGS_TO", text: "{직원} 소속이 어디야" },
+  { source: "current", lane: "knowledge_graph", type: "HEAD_IS", text: "{부서} 팀장 누구야" },
+  { source: "current", lane: "knowledge_graph", type: "HEAD_IS", text: "{부서} 윗선이 누구야" },
+  { source: "current", lane: "knowledge_graph", type: "LEADS", text: "{직원} 요즘 뭐 해" },
+  { source: "current", lane: "knowledge_graph", type: "MANAGES_ACCOUNT", text: "{고객사} 창구가 누구" },
+  { source: "current", lane: "knowledge_graph", type: "MANAGES_ACCOUNT", text: "고객 제일 많이 맡은 사람" },
+  { source: "current", lane: "knowledge_graph", type: "REPORTED_ISSUE", text: "{제품} 말썽 많아?" },
+  { source: "current", lane: "knowledge_graph", type: "USES", text: "{제품} 쓰는 고객사 어디어디야" },
+  { source: "current", lane: "knowledge_graph", type: "USES", text: "{제품} 깔린 데가 어디야" },
+  { source: "current", lane: "nl2sql", type: "client_count", text: "고객사 몇 군데야" },
+  { source: "current", lane: "nl2sql", type: "client_lookup", text: "{고객사} 연락처 이름이랑 메일 줘" },
+  { source: "current", lane: "nl2sql", type: "contract", text: "계약 금액 큰 순으로 보여줘" },
+  { source: "current", lane: "nl2sql", type: "employee_stats", text: "퇴사자 빼고 인원수" },
+  { source: "current", lane: "nl2sql", type: "employee_stats", text: "부서별 평균 연봉" },
+  { source: "current", lane: "nl2sql", type: "period_sales", text: "2025년 3분기에 얼마 벌었어" },
+  { source: "current", lane: "nl2sql", type: "product_sales", text: "{제품} 판매액 총 얼마" },
+  { source: "current", lane: "nl2sql", type: "project_lookup", text: "{프로젝트} 예산 얼마야" },
+  { source: "current", lane: "nl2sql", type: "project_lookup", text: "보류 중인 프로젝트 이름만" },
+  { source: "current", lane: "nl2sql", type: "project_stats", text: "프로젝트 가장 많은 고객사" },
+  { source: "current", lane: "nl2sql", type: "region_sales", text: "지역별로 매출 얼마씩 나왔어" },
+  { source: "current", lane: "nl2sql", type: "ticket_lookup", text: "{고객사} 티켓 언제 접수되고 언제 해결됐어" },
+  { source: "current", lane: "nl2sql", type: "ticket_stats", text: "우선순위별 티켓 건수" },
+  { source: "current", lane: "nl2sql", type: "ticket_stats", text: "Critical 티켓 아직 안 닫힌 거" },
+  { source: "current", lane: "nl2sql", type: "ticket_stats", text: "미해결 티켓 몇 건" },
+  { source: "current", lane: "vector_search", type: "api_reference", text: "API 인증 어떻게 해" },
+  { source: "current", lane: "vector_search", type: "incident_cause", text: "네트워크 문제로 생긴 사고 기록" },
+  { source: "current", lane: "vector_search", type: "install_setup", text: "개발 환경 세팅하는 법" },
+  { source: "current", lane: "vector_search", type: "operations", text: "모니터링 알람 기준 어떻게 잡았어" },
+  { source: "current", lane: "vector_search", type: "policy", text: "개인정보 다룰 때 지켜야 할 원칙" },
+  { source: "current", lane: "vector_search", type: "policy", text: "권한 요청 절차" },
+  { source: "paraphrase", lane: "knowledge_graph", type: "BELONGS_TO", text: "{부서} 소속 직원들" },
+  { source: "paraphrase", lane: "knowledge_graph", type: "BELONGS_TO", text: "{직원}이랑 같은 팀 사람" },
+  { source: "paraphrase", lane: "knowledge_graph", type: "HAS_PROJECT", text: "{프로젝트} 고객사 어디야" },
+  { source: "paraphrase", lane: "knowledge_graph", type: "LEADS", text: "{직원}이 이끄는 프로젝트 목록" },
+  { source: "paraphrase", lane: "nl2sql", type: "employee_stats", text: "평균 연봉 얼마임" },
+];
 
 interface DevItem {
   id: string;
@@ -172,6 +214,18 @@ function merge(a: AnchorSet, b: AnchorSet): AnchorSet {
   return Object.fromEntries(
     LANES.map((lane) => [lane, Object.fromEntries(Object.keys(a[lane]).map((t) => [t, [...a[lane][t], ...(b[lane][t] ?? [])]]))]),
   ) as AnchorSet;
+}
+
+/** 감사가 지운 앵커를 제 유형 끝에 되돌린다(감사 전 세트). */
+function restore(set: AnchorSet, source: AnchorRef["source"]): AnchorSet {
+  const out = merge(set, Object.fromEntries(LANES.map((l) => [l, {}])) as unknown as AnchorSet);
+  for (const r of REMOVED_BY_AUDIT) if (r.source === source) out[r.lane][r.type] = [...out[r.lane][r.type], r.text];
+  return out;
+}
+
+function sameSet(a: AnchorSet, b: AnchorSet): boolean {
+  const key = (s: AnchorSet) => JSON.stringify(LANES.map((l) => Object.keys(s[l]).sort().map((t) => [t, [...s[l][t]].sort()])));
+  return key(a) === key(b);
 }
 
 function quantiles(xs: number[]): Record<string, number> {
@@ -296,7 +350,9 @@ async function main() {
   }
 
   // ── 1. 거의 베낀 앵커 ──
-  const anchors = [...flatten(ROUTE_ANCHORS, "current"), ...flatten(PARAPHRASE_ANCHORS, "paraphrase")];
+  const baseCurrent = restore(ROUTE_ANCHORS, "current");
+  const baseParaphrase = restore(PARAPHRASE_ANCHORS, "paraphrase");
+  const anchors = [...flatten(baseCurrent, "current"), ...flatten(baseParaphrase, "paraphrase")];
   const qVec = await Promise.all(items.map((it) => embedder.embed(it.masked)));
   const qGram = items.map((it) => bigrams(charNorm(it.masked)));
   const pairs: { source: string; lane: Lane; type: string; anchor: string; id: string; q_masked: string; cos: number; dice: number; containment: number }[] = [];
@@ -380,9 +436,15 @@ async function main() {
   // ── 2. 세 세트 실측 ──
   const dropCurrent = new Set(near.filter((p) => p.source === "current").map((p) => p.anchor));
   const dropNew = new Set(near.filter((p) => p.source === "paraphrase").map((p) => p.anchor));
-  const cleaned = without(ROUTE_ANCHORS, dropCurrent);
-  const augmented = merge(cleaned, without(PARAPHRASE_ANCHORS, dropNew));
-  const current = await measure("current", ROUTE_ANCHORS, items, embedder);
+  const cleaned = without(baseCurrent, dropCurrent);
+  const augmented = merge(cleaned, without(baseParaphrase, dropNew));
+  const removedNow = new Set(REMOVED_BY_AUDIT.map((r) => r.text));
+  const consistency = {
+    removed_by_audit_matches_thresholds: removedNow.size === dropCurrent.size + dropNew.size && [...dropCurrent, ...dropNew].every((t) => removedNow.has(t)),
+    cleaned_is_ROUTE_ANCHORS: sameSet(cleaned, ROUTE_ANCHORS),
+    augmented_is_INSTALLED_ANCHORS: sameSet(augmented, INSTALLED_ANCHORS),
+  };
+  const current = await measure("current", baseCurrent, items, embedder);
   const cleanedM = await measure("cleaned", cleaned, items, embedder);
   const augmentedM = await measure("augmented", augmented, items, embedder);
 
@@ -403,6 +465,7 @@ async function main() {
     rule: "augmented 가 후보가 되려면 deployed 합계가 cleaned 이상이고 어느 세트도 cleaned 보다 1문항 넘게 떨어지지 않아야 한다(사전 등록).",
     decision: { candidate, augmented_minus_cleaned_by_set: drops, augmented_minus_cleaned_total: augmentedM.deployed - cleanedM.deployed },
     removed: { current: [...dropCurrent], paraphrase: [...dropNew] },
+    consistency,
     audit,
     variants: { current, cleaned: cleanedM, augmented: augmentedM },
     embed_calls: embedder.calls,
@@ -410,6 +473,10 @@ async function main() {
   };
   await writeFile(outPath, JSON.stringify(out, null, 2) + "\n");
   console.log(`decision: candidate=${candidate}  augmented-cleaned=${out.decision.augmented_minus_cleaned_total}  by set ${JSON.stringify(drops)}`);
+  if (!Object.values(consistency).every(Boolean)) {
+    console.error(`FAIL: 감사가 고른 세트가 지금 앵커 표와 다르다 ${JSON.stringify(consistency)}`);
+    process.exit(1);
+  }
 }
 
 main().catch((e) => {
