@@ -114,8 +114,8 @@ async function startStdio(serverJs: string) {
   };
 }
 
-/** 같은 서버 정의를 air 의 Streamable HTTP 전송(MCP_TRANSPORT=http)으로 빈 포트에 띄운다. */
-async function startHttp(serverJs: string, vars: Record<string, string>) {
+/** 같은 서버 정의를 air 의 Streamable HTTP(MCP_TRANSPORT=http)나 HTTP+SSE(MCP_TRANSPORT=sse) 전송으로 빈 포트에 띄운다. */
+async function startHttp(serverJs: string, vars: Record<string, string>, transport: "http" | "sse" = "http") {
   const port = await new Promise<number>((resolve) => {
     const probe = createServer().listen(0, "127.0.0.1", () => {
       const { port } = probe.address() as { port: number };
@@ -123,7 +123,7 @@ async function startHttp(serverJs: string, vars: Record<string, string>) {
     });
   });
   const child = spawn(process.execPath, ["--input-type=module", "-e", `const { buildServer } = await import(${serverJs}); await buildServer().start();`], {
-    env: childEnv({ ...vars, MCP_TRANSPORT: "http", MCP_PORT: String(port) }),
+    env: childEnv({ ...vars, MCP_TRANSPORT: transport, MCP_PORT: String(port) }),
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -133,7 +133,7 @@ async function startHttp(serverJs: string, vars: Record<string, string>) {
   for (let i = 0; i < 300 && !/listening on port/.test(log) && child.exitCode === null; i++) await sleep(100);
   if (!/listening on port/.test(log)) {
     child.kill();
-    throw new Error(`http 서버가 뜨지 않았다:\n${log.slice(-600)}`);
+    throw new Error(`${transport} 서버가 뜨지 않았다:\n${log.slice(-600)}`);
   }
   // fetch 대신 node:http 로 보낸다. Origin 같은 머리를 클라이언트 라이브러리가 바꾸지 않고 그대로 싣는다.
   const request = (method: string, path: string, body?: Json, headers: Record<string, string> = {}) =>
@@ -150,9 +150,29 @@ async function startHttp(serverJs: string, vars: Record<string, string>) {
       req.on("error", reject);
       req.end(body === undefined ? undefined : JSON.stringify(body));
     });
+  // SSE 스트림(GET /sse)은 끝나지 않는다. 200 이면 endpoint 이벤트가 올 때까지, 아니면 응답 끝까지 읽고 연결을 닫는다.
+  const openStream = (path: string, headers: Record<string, string> = {}) =>
+    new Promise<{ status: number; endpoint?: string; body: string }>((resolve, reject) => {
+      const req = httpRequest({ host: "127.0.0.1", port, method: "GET", path, headers: { accept: "text/event-stream", ...headers } }, (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (d) => {
+          text += d;
+          const endpoint = /^event: endpoint\ndata: (.+)$/m.exec(text)?.[1];
+          if (res.statusCode === 200 && endpoint) {
+            resolve({ status: 200, endpoint, body: text });
+            req.destroy();
+          }
+        });
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text }));
+      });
+      req.on("error", (e) => (req.destroyed ? undefined : reject(e)));
+      req.end();
+    });
   return {
     log: () => log,
     request,
+    openStream,
     post: (body: Json, headers: Record<string, string> = {}) => request("POST", "/mcp", body, headers),
     async close() {
       child.kill();
@@ -372,7 +392,10 @@ async function main() {
     ok(resolveTransport().type === "stdio", "stdio 명시");
 
     process.env.MCP_TRANSPORT = "sse";
-    ok(JSON.stringify(resolveTransport()) === JSON.stringify({ type: "sse", port: 3510, host: "127.0.0.1" }), "sse 기본 포트 3510, 루프백에만 바인딩");
+    ok(
+      JSON.stringify(resolveTransport()) === JSON.stringify({ type: "sse", port: 3510, host: "127.0.0.1", allowedOrigins: [] }),
+      `sse 기본 포트 3510, 루프백에만 바인딩하고 루프백 밖 Origin 은 받지 않는다 (got ${JSON.stringify(resolveTransport())})`,
+    );
 
     process.env.MCP_PORT = "3600";
     const sse2 = resolveTransport();
@@ -522,7 +545,7 @@ async function main() {
   // --- MCP stdio: 서버 정의를 air 의 stdio 전송에 그대로 얹고 클라이언트처럼 줄 단위 JSON-RPC 로 묻는다 ---
   // 클라이언트가 받는 응답 그 자체를 잰다(air 엔진, 입력 검증 미들웨어, 플러그인 체인, 전송). DB 와 모델이 필요 없는 요청만
   // 보낸다: 목록, 프롬프트, 리소스, 그리고 핸들러 앞의 입력 검증에서 막히는 호출. 여기 걸린 air 의 동작 가운데 여섯은
-  // air-server/patches 의 패치가 고친 것이다(docs/air-patch.md). 패치가 빠지면 이 절이 실패한다.
+  // air-server/vendor 의 패치 얹은 air 가 고친 것이다(docs/air-patch.md). 패치가 빠지면 이 절이 실패한다.
   const SERVER_JS = JSON.stringify(new URL("./server.js", import.meta.url).href);
   const stdio = await startStdio(SERVER_JS);
   const PROTOCOL = "2025-11-25";
@@ -566,15 +589,21 @@ async function main() {
       `audit.explain 의 format 스키마 (got ${JSON.stringify(tool("audit.explain")?.inputSchema.properties.format)})`,
     );
     const out = tool("route")?.outputSchema?.properties ?? {};
+    // nullable 칸은 anyOf: [object, null] 이다. 타입 배열(type: ["object", "null"])은 단일 type 만 받는 클라이언트에 덜 이식적이라
+    // MCP Inspector 2.8.0 의 tools/list --strict 가 경고로 센다(TC-028 의 경고 0).
+    const nullableObject = (p: Json | undefined) =>
+      Array.isArray(p?.anyOf) && p.anyOf.length === 2 && p.anyOf[0]?.type === "object" && JSON.stringify(p.anyOf[1]) === '{"type":"null"}';
     ok(
       JSON.stringify(out.tools) === JSON.stringify({ type: "array", items: { type: "string" }, description: "호출할 도구 이름 목록" }) &&
-        JSON.stringify(out.graph_plan?.type) === JSON.stringify(["object", "null"]) &&
-        JSON.stringify(out.type_pair?.type) === JSON.stringify(["object", "null"]) &&
-        JSON.stringify(out.semantic_fallback?.type) === JSON.stringify(["object", "null"]) &&
+        nullableObject(out.graph_plan) &&
+        nullableObject(out.type_pair) &&
+        nullableObject(out.semantic_fallback) &&
         out.rule_margin?.type === "number" &&
         Object.keys(out).length === Object.keys(ROUTE_OUTPUT_SCHEMA).length,
       `route 의 출력 스키마가 배열 items 와 nullable 칸의 null 을 싣는다(구조화 출력 검사, TC-029) (got ${JSON.stringify(out).slice(0, 300)})`,
     );
+    const typeArrays = JSON.stringify(tools.map((t) => [t.inputSchema, t.outputSchema])).match(/"type":\[/g) ?? [];
+    ok(typeArrays.length === 0, `도구 스키마에 타입 배열이 없다(Inspector --strict 이식성 경고 0, TC-028) (got ${typeArrays.length})`);
 
     // tools/call 입력 검증(airmcp-dev/air#5): 핸들러 앞에서 막고 isError 결과로 돌려준다(Inspector exit 5).
     const call = async (name: string, args: Json | undefined) => {
@@ -687,6 +716,32 @@ async function main() {
       ok(other.status === 403, `적지 않은 출처는 여전히 403 이다 (got ${other.status})`);
     } finally {
       await opened.close();
+    }
+  }
+
+  // --- MCP HTTP+SSE(MCP_TRANSPORT=sse): 바인딩과 Origin 검사(air-server/vendor 의 003 패치). 규칙은 http 와 같다 ---
+  {
+    const sse = await startHttp(SERVER_JS, {}, "sse");
+    try {
+      ok(sse.log().includes("(127.0.0.1)"), `sse 도 기본 바인딩은 루프백(127.0.0.1)이다 (got ${sse.log().split("\n").find((l) => l.includes("listening")) ?? sse.log().slice(-200)})`);
+      const plain = await sse.openStream("/sse");
+      ok(plain.status === 200 && /^\/message\?sessionId=/.test(plain.endpoint ?? ""), `Origin 없는 클라이언트는 /sse 로 세션을 연다 (got ${plain.status} ${plain.body.slice(0, 120)})`);
+      const local = await sse.openStream("/sse", { origin: "http://localhost:6274" });
+      ok(local.status === 200, `루프백 출처(http://localhost:6274)는 /sse 를 연다 (got ${local.status})`);
+      const foreign = { origin: "http://attacker.example" };
+      const evil = await sse.openStream("/sse", foreign);
+      ok(evil.status === 403 && evil.endpoint === undefined, `루프백이 아닌 Origin 은 /sse 에서 403 이다(DNS 리바인딩 방어) (got ${evil.status} ${evil.body.slice(0, 120)})`);
+      const post = await sse.request("POST", plain.endpoint ?? "/message", { jsonrpc: "2.0", id: 1, method: "tools/list" }, foreign);
+      ok(post.status === 403, `열린 세션이라도 루프백이 아닌 Origin 의 POST /message 는 403 이다 (got ${post.status} ${post.body.slice(0, 120)})`);
+    } finally {
+      await sse.close();
+    }
+    const allowed = await startHttp(SERVER_JS, { MCP_ALLOWED_ORIGINS: "https://app.example.com" }, "sse");
+    try {
+      ok((await allowed.openStream("/sse", { origin: "https://app.example.com" })).status === 200, "sse 도 MCP_ALLOWED_ORIGINS 에 적은 출처는 받는다");
+      ok((await allowed.openStream("/sse", { origin: "https://other.example.com" })).status === 403, "sse 도 적지 않은 출처는 403 이다");
+    } finally {
+      await allowed.close();
     }
   }
 

@@ -1,12 +1,18 @@
-diff --git a/node_modules/@airmcp-dev/core/dist/middleware/before-hook.js b/node_modules/@airmcp-dev/core/dist/middleware/before-hook.js
-index ef9ce16..2986433 100644
---- a/node_modules/@airmcp-dev/core/dist/middleware/before-hook.js
-+++ b/node_modules/@airmcp-dev/core/dist/middleware/before-hook.js
-@@ -1,6 +1,19 @@
+diff --git a/dist/middleware/before-hook.js b/dist/middleware/before-hook.js
+index ef9ce16..b2bffe2 100644
+--- a/dist/middleware/before-hook.js
++++ b/dist/middleware/before-hook.js
+@@ -1,6 +1,24 @@
  // @airmcp-dev/core — middleware/before-hook.ts
  // 내장 before 미들웨어 — 입력 검증
 -import { paramsToZodSchema } from '../tool/tool-schema.js';
 +import { paramsToZodSchema, paramsToJsonSchema } from '../tool/tool-schema.js';
++/** JSON Schema 속성의 타입 이름 — nullable의 anyOf는 `number | null`처럼 잇는다 */
++function typeLabel(prop) {
++    if (Array.isArray(prop.anyOf))
++        return prop.anyOf.map(typeLabel).join(' | ');
++    return Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type || 'any';
++}
 +/** 검증 실패 메시지의 "Expected schema" 줄 — 단축 표기는 그대로, 나머지는 JSON Schema의 타입과 필수 여부 */
 +function describeParams(params = {}) {
 +    const json = paramsToJsonSchema(params);
@@ -15,15 +21,14 @@ index ef9ce16..2986433 100644
 +        if (typeof v === 'string')
 +            return `  - ${k}: ${v}`;
 +        const prop = json?.properties?.[k] ?? {};
-+        const type = Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type || 'any';
-+        return `  - ${k}: ${type}${json?.required?.includes(k) ? '' : ' (optional)'}`;
++        return `  - ${k}: ${typeLabel(prop)}${json?.required?.includes(k) ? '' : ' (optional)'}`;
 +    })
 +        .join('\n');
 +}
  /** 입력 파라미터 자동 검증 미들웨어 */
  export function validationMiddleware() {
      return {
-@@ -26,7 +39,7 @@ export function validationMiddleware() {
+@@ -26,7 +44,7 @@ export function validationMiddleware() {
                      abortResponse: {
                          content: [{
                                  type: 'text',
@@ -32,10 +37,10 @@ index ef9ce16..2986433 100644
                              }],
                          isError: true,
                      },
-diff --git a/node_modules/@airmcp-dev/core/dist/middleware/chain.d.ts b/node_modules/@airmcp-dev/core/dist/middleware/chain.d.ts
+diff --git a/dist/middleware/chain.d.ts b/dist/middleware/chain.d.ts
 index 08ae729..e6071cf 100644
---- a/node_modules/@airmcp-dev/core/dist/middleware/chain.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/middleware/chain.d.ts
+--- a/dist/middleware/chain.d.ts
++++ b/dist/middleware/chain.d.ts
 @@ -1,11 +1,17 @@
  import type { AirMiddleware } from '../types/middleware.js';
  import type { AirToolDef, AirToolContext } from '../types/tool.js';
@@ -56,10 +61,10 @@ index 08ae729..e6071cf 100644
  }
  //# sourceMappingURL=chain.d.ts.map
 \ No newline at end of file
-diff --git a/node_modules/@airmcp-dev/core/dist/middleware/chain.js b/node_modules/@airmcp-dev/core/dist/middleware/chain.js
+diff --git a/dist/middleware/chain.js b/dist/middleware/chain.js
 index bb27a30..9487b7c 100644
---- a/node_modules/@airmcp-dev/core/dist/middleware/chain.js
-+++ b/node_modules/@airmcp-dev/core/dist/middleware/chain.js
+--- a/dist/middleware/chain.js
++++ b/dist/middleware/chain.js
 @@ -1,6 +1,6 @@
  // @airmcp-dev/core — middleware/chain.ts
  // 미들웨어 체인 실행기 — before → handler → after, 에러 시 onError
@@ -127,10 +132,10 @@ index bb27a30..9487b7c 100644
  }
  //# sourceMappingURL=chain.js.map
 \ No newline at end of file
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/http-transport.d.ts b/node_modules/@airmcp-dev/core/dist/protocol/http-transport.d.ts
+diff --git a/dist/protocol/http-transport.d.ts b/dist/protocol/http-transport.d.ts
 index af5d512..ca7db6c 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/http-transport.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/http-transport.d.ts
+--- a/dist/protocol/http-transport.d.ts
++++ b/dist/protocol/http-transport.d.ts
 @@ -5,12 +5,23 @@ export interface AirHttpTransportOptions {
      endpoint?: string;
      /** CORS origin (기본: '*') */
@@ -155,10 +160,10 @@ index af5d512..ca7db6c 100644
      /**
       * HTTP 요청을 처리한다.
       * server-runner의 HTTP 서버에서 호출됨.
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/http-transport.js b/node_modules/@airmcp-dev/core/dist/protocol/http-transport.js
+diff --git a/dist/protocol/http-transport.js b/dist/protocol/http-transport.js
 index e8c678c..185ab5e 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/http-transport.js
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/http-transport.js
+--- a/dist/protocol/http-transport.js
++++ b/dist/protocol/http-transport.js
 @@ -10,15 +10,35 @@
  //   - MCP-Protocol-Version 헤더로 프로토콜 버전 전달
  //   - 단순 요청은 JSON 응답, 스트리밍이 필요하면 SSE 응답
@@ -262,10 +267,10 @@ index e8c678c..185ab5e 100644
          // 배치 요청 처리
          if (Array.isArray(body)) {
              const responses = await Promise.all(body.map((msg) => this.engine.handleMessage(msg)));
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.d.ts b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.d.ts
+diff --git a/dist/protocol/mcp-protocol.d.ts b/dist/protocol/mcp-protocol.d.ts
 index 6035977..e543f0a 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.d.ts
+--- a/dist/protocol/mcp-protocol.d.ts
++++ b/dist/protocol/mcp-protocol.d.ts
 @@ -72,7 +72,7 @@ export interface ProtocolEngineConfig {
      tools: AirToolDef[];
      resources: AirResourceDef[];
@@ -275,10 +280,10 @@ index 6035977..e543f0a 100644
      callTool: (toolName: string, params: Record<string, any>, meta?: ClientMeta, inputResponses?: any[]) => Promise<any>;
      /** 캐시 힌트 (기본: 300000ms) */
      defaultTtlMs?: number;
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
+diff --git a/dist/protocol/mcp-protocol.js b/dist/protocol/mcp-protocol.js
 index 72e65cc..aa9f3f8 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
+--- a/dist/protocol/mcp-protocol.js
++++ b/dist/protocol/mcp-protocol.js
 @@ -222,10 +222,14 @@ export class McpProtocolEngine {
                  content: [{ type: 'text', text: content.inputRequests[0]?.message || 'Additional input required' }],
              };
@@ -312,10 +317,10 @@ index 72e65cc..aa9f3f8 100644
          const messages = await prompt.handler(args);
          return {
              resultType: 'complete',
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.d.ts b/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.d.ts
+diff --git a/dist/protocol/stdio-transport.d.ts b/dist/protocol/stdio-transport.d.ts
 index e69d136..fbe73f7 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.d.ts
+--- a/dist/protocol/stdio-transport.d.ts
++++ b/dist/protocol/stdio-transport.d.ts
 @@ -6,12 +6,10 @@ export declare class AirStdioTransport {
      constructor(engine: McpProtocolEngine);
      /** stdio transport를 시작한다. stdin을 읽고 stdout으로 응답한다. */
@@ -331,10 +336,10 @@ index e69d136..fbe73f7 100644
      /** 개별 메시지를 파싱하고 프로토콜 엔진에 전달한다. */
      private handleMessage;
      /** transport를 중지한다. */
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.js b/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.js
+diff --git a/dist/protocol/stdio-transport.js b/dist/protocol/stdio-transport.js
 index 059c82d..89dbfe5 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.js
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/stdio-transport.js
+--- a/dist/protocol/stdio-transport.js
++++ b/dist/protocol/stdio-transport.js
 @@ -3,9 +3,9 @@
  // air 자체 stdio transport.
  // MCP SDK의 StdioServerTransport를 대체.
@@ -421,10 +426,10 @@ index 059c82d..89dbfe5 100644
      }
      /** 개별 메시지를 파싱하고 프로토콜 엔진에 전달한다. */
      async handleMessage(raw) {
-diff --git a/node_modules/@airmcp-dev/core/dist/server/server-runner.js b/node_modules/@airmcp-dev/core/dist/server/server-runner.js
+diff --git a/dist/server/server-runner.js b/dist/server/server-runner.js
 index 54708be..f45eb9c 100644
---- a/node_modules/@airmcp-dev/core/dist/server/server-runner.js
-+++ b/node_modules/@airmcp-dev/core/dist/server/server-runner.js
+--- a/dist/server/server-runner.js
++++ b/dist/server/server-runner.js
 @@ -37,7 +37,7 @@ export class ServerRunner {
                  const reqCtx = createRequestContext(this.config.name, this.serverCtx.state, {
                      inputResponses,
@@ -466,10 +471,10 @@ index 54708be..f45eb9c 100644
          });
          onShutdown(async () => {
              this.serverCtx.status = 'stopping';
-diff --git a/node_modules/@airmcp-dev/core/dist/tool/tool-result.d.ts b/node_modules/@airmcp-dev/core/dist/tool/tool-result.d.ts
+diff --git a/dist/tool/tool-result.d.ts b/dist/tool/tool-result.d.ts
 index dce635b..49a48db 100644
---- a/node_modules/@airmcp-dev/core/dist/tool/tool-result.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/tool/tool-result.d.ts
+--- a/dist/tool/tool-result.d.ts
++++ b/dist/tool/tool-result.d.ts
 @@ -9,6 +9,16 @@ export interface McpContent {
      name?: string;
      description?: string;
@@ -488,10 +493,10 @@ index dce635b..49a48db 100644
  export declare function normalizeResult(result: AirToolResponse): McpContent[];
  //# sourceMappingURL=tool-result.d.ts.map
 \ No newline at end of file
-diff --git a/node_modules/@airmcp-dev/core/dist/tool/tool-result.js b/node_modules/@airmcp-dev/core/dist/tool/tool-result.js
+diff --git a/dist/tool/tool-result.js b/dist/tool/tool-result.js
 index 76efd16..0daa8ce 100644
---- a/node_modules/@airmcp-dev/core/dist/tool/tool-result.js
-+++ b/node_modules/@airmcp-dev/core/dist/tool/tool-result.js
+--- a/dist/tool/tool-result.js
++++ b/dist/tool/tool-result.js
 @@ -1,5 +1,14 @@
  // @airmcp-dev/core — tool/tool-result.ts
  // 도구 핸들러 반환값 → MCP content 형식으로 정규화
@@ -507,11 +512,11 @@ index 76efd16..0daa8ce 100644
  /** AirToolResponse를 MCP content 배열로 변환 */
  export function normalizeResult(result) {
      if (result === null || result === undefined) {
-diff --git a/node_modules/@airmcp-dev/core/dist/tool/tool-schema.js b/node_modules/@airmcp-dev/core/dist/tool/tool-schema.js
-index 77686a4..8b492a6 100644
---- a/node_modules/@airmcp-dev/core/dist/tool/tool-schema.js
-+++ b/node_modules/@airmcp-dev/core/dist/tool/tool-schema.js
-@@ -67,6 +67,27 @@ function isZodSchema(value) {
+diff --git a/dist/tool/tool-schema.js b/dist/tool/tool-schema.js
+index 77686a4..b0d763e 100644
+--- a/dist/tool/tool-schema.js
++++ b/dist/tool/tool-schema.js
+@@ -67,6 +67,29 @@ function isZodSchema(value) {
  }
  /** Zod 스키마에서 JSON Schema를 추출한다 (v3 + v4 호환) */
  function zodToJsonSchemaProperty(schema) {
@@ -520,26 +525,28 @@ index 77686a4..8b492a6 100644
 +    const description = schema?._def?.description;
 +    return description ? { ...prop, description } : prop;
 +}
-+/** JSON Schema에 null을 허용한다 (Zod .nullable()) */
++/**
++ * JSON Schema에 null을 허용한다 (Zod .nullable()).
++ * 타입 배열(`type: ['number', 'null']`) 대신 `anyOf: [안쪽, { type: 'null' }]`로 감싼다. 타입 배열은 단일
++ * `type`만 받는 클라이언트(OpenAPI 부분집합으로 옮기는 Gemini 함수 선언 등)가 거부하거나 제약을 버릴 수 있다.
++ * 설명은 감싼 쪽에 둔다. 속성의 description을 바로 읽는 클라이언트가 지금처럼 보게 한다.
++ */
 +function withNull(prop) {
-+    if (typeof prop.type === 'string') {
-+        return {
-+            ...prop,
-+            type: [prop.type, 'null'],
-+            ...(Array.isArray(prop.enum) ? { enum: [...prop.enum, null] } : {}),
-+        };
-+    }
++    const { description, ...schema } = prop;
 +    // {}는 이미 null을 허용한다
-+    if (Object.keys(prop).length === 0)
++    if (Object.keys(schema).length === 0)
 +        return prop;
-+    return { anyOf: [prop, { type: 'null' }] };
++    return {
++        anyOf: [schema, { type: 'null' }],
++        ...(description !== undefined ? { description } : {}),
++    };
 +}
 +/** Zod 스키마의 타입 정보를 JSON Schema로 옮긴다 */
 +function zodTypeToJsonSchema(schema) {
      // Zod v4: ~standard.type으로 타입 정보 접근
      if ('~standard' in schema) {
          const std = schema['~standard'];
-@@ -92,7 +113,7 @@ function zodToJsonSchemaProperty(schema) {
+@@ -92,7 +115,7 @@ function zodToJsonSchemaProperty(schema) {
          if (typeName === 'ZodBoolean')
              return { type: 'boolean', ...(def.description ? { description: def.description } : {}) };
          if (typeName === 'ZodArray')
@@ -548,7 +555,7 @@ index 77686a4..8b492a6 100644
          if (typeName === 'ZodObject') {
              // 중첩 object — shape에서 재귀 추출
              const shape = def.shape?.();
-@@ -115,6 +136,14 @@ function zodToJsonSchemaProperty(schema) {
+@@ -115,6 +138,14 @@ function zodToJsonSchemaProperty(schema) {
              const inner = zodToJsonSchemaProperty(def.innerType);
              return { ...inner, default: def.defaultValue() };
          }
@@ -563,10 +570,10 @@ index 77686a4..8b492a6 100644
          if (typeName === 'ZodEnum') {
              return { type: 'string', enum: def.values };
          }
-diff --git a/node_modules/@airmcp-dev/core/dist/types/transport.d.ts b/node_modules/@airmcp-dev/core/dist/types/transport.d.ts
+diff --git a/dist/types/transport.d.ts b/dist/types/transport.d.ts
 index 7e4b6ca..6afa4bc 100644
---- a/node_modules/@airmcp-dev/core/dist/types/transport.d.ts
-+++ b/node_modules/@airmcp-dev/core/dist/types/transport.d.ts
+--- a/dist/types/transport.d.ts
++++ b/dist/types/transport.d.ts
 @@ -4,8 +4,13 @@ export interface TransportConfig {
      type?: TransportType;
      /** HTTP/SSE 포트 */

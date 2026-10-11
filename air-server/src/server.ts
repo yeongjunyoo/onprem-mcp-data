@@ -99,8 +99,8 @@ const DEFAULT_MCP_HOST = "127.0.0.1";
  *
  * 돌려주는 값은 air 의 transport 설정 그대로다(`satisfies TransportConfig`). host 와 allowedOrigins 는 air 에
  * 기본값이 있어도 여기서 정한다. 바인딩과 허용 출처는 보안 설정이라 의존성의 기본값이 바뀌어도 따라가지 않게 한다.
- * allowedOrigins 는 air-server/patches 의 패치(airmcp-dev/air#11)가 더한 칸이라, 패치가 빠진 air 에서는 이 파일이
- * 컴파일되지 않는다(docs/air-patch.md).
+ * allowedOrigins 는 air-server/vendor 의 패치 얹은 air(airmcp-dev/air#11, SSE 는 003 패치)가 더한 칸이라, 패치가 빠진
+ * air 에서는 이 파일이 컴파일되지 않는다(docs/air-patch.md).
  */
 export function resolveTransport() {
   const raw = process.env.MCP_TRANSPORT?.trim();
@@ -119,8 +119,8 @@ export function resolveTransport() {
     throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
   }
   const host = resolveHost();
-  if (raw === "sse") return { type: "sse", port, host } satisfies TransportConfig;
-  return { type: "http", port, host, allowedOrigins: resolveAllowedOrigins() } satisfies TransportConfig;
+  const type = raw === "sse" ? "sse" : "http";
+  return { type, port, host, allowedOrigins: resolveAllowedOrigins() } satisfies TransportConfig;
 }
 
 /** MCP_HOST: 바인딩 주소. 비우면 루프백(127.0.0.1). 주소나 호스트 이름이 아니면(포트나 스킴을 붙인 값) 기동을 멈춘다. */
@@ -134,7 +134,7 @@ function resolveHost(): string {
 }
 
 /**
- * MCP_ALLOWED_ORIGINS: http 전송이 루프백 출처 말고 더 받을 브라우저 Origin(쉼표로 구분, 예: https://app.example.com).
+ * MCP_ALLOWED_ORIGINS: sse 와 http 전송이 루프백 출처 말고 더 받을 브라우저 Origin(쉼표로 구분, 예: https://app.example.com).
  * 비우면 루프백 출처(localhost, 127.0.0.1, [::1], 포트 무관)만 받고 나머지 Origin 은 403 이다. Origin 을 보내지 않는
  * 클라이언트(Inspector CLI, SDK, curl)는 이 검사와 상관없다. 출처는 스킴, 호스트, 포트까지 정확히 적는다. `*` 는 DNS
  * 리바인딩 방어를 끄는 값이라 받지 않는다.

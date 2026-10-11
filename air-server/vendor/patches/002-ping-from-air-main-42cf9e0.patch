@@ -1,7 +1,7 @@
-diff --git a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
+diff --git a/dist/protocol/mcp-protocol.js b/dist/protocol/mcp-protocol.js
 index aa9f3f8..d61786e 100644
---- a/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
-+++ b/node_modules/@airmcp-dev/core/dist/protocol/mcp-protocol.js
+--- a/dist/protocol/mcp-protocol.js
++++ b/dist/protocol/mcp-protocol.js
 @@ -88,7 +88,7 @@ export class McpProtocolEngine {
                      break;
                  // ── ping (레거시, 2026-07-28에서 제거됨) ──
