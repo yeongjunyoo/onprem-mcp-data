@@ -25,6 +25,8 @@ import { installSemanticRouter, type SemanticInstall } from "./semroute.js";
 import { getPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { loadOntologyForRouter } from "./graph.js";
+import { availableLanes } from "./catalog.js";
+import { profile } from "./profile.js";
 
 /** 라우터 온톨로지 적재 상태. 시연·감사에서 확인할 수 있게 노출한다. */
 let ontologyState: { entities: number; typePairs: number; error?: string } = {
@@ -42,6 +44,11 @@ export function routerOntologyState(): Readonly<typeof ontologyState> {
  * 이것이 없으면 평가에서 잰 라우팅 성능이 서버 경로에서 재현되지 않는다(이슈 #18).
  * 그래서 실패를 조용히 삼키지 않고 경고와 상태로 남긴다. */
 export async function loadRouterOntology(): Promise<Readonly<typeof ontologyState>> {
+  // 그래프 레인 표가 없는 DB(catalog.ts)에서는 읽지 않는다. 읽으면 「표가 없다」 오류를 경고로 찍을 뿐이다.
+  if (availableLanes()?.graph === false) {
+    ontologyState = { entities: 0, typePairs: 0, error: "이 DB 에 그래프 레인 표가 없다" };
+    return ontologyState;
+  }
   try {
     const { nodes, edges } = await loadOntologyForRouter(getPool());
     const r = installOntology(nodes, edges);
@@ -60,6 +67,8 @@ export async function loadRouterOntology(): Promise<Readonly<typeof ontologyStat
 /** 기동 시 1회. 임베딩 모델(bge-m3)이 있을 때만 시맨틱 폴백 앵커를 임베딩한다.
  * 해시 임베더는 의미를 담지 않으므로 설치하지 않는다 — 그때 라우터는 규칙만으로 돈다. */
 export async function loadSemanticRouter(): Promise<SemanticInstall> {
+  // 앵커 423개는 사업자 데이터셋의 질문 유형(표, 문서 유형, 엣지 타입)에서 뽑았다. 다른 회사 DB 에 쓰면 없는 표와 문서로 보낸다.
+  if (profile().name === "catalog") return { anchors: 0, error: "catalog 프로파일: 앵커가 사업자 데이터셋의 질문 유형이라 규칙만 쓴다" };
   const embedder = getEmbedder();
   if (!embedder.name.startsWith("ollama")) return { anchors: 0, error: `embedder ${embedder.name}: 규칙만 사용` };
   return installSemanticRouter(embedder);

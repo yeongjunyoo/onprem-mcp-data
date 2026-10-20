@@ -49,6 +49,7 @@ import {
   type Lane,
   type RouteDecision,
 } from "./router.js";
+import { maskRoute } from "./catalog.js";
 
 /** 도구 → 질문 유형 → 표현들. 고유명은 타입 자리표시로 쓴다(maskEntities 와 같은 표기).
  * knowledge_graph 의 유형 이름은 엣지 타입이라 그래프 탐색 계획에 그대로 쓰인다. */
@@ -209,8 +210,15 @@ const TOOLS_OF: Record<Lane, { route: RouteDecision["route"]; tools: string[] }>
 /** 규칙 → (확신 없으면) 시맨틱 순으로 도구를 정한다. 서버와 파이프라인은 이것을 부른다.
  *
  * 시맨틱이 없거나(임베딩 모델 미가동, 오프라인 테스트) 시맨틱도 박빙이면 규칙의
- * 결정을 그대로 돌려준다. 어느 경우든 audit 에 무엇이 결정했는지 남는다. */
+ * 결정을 그대로 돌려준다. 어느 경우든 audit 에 무엇이 결정했는지 남는다.
+ *
+ * 이 DB 에 없는 레인(catalog 프로파일의 정형 전용 DB 등)은 결정에서 뺀다(catalog.ts maskRoute). route 도구와 retrieve, ask 가 모두
+ * 이것을 거치므로 가림은 이 한 곳에서 한다. */
 export async function routeQuery(query: string, embedder?: Embedder): Promise<RouteDecision> {
+  return maskRoute(await decideRoute(query, embedder));
+}
+
+async function decideRoute(query: string, embedder?: Embedder): Promise<RouteDecision> {
   const d = route(query);
   // 문서 개수 질문은 문서 제목으로 센다(router.ts documentCountRequest, pipeline.ts documentCount). 조각 상위 k 개를 읽는
   // 벡터 레인도, 문서 표가 없는 정형 레인도 문서 수를 셀 수 없어 규칙 점수와 시맨틱 폴백으로 레인을 고르지 않는다. 제목의

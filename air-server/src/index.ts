@@ -23,14 +23,16 @@
 // preserving curation + the 7B answer step. The server wiring lives in
 // server.ts (buildServer) so tests can exercise it without opening stdio.
 
-import { closePool } from "./db.js";
+import { closePool, getPool } from "./db.js";
 import { shutdown } from "./exit.js";
 import { probeGeneration, probeOllama, probeServing, reportOllama } from "./preflight.js";
 import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter, resolveTransport } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
 import { installLlmLaneTools, listLaneTools, llmStageEnabled, LANE_TOOL_NAMES } from "./llmroute.js";
-import { loadCompanyxSchemaCard } from "./nl2sql.js";
+import { loadCatalogSchemaCard, loadCompanyxSchemaCard } from "./nl2sql.js";
+import { listTables } from "./schemacomments.js";
+import { detectLanes, laneTablesIn, readRoleProblems, setAvailableLanes } from "./catalog.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
  *
@@ -81,6 +83,28 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     await closePool();
     return;
+  }
+
+  // 다른 회사 DB(catalog 프로파일): 이 DB 에 있는 레인을 재고 카탈로그에서 스키마 카드를 만든다. 온톨로지와 시맨틱 폴백은 그 뒤에
+  // 레인을 보고 정한다(routerinit.ts).
+  if (profile().name === "catalog") {
+    const ds = profile();
+    const lanes = await detectLanes(getPool(), ds);
+    setAvailableLanes(lanes);
+    console.error(
+      `[catalog] ${ds.sqlSchema} 스키마. 문서 레인 ${lanes.vector ? `있음(${lanes.why.vector})` : `없음(${lanes.why.vector})`}, ` +
+        `그래프 레인 ${lanes.graph ? `있음(${lanes.why.graph})` : `없음(${lanes.why.graph})`}`,
+    );
+    const card = await loadCatalogSchemaCard(getPool(), ds.sqlSchema, laneTablesIn(ds));
+    console.error(
+      card.tables === 0
+        ? `[schema-card] ${ds.sqlSchema} 스키마에 표가 없다. CATALOG_SCHEMA 를 확인한다`
+        : card.kind === "comments"
+          ? `[schema-card] 카탈로그 주석 카드: 표 ${card.tables}개, 컬럼 ${card.columns}개` + (card.omitted.length ? `, 주석이 없어 뺀 컬럼 ${card.omitted.length}개` : "")
+          : `[schema-card] 열 이름과 타입만 실은 카드: 표 ${card.tables}개, 컬럼 ${card.columns}개(${card.reason}). npm run comments-draft 로 주석 초안을 만들어 검수하면 정확도가 오른다`,
+    );
+    const tables = await listTables(getPool(), ds.sqlSchema, laneTablesIn(ds));
+    for (const p of await readRoleProblems(getPool(), ds.sqlSchema, tables)) console.error(`[read-role] ${p}`);
   }
 
   // 라우터 온톨로지를 적재한다. 이것이 없으면 타입쌍 추론이 죽고, 평가에서 측정한

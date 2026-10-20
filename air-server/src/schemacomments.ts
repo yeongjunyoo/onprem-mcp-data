@@ -21,7 +21,7 @@
 // DBA 가 검토한다. 그 흐름의 세 조각이 여기 있다.
 //   readCommentsSql    검토를 마친 주석 SQL(sql/companyx/comments.sql). 적재기가 표를 만든 뒤 실행한다.
 //   loadCommentCard    카탈로그 주석으로 만든 카드(SQL_CARD=comments). 기동 때 한 번 읽고 캐시한다.
-//   renderDraft        통계로 만든 검토용 초안 SQL(cli/companyx-comments-draft.ts).
+//   renderDraft        통계로 만든 검토용 초안 SQL(cli/comments-draft.ts).
 //
 // 값 예시는 카드에 들어가지 않는다. 초안의 최빈값은 SQL 주석(-- 줄)으로만 적어 검토자에게만 보인다.
 
@@ -200,6 +200,14 @@ const hasText = (s: string | null | undefined): s is string => !!s && s.trim() !
 /** 카드의 한 줄. 주석 안의 줄바꿈과 겹친 공백을 한 칸으로 줄인다. */
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
+/** 카드의 컬럼 한 줄: 이름, 짧은 타입, 기본키, 외래키, 주석. 주석 카드와 열 이름만 실은 카드가 같은 꼴을 쓴다. */
+function columnLine(c: CatalogColumn, last: boolean): string {
+  const parts = [c.column, shortType(c.type)];
+  if (c.pk) parts.push("PRIMARY KEY");
+  if (c.ref) parts.push(`REFERENCES ${c.ref.schema}.${c.ref.table}(${c.ref.column})`);
+  return `  ${parts.join(" ")}${last ? "" : ","}${hasText(c.comment) ? `  -- ${oneLine(c.comment)}` : ""}`;
+}
+
 export interface CommentCard {
   card: string;
   tables: number;
@@ -237,17 +245,37 @@ export function buildCommentCard(
     const cols = catalog.columns.filter((c) => c.table === t);
     const shown = cols.filter((c) => hasText(c.comment) || c.pk || c.ref);
     for (const c of cols) if (!shown.includes(c)) omitted.push(`${t}.${c.column}`);
-    shown.forEach((c, i) => {
-      const parts = [c.column, shortType(c.type)];
-      if (c.pk) parts.push("PRIMARY KEY");
-      if (c.ref) parts.push(`REFERENCES ${c.ref.schema}.${c.ref.table}(${c.ref.column})`);
-      const sep = i < shown.length - 1 ? "," : "";
-      lines.push(`  ${parts.join(" ")}${sep}${hasText(c.comment) ? `  -- ${oneLine(c.comment)}` : ""}`);
-    });
+    shown.forEach((c, i) => lines.push(columnLine(c, i === shown.length - 1)));
     lines.push(");");
     shownTotal += shown.length;
   }
   return { ok: true, value: { card: lines.join("\n"), tables: tables.length, columns: shownTotal, omitted } };
+}
+
+/** 주석 카드를 만들 수 없을 때(주석이 없거나 일부 표에만 있을 때) 쓰는 카드. 모든 컬럼의 이름, 타입, 키를 싣고, 있는 주석은 붙인다.
+ * 다른 회사 DB 를 처음 붙인 순간에도 정형 레인이 돌게 한다. 뜻과 단위가 없어 모델이 열 이름만 보고 쓰므로 주석 카드보다 덜 맞는다
+ * (docs/connect-your-db.md 의 둘째 단계가 그 차이를 메운다). */
+export function buildPlainCard(schema: string, tables: readonly string[], catalog: Catalog): CommentCard {
+  const lines: string[] = [];
+  let total = 0;
+  for (const t of tables) {
+    const tc = catalog.tables.find((x) => x.table === t)?.comment;
+    lines.push(`CREATE TABLE ${schema}.${t} (${hasText(tc) ? `  -- ${oneLine(tc)}` : ""}`);
+    const cols = catalog.columns.filter((c) => c.table === t);
+    cols.forEach((c, i) => lines.push(columnLine(c, i === cols.length - 1)));
+    lines.push(");");
+    total += cols.length;
+  }
+  return { card: lines.join("\n"), tables: tables.length, columns: total, omitted: [] };
+}
+
+/** 스키마의 일반 표 이름(이름순). 정형 카드에 싣지 않을 표(문서 레인, 그래프 레인의 표)는 except 로 뺀다. */
+export async function listTables(db: Queryable, schema: string, except: readonly string[] = []): Promise<string[]> {
+  const r = await db.query(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name",
+    [schema],
+  );
+  return (r.rows as { table_name: string }[]).map((x) => x.table_name).filter((t) => !except.includes(t));
 }
 
 /** 주석 카드의 기동 상태. source 가 fallback 이면 card 는 null 이고 reason 이 종전 카드로 도는 이유다. */
@@ -395,11 +423,15 @@ const pct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.01 ? 1 : 0)}%`;
 /** 검토용 초안 SQL. 주석 문자열(IS 뒤)에는 뜻 자리(TODO), 타입, 추상 범위, NULL 여부만 넣는다. 최솟값, 최댓값, 최빈값은
  * 검토자를 위한 -- 줄에만 적어 카탈로그와 카드에 들어가지 않는다. */
 export function renderDraft(schema: string, tables: readonly TableStats[], meta: { generatedAt: string; endpoint: string }): string {
+  // 사업자 데이터셋은 검토본을 저장소의 sql/companyx/comments.sql 로 옮긴다. 다른 DB 는 검토한 초안을 그 DB 에 바로 건다.
+  const cx = schema === "companyx";
   const out: string[] = [
-    "-- Company-X 컬럼 주석 초안 (사람 검토용, 자동 생성).",
+    `-- ${cx ? "Company-X " : ""}컬럼 주석 초안 (사람 검토용, 자동 생성).`,
     `-- 생성: ${meta.generatedAt}  대상: ${meta.endpoint}  스키마: ${schema}  표 ${tables.length}개`,
     "-- 원천: information_schema.columns, pg_stats(통계가 없는 표는 정확 집계), pg_constraint.",
-    "-- 이 파일을 그대로 적용하지 않는다. 검토자가 TODO(뜻, 단위, 자주 쓰는 조건)를 채워 sql/companyx/comments.sql 로 옮긴다.",
+    cx
+      ? "-- 이 파일을 그대로 적용하지 않는다. 검토자가 TODO(뜻, 단위, 자주 쓰는 조건)를 채워 sql/companyx/comments.sql 로 옮긴다."
+      : "-- 이 파일을 그대로 적용하지 않는다. 검토자가 TODO(뜻, 단위, 자주 쓰는 조건)를 채운 뒤 그 DB 에 건다(psql -f 이 파일). TODO 가 남은 주석은 지운다.",
     "-- 규칙: IS 뒤 문자열에는 뜻, 타입, 추상 범위, 단위, 자주 쓰는 조건(SQL)만 쓴다. 값 예시는 쓰지 않는다.",
     "--       [검토 힌트] 줄은 SQL 주석이라 카탈로그에도 카드에도 들어가지 않는다. 값 목록을 주석으로 옮기지 않고, 업무 용어와",
     "--       저장 값이 갈리는 것만 조건 SQL 로 적는다(미해결 = status IN (…)). 데이터에서 참인 조건만 적는다.",

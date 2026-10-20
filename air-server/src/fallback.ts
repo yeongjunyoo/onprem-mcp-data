@@ -28,8 +28,11 @@ import type { RetrieveResult } from "./pipeline.js";
 import { entityLikeName } from "./notfound.js";
 import { namedDocumentInHits } from "./evidence.js";
 import { describeError } from "./errors.js";
+import { availableLanes, type LaneSet } from "./catalog.js";
 
 const LANE_OF: Record<Route, Lane | null> = { structured: "nl2sql", semantic: "vector_search", graph: "knowledge_graph", hybrid: null };
+/** 라우터의 레인 이름과 이 DB 에 있는 레인(catalog.ts)의 이름. */
+const LANE_KEY: Record<Lane, keyof LaneSet> = { nl2sql: "sql", vector_search: "vector", knowledge_graph: "graph" };
 const ROUTE_OF: Record<Lane, { route: Route; tools: string[] }> = {
   nl2sql: { route: "structured", tools: [SQL_TOOL] },
   vector_search: { route: "semantic", tools: [VECTOR_TOOL] },
@@ -87,7 +90,10 @@ export function runnerUp(query: string, d: RouteDecision, why: string): RouteDec
   const chosen = LANE_OF[d.route];
   if (!chosen) return undefined;
   const scores = d.semantic?.scores ?? d.gate.scores;
-  const next = LANES.filter((l) => l !== chosen).sort((a, b) => scores[b] - scores[a])[0];
+  // 이 DB 에 없는 레인(정형 표만 있는 다른 회사 DB 의 문서, 그래프)은 다음 순위가 되지 않는다.
+  const here = availableLanes();
+  const next = LANES.filter((l) => l !== chosen && (!here || here[LANE_KEY[l]])).sort((a, b) => scores[b] - scores[a])[0];
+  if (!next) return undefined;
   const { route, tools } = ROUTE_OF[next];
   const graphPlan =
     next === "knowledge_graph"

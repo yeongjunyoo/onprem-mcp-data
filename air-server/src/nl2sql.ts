@@ -53,7 +53,16 @@ import {
 import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
 import { getPool } from "./db.js";
-import { commentCardState, loadCommentCard, type CommentCardState, type Queryable } from "./schemacomments.js";
+import {
+  buildCommentCard,
+  buildPlainCard,
+  commentCardState,
+  listTables,
+  loadCommentCard,
+  readCatalog,
+  type CommentCardState,
+  type Queryable,
+} from "./schemacomments.js";
 
 /** Schema description handed to the model for NL2SQL. */
 export const SCHEMA_DDL = [
@@ -570,6 +579,36 @@ export function companyxSchemaCard(): string {
   if (mode === "compact") return COMPANYX_SCHEMA_DDL;
   if (mode === "comments") return commentCardState()?.card ?? COMPANYX_SCHEMA_ANNOTATED;
   return COMPANYX_SCHEMA_ANNOTATED;
+}
+
+/** catalog 프로파일(다른 회사 DB)의 카드 상태. kind 가 plain 이면 주석이 없거나 일부 표에만 있어 열 이름과 타입만 실은 카드이고 reason 이 그 이유다. */
+export interface CatalogCardState {
+  schema: string;
+  card: string;
+  kind: "comments" | "plain";
+  tables: number;
+  columns: number;
+  omitted: string[];
+  reason?: string;
+}
+
+let catalogCard: CatalogCardState | undefined;
+
+/** catalog 프로파일의 스키마 카드. 기동 때 loadCatalogSchemaCard 가 만든 것을 돌려주고, 그 전에는 그렇다고 적힌 자리표시를 돌려준다. */
+export function catalogSchemaCard(schema: string): string {
+  return catalogCard?.schema === schema ? catalogCard.card : `-- ${schema} 스키마의 카드를 아직 만들지 않았다(서버가 기동 때 카탈로그에서 만든다)`;
+}
+
+/** catalog 프로파일의 카드를 카탈로그(COMMENT ON 과 제약)에서 만든다. 모든 표에 컬럼 주석이 있으면 주석 카드(검토한 컬럼과 키만),
+ * 아니면 모든 컬럼의 이름과 타입만 실은 카드다. 정형 카드에 싣지 않을 표(문서 레인, 그래프 레인의 표)는 except 로 뺀다. */
+export async function loadCatalogSchemaCard(db: Queryable, schema: string, except: readonly string[]): Promise<CatalogCardState> {
+  const tables = await listTables(db, schema, except);
+  const catalog = await readCatalog(db, schema, tables);
+  const r = buildCommentCard(schema, tables, catalog);
+  const c = r.ok ? r.value : buildPlainCard(schema, tables, catalog);
+  catalogCard = { schema, card: c.card, kind: r.ok ? "comments" : "plain", tables: c.tables, columns: c.columns, omitted: c.omitted };
+  if (!r.ok) catalogCard.reason = r.reason;
+  return catalogCard;
 }
 
 /** 지금 쓰는 카드의 이름(평가 결과 파일의 schema_card). comments 인데 주석 카드가 없으면 대신 쓴 카드와 그 이유를 이름에 남긴다. */

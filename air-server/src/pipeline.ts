@@ -77,6 +77,7 @@ import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_T
 import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
 import { runnerUpRejection, withRunnerUp } from "./fallback.js";
+import { availableLanes } from "./catalog.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -695,10 +696,12 @@ export const DEFAULT_BUDGET = 1024;
  * 레인이 실제로 돈 적이 없었다(G12, 홀드아웃3 의 「클라우드사업부 맨 위에 이름 뭐 써 있더라, 조직도에서」). */
 export function lanesFor(decision: Pick<RouteDecision, "route" | "tools">): { sql: boolean; vector: boolean; graph: boolean } {
   const hybrid = decision.route === "hybrid";
+  // 이 DB 에 없는 레인은 결정이 어떻든 돌지 않는다(catalog.ts). routeQuery 가 이미 가리지만 다른 길로 온 결정도 막는다.
+  const here = availableLanes();
   return {
-    sql: decision.route === "structured" || hybrid,
-    vector: decision.route === "semantic" || hybrid,
-    graph: decision.route === "graph" || (hybrid && decision.tools.includes(GRAPH_TOOL)),
+    sql: (decision.route === "structured" || hybrid) && (here?.sql ?? true),
+    vector: (decision.route === "semantic" || hybrid) && (here?.vector ?? true),
+    graph: (decision.route === "graph" || (hybrid && decision.tools.includes(GRAPH_TOOL))) && (here?.graph ?? true),
   };
 }
 
