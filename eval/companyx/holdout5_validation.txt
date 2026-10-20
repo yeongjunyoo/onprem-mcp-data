@@ -1,0 +1,87 @@
+== holdout5 validation ==
+author=independent agent (fable), system code unseen created=2026-10-11 items=60
+counts: {'nl2sql': 20, 'vector_search': 20, 'knowledge_graph': 20}
+
+== 1. gold_sql read-only execution (row counts) ==
+h5-01: 1 row(s)
+h5-02: 1 row(s)
+h5-03: 1 row(s)
+h5-04: 2 row(s)
+h5-05: 3 row(s)
+h5-06: 5 row(s)
+h5-07: 1 row(s)
+h5-08: 5 row(s)
+h5-09: 1 row(s)
+h5-10: 1 row(s)
+h5-11: 1 row(s)
+h5-12: 1 row(s)
+h5-13: 9 row(s)
+h5-14: 1 row(s)
+h5-15: 1 row(s)
+h5-16: 1 row(s)
+h5-17: 1 row(s)
+h5-18: 1 row(s)
+h5-19: 4 row(s)
+h5-20: 1 row(s)
+table coverage (items touching each table): {'departments': 1, 'employees': 5, 'clients': 7, 'products': 4, 'contracts': 3, 'projects': 3, 'sales': 4, 'support_tickets': 3}
+
+== 2. gold_docs / gold_keywords ==
+h5-21: docs=['DOC-007'] keywords ok (2)
+h5-22: docs=['DOC-003'] keywords ok (1)
+h5-23: docs=['DOC-008'] keywords ok (1)
+h5-24: docs=['DOC-005'] keywords ok (2)
+h5-25: docs=['DOC-001'] keywords ok (1)
+h5-26: docs=['DOC-011'] keywords ok (1)
+h5-27: docs=['DOC-017'] keywords ok (1)
+h5-28: docs=['DOC-018'] keywords ok (2)
+h5-29: docs=['DOC-019'] keywords ok (1)
+h5-30: docs=['DOC-020'] keywords ok (1)
+h5-31: docs=['DOC-021'] keywords ok (1)
+h5-32: docs=['DOC-024'] keywords ok (2)
+h5-33: docs=['DOC-029'] keywords ok (1)
+h5-34: docs=['DOC-028'] keywords ok (1)
+h5-35: docs=['DOC-027'] keywords ok (1)
+h5-36: docs=['DOC-035'] keywords ok (1)
+h5-37: docs=['DOC-037'] keywords ok (1)
+h5-38: docs=['DOC-033'] keywords ok (1)
+h5-39: docs=['DOC-036'] keywords ok (1)
+h5-40: docs=['DOC-040'] keywords ok (1)
+document kind coverage: {'incident_report': 5, 'technical_doc': 5, 'meeting_note': 5, 'proposal': 5}
+
+== 3. gold_edges / gold_answer_names ==
+h5-41: 8 edge(s) ok, 8 name(s) ok
+h5-42: 1 edge(s) ok, 1 name(s) ok
+h5-43: 2 edge(s) ok, 1 name(s) ok
+h5-44: 1 edge(s) ok, 1 name(s) ok
+h5-45: 2 edge(s) ok, 2 name(s) ok
+h5-46: 2 edge(s) ok, 2 name(s) ok
+h5-47: 6 edge(s) ok, 6 name(s) ok
+h5-48: 5 edge(s) ok, 5 name(s) ok
+h5-49: 4 edge(s) ok, 4 name(s) ok
+h5-50: 1 edge(s) ok, 1 name(s) ok
+h5-51: 3 edge(s) ok, 3 name(s) ok
+h5-52: 2 edge(s) ok, 2 name(s) ok
+h5-53: 4 edge(s) ok, 4 name(s) ok
+h5-54: 4 edge(s) ok, 4 name(s) ok
+h5-55: 2 edge(s) ok, 2 name(s) ok
+h5-56: 3 edge(s) ok, 3 name(s) ok
+h5-57: 1 edge(s) ok, 1 name(s) ok
+h5-58: 1 edge(s) ok, 1 name(s) ok
+h5-59: 1 edge(s) ok, 1 name(s) ok
+h5-60: 7 edge(s) ok, 7 name(s) ok
+edge type coverage (edge occurrences): {'BELONGS_TO': 11, 'HEAD_IS': 3, 'MANAGES_ACCOUNT': 7, 'LEADS': 8, 'USES': 15, 'HAS_PROJECT': 8, 'REPORTED_ISSUE': 8}
+
+== 4. typos ==
+h5-01: '부서쟝' (correct: '부서장')
+h5-11: '에산' (correct: '예산')
+h5-25: '걸렷어' (correct: '걸렸어')
+h5-36: '재안서' (correct: '제안서')
+h5-51: '맏고' (correct: '맡고')
+typo count: 5
+
+== 4b. no repeats vs previous holdouts / questions.json ==
+no repeats among 210 earlier questions
+
+== summary ==
+fails: 0
+RESULT: PASS

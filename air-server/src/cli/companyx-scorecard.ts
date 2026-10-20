@@ -29,7 +29,7 @@
 //       npm run companyx:score -- --from <json> 모델 없이 저장된 답만 다시 채점한다(규칙을 고쳤을 때).
 //                                              <json> 옆에 -rescored.json 을 쓴다(--out 으로 바꾼다). 원본은 덮지 않는다.
 //                                              행마다 저장된 판정, v1, v2(라벨 없이), v2 판정을 함께 적는다
-//       CX_SET=holdout3|holdout4               봉인 홀드아웃 60문항 → eval/results/companyx-scorecard-<set>.json
+//       CX_SET=holdout3|holdout4|holdout5      봉인 홀드아웃 60문항 → eval/results/companyx-scorecard-<set>.json
 //       CX_BUDGET=512                          큐레이션 예산. 파일 이름에 -b512 가 붙는다(30문항도) —
 //                                              예산 실행이 기본 예산 정본을 덮지 않는다
 //       CX_RULES=v1|v2 (--rules)               채점 규칙 판. 기본 v2. v1 은 공개 수치(28/30, 27/59)를 낸 규칙

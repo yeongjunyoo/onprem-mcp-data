@@ -6,7 +6,7 @@
   "errata.<id>": "데이터셋과 어긋난 정답의 정정. gold_answer_names 와 gold_edges 가 정답을 대신하고, v1_gold_answer_names 는 원래 정답, evidence 는 확인한 근거다.",
   "<id>": "사업자 SQL 은 sql_gold.jsonl 의 id(CX-SQL-01), 홀드아웃은 문항 id(h3-01, h4-21)."
  },
- "how_written": "2026-10-12. 서로 다른 두 모델(라벨러 A: Claude Opus, 라벨러 B: Claude Sonnet)에게 아래 guide 와 문항 70개(사업자 SQL 10, 홀드아웃3 SQL 20, 홀드아웃4 SQL 20, 홀드아웃4 문서 20)를 한 메시지로 주고 따로 라벨을 받았다. 문항마다 준 것은 질문, 정답 SQL 과 그 결과 열 이름(열 이름만 알려고 정답 SQL 을 읽기 전용 DB 사본에서 실행했다), 정답 키워드, 정답 작성자의 메모(basis 또는 hint)뿐이다. 우리 시스템의 답, 채점 결과, 진단 문서는 주지 않았고, 두 라벨러 모두 도구를 한 번도 쓰지 않았다(파일을 읽지 않았다). 합치는 규칙은 합집합이다 — 한 라벨러라도 묻는다고 본 열과 사실은 요구한다(엄격한 쪽). 일치: SQL 50 중 47, 문서 20 중 20. 갈린 셋은 disagreements 에 있다. 사업자 문서 문항은 키워드가 주제어라(scoreVector 의 앵커 규칙) 라벨이 없고, 홀드아웃3 문서 문항은 키워드가 없어 채점 불가라 라벨이 없다. 그래프 문항은 정답 이름이 곧 묻는 것이라 라벨이 없다.",
+ "how_written": "2026-10-12. 서로 다른 두 모델(라벨러 A: Claude Opus, 라벨러 B: Claude Sonnet)에게 아래 guide 와 문항 70개(사업자 SQL 10, 홀드아웃3 SQL 20, 홀드아웃4 SQL 20, 홀드아웃4 문서 20)를 한 메시지로 주고 따로 라벨을 받았다. 문항마다 준 것은 질문, 정답 SQL 과 그 결과 열 이름(열 이름만 알려고 정답 SQL 을 읽기 전용 DB 사본에서 실행했다), 정답 키워드, 정답 작성자의 메모(basis 또는 hint)뿐이다. 우리 시스템의 답, 채점 결과, 진단 문서는 주지 않았고, 두 라벨러 모두 도구를 한 번도 쓰지 않았다(파일을 읽지 않았다). 합치는 규칙은 합집합이다 — 한 라벨러라도 묻는다고 본 열과 사실은 요구한다(엄격한 쪽). 일치: SQL 50 중 47, 문서 20 중 20. 갈린 셋은 disagreements 에 있다. 사업자 문서 문항은 키워드가 주제어라(scoreVector 의 앵커 규칙) 라벨이 없고, 홀드아웃3 문서 문항은 키워드가 없어 채점 불가라 라벨이 없다. 그래프 문항은 정답 이름이 곧 묻는 것이라 라벨이 없다. 홀드아웃5(2026-10-20, 봉인 1회 채점 전): 같은 guide 와 같은 합치기 규칙으로 문항 40개(SQL 20, 문서 20)를 다시 두 모델(라벨러 A: Claude Opus 5.5, 라벨러 B: Claude Sonnet 5.5)에게 따로 주었다. 각 라벨러는 guide 와 문항이 든 파일 하나만 읽고 라벨을 파일로 썼다(도구는 그 읽기와 쓰기 둘뿐). 문항을 고르고 합친 사람(Nova)은 질문 본문을 열지 않았다. 일치: SQL 19/20, 문서 20/20. 홀드아웃5 그래프 문항은 정답 이름이 곧 묻는 것이라 라벨이 없다.",
  "merge_rule": "union",
  "agreement": {
   "sql": "47/50",
@@ -53,6 +53,20 @@
    "merged": [
     "contract_type",
     "contract_count"
+   ]
+  },
+  {
+   "id": "h5-05",
+   "A": [
+    "industry"
+   ],
+   "B": [
+    "name",
+    "industry"
+   ],
+   "merged": [
+    "name",
+    "industry"
    ]
   }
  ],
@@ -443,6 +457,232 @@
   "h4-40": {
    "required_facts": [
     "500만원"
+   ]
+  },
+  "h5-01": {
+   "asked_columns": [
+    "dept_name",
+    "name",
+    "salary"
+   ]
+  },
+  "h5-02": {
+   "asked_columns": [
+    "hired_2025"
+   ]
+  },
+  "h5-03": {
+   "asked_columns": [
+    "name",
+    "salary"
+   ]
+  },
+  "h5-04": {
+   "asked_columns": [
+    "name",
+    "contact_email"
+   ]
+  },
+  "h5-05": {
+   "asked_columns": [
+    "name",
+    "industry"
+   ]
+  },
+  "h5-06": {
+   "asked_columns": [
+    "name"
+   ]
+  },
+  "h5-07": {
+   "asked_columns": [
+    "avg_price_monthly"
+   ]
+  },
+  "h5-08": {
+   "asked_columns": [
+    "client_name",
+    "product_name",
+    "amount",
+    "start_date"
+   ]
+  },
+  "h5-09": {
+   "asked_columns": [
+    "product_name",
+    "amount"
+   ]
+  },
+  "h5-10": {
+   "asked_columns": [
+    "name",
+    "contract_count",
+    "total_amount"
+   ]
+  },
+  "h5-11": {
+   "asked_columns": [
+    "name"
+   ]
+  },
+  "h5-12": {
+   "asked_columns": [
+    "completed_count",
+    "total_budget"
+   ]
+  },
+  "h5-13": {
+   "asked_columns": [
+    "name",
+    "end_date",
+    "status"
+   ]
+  },
+  "h5-14": {
+   "asked_columns": [
+    "quarter",
+    "total_amount"
+   ]
+  },
+  "h5-15": {
+   "asked_columns": [
+    "sales_count",
+    "total_amount"
+   ]
+  },
+  "h5-16": {
+   "asked_columns": [
+    "total_amount"
+   ]
+  },
+  "h5-17": {
+   "asked_columns": [
+    "sale_date",
+    "amount",
+    "client_name"
+   ]
+  },
+  "h5-18": {
+   "asked_columns": [
+    "ticket_count"
+   ]
+  },
+  "h5-19": {
+   "asked_columns": [
+    "title",
+    "priority",
+    "client_name"
+   ]
+  },
+  "h5-20": {
+   "asked_columns": [
+    "title",
+    "client_name",
+    "resolution_time"
+   ]
+  },
+  "h5-21": {
+   "required_facts": [
+    "6분",
+    "4시간"
+   ]
+  },
+  "h5-22": {
+   "required_facts": [
+    "박소연"
+   ]
+  },
+  "h5-23": {
+   "required_facts": [
+    "44분"
+   ]
+  },
+  "h5-24": {
+   "required_facts": [
+    "25분",
+    "27분"
+   ]
+  },
+  "h5-25": {
+   "required_facts": [
+    "1시간"
+   ]
+  },
+  "h5-26": {
+   "required_facts": [
+    "38초"
+   ]
+  },
+  "h5-27": {
+   "required_facts": [
+    "RabbitMQ"
+   ]
+  },
+  "h5-28": {
+   "required_facts": [
+    "1:00 AM",
+    "121일"
+   ]
+  },
+  "h5-29": {
+   "required_facts": [
+    "91%"
+   ]
+  },
+  "h5-30": {
+   "required_facts": [
+    "813회"
+   ]
+  },
+  "h5-31": {
+   "required_facts": [
+    "7건"
+   ]
+  },
+  "h5-32": {
+   "required_facts": [
+    "4명",
+    "2명"
+   ]
+  },
+  "h5-33": {
+   "required_facts": [
+    "13일"
+   ]
+  },
+  "h5-34": {
+   "required_facts": [
+    "2025-10-21"
+   ]
+  },
+  "h5-35": {
+   "required_facts": [
+    "40%"
+   ]
+  },
+  "h5-36": {
+   "required_facts": [
+    "12477만원"
+   ]
+  },
+  "h5-37": {
+   "required_facts": [
+    "60%"
+   ]
+  },
+  "h5-38": {
+   "required_facts": [
+    "14개월"
+   ]
+  },
+  "h5-39": {
+   "required_facts": [
+    "47%"
+   ]
+  },
+  "h5-40": {
+   "required_facts": [
+    "39%"
    ]
   }
  },
@@ -881,6 +1121,147 @@
        "amount"
       ],
       "why": "Asks for the largest amount and its date; id is surrogate."
+     },
+     "h5-01": {
+      "asked_columns": [
+       "dept_name",
+       "name",
+       "salary"
+      ],
+      "why": "Asks who the top-paid head is, plus department name and amount explicitly."
+     },
+     "h5-02": {
+      "asked_columns": [
+       "hired_2025"
+      ],
+      "why": "How-many question; the count is the answer."
+     },
+     "h5-03": {
+      "asked_columns": [
+       "name",
+       "salary"
+      ],
+      "why": "Asks who and how much."
+     },
+     "h5-04": {
+      "asked_columns": [
+       "name",
+       "contact_email"
+      ],
+      "why": "Asks which clients and the email; contact name is the stated condition."
+     },
+     "h5-05": {
+      "asked_columns": [
+       "industry"
+      ],
+      "why": "Asks how many plus industry; client names are not asked and the count is not a column."
+     },
+     "h5-06": {
+      "asked_columns": [
+       "name"
+      ],
+      "why": "Asks for the products; release date is only the requested sort key and restates the year condition."
+     },
+     "h5-07": {
+      "asked_columns": [
+       "avg_price_monthly"
+      ],
+      "why": "Asks the average monthly price."
+     },
+     "h5-08": {
+      "asked_columns": [
+       "client_name",
+       "product_name",
+       "amount",
+       "start_date"
+      ],
+      "why": "Client, product, amount and start date are explicitly asked; id is a surrogate key."
+     },
+     "h5-09": {
+      "asked_columns": [
+       "product_name",
+       "amount"
+      ],
+      "why": "Asks which product and how much; id is a surrogate key."
+     },
+     "h5-10": {
+      "asked_columns": [
+       "name",
+       "contract_count",
+       "total_amount"
+      ],
+      "why": "Asks who, plus count and total explicitly."
+     },
+     "h5-11": {
+      "asked_columns": [
+       "name"
+      ],
+      "why": "Asks only which project; budget is the superlative criterion and is not requested."
+     },
+     "h5-12": {
+      "asked_columns": [
+       "completed_count",
+       "total_budget"
+      ],
+      "why": "Asks how many and the summed budget."
+     },
+     "h5-13": {
+      "asked_columns": [
+       "name",
+       "end_date",
+       "status"
+      ],
+      "why": "Asks the project list with end date and status explicitly."
+     },
+     "h5-14": {
+      "asked_columns": [
+       "quarter",
+       "total_amount"
+      ],
+      "why": "Asks which quarter and the amount."
+     },
+     "h5-15": {
+      "asked_columns": [
+       "sales_count",
+       "total_amount"
+      ],
+      "why": "Asks count and total."
+     },
+     "h5-16": {
+      "asked_columns": [
+       "total_amount"
+      ],
+      "why": "Asks the total amount."
+     },
+     "h5-17": {
+      "asked_columns": [
+       "sale_date",
+       "amount",
+       "client_name"
+      ],
+      "why": "Date, amount and client are explicitly asked; id is a surrogate key."
+     },
+     "h5-18": {
+      "asked_columns": [
+       "ticket_count"
+      ],
+      "why": "How-many question."
+     },
+     "h5-19": {
+      "asked_columns": [
+       "title",
+       "priority",
+       "client_name"
+      ],
+      "why": "Title, priority and client are explicitly asked; id is a surrogate key."
+     },
+     "h5-20": {
+      "asked_columns": [
+       "title",
+       "client_name",
+       "resolution_time"
+      ],
+      "why": "Asks which ticket and the elapsed time; client kept to identify it since titles repeat (unsure); id is a surrogate key."
      }
     },
     "vector": {
@@ -1007,6 +1388,130 @@
        "500만원"
       ],
       "why": "Yes/no confirmation keeps the value being confirmed."
+     },
+     "h5-21": {
+      "required_facts": [
+       "6분",
+       "4시간"
+      ],
+      "why": "Asks detection minutes and full recovery hours."
+     },
+     "h5-22": {
+      "required_facts": [
+       "박소연"
+      ],
+      "why": "Asks the responder, not the reviewer."
+     },
+     "h5-23": {
+      "required_facts": [
+       "44분"
+      ],
+      "why": "Asks minutes to initial response."
+     },
+     "h5-24": {
+      "required_facts": [
+       "25분",
+       "27분"
+      ],
+      "why": "Asks detection and initial response minutes."
+     },
+     "h5-25": {
+      "required_facts": [
+       "1시간"
+      ],
+      "why": "Asks full recovery time."
+     },
+     "h5-26": {
+      "required_facts": [
+       "38초"
+      ],
+      "why": "Asks initial startup seconds."
+     },
+     "h5-27": {
+      "required_facts": [
+       "RabbitMQ"
+      ],
+      "why": "Asks the async processing component."
+     },
+     "h5-28": {
+      "required_facts": [
+       "1:00 AM",
+       "121일"
+      ],
+      "why": "Asks backup time and log retention days."
+     },
+     "h5-29": {
+      "required_facts": [
+       "91%"
+      ],
+      "why": "Asks the CDN cache hit rate."
+     },
+     "h5-30": {
+      "required_facts": [
+       "813회"
+      ],
+      "why": "Asks the per-minute threshold for 429."
+     },
+     "h5-31": {
+      "required_facts": [
+       "7건"
+      ],
+      "why": "Asks the number of improvement items."
+     },
+     "h5-32": {
+      "required_facts": [
+       "4명",
+       "2명"
+      ],
+      "why": "Asks current staff and additional staff needed."
+     },
+     "h5-33": {
+      "required_facts": [
+       "13일"
+      ],
+      "why": "Asks days of milestone 2 delay."
+     },
+     "h5-34": {
+      "required_facts": [
+       "2025-10-21"
+      ],
+      "why": "Asks the next meeting date."
+     },
+     "h5-35": {
+      "required_facts": [
+       "40%"
+      ],
+      "why": "Asks the progress percentage."
+     },
+     "h5-36": {
+      "required_facts": [
+       "12477만원"
+      ],
+      "why": "Asks the annual total cost."
+     },
+     "h5-37": {
+      "required_facts": [
+       "60%"
+      ],
+      "why": "Asks the incident response time reduction."
+     },
+     "h5-38": {
+      "required_facts": [
+       "14개월"
+      ],
+      "why": "Asks ROI months."
+     },
+     "h5-39": {
+      "required_facts": [
+       "47%"
+      ],
+      "why": "Asks engineer work time reduction."
+     },
+     "h5-40": {
+      "required_facts": [
+       "39%"
+      ],
+      "why": "Asks operating cost reduction."
      }
     }
    }
@@ -1348,6 +1853,148 @@
        "sale_date"
       ],
       "why": "Asks the biggest sale amount and its date; id is a surrogate key."
+     },
+     "h5-01": {
+      "asked_columns": [
+       "dept_name",
+       "name",
+       "salary"
+      ],
+      "why": "Asks who, the department name, and the amount."
+     },
+     "h5-02": {
+      "asked_columns": [
+       "hired_2025"
+      ],
+      "why": "Asks how many; the count is the answer."
+     },
+     "h5-03": {
+      "asked_columns": [
+       "name",
+       "salary"
+      ],
+      "why": "Asks who and how much."
+     },
+     "h5-04": {
+      "asked_columns": [
+       "name",
+       "contact_email"
+      ],
+      "why": "Asks which client companies and the email address."
+     },
+     "h5-05": {
+      "asked_columns": [
+       "name",
+       "industry"
+      ],
+      "why": "Industry asked explicitly; names identify the counted clients."
+     },
+     "h5-06": {
+      "asked_columns": [
+       "name"
+      ],
+      "why": "Asks to list the products; release date is only the requested sort key, its value is not asked."
+     },
+     "h5-07": {
+      "asked_columns": [
+       "avg_price_monthly"
+      ],
+      "why": "Asks the average monthly price."
+     },
+     "h5-08": {
+      "asked_columns": [
+       "client_name",
+       "product_name",
+       "amount",
+       "start_date"
+      ],
+      "why": "Customer, product, amount and start date are all asked; id is a surrogate key."
+     },
+     "h5-09": {
+      "asked_columns": [
+       "product_name",
+       "amount"
+      ],
+      "why": "Asks which product and how much; id is a surrogate key."
+     },
+     "h5-10": {
+      "asked_columns": [
+       "name",
+       "contract_count",
+       "total_amount"
+      ],
+      "why": "Asks who, the count, and the total amount."
+     },
+     "h5-11": {
+      "asked_columns": [
+       "name"
+      ],
+      "why": "Asks which project; the budget value itself is not asked."
+     },
+     "h5-12": {
+      "asked_columns": [
+       "completed_count",
+       "total_budget"
+      ],
+      "why": "Asks the count and the summed budget."
+     },
+     "h5-13": {
+      "asked_columns": [
+       "name",
+       "end_date",
+       "status"
+      ],
+      "why": "Asks the project list with end date and status."
+     },
+     "h5-14": {
+      "asked_columns": [
+       "quarter",
+       "total_amount"
+      ],
+      "why": "Asks which quarter and the amount."
+     },
+     "h5-15": {
+      "asked_columns": [
+       "sales_count",
+       "total_amount"
+      ],
+      "why": "Asks the number of slips and their total."
+     },
+     "h5-16": {
+      "asked_columns": [
+       "total_amount"
+      ],
+      "why": "Asks the total sales amount."
+     },
+     "h5-17": {
+      "asked_columns": [
+       "sale_date",
+       "amount",
+       "client_name"
+      ],
+      "why": "Asks date, amount and which client; id is a surrogate key."
+     },
+     "h5-18": {
+      "asked_columns": [
+       "ticket_count"
+      ],
+      "why": "Asks the total number of tickets."
+     },
+     "h5-19": {
+      "asked_columns": [
+       "title",
+       "priority",
+       "client_name"
+      ],
+      "why": "Asks title, priority and client of the open tickets; id is a surrogate key."
+     },
+     "h5-20": {
+      "asked_columns": [
+       "title",
+       "client_name",
+       "resolution_time"
+      ],
+      "why": "Asks which ticket (title and client identify it) and the time taken; id is a surrogate key."
      }
     },
     "vector": {
@@ -1474,9 +2121,137 @@
        "500만원"
       ],
       "why": "Confirmation question keeps the value to confirm."
+     },
+     "h5-21": {
+      "required_facts": [
+       "6분",
+       "4시간"
+      ],
+      "why": "Detection time and full recovery time are both asked."
+     },
+     "h5-22": {
+      "required_facts": [
+       "박소연"
+      ],
+      "why": "Asks the responder, not the reviewer."
+     },
+     "h5-23": {
+      "required_facts": [
+       "44분"
+      ],
+      "why": "Asks minutes until initial response."
+     },
+     "h5-24": {
+      "required_facts": [
+       "25분",
+       "27분"
+      ],
+      "why": "Asks detection and initial response minutes."
+     },
+     "h5-25": {
+      "required_facts": [
+       "1시간"
+      ],
+      "why": "Asks full recovery duration."
+     },
+     "h5-26": {
+      "required_facts": [
+       "38초"
+      ],
+      "why": "Asks seconds for first startup."
+     },
+     "h5-27": {
+      "required_facts": [
+       "RabbitMQ"
+      ],
+      "why": "Asks what handles asynchronous processing."
+     },
+     "h5-28": {
+      "required_facts": [
+       "1:00 AM",
+       "121일"
+      ],
+      "why": "Asks backup time and log retention days."
+     },
+     "h5-29": {
+      "required_facts": [
+       "91%"
+      ],
+      "why": "Asks cache hit rate with CDN."
+     },
+     "h5-30": {
+      "required_facts": [
+       "813회"
+      ],
+      "why": "Asks the per-minute threshold for the error."
+     },
+     "h5-31": {
+      "required_facts": [
+       "7건"
+      ],
+      "why": "Asks the number of improvement items."
+     },
+     "h5-32": {
+      "required_facts": [
+       "4명",
+       "2명"
+      ],
+      "why": "Asks deployed staff and additional staff needed."
+     },
+     "h5-33": {
+      "required_facts": [
+       "13일"
+      ],
+      "why": "Asks the number of delay days."
+     },
+     "h5-34": {
+      "required_facts": [
+       "2025-10-21"
+      ],
+      "why": "Asks the next meeting date."
+     },
+     "h5-35": {
+      "required_facts": [
+       "40%"
+      ],
+      "why": "Asks the progress percentage."
+     },
+     "h5-36": {
+      "required_facts": [
+       "12477만원"
+      ],
+      "why": "Asks the annual total cost."
+     },
+     "h5-37": {
+      "required_facts": [
+       "60%"
+      ],
+      "why": "Asks the percent reduction in response time."
+     },
+     "h5-38": {
+      "required_facts": [
+       "14개월"
+      ],
+      "why": "Asks the ROI period in months."
+     },
+     "h5-39": {
+      "required_facts": [
+       "47%"
+      ],
+      "why": "Asks the percent reduction in engineer work time."
+     },
+     "h5-40": {
+      "required_facts": [
+       "39%"
+      ],
+      "why": "Asks the percent reduction in operating cost."
      }
     }
    }
   }
+ },
+ "agreement_holdout5": {
+  "sql": "19/20",
+  "vector": "20/20"
  }
 }

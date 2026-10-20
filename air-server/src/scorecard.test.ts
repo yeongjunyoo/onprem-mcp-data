@@ -80,7 +80,8 @@ eq(selfCheckPrimitives(), [], "채점 원시 판정(수, 이름, 기권, 날짜,
 // 예산 실행과 홀드아웃이 기본 예산 정본을 덮으면 대본 표가 다른 조건의 수치를 띄운다.
 eq(parseScoreSet(undefined), "sponsor30", "CX_SET 이 없으면 사업자 30문항");
 eq(parseScoreSet("holdout4"), "holdout4", "CX_SET=holdout4");
-ok(throws(() => parseScoreSet("holdout5")), "모르는 세트는 던진다(조용히 30문항으로 돌지 않는다)");
+eq(parseScoreSet("holdout5"), "holdout5", "CX_SET=holdout5");
+ok(throws(() => parseScoreSet("holdout6")), "모르는 세트는 던진다(조용히 30문항으로 돌지 않는다)");
 eq(parseBudget(undefined), undefined, "CX_BUDGET 이 없으면 기본 예산");
 eq(parseBudget("512"), 512, "CX_BUDGET=512");
 ok(["abc", "0", "-256", "1.5"].every((v) => throws(() => parseBudget(v))), "양의 정수가 아닌 예산은 던진다(NaN 예산은 컨텍스트를 비운다)");
@@ -127,7 +128,7 @@ for (const { set, items } of sets) {
   }
   eq(unresolved, [], "홀드아웃 정답 SQL 의 FROM/JOIN 이 전부 companyx 로 한정된다");
   // 봉인 SQL 은 세미콜론으로 끝난다. 끝자리 LIMIT 을 못 보면 상위 N 질의의 「정답 밖 개체」 검사가 꺼진다.
-  eq(limited, ["h3-10", "h3-16"], "세미콜론으로 끝나는 LIMIT 질의를 상위 N 으로 본다");
+  eq(limited, ["h3-10", "h3-16", "h5-20"], "세미콜론으로 끝나는 LIMIT 질의를 상위 N 으로 본다");
 }
 
 // ── SQL 정답: node-postgres 가 돌려주는 모양의 합성 결과 ─────────────
@@ -257,9 +258,9 @@ for (const { set, items } of sets) {
       eq(kgBad, [], `${set} 그래프 정답 이름이 그래프의 정답 엣지 위에 있다`);
     }
     // 채점 가능 수를 못 박는다. 규칙이나 봉인 파일이 바뀌면 여기서 먼저 깨지고, 보고서의 분모도 같이 고친다.
-    eq(scorable, { holdout3: { vector_search: 0, knowledge_graph: 19 }, holdout4: { vector_search: 19, knowledge_graph: 20 } },
-      "채점 가능 문항 수(3차 벡터는 키워드가 없어 0, 짝 문항 h3-60, 다중 문서 h4-26 제외)");
-    eq(unscorable.filter((id) => !/^h3-(2\d|3\d|40)$/.test(id)), ["h3-60", "h4-26"], "3차 벡터 밖의 채점 불가 문항");
+    eq(scorable, { holdout3: { vector_search: 0, knowledge_graph: 19 }, holdout4: { vector_search: 19, knowledge_graph: 20 }, holdout5: { vector_search: 20, knowledge_graph: 17 } },
+      "채점 가능 문항 수(3차 벡터는 키워드가 없어 0, 짝 문항 h3-60, 다중 문서 h4-26, 5차 그래프 셋 제외)");
+    eq(unscorable.filter((id) => !/^h3-(2\d|3\d|40)$/.test(id)), ["h3-60", "h4-26", "h5-45", "h5-46", "h5-54"], "3차 벡터 밖의 채점 불가 문항");
   } else {
     // 데이터셋은 배포 조건상 저장소에 없다. 없으면 건너뛰되 침묵하지 않는다.
     console.log("  SKIP: 봉인 홀드아웃 그래프, 벡터 전 문항 자기 점검 (데이터셋 없음 — datasets/companyx-v1.0)");
@@ -289,12 +290,13 @@ const sponsorSql = readFileSync(resolve(root, "eval/companyx/sql_gold.jsonl"), "
 {
   const sqlItems = [
     ...sponsorSql.map((g) => ({ id: g.id, sql: g.gold })),
-    ...["holdout3", "holdout4"].flatMap((s) => byset[s].filter((i) => i.expected === "nl2sql").map((i) => ({ id: i.id, sql: i.gold_sql as string }))),
+    ...["holdout3", "holdout4", "holdout5"].flatMap((s) => byset[s].filter((i) => i.expected === "nl2sql").map((i) => ({ id: i.id, sql: i.gold_sql as string }))),
   ];
-  const vecItems = byset.holdout4.filter((i) => i.expected === "vector_search" && i.gold_keywords?.length);
-  eq(sqlItems.length, 50, "라벨 대상 SQL 은 사업자 10, 홀드아웃3 20, 홀드아웃4 20");
+  const vecItems = [...byset.holdout4, ...byset.holdout5].filter((i) => i.expected === "vector_search" && i.gold_keywords?.length);
+  eq(sqlItems.length, 70, "라벨 대상 SQL 은 사업자 10, 홀드아웃3 20, 홀드아웃4 20, 홀드아웃5 20");
+  eq(vecItems.length, 40, "라벨 대상 문서 문항은 홀드아웃4 20, 홀드아웃5 20(키워드가 있는 것)");
   eq(sqlItems.filter((i) => !labels.items[i.id]?.asked_columns?.length).map((i) => i.id), [], "SQL 문항마다 묻는 열 라벨이 있다");
-  eq(vecItems.filter((i) => !labels.items[i.id]?.required_facts?.length).map((i) => i.id), [], "홀드아웃4 키워드 문서 문항마다 묻는 사실 라벨이 있다");
+  eq(vecItems.filter((i) => !labels.items[i.id]?.required_facts?.length).map((i) => i.id), [], "홀드아웃4, 5 키워드 문서 문항마다 묻는 사실 라벨이 있다");
   const badCols = sqlItems.flatMap((i) =>
     (labels.items[i.id]?.asked_columns ?? []).filter((c) => c === "id" || c.endsWith("_id") || !new RegExp(`\\b${c}\\b`).test(i.sql)).map((c) => `${i.id}:${c}`),
   );
@@ -458,7 +460,7 @@ const idCat = buildCatalog([
       eq(selfCheckItems(built), [], `${set} 그래프, 벡터 전 문항 자기 점검(v2, 라벨과 정정)`);
       scorable[set] = built.filter((b) => !b.unscorable).length;
     }
-    eq(scorable, { holdout3: 19, holdout4: 39 }, "v2 의 채점 가능 수는 v1 과 같다(라벨이 분모를 바꾸지 않는다)");
+    eq(scorable, { holdout3: 19, holdout4: 39, holdout5: 37 }, "v2 의 채점 가능 수는 v1 과 같다(라벨이 분모를 바꾸지 않는다)");
   } else {
     console.log("  SKIP: 정답 정정 h4-59 와 그래프 실제 답 v2 점검 (데이터셋 없음 — datasets/companyx-v1.0)");
   }
