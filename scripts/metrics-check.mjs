@@ -111,6 +111,7 @@ const FRESHNESS = [
   { result: "eval/results/companyx-holdout3-route.json", inputs: ["eval/companyx/holdout3_route.json"] },
   { result: "eval/results/companyx-holdout3-route-sealed.json", inputs: ["eval/companyx/holdout3_route.json"] },
   { result: "eval/results/companyx-holdout4-route.json", inputs: ["eval/companyx/holdout4_route.json"] },
+  { result: "eval/results/companyx-holdout5-route.json", inputs: ["eval/companyx/holdout5_route.json"] },
   { result: "eval/results/companyx-scorecard.json", inputs: ["eval/companyx/vector_gold.json", "eval/companyx/kg_gold.json", "eval/companyx/sql_gold.jsonl"] },
 ];
 
@@ -176,6 +177,11 @@ canonical.holdout3_sealed_strict = h3s.summary.strict_accuracy.toFixed(3);
 const h4 = readJson("eval/results/companyx-holdout4-route.json");
 canonical.holdout4_strict = h4.summary.strict_accuracy.toFixed(3);
 canonical.holdout4_coverage = h4.summary.coverage.toFixed(3);
+// 5차는 10-20 판(#264)으로 한 번 채점했다(docs/report.md §0.18). 최종 답 일치는 같은 실행의 채점표다.
+const h5 = readJson("eval/results/companyx-holdout5-route.json");
+canonical.holdout5_strict = h5.summary.strict_accuracy.toFixed(3);
+canonical.holdout5_coverage = h5.summary.coverage.toFixed(3);
+canonical.holdout5_answer = readJson("eval/results/companyx-scorecard-holdout5.json").summary.correct;
 
 // 종단 근거 포함은 공개 헤드라인인데 정본에서 읽지 않아 drift가 재발할 수 있었다(H3).
 const ask = readJson("eval/results/companyx-ask.json");
@@ -388,6 +394,11 @@ const CLAIMS = [
     label: "홀드아웃4(봉인) strict",
   },
   {
+    metric: "holdout5_strict",
+    anchor: /홀드아웃\s*5(?!\d)/, shape: /(?<!\d)[01]\.\d{3,}(?!\d)/, re: /홀드아웃\s*5(?!\d)[^\n]*?(?<!\d)([01]\.\d{3,})/g,
+    label: "홀드아웃5(봉인) strict",
+  },
+  {
     // 2026-08-20: 시연 대본이 「큐레이션을 빼면 30%로 떨어집니다」라고 말하고
     // 있었다(정본 37). 문서를 DOCS 에 넣기만 하고 **아무 CLAIM 도 그 값을
     // 소비하지 않아** 검사가 조용히 통과했다 — 등록은 소비가 아니다.
@@ -517,6 +528,8 @@ const REQUIRED_CLAIMS = [
   { doc: "README.md", metric: "holdout2_strict" },
   { doc: "README.md", metric: "holdout3_sealed_strict" },
   { doc: "README.md", metric: "holdout4_strict" },
+  { doc: "README.md", metric: "holdout5_strict" },
+  { doc: "README.md", metric: "holdout5_answer" },
   { doc: "README.md", metric: "ask_evidence" },
   { doc: "README.md", metric: "ask_evidence_pct" },
   { doc: "README.md", metric: "ask_median_ms" },
@@ -525,6 +538,8 @@ const REQUIRED_CLAIMS = [
   // 매겨지는 표가 낡아도 아무도 모른다.
   { doc: "docs/submission-report.md", metric: "route_insample" },
   { doc: "docs/submission-report.md", metric: "holdout4_strict" },
+  { doc: "docs/submission-report.md", metric: "holdout5_strict" },
+  { doc: "docs/submission-report.md", metric: "holdout5_answer" },
   { doc: "docs/submission-report.md", metric: "kg_recall" },
   { doc: "docs/submission-report.md", metric: "vector_hit5" },
   { doc: "docs/submission-report.md", metric: "ask_evidence" },
@@ -553,6 +568,8 @@ const REQUIRED_CLAIMS = [
   { doc: "README.en.md", metric: "holdout2_strict" },
   { doc: "README.en.md", metric: "holdout3_sealed_strict" },
   { doc: "README.en.md", metric: "holdout4_strict" },
+  { doc: "README.en.md", metric: "holdout5_strict" },
+  { doc: "README.en.md", metric: "holdout5_answer" },
   { doc: "README.en.md", metric: "ask_evidence" },
   { doc: "README.en.md", metric: "ask_evidence_pct" },
   { doc: "README.en.md", metric: "ask_grounded_pct" },
