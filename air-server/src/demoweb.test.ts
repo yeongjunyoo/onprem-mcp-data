@@ -18,7 +18,7 @@
 // 같은 기기의 Host 만 받는다, stdio 클라이언트가 가짜 MCP 서버와 주고받고 서버가 죽으면 사유를 돌려준다.
 import { readFileSync } from "node:fs";
 
-import { McpStdioClient, PRESETS, allowedHost, laneLabel, renderPage, routeSummary, splitAnswer, toolPayload } from "./demoweb.js";
+import { McpConnection, McpStdioClient, PRESETS, allowedHost, handshake, laneLabel, renderPage, routeSummary, splitAnswer, toolPayload } from "./demoweb.js";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -183,6 +183,63 @@ process.stdin.on("data", (d) => {
   }
   ok(/initialize: 0초 안에 응답이 없다|initialize: \d+초 안에 응답이 없다/.test(msg), `응답이 없으면 정한 시간 뒤 실패한다 (got ${msg})`);
   await silent.close();
+}
+
+// ── 서버가 끝나면 다음 요청 때 다시 띄운다 ──────────────────────────────
+{
+  const spawned: McpStdioClient[] = [];
+  const conn = new McpConnection(
+    () => {
+      const c = new McpStdioClient(process.execPath, ["-e", FAKE], { ...process.env });
+      spawned.push(c);
+      return c;
+    },
+    (c) => handshake(c, "0", 10_000),
+  );
+  try {
+    const first = conn.get();
+    eq(conn.status().state, "starting", "띄우는 동안은 starting");
+    const c1 = await first;
+    eq([conn.status(), conn.starts()], [{ state: "ready", tools: 2 }, 1], "handshake 뒤 ready 와 도구 수, 한 번 띄움");
+    ok((await conn.get()) === c1 && conn.starts() === 1, "살아 있으면 같은 연결을 다시 쓴다");
+    await c1.request("tools/call", { name: "ask", arguments: { query: "die" } }, 10_000).catch(() => undefined);
+    eq(conn.status().state, "down", "서버가 끝나면 down");
+    const [a, b] = await Promise.all([conn.get(), conn.get()]);
+    ok(a === b && a !== c1 && conn.starts() === 2 && spawned.length === 2, "끝난 뒤 다음 요청에서 한 번만 새로 띄운다(동시에 불러도)");
+    const reply = await a.request("tools/call", { name: "ask", arguments: { query: "셋째" } }, 10_000);
+    eq((toolPayload(reply.result as Record<string, unknown>).value as { answer: string }).answer, "답: 셋째", "새로 띄운 서버가 답한다");
+  } finally {
+    await conn.close();
+  }
+}
+{
+  // 기동하자마자 끝나는 서버(기동 검사 실패). 끝난 서버에 쓴 EPIPE 로 이 프로세스가 죽지 않고, 요청마다 한 번만 다시 띄운다.
+  const conn = new McpConnection(() => new McpStdioClient(process.execPath, ["-e", "process.exit(3)"], { ...process.env }), (c) => handshake(c, "0", 10_000));
+  const msgs: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    try {
+      await conn.get();
+      msgs.push("붙음");
+    } catch (e) {
+      msgs.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+  ok(msgs.every((m) => m.includes("서버 프로세스가 끝났다(코드 3)")), `붙지 못하면 끝난 사유를 담아 던진다 (got ${JSON.stringify(msgs).slice(0, 200)})`);
+  await new Promise((r) => setTimeout(r, 300));
+  eq([conn.status().state, conn.starts()], ["down", 3], "요청 세 번에 세 번만 띄우고 그 사이 혼자 다시 띄우지 않는다");
+  await conn.close();
+}
+{
+  // stdin 을 닫고 잠시 살아 있는 서버. 거기 쓰면 POSIX 에서 EPIPE 가 난다(맥에서 이 경우 시연 화면 프로세스가 죽었다).
+  const c = new McpStdioClient(process.execPath, ["-e", "require('fs').closeSync(0); setTimeout(() => process.exit(3), 1000)"], { ...process.env });
+  await new Promise((r) => setTimeout(r, 400));
+  let msg = "";
+  try {
+    await c.request("tools/list", {}, 5000);
+  } catch (e) {
+    msg = e instanceof Error ? e.message : String(e);
+  }
+  ok(msg.includes("서버 프로세스가 끝났다(코드 3)"), `닫힌 stdin 에 써도 죽지 않고 끝난 사유로 실패한다 (got ${msg.slice(0, 80)})`);
 }
 
 console.log(`demoweb.test: ${pass} passed, ${fail} failed`);
