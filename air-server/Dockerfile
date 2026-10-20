@@ -5,8 +5,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# install deps first (layer cache)
+# install deps first (layer cache). @airmcp-dev/core is the patched air tarball in vendor/ (a file: dependency whose
+# sha512 package-lock.json pins; docs/air-patch.md), so it must be in place before npm ci runs.
 COPY package.json package-lock.json ./
+COPY vendor/*.tgz ./vendor/
 RUN npm ci
 
 # build

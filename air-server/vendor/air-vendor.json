@@ -1,0 +1,58 @@
+{
+  "package": "@airmcp-dev/core",
+  "version": "0.5.2-patched.1",
+  "file": "airmcp-dev-core-0.5.2-patched.1.tgz",
+  "integrity": "sha512-X/5s8kYLmiJqQNwNTRY7+dv0ORdL5Nyrc+X+7D02gKueqILpaNQ10SorKkv33QUKm7vpLvSmeLwyy8vFhG+LYw==",
+  "sha256": "31779e87b17477a9f1b0dc4a0b652cee1a211259af53bf3c441736bb3ee277d9",
+  "base": {
+    "name": "@airmcp-dev/core",
+    "version": "0.5.2",
+    "tarball": "https://registry.npmjs.org/@airmcp-dev/core/-/core-0.5.2.tgz",
+    "integrity": "sha512-QFQr8kPg6Q79xwo2xVBcZ42nqdWTdvzhkmOtbyPdtZNMceWZr77y+MGdLqwmc6olL5q+F26KtWBVo9uh8pxzeA=="
+  },
+  "patches": [
+    {
+      "file": "001-air-prs-3-5-7-9-11.patch",
+      "sha256": "80148931be6fbc93bcfd5dfe2c2c06a8959b3fcaf1a88fd54f7a4c66bc0e0cc6",
+      "files": [
+        "dist/middleware/before-hook.js",
+        "dist/middleware/chain.d.ts",
+        "dist/middleware/chain.js",
+        "dist/protocol/http-transport.d.ts",
+        "dist/protocol/http-transport.js",
+        "dist/protocol/mcp-protocol.d.ts",
+        "dist/protocol/mcp-protocol.js",
+        "dist/protocol/stdio-transport.d.ts",
+        "dist/protocol/stdio-transport.js",
+        "dist/server/server-runner.js",
+        "dist/tool/tool-result.d.ts",
+        "dist/tool/tool-result.js",
+        "dist/tool/tool-schema.js",
+        "dist/types/transport.d.ts"
+      ]
+    },
+    {
+      "file": "002-ping-from-air-main-42cf9e0.patch",
+      "sha256": "08eb9d2943f0efd73e2f433f631a468fa01caecdeb3a11c6654393c8ea0ee5fb",
+      "files": [
+        "dist/protocol/mcp-protocol.js"
+      ]
+    },
+    {
+      "file": "003-sse-origin.patch",
+      "sha256": "182e02d58d03d615870fa73d22680576c9f88ba3a2f841cf24cf2dc08b18a4a2",
+      "files": [
+        "dist/protocol/http-transport.d.ts",
+        "dist/protocol/http-transport.js",
+        "dist/protocol/origin.d.ts",
+        "dist/protocol/origin.js",
+        "dist/server/server-runner.js",
+        "dist/types/transport.d.ts"
+      ]
+    }
+  ],
+  "packed_with": {
+    "node": "v24.18.0",
+    "npm": "11.16.0"
+  }
+}

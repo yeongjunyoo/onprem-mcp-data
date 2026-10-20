@@ -36,6 +36,7 @@ A 저장소 공개 준비  ->  B npm 계정·이름 확보  ->  C npm 최초 공
 - [ ] 패키지 이름 가용성 확인. 현재 `server.json`은 **`onprem-mcp-data`** (스코프 없음)를 전제로 적혀 있다. 이름이 이미 점유돼 있으면 `@<계정>/onprem-mcp-data`로 바꾸고 `server.json`의 `packages[0].identifier`도 같이 바꾼다.
 - [ ] `package.json`의 `name`을 최종 이름으로 교체 (현재 값 `air-server`는 내부 디렉터리 이름이지 배포명이 아니다)
 - [ ] `package.json`에 `"mcpName": "io.github.yeongjunyoo/onprem-mcp-data"` 추가 (레지스트리 소유권 검증에 필요, `server.json`의 `name`과 완전히 일치해야 한다)
+- [ ] `air-server/vendor/` 가 없는지 확인. 패치 얹은 air tarball 은 이 저장소에서 `npm ci` 할 때만 쓰인다. npm 으로 받은 사람의 설치에서는 `file:vendor/...` 의존성을 풀 수 없어 설치가 실패한다. 수정을 담은 air 릴리스로 올리고 tarball 을 지운 뒤에 공개한다([air-patch.md](air-patch.md))
 
 ## C. npm 최초 공개 — 게이트, 되돌리기 어려움
 

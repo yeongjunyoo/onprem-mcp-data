@@ -15,12 +15,13 @@
 
 // route 도구의 출력 계약. 스키마와 출력을 한 파일이 만든다.
 //
-// air 는 outputSchema 의 shape 만 SDK 에 넘기고, SDK 는 그것을 추가 필드를 금지하는 JSON Schema
-// 로 공개한다. 그래서 출력에 스키마에 없는 필드가 하나라도 있으면 엄격한 클라이언트가 결과를
-// 거부한다. 2026-09-30 MCP Inspector 2.8(SDK v2)로 여덟 도구를 불러 보니 route 만 「data must
-// NOT have additional properties」로 실패했다 — 감사 필드(graph_plan, entity_signals,
-// entity_lexicon 등)가 늘어나는 동안 스키마는 여덟 칸에 머물러 있었다. 원시 JSON-RPC 로 부르는
-// 검사(verify-stdio-tools)는 출력 검증을 거치지 않아 몰랐다.
+// 출력 검증을 하는 클라이언트는 structuredContent 를 tools/list 가 공개한 outputSchema 로 검사한다. air 0.3.0 은
+// 이 shape 를 SDK 에 넘겼고 SDK 는 추가 필드를 금지하는 JSON Schema 로 공개했다. 2026-09-30 MCP Inspector 2.8(SDK
+// v2)로 여덟 도구를 불러 보니 route 만 「data must NOT have additional properties」로 실패했다 — 감사 필드(graph_plan,
+// entity_signals, entity_lexicon 등)가 늘어나는 동안 스키마는 여덟 칸에 머물러 있었다. 원시 JSON-RPC 로 부르는
+// 검사(verify-stdio-tools)는 출력 검증을 거치지 않아 몰랐다. air 0.5 는 JSON Schema 를 스스로 만들고 추가 필드를
+// 막지 않지만, nullable 칸의 형은 그대로 검사된다(airmcp-dev/air#7 전에는 null 칸이 string 으로 공개돼 SDK 1.31
+// 클라이언트가 route 호출마다 거부했다). 계약은 계속 엄격하게 둔다.
 //
 // 출력을 만드는 함수와 스키마를 여기 함께 두고, semroute.test 가 출력이 스키마를 통과하는지
 // 확인한다. 필드를 더하면 스키마도 같이 더해야 테스트가 지나간다.

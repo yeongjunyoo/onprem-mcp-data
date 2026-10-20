@@ -79,7 +79,7 @@ services:
   # The air MCP server. Behind the "full" profile so the default `docker compose
   # up` brings up only the verified substrate (db + ollama); the server runs on
   # the host during dev/eval (cd air-server && npm i && npm run build && npm start).
-  # Containerizing it (stdio→HTTP transport) is the packaging increment.
+  # The image's npm ci installs the patched air tarball from air-server/vendor (docs/air-patch.md).
   mcp:
     profiles: ["full"]
     build: ./air-server
@@ -99,7 +99,8 @@ services:
       EMBED_MODEL: bge-m3
     # ★ 포트를 게시하지 않는다. 이 서버는 **stdio 전송**이라 TCP 를 듣지 않는다.
     # 8080 을 열어 두면 "붙을 수 있다"는 거짓 신호가 되고, 실제로 붙으면 아무것도
-    # 응답하지 않는다. HTTP 전송은 다음 증분이며, 그때 포트를 연다.
+    # 응답하지 않는다. 서버에는 HTTP 전송(MCP_TRANSPORT=http)도 있지만 기본 바인딩이 루프백이라, 컨테이너에서
+    # 쓰려면 MCP_HOST=0.0.0.0 과 포트 게시가 함께 필요하다(docs/air-patch.md). 이 서비스는 stdio 로만 띄운다.
     #
     # MCP 클라이언트는 이 컨테이너를 stdio 로 실행해 붙인다:
     #   docker compose --profile full run --rm -T mcp

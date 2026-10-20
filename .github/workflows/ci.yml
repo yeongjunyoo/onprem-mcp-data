@@ -45,7 +45,17 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: air-server/package-lock.json
+      # @airmcp-dev/core 는 air-server/vendor 의 패치 얹은 tarball(file: 의존성)이다. package-lock.json 이 그 sha512 를
+      # 고정하고, 다음 단계가 파일 해시와 설치본을 다시 본다. 무엇이 들어 있는지는 docs/air-patch.md.
       - run: npm ci
+      - name: 설치된 air 가 vendor tarball 그대로이고 패치가 들어 있는지 (airmcp-dev/air PR #3 #5 #7 #9 #11, ping, SSE Origin)
+        working-directory: .
+        run: node scripts/verify-air-patch.mjs
+      # 커밋된 tarball 이 npm 배포본 0.5.2(registry integrity 확인)와 air-server/vendor/patches 에서 그대로 다시 만들어지는지.
+      # 바이너리 안에 패치 말고 다른 것이 없다는 것을 매번 다시 보인다.
+      - name: vendor tarball 이 배포본과 패치에서 다시 만들어지는지
+        working-directory: .
+        run: node scripts/build-air-vendor.mjs --check
       - name: typecheck + build
         run: npx tsc
       - name: offline unit tests (표준 표면, router, curator, RRF, 그래프 상한, execution-match, not-found, 스코어카드 채점기)

@@ -8,12 +8,21 @@ All are OSI-approved or open-weight and run fully on-prem (no external API at ru
 == Runtime frameworks / libraries ==
 - @airmcp-dev/core (air MCP server framework)   — Apache-2.0 — CodePedia Labs / 리원에이스
     https://github.com/airmcp-dev/air
-- @modelcontextprotocol/sdk                      — MIT       (direct, also via air)
-- zod                                            — MIT       (transitive via air)
+    air-server/vendor 의 패치 얹은 0.5.2 빌드로 쓴다(아래 「Files modified from the air project」).
+- zod                                            — MIT       (direct, also via air)
 - TypeScript                                     — Apache-2.0 — Microsoft
     https://github.com/microsoft/TypeScript
     빌드 전용(런타임에 포함되지 않는다). Apache-2.0 이라 귀속을 함께 적는다.
 - pg (node-postgres)                             — MIT       — https://github.com/brianc/node-postgres
+
+== Files modified from the air project ==
+- air-server/vendor/airmcp-dev-core-0.5.2-patched.1.tgz, air-server/vendor/patches/*.patch
+    npm 배포본 @airmcp-dev/core 0.5.2 의 dist/*.js, dist/*.d.ts 를 고친 빌드와 그 변경. Apache-2.0.
+    001: airmcp-dev/air PR #3, #5, #7, #9, #11 (Yeongjun Yoo 가 air 저장소에 올린 수정).
+    002: air main 커밋 42cf9e0 의 ping 응답 수정 (CodePedia Labs).
+    003: HTTP+SSE 전송의 Origin 검사 (Yeongjun Yoo, air 저장소에 올릴 수정).
+    tarball 의 package.json 은 판을 0.5.2-patched.1 로 바꾼 것 말고는 배포본과 같다. 만드는 법은
+    scripts/build-air-vendor.mjs, air 릴리스가 이 수정을 담으면 지운다(docs/air-patch.md).
 
 == Files copied unchanged from the air project ==
 - air-server/.ai/context.md, air-server/.vscode/air.code-snippets

@@ -1,0 +1,169 @@
+diff --git a/dist/protocol/http-transport.d.ts b/dist/protocol/http-transport.d.ts
+index ca7db6c..3495868 100644
+--- a/dist/protocol/http-transport.d.ts
++++ b/dist/protocol/http-transport.d.ts
+@@ -17,11 +17,6 @@ export declare class AirHttpTransport {
+     private corsOrigin;
+     private allowedOrigins?;
+     constructor(engine: McpProtocolEngine, options?: AirHttpTransportOptions);
+-    /**
+-     * Origin 헤더 검증 (DNS rebinding 방지).
+-     * Origin이 없으면(브라우저가 아닌 클라이언트) 통과, 있으면 루프백 출처나 allowedOrigins만 통과.
+-     */
+-    private isAllowedOrigin;
+     /**
+      * HTTP 요청을 처리한다.
+      * server-runner의 HTTP 서버에서 호출됨.
+diff --git a/dist/protocol/http-transport.js b/dist/protocol/http-transport.js
+index 185ab5e..4edb612 100644
+--- a/dist/protocol/http-transport.js
++++ b/dist/protocol/http-transport.js
+@@ -11,8 +11,7 @@
+ //   - 단순 요청은 JSON 응답, 스트리밍이 필요하면 SSE 응답
+ //   - 레거시 클라이언트(initialize)도 폴백 지원
+ import { PROTOCOL_VERSIONS, SUPPORTED_VERSIONS, ErrorCodes } from './mcp-protocol.js';
+-/** 항상 허용하는 Origin 호스트 (루프백) */
+-const LOOPBACK_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
++import { checkOrigin } from './origin.js';
+ export class AirHttpTransport {
+     engine;
+     endpoint;
+@@ -24,22 +23,6 @@ export class AirHttpTransport {
+         this.corsOrigin = options?.corsOrigin ?? '*';
+         this.allowedOrigins = options?.allowedOrigins;
+     }
+-    /**
+-     * Origin 헤더 검증 (DNS rebinding 방지).
+-     * Origin이 없으면(브라우저가 아닌 클라이언트) 통과, 있으면 루프백 출처나 allowedOrigins만 통과.
+-     */
+-    isAllowedOrigin(origin) {
+-        if (origin === undefined)
+-            return true;
+-        if (this.allowedOrigins?.includes('*') || this.allowedOrigins?.includes(origin))
+-            return true;
+-        try {
+-            return LOOPBACK_HOSTNAMES.includes(new URL(origin).hostname);
+-        }
+-        catch {
+-            return false; // 'null' 같은 불투명 Origin
+-        }
+-    }
+     /**
+      * HTTP 요청을 처리한다.
+      * server-runner의 HTTP 서버에서 호출됨.
+@@ -47,14 +30,8 @@ export class AirHttpTransport {
+     async handleRequest(req, res) {
+         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+         // Origin이 허용되지 않으면 403 (MCP 스펙 Streamable HTTP, Security Warning)
+-        if (!this.isAllowedOrigin(req.headers.origin)) {
+-            res.writeHead(403, { 'Content-Type': 'application/json' });
+-            res.end(JSON.stringify({
+-                jsonrpc: '2.0',
+-                error: { code: -32000, message: `Forbidden: Origin ${req.headers.origin} is not allowed` },
+-            }));
++        if (!checkOrigin(req, res, this.allowedOrigins))
+             return;
+-        }
+         // CORS
+         res.setHeader('Access-Control-Allow-Origin', this.corsOrigin);
+         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+diff --git a/dist/protocol/origin.d.ts b/dist/protocol/origin.d.ts
+new file mode 100644
+index 0000000..94df80b
+--- /dev/null
++++ b/dist/protocol/origin.d.ts
+@@ -0,0 +1,9 @@
++import type { IncomingMessage, ServerResponse } from 'node:http';
++/** Origin 헤더 값이 허용되는지 */
++export declare function isAllowedOrigin(origin: string | undefined, allowedOrigins?: string[]): boolean;
++/**
++ * 요청의 Origin을 검사한다. 허용되지 않으면 403과 id 없는 JSON-RPC 에러로 답하고 false를 돌려준다.
++ * 호출한 쪽은 false면 요청 처리를 멈춘다.
++ */
++export declare function checkOrigin(req: IncomingMessage, res: ServerResponse, allowedOrigins?: string[]): boolean;
++//# sourceMappingURL=origin.d.ts.map
+\ No newline at end of file
+diff --git a/dist/protocol/origin.js b/dist/protocol/origin.js
+new file mode 100644
+index 0000000..81c2566
+--- /dev/null
++++ b/dist/protocol/origin.js
+@@ -0,0 +1,39 @@
++// @airmcp-dev/core — protocol/origin.ts
++//
++// Origin 헤더 검증 (DNS rebinding 방지).
++// Streamable HTTP transport와 이전 HTTP+SSE transport가 같은 규칙을 쓴다.
++//   - Origin 헤더가 없는 요청(브라우저가 아닌 클라이언트)은 받는다
++//   - 루프백 출처(localhost, 127.0.0.1, [::1], 포트 무관)는 받는다
++//   - transport.allowedOrigins에 있는 출처는 받는다 ('*'는 모든 Origin)
++//   - 나머지는 403
++/** 항상 허용하는 Origin 호스트 (루프백) */
++const LOOPBACK_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
++/** Origin 헤더 값이 허용되는지 */
++export function isAllowedOrigin(origin, allowedOrigins) {
++    if (origin === undefined)
++        return true;
++    if (allowedOrigins?.includes('*') || allowedOrigins?.includes(origin))
++        return true;
++    try {
++        return LOOPBACK_HOSTNAMES.includes(new URL(origin).hostname);
++    }
++    catch {
++        return false; // 'null' 같은 불투명 Origin
++    }
++}
++/**
++ * 요청의 Origin을 검사한다. 허용되지 않으면 403과 id 없는 JSON-RPC 에러로 답하고 false를 돌려준다.
++ * 호출한 쪽은 false면 요청 처리를 멈춘다.
++ */
++export function checkOrigin(req, res, allowedOrigins) {
++    const origin = req.headers.origin;
++    if (isAllowedOrigin(origin, allowedOrigins))
++        return true;
++    res.writeHead(403, { 'Content-Type': 'application/json' });
++    res.end(JSON.stringify({
++        jsonrpc: '2.0',
++        error: { code: -32000, message: `Forbidden: Origin ${origin} is not allowed` },
++    }));
++    return false;
++}
++//# sourceMappingURL=origin.js.map
+\ No newline at end of file
+diff --git a/dist/server/server-runner.js b/dist/server/server-runner.js
+index f45eb9c..68b7310 100644
+--- a/dist/server/server-runner.js
++++ b/dist/server/server-runner.js
+@@ -9,6 +9,7 @@ import { AirSSETransport, AirSSESessionManager } from '../transport/air-sse-tran
+ import { McpProtocolEngine } from '../protocol/mcp-protocol.js';
+ import { AirStdioTransport } from '../protocol/stdio-transport.js';
+ import { AirHttpTransport } from '../protocol/http-transport.js';
++import { checkOrigin } from '../protocol/origin.js';
+ import { onShutdown } from './lifecycle.js';
+ export class ServerRunner {
+     engine;
+@@ -119,7 +120,12 @@ export class ServerRunner {
+             idleTimeoutMs: this.config.sseIdleTimeoutMs ?? 600_000,
+             cleanupIntervalMs: 60_000,
+         });
++        const allowedOrigins = this.config.transport?.allowedOrigins;
+         const httpServer = createServer(async (req, res) => {
++            // Origin이 허용되지 않으면 모든 경로에서 403 (MCP 스펙 2024-11-05 HTTP with SSE, Security Warning).
++            // 규칙은 Streamable HTTP와 같다: Origin 없음, 루프백 출처, transport.allowedOrigins만 받는다.
++            if (!checkOrigin(req, res, allowedOrigins))
++                return;
+             const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+             // CORS 헤더
+             res.setHeader('Access-Control-Allow-Origin', '*');
+diff --git a/dist/types/transport.d.ts b/dist/types/transport.d.ts
+index 6afa4bc..cb16ae6 100644
+--- a/dist/types/transport.d.ts
++++ b/dist/types/transport.d.ts
+@@ -7,7 +7,7 @@ export interface TransportConfig {
+     /** HTTP/SSE 바인딩 호스트 (기본: 127.0.0.1, 외부 접속을 받으려면 '0.0.0.0') */
+     host?: string;
+     /**
+-     * HTTP transport에서 루프백 출처(localhost, 127.0.0.1, [::1]) 외에 더 허용할 브라우저 Origin.
++     * HTTP/SSE transport에서 루프백 출처(localhost, 127.0.0.1, [::1]) 외에 더 허용할 브라우저 Origin.
+      * 목록에 없는 Origin 헤더는 403. '*'는 모든 Origin 허용.
+      */
+     allowedOrigins?: string[];
