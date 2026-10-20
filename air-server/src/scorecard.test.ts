@@ -30,21 +30,33 @@ import { CX_TABLES, qualifyCompanyx } from "./companyx.js";
 import {
   ABSTAIN,
   HOLDOUT_FILES,
+  LABELS_FILE,
   buildCatalog,
   holdoutItem,
   holdoutKgGold,
   holdoutSqlItem,
   holdoutVectorGold,
   isLimited,
+  labelsFor,
   parseBudget,
+  parseRules,
   parseScoreSet,
+  requiredColumns,
+  scoreKg,
+  scoreSql,
+  scoreVectorKeyed,
   scorecardOut,
   selfCheckItems,
   selfCheckPrimitives,
   sqlGoldFromResult,
+  type AnswerState,
+  type GoldLabelsFile,
   type HoldoutItem,
   type Lane,
   type ScoreItem,
+  type ScoreRules,
+  type SqlGold,
+  type ValueKind,
 } from "./scorecard.js";
 
 // 데이터셋이 있어도 없는 것처럼 센다. verify-test-counts 가 데이터셋 없는 CI 의 단언 수를
@@ -251,6 +263,204 @@ for (const { set, items } of sets) {
   } else {
     // 데이터셋은 배포 조건상 저장소에 없다. 없으면 건너뛰되 침묵하지 않는다.
     console.log("  SKIP: 봉인 홀드아웃 그래프, 벡터 전 문항 자기 점검 (데이터셋 없음 — datasets/companyx-v1.0)");
+  }
+}
+
+// ── 채점 규칙 v2 ────────────────────────────────────────────────────────
+//
+// 2026-10-11 진단이 「답이 맞았는데 채점기가 못 본」 21건에서 찾은 결함을 v2 가 고쳤다. 고친 규칙마다 두 쪽을 본다.
+// 진단이 옳다고 본 실제 답은 v1 이 틀리고 v2 가 맞힌다. 진단이 실제로 틀렸다고 본 같은 갈래의 실제 답은 v1, v2 모두
+// 틀린다. 기대값은 우리 채점기가 아니라 진단의 분석가 판정이다(eval/companyx/scorer_cases.json, 답은 기록 파일 그대로).
+eq(parseRules(undefined), "v2", "CX_RULES 가 없으면 v2");
+eq(parseRules("v1"), "v1", "CX_RULES=v1 은 공개 수치를 낸 규칙");
+ok(throws(() => parseRules("v3")), "모르는 규칙 판은 던진다(조용히 다른 규칙으로 돌지 않는다)");
+
+type Labelled = GoldLabelsFile & {
+  labellers: Record<"A" | "B", { output: { sql: Record<string, { asked_columns: string[] }>; vector: Record<string, { required_facts: string[] }> } }>;
+};
+const labels = JSON.parse(readFileSync(resolve(root, LABELS_FILE), "utf8")) as Labelled;
+const byset = Object.fromEntries(sets.map(({ set, items }) => [set, items])) as Record<string, HoldoutItem[]>;
+const sponsorSql = readFileSync(resolve(root, "eval/companyx/sql_gold.jsonl"), "utf8")
+  .split("\n")
+  .filter((l) => l.trim())
+  .map((l) => JSON.parse(l) as { id: string; gold: string });
+
+// ── 라벨 파일: 질문이 묻는 것만 고르고, 정답을 넓히지 않는다 ─────────────
+{
+  const sqlItems = [
+    ...sponsorSql.map((g) => ({ id: g.id, sql: g.gold })),
+    ...["holdout3", "holdout4"].flatMap((s) => byset[s].filter((i) => i.expected === "nl2sql").map((i) => ({ id: i.id, sql: i.gold_sql as string }))),
+  ];
+  const vecItems = byset.holdout4.filter((i) => i.expected === "vector_search" && i.gold_keywords?.length);
+  eq(sqlItems.length, 50, "라벨 대상 SQL 은 사업자 10, 홀드아웃3 20, 홀드아웃4 20");
+  eq(sqlItems.filter((i) => !labels.items[i.id]?.asked_columns?.length).map((i) => i.id), [], "SQL 문항마다 묻는 열 라벨이 있다");
+  eq(vecItems.filter((i) => !labels.items[i.id]?.required_facts?.length).map((i) => i.id), [], "홀드아웃4 키워드 문서 문항마다 묻는 사실 라벨이 있다");
+  const badCols = sqlItems.flatMap((i) =>
+    (labels.items[i.id]?.asked_columns ?? []).filter((c) => c === "id" || c.endsWith("_id") || !new RegExp(`\\b${c}\\b`).test(i.sql)).map((c) => `${i.id}:${c}`),
+  );
+  eq(badCols, [], "묻는 열은 정답 SQL 에 있는 열이고 id 열이 아니다");
+  const badFacts = vecItems.flatMap((i) =>
+    (labels.items[i.id]?.required_facts ?? []).filter((f) => !(i.gold_keywords ?? []).some((k) => k.includes(f))).map((f) => `${i.id}:${f}`),
+  );
+  eq(badFacts, [], "묻는 사실은 그 문항 정답 키워드의 부분 문자열이다(라벨이 새 정답을 만들지 않는다)");
+  const same = (got: string[] | undefined, a: string[], b: string[]) => {
+    const want = new Set([...a, ...b]);
+    return (got ?? []).length === want.size && (got ?? []).every((x) => want.has(x));
+  };
+  const { A, B } = labels.labellers;
+  eq(
+    [
+      ...sqlItems.filter((i) => !same(labels.items[i.id].asked_columns, A.output.sql[i.id].asked_columns, B.output.sql[i.id].asked_columns)),
+      ...vecItems.filter((i) => !same(labels.items[i.id].required_facts, A.output.vector[i.id].required_facts, B.output.vector[i.id].required_facts)),
+    ].map((i) => i.id),
+    [],
+    "라벨은 두 라벨러 출력의 합집합 그대로다(손으로 고친 칸이 없다)",
+  );
+  const fix = labels.errata["h4-59"] as GoldLabelsFile["errata"][string] & { v1_gold_answer_names: string[] };
+  const orig = byset.holdout4.find((i) => i.id === "h4-59")?.gold_answer_names ?? [];
+  eq(Object.keys(labels.errata), ["h4-59"], "정정은 데이터셋으로 확인한 h4-59 하나다");
+  eq(fix.v1_gold_answer_names, orig, "정정의 v1 이름은 봉인 파일의 정답 그대로다");
+  ok(new Set(fix.gold_answer_names).size === 13 && orig.every((n) => fix.gold_answer_names.includes(n)), "정정한 h4-59 정답은 원래 10곳을 품은 13곳이다");
+  eq(labelsFor(labels, "h4-59", { asked: false, errata: true })?.gold_answer_names?.length, 13, "정답 정정은 라벨을 꺼도 쓴다");
+  eq(labelsFor(labels, "h4-21", { asked: false, errata: true }), undefined, "라벨을 끄면 묻는 사실은 싣지 않는다");
+}
+
+// ── 실제 답으로 본 v1 과 v2 ────────────────────────────────────────────
+type Case = { set: string; id: string; source: string; label: string; answer: string; state: AnswerState; expect: { right: boolean; basis: string } };
+const cases = JSON.parse(readFileSync(resolve(root, "eval/companyx/scorer_cases.json"), "utf8")) as {
+  sql: (Case & { q: string; gold: { gold_id: string; rows: Record<string, unknown>[]; ordered: boolean; limited: boolean; tied: string[]; types: Record<string, ValueKind> } })[];
+  vector: Case[];
+  graph: Case[];
+};
+// 데이터셋 없이 도는 판정용 개체 목록. 고객사 id 30개(Client-A … Client-AD)와 제품 id 12개만 있으면 지어낸 개체를 가른다.
+const idCat = buildCatalog([
+  ...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", "AA", "AB", "AC", "AD"].map((x) => ({ name: `Client-${x}`, type: "client" })),
+  ...["C1", "C2", "C3", "C4", "D1", "D2", "D3", "S1", "S2", "S3", "T1", "T2"].map((x) => ({ name: `Product-${x}`, type: "product" })),
+]);
+{
+  const verdicts = (c: (typeof cases.sql)[number]) => {
+    const gold: SqlGold = { rows: c.gold.rows, ordered: c.gold.ordered, limited: c.gold.limited, tied: c.gold.tied, types: c.gold.types };
+    const asked = labels.items[c.gold.gold_id]?.asked_columns;
+    const v = (r: ScoreRules, g: SqlGold) => scoreSql(c.answer, c.q, g, idCat, c.state, r).correct;
+    return { v1: v("v1", gold), v2m: v("v2", gold), v2: v("v2", { ...gold, asked }) };
+  };
+  for (const c of cases.sql) {
+    const v = verdicts(c);
+    const tag = `SQL ${c.id}(${c.source})`;
+    if (c.expect.right) {
+      ok(!v.v1, `${tag}: v1 은 진단이 옳다고 본 답을 틀린다 — 고칠 결함이 실제로 있다`);
+      ok(v.v2, `${tag}: v2 는 그 답을 맞힌다`);
+    } else ok(!v.v1 && !v.v2m && !v.v2, `${tag}: 실제로 틀린 답은 v1, v2(라벨 없이), v2 모두 틀린다`);
+  }
+  eq(cases.sql.filter((c) => !c.expect.right).length, 10, "SQL 음성 사례는 진단의 실제 오답 9과 공개 기록의 h4-06 오답");
+  // 무엇이 고쳤는지: 질문이 말한 값 규칙은 h4-06 만, 묻는 열 라벨은 나머지 다섯. h4-13(MAX 부분 질의)은 라벨로만 맞는다 —
+  // MAX 정답을 LIMIT 처럼 보는 기계 규칙은 h3-20, h4-10, h4-20 처럼 질문이 그 값을 묻는 정답에서 값을 빼므로 넣지 않았다.
+  eq(cases.sql.filter((c) => c.expect.right && verdicts(c).v2m).map((c) => c.id), ["h4-06"], "질문이 말한 값을 빼는 규칙만으로 맞는 것은 h4-06");
+  eq(
+    cases.sql.filter((c) => c.expect.right && !verdicts(c).v2m).map((c) => c.id),
+    ["h4-02", "h4-07", "h4-10", "h4-13", "h3-03"],
+    "묻는 열 라벨이 있어야 맞는 다섯(h4-13 포함)",
+  );
+
+  // 질문이 말한 값: 모든 행에서 같은 글자 값만, 빼면 요구가 남을 때만 뺀다.
+  const g1: SqlGold = { rows: [{ name: "Client-C", region: "부산", industry: "IT/SW" }], ordered: false, limited: false, tied: [] };
+  eq(requiredColumns("부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?", g1, "v2"), ["name"], "질문이 말한 부산, IT/SW 는 요구하지 않는다");
+  eq(requiredColumns("부산 쪽에 있는 IT/SW 업종 고객사가 어디였더라?", g1, "v1"), ["name", "region", "industry"], "v1 은 그대로 요구한다");
+  const g2: SqlGold = { rows: [{ region: "부산" }], ordered: false, limited: false, tied: [] };
+  eq(requiredColumns("Client-A 가 부산에 있어?", g2, "v2"), ["region"], "빼면 남는 것이 없으면 빼지 않는다");
+  ok(!scoreSql("아니요, 서울에 있습니다.", "Client-A 가 부산에 있어?", g2, idCat, "ok", "v2").correct, "확인 질문에 다른 값을 댄 답은 틀린다");
+  const g3: SqlGold = { rows: [{ name: "Client-A", amount: "100" }, { name: "Client-B", amount: "200" }], ordered: false, limited: false, tied: [] };
+  eq(requiredColumns("Client-A 랑 Client-B 매출 각각 얼마야?", g3, "v2"), ["name", "amount"], "행마다 다른 이름은 질문에 있어도 요구한다(어느 행의 값인지 가른다)");
+  ok(!scoreSql("100 과 200 입니다", "Client-A 랑 Client-B 매출 각각 얼마야?", g3, idCat, "ok", "v2").correct, "이름 없이 수만 댄 답은 틀린다");
+  const g4: SqlGold = { rows: [{ name: "Client-B", amount: "10000" }], ordered: false, limited: false, tied: [] };
+  eq(requiredColumns("금액 10000 넘는 계약 고객사?", g4, "v2"), ["name", "amount"], "질문에 있는 수는 빼지 않는다(글자 값만 뺀다)");
+}
+{
+  // 문서 문항. 정답 문서 본문은 데이터셋에 있다 — 여기서는 정답 키워드만 담은 문서로 같은 함수를 돈다.
+  const h4 = new Map(byset.holdout4.map((i) => [i.id, i]));
+  const judge = (it: HoldoutItem, answer: string, state: AnswerState, r: ScoreRules, withLabels: boolean): boolean | null => {
+    const docs = new Map((it.gold_docs ?? []).map((d) => [d.replace(/\.md$/, ""), (it.gold_keywords ?? []).join("\n")]));
+    const g = holdoutVectorGold(it, docs, { rules: r, facts: withLabels ? labels.items[it.id]?.required_facts : undefined });
+    return "gold" in g ? scoreVectorKeyed(answer, it.q, g.gold, idCat, state, r).correct : null;
+  };
+  const verdicts = (c: Case) => {
+    const it = h4.get(c.id) as HoldoutItem;
+    return { v1: judge(it, c.answer, c.state, "v1", false), v2m: judge(it, c.answer, c.state, "v2", false), v2: judge(it, c.answer, c.state, "v2", true) };
+  };
+  for (const c of cases.vector) {
+    const v = verdicts(c);
+    const tag = `문서 ${c.id}(${c.source})`;
+    if (c.expect.right) {
+      ok(v.v1 === false, `${tag}: v1 은 진단이 옳다고 본 답을 틀린다`);
+      ok(v.v2 === true, `${tag}: v2 는 그 답을 맞힌다`);
+    } else ok(v.v1 !== true && v.v2m !== true && v.v2 !== true, `${tag}: 실제로 틀린 답은 v1, v2(라벨 없이), v2 모두 틀린다`);
+  }
+  eq(
+    cases.vector.filter((c) => c.expect.right && verdicts(c).v2m === true).map((c) => `${c.id}:${c.source}`),
+    ["h4-23", "h4-24", "h4-30", "h4-31", "h4-33", "h4-34", "h4-35", "h4-37", "h4-38"].map((id) => `${id}:record-1011`).concat("h4-33:published-1002"),
+    "수를 값으로 보는 규칙만으로 맞는 것은 진단의 아홉과 공개 기록의 h4-33(「10일」)",
+  );
+  eq(
+    cases.vector.filter((c) => c.expect.right && verdicts(c).v2m !== true).map((c) => c.id),
+    ["h4-21", "h4-25", "h4-27", "h4-28", "h4-29"],
+    "묻는 사실 라벨이 있어야 맞는 다섯(묻지 않은 키워드)",
+  );
+  eq(verdicts(cases.vector.find((c) => c.id === "h4-26") as Case).v2, null, "정답 문서가 셋인 h4-26 은 v2 에서도 채점 불가");
+
+  // 값 규칙의 경계(합성). 진단의 실제 오답은 위에서 봤고, 여기는 규칙이 받아서는 안 되는 모양이다.
+  const it = (id: string) => h4.get(id) as HoldoutItem;
+  const both = (id: string, a: string) => [judge(it(id), a, "ok", "v2", false), judge(it(id), a, "ok", "v2", true)];
+  eq(both("h4-30", "Product-D1 API의 기본 분당 호출 한도는 2130회이고, 프리미엄 분당 호출 한도는 263회입니다."), [false, false], "기본과 프리미엄의 값이 엇갈린 답은 틀린다(라벨이 꼬리표를 떼도 정답 키워드의 꼬리표로 본다)");
+  eq(both("h4-30", "기본과 프리미엄 각각 분당 263회, 2130회입니다."), [true, true], "「각각」으로 꼬리표와 값을 따로 늘어놓은 답은 맞다");
+  eq(both("h4-23", "40초"), [false, false], "단위가 다르면 틀린다");
+  eq(both("h4-37", "약 4,100만원"), [false, false], "어림한 값은 틀린다");
+  // 알려진 한계를 못 박는다(고치면 이 단언을 같이 바꾼다). 맞는 값과 다른 값을 함께 대면 v2 는 맞는 값을 찾아 맞힌다.
+  // v1 의 SQL 수 판정과 같은 성질이고, 개발 세트의 실제 답 중 이런 답은 없다(재채점에서 v2 가 맞힌 답을 전부 읽어 확인).
+  eq(both("h4-39", "TCO 절감률은 28%입니다. 다른 제안서는 40%였습니다."), [true, true], "알려진 한계: 다른 값을 곁들인 답도 맞는 값이 있으면 맞힌다");
+  eq(judge(it("h4-39"), "TCO 절감률은 28%입니다. 다른 제안서는 40%였습니다.", "ok", "v1", false), false, "(대조) v1 은 그 답을 글자로 틀린다");
+  eq(both("h4-33", "마일스톤 2가 며칠 밀렸는지는 문서에 없습니다"), [false, false], "질문이 말한 수(마일스톤 2)만 되풀이한 답은 틀린다");
+}
+
+// ── 정답 정정 h4-59 와 그래프 실제 답 — 데이터셋이 있을 때만 ────────────
+{
+  const dir = resolve(root, "datasets/companyx-v1.0");
+  if (!TEST_AS_CI && existsSync(resolve(dir, "graph/nodes.json")) && existsSync(resolve(dir, "graph/edges.json"))) {
+    const nodes = JSON.parse(readFileSync(resolve(dir, "graph/nodes.json"), "utf8")) as { id: string; name: string; type: string }[];
+    const edges = JSON.parse(readFileSync(resolve(dir, "graph/edges.json"), "utf8")) as { source: string; relation: string; target: string }[];
+    const cat = buildCatalog(nodes);
+    const byId = new Map(nodes.map((n) => [n.id, n.name]));
+    const t2 = nodes.find((n) => n.name === "Product-T2")?.id;
+    const reporters = edges.filter((e) => e.relation === "REPORTED_ISSUE" && e.target === t2).map((e) => byId.get(e.source) as string);
+    const fix = labels.errata["h4-59"];
+    eq([...reporters].sort(), [...fix.gold_answer_names].sort(), "정정한 h4-59 정답은 edges.json 의 Product-T2 REPORTED_ISSUE 출발점 전부다");
+    const edgeSet = new Set(edges.map((e) => `${e.source}|${e.relation}|${e.target}`));
+    ok((fix.gold_edges ?? []).length === 13 && (fix.gold_edges ?? []).every((e) => edgeSet.has(`${e.source}|${e.relation}|${e.target}`)), "정정의 엣지 13개가 그래프에 있다");
+    for (const c of cases.graph) {
+      const item = byset[c.set].find((i) => i.id === c.id) as HoldoutItem;
+      const judge = (r: ScoreRules) => {
+        const g = holdoutKgGold(item, cat, r === "v2" ? labelsFor(labels, c.id, { asked: false, errata: true })?.gold_answer_names : undefined);
+        return "gold" in g ? scoreKg(c.answer, item.q, g.gold, cat, c.state).correct : null;
+      };
+      const [v1, v2] = [judge("v1"), judge("v2")];
+      const tag = `그래프 ${c.id}(${c.source})`;
+      if (c.expect.right) ok(v1 === false && v2 === true, `${tag}: 13곳을 다 댄 답은 v1 이 틀리고 v2 가 맞힌다`);
+      else if (c.source === "oracle-edges") ok(v1 === true && v2 === false, `${tag}: 틀린 정답(10곳)을 받아 10곳만 댄 답은 v1 이 맞히고 v2 가 틀린다`);
+      else ok(v1 !== true && v2 !== true, `${tag}: 실제로 틀린 답은 v1, v2 모두 틀린다`);
+    }
+    // v2 로도 봉인 홀드아웃 그래프, 벡터 전 문항의 모범 답은 정답, 기권은 오답이고, 채점 가능 수는 v1 과 같다.
+    const index = JSON.parse(readFileSync(resolve(dir, "documents/index.json"), "utf8")) as { id: string; filename: string }[];
+    const docs = new Map(index.map((e) => [e.id, readFileSync(resolve(dir, "documents", e.filename), "utf8")]));
+    const scorable: Record<string, number> = {};
+    for (const { set, items } of sets) {
+      const built = items
+        .filter((i) => i.expected !== "nl2sql")
+        .map((i) => holdoutItem(i, { docs, cat, rules: "v2", labels: labelsFor(labels, i.id) }));
+      eq(selfCheckItems(built), [], `${set} 그래프, 벡터 전 문항 자기 점검(v2, 라벨과 정정)`);
+      scorable[set] = built.filter((b) => !b.unscorable).length;
+    }
+    eq(scorable, { holdout3: 19, holdout4: 39 }, "v2 의 채점 가능 수는 v1 과 같다(라벨이 분모를 바꾸지 않는다)");
+  } else {
+    console.log("  SKIP: 정답 정정 h4-59 와 그래프 실제 답 v2 점검 (데이터셋 없음 — datasets/companyx-v1.0)");
   }
 }
 

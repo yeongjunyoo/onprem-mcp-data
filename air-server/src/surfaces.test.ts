@@ -22,10 +22,15 @@ import { buildAnswerPrompt } from "./llm.js";
 import { buildCompanyxSqlPrompt } from "./nl2sql.js";
 import { buildAuditRecord } from "./auditrecord.js";
 import { buildResources } from "./resources.js";
-import { resolveTransport, SANITIZER_OPTIONS } from "./server.js";
+import { auditCaller, resolveTransport, SANITIZER_OPTIONS } from "./server.js";
+import { userInfo } from "node:os";
 import { reportOllama } from "./preflight.js";
+import { ROUTE_OUTPUT_SCHEMA } from "./routeschema.js";
 import { sanitizerPlugin } from "@airmcp-dev/core";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
+import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 
 let pass = 0,
@@ -36,6 +41,145 @@ function ok(cond: boolean, msg: string) {
     fail++;
     console.error("  FAIL:", msg);
   }
+}
+
+type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+interface Reply {
+  id?: number;
+  result?: Json;
+  error?: { code: number; message: string };
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const childEnv = (vars: Record<string, string | undefined>) => {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of ["MCP_TRANSPORT", "MCP_PORT", "MCP_HOST", "MCP_ALLOWED_ORIGINS"]) delete env[k];
+  for (const [k, v] of Object.entries(vars)) if (v !== undefined) env[k] = v;
+  return env;
+};
+
+/** 서버 정의(buildServer)를 air 의 stdio 전송으로 띄운다. 클라이언트처럼 한 줄에 JSON-RPC 하나를 쓰고 읽는다.
+ * buildServer 는 air dedup 의 타이머가 프로세스를 붙잡으므로 입력이 닫히면 끝나게 한다. */
+async function startStdio(serverJs: string) {
+  const child = spawn(
+    process.execPath,
+    ["--input-type=module", "-e", `const { buildServer } = await import(${serverJs}); process.stdin.once("end", () => process.exit(0)); await buildServer().start();`],
+    { env: childEnv({}), stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
+  );
+  const pending = new Map<number, (r: Reply) => void>();
+  const nonJson: string[] = [];
+  let buf = "",
+    stderr = "",
+    nextId = 0;
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (d: string) => {
+    buf += d;
+    for (let i = buf.indexOf("\n"); i >= 0; i = buf.indexOf("\n")) {
+      const line = buf.slice(0, i);
+      buf = buf.slice(i + 1);
+      let msg: Reply;
+      try {
+        msg = JSON.parse(line) as Reply;
+      } catch {
+        nonJson.push(line);
+        continue;
+      }
+      const settle = pending.get(msg.id as number);
+      if (!settle) nonJson.push(line); // 요청하지 않은 메시지(알림에 대한 응답 따위)도 위반이다
+      else {
+        pending.delete(msg.id as number);
+        settle(msg);
+      }
+    }
+  });
+  child.stderr.on("data", (d) => (stderr += d));
+  const write = (msg: Json, eol = "\n") => child.stdin.write(JSON.stringify(msg) + eol);
+  return {
+    rpc(method: string, params?: Json, eol = "\n"): Promise<Reply> {
+      const id = ++nextId;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`stdio ${method}: 30초 안에 응답이 없다. 서버 stderr:\n${stderr.slice(-600)}`)), 30_000);
+        pending.set(id, (r) => {
+          clearTimeout(timer);
+          resolve(r);
+        });
+        write({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) }, eol);
+      });
+    },
+    notify: (method: string) => void write({ jsonrpc: "2.0", method }),
+    nonJson: () => nonJson,
+    unanswered: () => pending.size,
+    async close() {
+      child.stdin.end();
+      if (child.exitCode === null) await new Promise((r) => child.once("exit", r));
+    },
+  };
+}
+
+/** 같은 서버 정의를 air 의 Streamable HTTP(MCP_TRANSPORT=http)나 HTTP+SSE(MCP_TRANSPORT=sse) 전송으로 빈 포트에 띄운다. */
+async function startHttp(serverJs: string, vars: Record<string, string>, transport: "http" | "sse" = "http") {
+  const port = await new Promise<number>((resolve) => {
+    const probe = createServer().listen(0, "127.0.0.1", () => {
+      const { port } = probe.address() as { port: number };
+      probe.close(() => resolve(port));
+    });
+  });
+  const child = spawn(process.execPath, ["--input-type=module", "-e", `const { buildServer } = await import(${serverJs}); await buildServer().start();`], {
+    env: childEnv({ ...vars, MCP_TRANSPORT: transport, MCP_PORT: String(port) }),
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let log = "";
+  child.stdout.on("data", (d) => (log += d));
+  child.stderr.on("data", (d) => (log += d));
+  for (let i = 0; i < 300 && !/listening on port/.test(log) && child.exitCode === null; i++) await sleep(100);
+  if (!/listening on port/.test(log)) {
+    child.kill();
+    throw new Error(`${transport} 서버가 뜨지 않았다:\n${log.slice(-600)}`);
+  }
+  // fetch 대신 node:http 로 보낸다. Origin 같은 머리를 클라이언트 라이브러리가 바꾸지 않고 그대로 싣는다.
+  const request = (method: string, path: string, body?: Json, headers: Record<string, string> = {}) =>
+    new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const req = httpRequest(
+        { host: "127.0.0.1", port, method, path, headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...headers } },
+        (res) => {
+          let text = "";
+          res.setEncoding("utf8");
+          res.on("data", (d) => (text += d));
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text }));
+        },
+      );
+      req.on("error", reject);
+      req.end(body === undefined ? undefined : JSON.stringify(body));
+    });
+  // SSE 스트림(GET /sse)은 끝나지 않는다. 200 이면 endpoint 이벤트가 올 때까지, 아니면 응답 끝까지 읽고 연결을 닫는다.
+  const openStream = (path: string, headers: Record<string, string> = {}) =>
+    new Promise<{ status: number; endpoint?: string; body: string }>((resolve, reject) => {
+      const req = httpRequest({ host: "127.0.0.1", port, method: "GET", path, headers: { accept: "text/event-stream", ...headers } }, (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (d) => {
+          text += d;
+          const endpoint = /^event: endpoint\ndata: (.+)$/m.exec(text)?.[1];
+          if (res.statusCode === 200 && endpoint) {
+            resolve({ status: 200, endpoint, body: text });
+            req.destroy();
+          }
+        });
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text }));
+      });
+      req.on("error", (e) => (req.destroyed ? undefined : reject(e)));
+      req.end();
+    });
+  return {
+    log: () => log,
+    request,
+    openStream,
+    post: (body: Json, headers: Record<string, string> = {}) => request("POST", "/mcp", body, headers),
+    async close() {
+      child.kill();
+      if (child.exitCode === null) await new Promise((r) => child.once("exit", r));
+    },
+  };
 }
 
 async function main() {
@@ -144,16 +288,29 @@ async function main() {
   // ★ 감사 레코드는 두 계층이다.
   //
   //   buildAuditRecord()          파이프라인이 만드는 12종
-  //   server.ts 의 audit.explain  거기에 executed_at · cache_policy 를 덧붙인 14종
+  //   server.ts 의 audit.explain  거기에 executed_at · caller · cache_policy 를 덧붙인 것
   //
-  // 계약이 설명하는 것은 **도구가 돌려주는 14종**이다. 2026-08-17 에 이 테스트가
+  // 계약이 설명하는 것은 **도구가 돌려주는 필드**다. 2026-08-17 에 이 테스트가
   // 12종만 만들어 놓고 대조해 계약의 두 필드를 "유령" 으로 판정했다 —
   // 틀린 것은 계약이 아니라 **대조 대상의 계층**이었다.
   const toolRecord = {
     ...sampleRecord,
     executed_at: "2026-08-17T00:00:00.000Z",
+    caller: auditCaller(),
     cache_policy: "excluded" as const,
   };
+  // 호출 주체(Who, G21 2026-10-20). stdio 는 서버를 띄운 OS 계정, 네트워크 전송은 인증이 없어 계정을 적지 않는다.
+  {
+    const saved = process.env.MCP_TRANSPORT;
+    delete process.env.MCP_TRANSPORT;
+    ok(JSON.stringify(auditCaller()) === JSON.stringify({ transport: "stdio", os_user: userInfo().username }), `stdio 면 OS 계정 (got ${JSON.stringify(auditCaller())})`);
+    for (const t of ["sse", "http"]) {
+      process.env.MCP_TRANSPORT = t;
+      ok(JSON.stringify(auditCaller()) === JSON.stringify({ transport: t, os_user: null }), `${t} 면 계정을 적지 않는다 (got ${JSON.stringify(auditCaller())})`);
+    }
+    if (saved === undefined) delete process.env.MCP_TRANSPORT;
+    else process.env.MCP_TRANSPORT = saved;
+  }
   const documentedFields = Object.keys(auditDoc.fields ?? {}).sort();
   const actualFields = Object.keys(toolRecord).sort();
   // 특정 경로에서만 붙는 선택 필드(답변 생성, 미해소 게이트, 섞인 질문의 없는 개체). 그냥 예외로 빼면 다음에
@@ -225,57 +382,78 @@ async function main() {
   // 지원한다고 적어둔 채였으므로, MCP_TRANSPORT=http 를 준 사람은 에러 없이
   // stdio 서버를 받고 성공한 줄 안다. 잘못 다룬 설정은 기본값으로 메꾸는 것보다
   // 기동을 멈추는 편이 싸다.
-  const savedTransport = process.env.MCP_TRANSPORT;
-  const savedPort = process.env.MCP_PORT;
+  const savedEnv = { ...process.env };
+  const setEnv = (vars: Record<string, string | undefined>) => {
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  };
+  const throws = (vars: Record<string, string | undefined>) => {
+    setEnv(vars);
+    try {
+      resolveTransport();
+      return false;
+    } catch {
+      return true;
+    }
+  };
   try {
-    delete process.env.MCP_TRANSPORT;
+    setEnv({ MCP_TRANSPORT: undefined, MCP_PORT: undefined, MCP_HOST: undefined, MCP_ALLOWED_ORIGINS: undefined });
     ok(resolveTransport().type === "stdio", "미지정이면 stdio");
 
     process.env.MCP_TRANSPORT = "stdio";
     ok(resolveTransport().type === "stdio", "stdio 명시");
 
     process.env.MCP_TRANSPORT = "sse";
-    delete process.env.MCP_PORT;
-    const sse = resolveTransport();
-    ok(sse.type === "sse" && sse.port === 3510, "sse 기본 포트 3510");
+    ok(
+      JSON.stringify(resolveTransport()) === JSON.stringify({ type: "sse", port: 3510, host: "127.0.0.1", allowedOrigins: [] }),
+      `sse 기본 포트 3510, 루프백에만 바인딩하고 루프백 밖 Origin 은 받지 않는다 (got ${JSON.stringify(resolveTransport())})`,
+    );
 
     process.env.MCP_PORT = "3600";
     const sse2 = resolveTransport();
     ok(sse2.type === "sse" && sse2.port === 3600, "MCP_PORT 반영");
 
+    // http 는 air 의 세션 없는 Streamable HTTP 다. 포트는 sse 와 같은 MCP_PORT, 허용 출처는 루프백뿐이다.
+    process.env.MCP_TRANSPORT = "http";
+    ok(
+      JSON.stringify(resolveTransport()) === JSON.stringify({ type: "http", port: 3600, host: "127.0.0.1", allowedOrigins: [] }),
+      `http 는 MCP_PORT 를 쓰고 루프백에만 바인딩하며 루프백 밖 Origin 은 받지 않는다 (got ${JSON.stringify(resolveTransport())})`,
+    );
+    setEnv({ MCP_HOST: "0.0.0.0", MCP_ALLOWED_ORIGINS: "https://app.example.com, http://192.168.0.5:8080" });
+    const open = resolveTransport();
+    ok(
+      open.type === "http" && open.host === "0.0.0.0" && JSON.stringify(open.allowedOrigins) === JSON.stringify(["https://app.example.com", "http://192.168.0.5:8080"]),
+      `MCP_HOST 와 MCP_ALLOWED_ORIGINS 를 반영한다 (got ${JSON.stringify(open)})`,
+    );
+    setEnv({ MCP_HOST: "  ", MCP_ALLOWED_ORIGINS: " " });
+    const blankOpts = resolveTransport();
+    ok(blankOpts.type === "http" && blankOpts.host === "127.0.0.1" && blankOpts.allowedOrigins.length === 0, "공백만 있는 MCP_HOST, MCP_ALLOWED_ORIGINS 는 미지정과 같다");
+
     // ★ 핵심 — 모르는 값은 조용히 넘어가지 않는다.
     // 공백만 있는 값은 "미지정"으로 본다 — 셸에서 빈 변수를 넘기는 흔한 형태다.
     // 결정이라면 테스트가 그 결정을 말해야 한다.
-    process.env.MCP_TRANSPORT = "   ";
+    setEnv({ MCP_TRANSPORT: "   " });
     ok(resolveTransport().type === "stdio", "공백만 있는 값은 미지정과 같다");
 
-    for (const bad of ["http", "HTTP", "websocket", "sse2", "stdio2"]) {
-      process.env.MCP_TRANSPORT = bad;
-      let threw = false;
-      try {
-        resolveTransport();
-      } catch {
-        threw = true;
-      }
-      ok(threw, `MCP_TRANSPORT=${JSON.stringify(bad)} 는 거절한다`);
+    for (const bad of ["HTTP", "websocket", "sse2", "stdio2", "streamable-http"]) {
+      ok(throws({ MCP_TRANSPORT: bad }), `MCP_TRANSPORT=${JSON.stringify(bad)} 는 거절한다`);
     }
-
-    process.env.MCP_TRANSPORT = "sse";
     for (const badPort of ["0", "70000", "abc", "-1"]) {
-      process.env.MCP_PORT = badPort;
-      let threw = false;
-      try {
-        resolveTransport();
-      } catch {
-        threw = true;
-      }
-      ok(threw, `MCP_PORT=${badPort} 는 거절한다`);
+      ok(throws({ MCP_TRANSPORT: "sse", MCP_PORT: badPort }), `MCP_PORT=${badPort} 는 거절한다`);
+    }
+    process.env.MCP_PORT = "3600";
+    for (const badHost of ["0.0.0.0:3510", "http://127.0.0.1", "local host"]) {
+      ok(throws({ MCP_TRANSPORT: "http", MCP_HOST: badHost }), `MCP_HOST=${JSON.stringify(badHost)} 는 거절한다(포트는 MCP_PORT 로)`);
+    }
+    process.env.MCP_HOST = "::1";
+    ok(!throws({ MCP_TRANSPORT: "http" }), "IPv6 주소(::1)는 받는다");
+    for (const badOrigin of ["*", "https://app.example.com/", "app.example.com", "https://app.example.com/path", "ftp://files.example.com"]) {
+      ok(throws({ MCP_TRANSPORT: "http", MCP_HOST: undefined, MCP_ALLOWED_ORIGINS: badOrigin }), `MCP_ALLOWED_ORIGINS=${JSON.stringify(badOrigin)} 는 거절한다(출처만 받는다)`);
     }
   } finally {
-    if (savedTransport === undefined) delete process.env.MCP_TRANSPORT;
-    else process.env.MCP_TRANSPORT = savedTransport;
-    if (savedPort === undefined) delete process.env.MCP_PORT;
-    else process.env.MCP_PORT = savedPort;
+    for (const k of ["MCP_TRANSPORT", "MCP_PORT", "MCP_HOST", "MCP_ALLOWED_ORIGINS"]) setEnv({ [k]: savedEnv[k] });
   }
 
   // --- sanitizer: SQL 비교 연산자를 지우지 않는다 ---
@@ -341,21 +519,9 @@ async function main() {
   ok(!typo.stderr.includes("폴백"), "폴백으로 돈다는 말 없이 거절한다");
   ok(typo.stdout === "", "거절할 때도 stdout 에 쓰지 않는다");
 
-  // MCP 전선은 SDK 의 진짜 요청 처리기로 잰다(같은 프로세스 안의 연결 한 쌍).
-  const { EMPTY_QUERY_MESSAGE, queryParam } = await import("./queryinput.js");
-  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
-  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
-  const connect = async (mcp: InstanceType<typeof McpServer>) => {
-    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-    await mcp.connect(serverSide);
-    const client = new Client({ name: "surfaces-test", version: "0" });
-    await client.connect(clientSide);
-    return client;
-  };
-
-  // --- 빈 질문: 질의를 받는 도구 여섯(route, retrieve, ask, audit.explain, vector.search, ontology.search)이 입력 검증에서 거절한다 ---
+  // --- 인자 계약(queryinput.ts): 빈 질문, format, 긴 인자, budget ---
   // 2026-10-06 경계 실측: ask 에 빈 질문을 주면 7B 가 SQL 을 지어내 부서장에 대한 거짓 문장을 답했다(3/3).
+  const { EMPTY_QUERY_MESSAGE, MAX_INPUT_CHARS, queryParam, formatParam, sqlParam, budgetParam } = await import("./queryinput.js");
   const qp = queryParam("사용자의 한국어 질의");
   for (const blank of ["", "   ", "\t\n", "　　", "​", "\u0007"]) {
     const r = qp.safeParse(blank);
@@ -365,251 +531,232 @@ async function main() {
     const r = qp.safeParse(q);
     ok(r.success && r.data === q, `질문 ${JSON.stringify(q)} 은 손대지 않고 통과한다(트림하지 않는다)`);
   }
-  {
-    // air 0.3.0 이 도구를 SDK 에 넘기는 형태(registerTool 의 inputSchema 에 zod shape)
-    const mcp = new McpServer({ name: "t", version: "0" });
-    let handled = 0;
-    mcp.registerTool("ask", { inputSchema: { query: qp } }, async () => {
-      handled++;
-      return { content: [{ type: "text" as const, text: "답" }] };
-    });
-    const client = await connect(mcp);
-    const props = (await client.listTools()).tools[0].inputSchema.properties;
-    ok(
-      JSON.stringify(props) === JSON.stringify({ query: { type: "string", description: "사용자의 한국어 질의" } }),
-      `tools/list 의 query 스키마는 종전 그대로다 (got ${JSON.stringify(props)})`,
-    );
-    for (const blank of ["", "   "]) {
-      const r = await client.callTool({ name: "ask", arguments: { query: blank } });
-      const text = (r.content as { text: string }[])[0]?.text ?? "";
-      ok(
-        r.isError === true && text.includes("Input validation error") && text.includes(EMPTY_QUERY_MESSAGE),
-        `MCP 로 빈 질문 ${JSON.stringify(blank)} 을 주면 isError 와 안내 문장 (got ${text.slice(0, 160)})`,
-      );
-    }
-    ok(handled === 0, "빈 질문은 핸들러(파이프라인)에 닿지 않는다");
-    const fine = await client.callTool({ name: "ask", arguments: { query: "서울 매출" } });
-    ok(!fine.isError && handled === 1, "질문이 있으면 핸들러가 돈다");
-    await client.close();
-  }
-  // 서버 정의가 여섯 모두에 이 계약을 거는가. buildServer() 는 air dedup 의 타이머가 프로세스를 붙잡으므로
-  // 자식 프로세스에서 부르고 끝낸다. 검증이 핸들러보다 먼저 막으니 DB 도 모델도 필요 없다.
-  const wiring = spawnSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const s = buildServer(); const out = {};
-       for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) out[t] = await s.callTool(t, { query: " " });
-       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
-    ],
-    { encoding: "utf8", timeout: 30_000 },
-  );
-  const wired = JSON.parse(wiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
-  for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) {
-    ok(String(wired[t]).includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 거절한다 (got ${String(wired[t]).slice(0, 120)})`);
-  }
-
-  // --- audit.explain format: json 과 text 말고는 입력 검증에서 거절한다(G17 ⑪). 종전에는 xml 을 조용히 json 으로 돌려줬다 ---
-  const { formatParam } = await import("./queryinput.js");
+  // audit.explain format: json 과 text 말고는 입력 검증에서 거절한다(G17 ⑪). 종전에는 xml 을 조용히 json 으로 돌려줬다.
   const fp = formatParam("json(기본) 또는 text");
   for (const f of [undefined, "json", "text"]) ok(fp.safeParse(f).success, `format ${JSON.stringify(f)} 은 받는다(TC-161 은 text)`);
   for (const f of ["xml", "TEXT", "", "markdown"]) {
     const r = fp.safeParse(f);
     ok(!r.success && r.error.issues[0].message === `format 은 json(기본) 또는 text 만 받습니다. 받은 값: ${JSON.stringify(f)}`, `format ${JSON.stringify(f)} 은 거절하고 받은 값을 말한다`);
   }
-  {
-    const mcp = new McpServer({ name: "t", version: "0" });
-    const formats: unknown[] = [];
-    mcp.registerTool("audit.explain", { inputSchema: { query: qp, format: fp } }, async (a: { format?: string }) => {
-      formats.push(a.format);
-      return { content: [{ type: "text" as const, text: "레코드" }] };
-    });
-    const client = await connect(mcp);
-    const props = (await client.listTools()).tools[0].inputSchema.properties as Record<string, unknown>;
+  // 긴 인자와 budget(랜덤 테스트 3차 G20, G24, F20, F21, X01): 종전에는 sanitizer 가 10,000자에서 말없이 잘라 다른 질의를
+  // 실행했고, budget -1 과 0.5 는 근거를 모두 버린 빈 컨텍스트가 됐다.
+  const sp = sqlParam("실행할 단일 SELECT/WITH 쿼리");
+  const bp = budgetParam("큐레이터 토큰 예산 (기본 1024)");
+  const longQ = "가".repeat(MAX_INPUT_CHARS + 1);
+  const qr = qp.safeParse(longQ);
+  ok(!qr.success && qr.error.issues[0].message === "질문이 너무 깁니다(10,001자). 10,000자 이하로 입력해 주세요. 잘라서 처리하면 다른 질문이 되므로 처리하지 않았습니다.", `긴 질문은 자르지 않고 거절한다 (got ${qr.success ? "통과" : qr.error.issues[0].message})`);
+  const tc157 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
+  ok(qp.safeParse(tc157).success && qp.safeParse("가".repeat(MAX_INPUT_CHARS)).success, "TC-157 의 2,200자와 상한 그대로의 질문은 통과한다");
+  const sr = sp.safeParse("SELECT 1" + " ".repeat(MAX_INPUT_CHARS));
+  ok(!sr.success && sr.error.issues[0].message.startsWith("SQL 이 너무 깁니다(10,008자). 10,000자 이하로 입력해 주세요."), `긴 SQL 은 자르지 않고 거절한다 (got ${sr.success ? "통과" : sr.error.issues[0].message})`);
+  ok(sp.safeParse("SELECT count(*) FROM companyx.clients").success, "보통 SQL 은 통과한다");
+  for (const b of [undefined, 1, 200, 1024, 1e12]) ok(bp.safeParse(b).success, `budget ${b} 는 받는다(TC-111, TC-112 는 200)`);
+  for (const b of [-1, 0, 0.5, 1.5, Number.POSITIVE_INFINITY]) {
+    const r = bp.safeParse(b);
+    ok(!r.success && r.error.issues[0].message.startsWith("budget 은 1 이상의 정수(토큰 수)만 받습니다.") && r.error.issues[0].message.includes(`받은 값: ${JSON.stringify(b) ?? String(b)}`), `budget ${b} 는 거절하고 받은 값을 말한다`);
+  }
+
+  // --- MCP stdio: 서버 정의를 air 의 stdio 전송에 그대로 얹고 클라이언트처럼 줄 단위 JSON-RPC 로 묻는다 ---
+  // 클라이언트가 받는 응답 그 자체를 잰다(air 엔진, 입력 검증 미들웨어, 플러그인 체인, 전송). DB 와 모델이 필요 없는 요청만
+  // 보낸다: 목록, 프롬프트, 리소스, 그리고 핸들러 앞의 입력 검증에서 막히는 호출. 여기 걸린 air 의 동작 가운데 여섯은
+  // air-server/vendor 의 패치 얹은 air 가 고친 것이다(docs/air-patch.md). 패치가 빠지면 이 절이 실패한다.
+  const SERVER_JS = JSON.stringify(new URL("./server.js", import.meta.url).href);
+  const stdio = await startStdio(SERVER_JS);
+  const PROTOCOL = "2025-11-25";
+  try {
+    // 줄 단위 프레이밍(airmcp-dev/air#3): 0.5.2 그대로는 Content-Length 머리가 없는 요청을 읽지 않아 응답이 오지 않았다.
+    const init = await stdio.rpc("initialize", { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "surfaces-test", version: "0" } });
+    ok(init.result?.protocolVersion === PROTOCOL, `줄 단위 initialize 에 응답하고 ${PROTOCOL} 로 협상한다 (got ${JSON.stringify(init).slice(0, 160)})`);
     ok(
-      JSON.stringify(props.format) === JSON.stringify({ type: "string", description: "json(기본) 또는 text" }),
-      `tools/list 의 format 스키마는 종전 그대로다 (got ${JSON.stringify(props.format)})`,
+      JSON.stringify(init.result?.capabilities) === JSON.stringify({ tools: { listChanged: true }, resources: { listChanged: true }, prompts: { listChanged: true } }),
+      `능력은 tools, resources, prompts 셋이고 logging 과 completions 는 선언하지 않는다(TC-017) (got ${JSON.stringify(init.result?.capabilities)})`,
     );
-    const xml = await client.callTool({ name: "audit.explain", arguments: { query: "현재 활성 상태인 계약 수는 몇 개야?", format: "xml" } });
-    const text = (xml.content as { text: string }[])[0]?.text ?? "";
-    ok(xml.isError === true && text.includes("Input validation error") && text.includes('받은 값: "xml"') && formats.length === 0, `MCP 로 format=xml 이면 isError 와 안내, 핸들러에 닿지 않는다 (got ${text.slice(0, 160)})`);
-    for (const f of ["text", "json", undefined]) {
-      const r = await client.callTool({ name: "audit.explain", arguments: f === undefined ? { query: "질문" } : { query: "질문", format: f } });
-      ok(!r.isError && formats.at(-1) === f, `format ${JSON.stringify(f)} 은 핸들러로 간다`);
+    const pkg = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8")) as { version: string };
+    ok(init.result?.serverInfo?.name === "onprem-mcp-data" && init.result?.serverInfo?.version === pkg.version, `serverInfo 는 onprem-mcp-data ${pkg.version} (TC-015)`);
+    stdio.notify("notifications/initialized");
+    // CRLF 로 끝나는 줄도 받는다(Windows 의 클라이언트).
+    const crlf = await stdio.rpc("ping", undefined, "\r\n");
+    // ping 은 빈 결과다. 0.5.2 그대로는 { resultType } 을 실어 SDK 클라이언트의 ping() 이 거부했다(air main 42cf9e0 의 수정).
+    ok(JSON.stringify(crlf.result) === "{}", `CRLF 줄의 ping 에 빈 결과로 답한다 (got ${JSON.stringify(crlf)})`);
+
+    // tools/list(airmcp-dev/air#7): refine 한 인자의 설명과 형, 배열의 items, nullable 칸의 null 이 스키마에 실린다.
+    const tools = ((await stdio.rpc("tools/list", {})).result?.tools ?? []) as { name: string; inputSchema: Json; outputSchema?: Json; annotations?: Json }[];
+    const tool = (name: string) => tools.find((t) => t.name === name);
+    ok(tools.length === 8, `도구 8종 (got ${tools.map((t) => t.name).join(", ")})`);
+    ok(tools.every((t) => t.annotations?.readOnlyHint === true), "여덟 도구 모두 readOnlyHint (TC-019..026)");
+    const queryProp = { type: "string", description: "사용자의 한국어 질의" };
+    ok(
+      JSON.stringify(tool("route")?.inputSchema) === JSON.stringify({ type: "object", properties: { query: queryProp }, required: ["query"] }),
+      `route 의 query 는 refine 안쪽의 형과 설명 그대로 공개된다 (got ${JSON.stringify(tool("route")?.inputSchema)})`,
+    );
+    ok(
+      JSON.stringify(tool("retrieve")?.inputSchema) ===
+        JSON.stringify({ type: "object", properties: { query: queryProp, budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)" } }, required: ["query"] }),
+      `retrieve 의 budget 은 number 이고 선택이다 (got ${JSON.stringify(tool("retrieve")?.inputSchema)})`,
+    );
+    ok(
+      JSON.stringify(tool("sql.query")?.inputSchema) === JSON.stringify({ type: "object", properties: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } }, required: ["sql"] }),
+      `sql.query 의 sql 스키마 (got ${JSON.stringify(tool("sql.query")?.inputSchema)})`,
+    );
+    ok(
+      JSON.stringify(tool("audit.explain")?.inputSchema.properties.format) === JSON.stringify({ type: "string", description: "json(기본) 또는 text" }),
+      `audit.explain 의 format 스키마 (got ${JSON.stringify(tool("audit.explain")?.inputSchema.properties.format)})`,
+    );
+    const out = tool("route")?.outputSchema?.properties ?? {};
+    // nullable 칸은 anyOf: [object, null] 이다. 타입 배열(type: ["object", "null"])은 단일 type 만 받는 클라이언트에 덜 이식적이라
+    // MCP Inspector 2.8.0 의 tools/list --strict 가 경고로 센다(TC-028 의 경고 0).
+    const nullableObject = (p: Json | undefined) =>
+      Array.isArray(p?.anyOf) && p.anyOf.length === 2 && p.anyOf[0]?.type === "object" && JSON.stringify(p.anyOf[1]) === '{"type":"null"}';
+    ok(
+      JSON.stringify(out.tools) === JSON.stringify({ type: "array", items: { type: "string" }, description: "호출할 도구 이름 목록" }) &&
+        nullableObject(out.graph_plan) &&
+        nullableObject(out.type_pair) &&
+        nullableObject(out.semantic_fallback) &&
+        out.rule_margin?.type === "number" &&
+        Object.keys(out).length === Object.keys(ROUTE_OUTPUT_SCHEMA).length,
+      `route 의 출력 스키마가 배열 items 와 nullable 칸의 null 을 싣는다(구조화 출력 검사, TC-029) (got ${JSON.stringify(out).slice(0, 300)})`,
+    );
+    const typeArrays = JSON.stringify(tools.map((t) => [t.inputSchema, t.outputSchema])).match(/"type":\[/g) ?? [];
+    ok(typeArrays.length === 0, `도구 스키마에 타입 배열이 없다(Inspector --strict 이식성 경고 0, TC-028) (got ${typeArrays.length})`);
+
+    // tools/call 입력 검증(airmcp-dev/air#5): 핸들러 앞에서 막고 isError 결과로 돌려준다(Inspector exit 5).
+    const call = async (name: string, args: Json | undefined) => {
+      const r = (await stdio.rpc("tools/call", args === undefined ? { name } : { name, arguments: args })).result as { isError?: boolean; content?: { text?: string }[] } | undefined;
+      return { isError: r?.isError === true, text: r?.content?.[0]?.text ?? JSON.stringify(r) };
+    };
+    for (const t of ["route", "retrieve", "ask", "audit.explain", "vector.search", "ontology.search"]) {
+      const r = await call(t, { query: " " });
+      ok(r.isError && r.text.includes(EMPTY_QUERY_MESSAGE), `${t} 도구가 빈 질문을 isError 로 거절한다 (got ${r.text.slice(0, 160)})`);
     }
-    await client.close();
-  }
-  const fmtWiring = spawnSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const out = await buildServer().callTool("audit.explain", { query: "질문", format: "xml" });
-       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
-    ],
-    { encoding: "utf8", timeout: 30_000 },
-  );
-  const fmtWired = String(JSON.parse(fmtWiring.stdout.split("\n@@")[1] ?? '""'));
-  ok(fmtWired.includes('format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml"'), `서버 정의의 audit.explain 이 format=xml 을 거절한다 (got ${fmtWired.slice(0, 160)})`);
-
-  // --- 긴 인자와 budget(랜덤 테스트 3차 G20, G24, F20, F21, X01): 넘는 길이와 1 미만, 소수 budget 은 입력 검증에서 거절한다 ---
-  // 종전에는 sanitizer 가 10,000자에서 말없이 잘라 다른 질의를 실행했고, budget -1 과 0.5 는 근거를 모두 버린 빈 컨텍스트가 됐다.
-  {
-    const { MAX_INPUT_CHARS, sqlParam, budgetParam } = await import("./queryinput.js");
-    const sp = sqlParam("실행할 단일 SELECT/WITH 쿼리");
-    const bp = budgetParam("큐레이터 토큰 예산 (기본 1024)");
-    const longQ = "가".repeat(MAX_INPUT_CHARS + 1);
-    const qr = qp.safeParse(longQ);
-    ok(!qr.success && qr.error.issues[0].message === "질문이 너무 깁니다(10,001자). 10,000자 이하로 입력해 주세요. 잘라서 처리하면 다른 질문이 되므로 처리하지 않았습니다.", `긴 질문은 자르지 않고 거절한다 (got ${qr.success ? "통과" : qr.error.issues[0].message})`);
-    const tc157 = "2025년 3분기 총 매출액은 얼마야? ".repeat(100);
-    ok(qp.safeParse(tc157).success && qp.safeParse("가".repeat(MAX_INPUT_CHARS)).success, "TC-157 의 2,200자와 상한 그대로의 질문은 통과한다");
-    const sr = sp.safeParse("SELECT 1" + " ".repeat(MAX_INPUT_CHARS));
-    ok(!sr.success && sr.error.issues[0].message.startsWith("SQL 이 너무 깁니다(10,008자). 10,000자 이하로 입력해 주세요."), `긴 SQL 은 자르지 않고 거절한다 (got ${sr.success ? "통과" : sr.error.issues[0].message})`);
-    ok(sp.safeParse("SELECT count(*) FROM companyx.clients").success, "보통 SQL 은 통과한다");
-    for (const b of [undefined, 1, 200, 1024, 1e12]) ok(bp.safeParse(b).success, `budget ${b} 는 받는다(TC-111, TC-112 는 200)`);
-    for (const b of [-1, 0, 0.5, 1.5, Number.POSITIVE_INFINITY]) {
-      const r = bp.safeParse(b);
-      ok(!r.success && r.error.issues[0].message.startsWith("budget 은 1 이상의 정수(토큰 수)만 받습니다.") && r.error.issues[0].message.includes(`받은 값: ${JSON.stringify(b) ?? String(b)}`), `budget ${b} 는 거절하고 받은 값을 말한다`);
+    const xml = await call("audit.explain", { query: "현재 활성 상태인 계약 수는 몇 개야?", format: "xml" });
+    ok(xml.isError && xml.text.includes('format 은 json(기본) 또는 text 만 받습니다. 받은 값: "xml"'), `audit.explain 이 format=xml 을 isError 로 거절한다 (got ${xml.text.slice(0, 160)})`);
+    const longSql = await call("sql.query", { sql: "SELECT 1" + " ".repeat(MAX_INPUT_CHARS) });
+    ok(longSql.isError && longSql.text.includes("SQL 이 너무 깁니다"), `sql.query 가 긴 SQL 을 isError 로 거절한다 (got ${longSql.text.slice(0, 160)})`);
+    for (const t of ["retrieve", "ask"]) {
+      const r = await call(t, { query: "질문", budget: 0.5 });
+      ok(r.isError && r.text.includes("budget 은 1 이상의 정수"), `${t} 가 budget 0.5 를 isError 로 거절한다 (got ${r.text.slice(0, 160)})`);
     }
-    const mcp = new McpServer({ name: "t", version: "0" });
-    const seen: unknown[] = [];
-    mcp.registerTool("sql.query", { inputSchema: { sql: sp } }, async (a: { sql: string }) => (seen.push(a.sql), { content: [{ type: "text" as const, text: "행" }] }));
-    mcp.registerTool("retrieve", { inputSchema: { query: qp, budget: bp } }, async (a: { budget?: number }) => (seen.push(a.budget), { content: [{ type: "text" as const, text: "근거" }] }));
-    const client = await connect(mcp);
-    const listed = (await client.listTools()).tools;
-    const schemaOf = (name: string) => JSON.stringify(listed.find((t) => t.name === name)?.inputSchema);
-    ok(
-      schemaOf("sql.query") === JSON.stringify({ type: "object", properties: { sql: { type: "string", description: "실행할 단일 SELECT/WITH 쿼리" } }, required: ["sql"], additionalProperties: false, $schema: "http://json-schema.org/draft-07/schema#" }),
-      `tools/list 의 sql 스키마는 종전 그대로다 (got ${schemaOf("sql.query")})`,
-    );
-    ok(
-      schemaOf("retrieve") ===
-        JSON.stringify({
-          type: "object",
-          properties: { query: { type: "string", description: "사용자의 한국어 질의" }, budget: { type: "number", description: "큐레이터 토큰 예산 (기본 1024)" } },
-          required: ["query"],
-          additionalProperties: false,
-          $schema: "http://json-schema.org/draft-07/schema#",
-        }),
-      `tools/list 의 budget 스키마는 종전 그대로다 (got ${schemaOf("retrieve")})`,
-    );
-    const textOf = (r: Record<string, unknown>) => (r.content as { text: string }[])[0]?.text ?? "";
-    const longSql = await client.callTool({ name: "sql.query", arguments: { sql: "SELECT 1" + " ".repeat(MAX_INPUT_CHARS) } });
-    ok(longSql.isError === true && textOf(longSql).includes("Input validation error") && textOf(longSql).includes("SQL 이 너무 깁니다"), `MCP 로 긴 SQL 을 주면 isError 와 안내 (got ${textOf(longSql).slice(0, 160)})`);
-    const neg = await client.callTool({ name: "retrieve", arguments: { query: "Client-B가 사용 중인 제품 목록은?", budget: -1 } });
-    ok(neg.isError === true && textOf(neg).includes("budget 은 1 이상의 정수") && seen.length === 0, `MCP 로 budget -1 을 주면 isError 와 안내, 핸들러에 닿지 않는다 (got ${textOf(neg).slice(0, 160)})`);
-    const fine = await client.callTool({ name: "retrieve", arguments: { query: "Client-B가 사용 중인 제품 목록은?", budget: 200 } });
-    ok(!fine.isError && seen.at(-1) === 200, "budget 200 은 핸들러로 간다");
-    await client.close();
-  }
-  const limitWiring = spawnSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const s = buildServer(); const out = {};
-       out.sql = await s.callTool("sql.query", { sql: "SELECT 1" + " ".repeat(10000) });
-       for (const t of ["retrieve", "ask"]) out[t] = await s.callTool(t, { query: "질문", budget: 0.5 });
-       out.route = await s.callTool("route", { query: "가".repeat(10001) });
-       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
-    ],
-    { encoding: "utf8", timeout: 30_000 },
-  );
-  const limited = JSON.parse(limitWiring.stdout.split("\n@@")[1] ?? "{}") as Record<string, string>;
-  ok(String(limited.sql).includes("SQL 이 너무 깁니다"), `서버 정의의 sql.query 가 긴 SQL 을 거절한다 (got ${String(limited.sql).slice(0, 120)})`);
-  for (const t of ["retrieve", "ask"]) ok(String(limited[t]).includes("budget 은 1 이상의 정수"), `서버 정의의 ${t} 가 budget 0.5 를 거절한다 (got ${String(limited[t]).slice(0, 120)})`);
-  ok(String(limited.route).includes("질문이 너무 깁니다"), `서버 정의의 질의 도구가 긴 질문을 거절한다 (got ${String(limited.route).slice(0, 120)})`);
+    const neg = await call("retrieve", { query: "Client-B가 사용 중인 제품 목록은?", budget: -1 });
+    ok(neg.isError && neg.text.includes("받은 값: -1"), `retrieve 가 budget -1 을 isError 로 거절한다 (got ${neg.text.slice(0, 160)})`);
+    const longRoute = await call("route", { query: longQ });
+    ok(longRoute.isError && longRoute.text.includes("질문이 너무 깁니다"), `질의 도구가 긴 질문을 isError 로 거절한다 (got ${longRoute.text.slice(0, 160)})`);
+    // 빠진 인자와 형이 틀린 값: air 의 검증 문장이 무엇이 와야 하는지(expected)와 받은 값을 함께 적는다(TC-042, TC-041).
+    for (const args of [{}, undefined]) {
+      const r = await call("sql.query", args);
+      ok(r.isError && r.text.includes("sql: Required (expected: string, got: undefined)"), `sql 인자가 빠지면(${JSON.stringify(args)}) 기대한 형과 받은 값을 말한다 (got ${r.text.slice(0, 200)})`);
+    }
+    const nullId = await call("graph.expand", { entityId: null });
+    ok(nullId.isError && nullId.text.includes("entityId: Expected number, received null"), `entityId 에 null 이 오면 형이 틀렸다고 말한다(TC-041) (got ${nullId.text.slice(0, 200)})`);
+    const unknown = await stdio.rpc("tools/call", { name: "sql.delete", arguments: { sql: "DELETE FROM companyx.sales" } });
+    ok(unknown.error?.code === -32601 && String(unknown.error?.message).includes("sql.delete"), `목록에 없는 도구는 실행하지 않고 JSON-RPC 오류로 거절한다 (got ${JSON.stringify(unknown)})`);
 
-  // --- 빠진 필수 인자: SDK 1.30 부터 검증 오류가 한 줄로 줄어 「Required」만 남았다. 기대한 형을 문장에 남긴다(TC-042) ---
-  {
-    const { z } = await import("zod");
-    const { installInputErrorMessages } = await import("./queryinput.js");
-    installInputErrorMessages();
-    const mcp = new McpServer({ name: "t", version: "0" });
-    mcp.registerTool("sql.query", { inputSchema: { sql: z.string() } }, async () => ({ content: [{ type: "text" as const, text: "행" }] }));
-    mcp.registerTool("graph.expand", { inputSchema: { entityId: z.number() } }, async () => ({ content: [{ type: "text" as const, text: "엣지" }] }));
-    const client = await connect(mcp);
-    const textOf = (r: Record<string, unknown>) => (r.content as { text: string }[])[0]?.text ?? "";
-    const noSql = textOf(await client.callTool({ name: "sql.query", arguments: {} }));
-    ok(
-      noSql.includes("Input validation error") && noSql.includes("Required (expected string, received undefined) at sql"),
-      `sql 인자가 빠지면 기대한 형과 받은 값을 말한다 (got ${noSql.slice(0, 160)})`,
-    );
-    const nullId = textOf(await client.callTool({ name: "graph.expand", arguments: { entityId: null } }));
-    ok(nullId.includes("Expected number, received null at entityId"), `형이 틀린 값은 zod 기본 문장 그대로다(TC-041) (got ${nullId.slice(0, 160)})`);
-    await client.close();
-  }
-  const sqlWiring = spawnSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `const { buildServer } = await import(${JSON.stringify(new URL("./server.js", import.meta.url).href)});
-       const out = await buildServer().callTool("sql.query", {});
-       process.stdout.write("\\n@@" + JSON.stringify(out) + "\\n"); process.exit(0);`,
-    ],
-    { encoding: "utf8", timeout: 30_000 },
-  );
-  const sqlWired = String(JSON.parse(sqlWiring.stdout.split("\n@@")[1] ?? '""'));
-  ok(sqlWired.includes("Required (expected string, received undefined)"), `서버 정의가 빠진 인자 문장을 건다 (got ${sqlWired.slice(0, 160)})`);
-
-  // --- prompts/get: 받은 인자가 템플릿에 들어간다 ---
-  // air 0.3.0 은 프롬프트를 인자 스키마 없는 `prompt(name, description, cb)` 로 등록해, SDK 가 인자를 버린 채
-  // cb 를 불렀다(질문 칸이 빈 템플릿). 같은 호출 형태로 등록해 prompts/list 와 prompts/get 을 SDK 로 잰다.
-  {
-    const mcp = new McpServer({ name: "t", version: "0" });
+    // prompts: 목록이 인자를 싣고, get 이 인자를 템플릿에 넣는다. 빠진 필수 인자는 air 가(airmcp-dev/air#9), 빈 필수 인자는
+    // prompts.ts 가 -32602 로 거절한다(랜덤 테스트 3차 X04: question="" 에 질문 칸이 빈 템플릿).
     const defs = buildPrompts();
-    for (const p of defs) {
-      // server-runner.js registerPromptToServer 와 같은 형태
-      const cb = async (args: Record<string, string>) => ({
-        messages: (await p.handler(args || {})).map((m) => ({ role: m.role, content: { type: "text" as const, text: m.content } })),
-      });
-      (mcp.prompt as unknown as (...a: unknown[]) => unknown)(p.name, p.description || "", cb);
-    }
-    const client = await connect(mcp);
-    const listed = (await client.listPrompts()).prompts;
+    const listed = ((await stdio.rpc("prompts/list", {})).result?.prompts ?? []) as { name: string; arguments?: { name: string; required?: boolean; description?: string }[] }[];
     for (const p of defs) {
       const want = (p.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
       const have = (listed.find((x) => x.name === p.name)?.arguments ?? []).map((a) => `${a.name}:${Boolean(a.required)}:${a.description}`).join(",");
       ok(have === want, `prompts/list 가 ${p.name} 의 인자와 설명을 싣는다 (want ${want}, got ${have})`);
       const values = Object.fromEntries((p.arguments ?? []).map((a) => [a.name, `인자값-${a.name}-7`]));
-      const got = await client.getPrompt({ name: p.name, arguments: values });
-      const text = got.messages.map((m) => (m.content as { text?: string }).text ?? "").join("\n");
+      const got = await stdio.rpc("prompts/get", { name: p.name, arguments: values });
+      const text = ((got.result?.messages ?? []) as { content: { text?: string } }[]).map((m) => m.content.text ?? "").join("\n");
       for (const [k, v] of Object.entries(values)) ok(text.includes(v), `prompts/get ${p.name}: 인자 ${k} 가 본문에 들어간다`);
     }
-    let missing = "";
-    try {
-      await client.getPrompt({ name: "grounded-answer", arguments: { question: "질문" } });
-    } catch (e) {
-      missing = String(e);
+    for (const [args, missing] of [[undefined, "question, context"], [{ question: "질문" }, "context"]] as const) {
+      const r = await stdio.rpc("prompts/get", args === undefined ? { name: "grounded-answer" } : { name: "grounded-answer", arguments: args });
+      ok(
+        r.error?.code === -32602 && r.error.message === `Missing required arguments for prompt grounded-answer: ${missing}`,
+        `필수 인자가 빠지면(${missing}) 빈 칸 템플릿 대신 -32602 로 거절한다(TC-046) (got ${JSON.stringify(r).slice(0, 200)})`,
+      );
     }
-    ok(missing.includes("context") && missing.includes("Required"), `필수 인자가 빠지면 빈 칸 템플릿 대신 거절한다 (got ${missing.slice(0, 160)})`);
-    // 빈 필수 인자도 빠진 인자처럼 거절한다(랜덤 테스트 3차 X04: question="" 에 질문 칸이 빈 템플릿).
     for (const [name, args] of [
       ["grounded-answer", { question: "", context: "" }],
       ["grounded-answer", { question: "   ", context: "[SQL 결과] total_revenue=23859" }],
       ["nl2sql-with-schema-card", { question: "　" }],
       ["review-generated-sql", { question: "매출", sql: "" }],
     ] as const) {
-      let blank = "";
-      try {
-        await client.getPrompt({ name, arguments: { ...args } });
-      } catch (e) {
-        blank = String(e);
-      }
+      const r = await stdio.rpc("prompts/get", { name, arguments: { ...args } });
       const empty = Object.entries(args).filter(([, v]) => !v.trim()).map(([k]) => k);
       ok(
-        blank.includes("-32602") && blank.includes(`Invalid arguments for prompt ${name}`) && empty.every((k) => blank.includes(`${k} 인자가 비어 있습니다`)),
-        `prompts/get ${name} 의 빈 필수 인자(${empty.join(", ")})는 거절한다 (got ${blank.slice(0, 200)})`,
+        r.error?.code === -32602 && r.error.message === `Invalid params: prompt ${name}: ${empty.join(", ")} 인자가 비어 있습니다. 내용을 넣어 주세요.`,
+        `prompts/get ${name} 의 빈 필수 인자(${empty.join(", ")})는 -32602 로 거절한다 (got ${JSON.stringify(r).slice(0, 200)})`,
       );
     }
-    const tc039 = await client.getPrompt({ name: "grounded-answer", arguments: { question: "2025년 3분기 총 매출액은 얼마야?", context: "[SQL 결과] total_revenue=23859" } });
-    ok(((tc039.messages[0].content as { text?: string }).text ?? "").includes("[질문] 2025년 3분기 총 매출액은 얼마야?"), "값이 있는 인자는 종전처럼 템플릿에 들어간다(TC-039)");
-    await client.close();
+    const tc039 = await stdio.rpc("prompts/get", { name: "grounded-answer", arguments: { question: "2025년 3분기 총 매출액은 얼마야?", context: "[SQL 결과] total_revenue=23859" } });
+    ok(String(tc039.result?.messages?.[0]?.content?.text ?? "").includes("[질문] 2025년 3분기 총 매출액은 얼마야?"), "값이 있는 인자는 템플릿에 들어간다(TC-039)");
+    const nope = await stdio.rpc("prompts/get", { name: "nope" });
+    ok(nope.error?.code === -32602 && String(nope.error?.message).includes("nope"), `없는 프롬프트는 -32602 (TC-045) (got ${JSON.stringify(nope)})`);
+
+    // resources: 목록과 읽기, 없는 URI 는 빈 내용 대신 오류.
+    const listedRes = ((await stdio.rpc("resources/list", {})).result?.resources ?? []) as { uri: string }[];
+    ok(listedRes.length === resources.length, `resources/list 가 리소스 ${resources.length}종을 싣는다 (TC-030) (got ${listedRes.length})`);
+    const prof = await stdio.rpc("resources/read", { uri: "profile://dataset/active" });
+    const content = prof.result?.contents?.[0] as { uri?: string; mimeType?: string; text?: string } | undefined;
+    ok(content?.uri === "profile://dataset/active" && content.mimeType === "application/json" && JSON.parse(content.text ?? "{}").profile !== undefined, `resources/read 가 내용을 돌려준다 (got ${JSON.stringify(prof).slice(0, 160)})`);
+    const missingRes = await stdio.rpc("resources/read", { uri: "dataset://companyx/nope" });
+    ok(missingRes.error?.code === -32602 && String(missingRes.error?.message).includes("dataset://companyx/nope"), `없는 리소스는 -32602 (TC-043) (got ${JSON.stringify(missingRes)})`);
+  } finally {
+    await stdio.close();
+  }
+  ok(stdio.nonJson().length === 0, `stdout 에는 JSON-RPC 줄만 나간다 (got ${JSON.stringify(stdio.nonJson()).slice(0, 200)})`);
+  ok(stdio.unanswered() === 0, `보낸 요청에 모두 답했다 (남은 요청 ${stdio.unanswered()})`);
+
+  // --- MCP Streamable HTTP(MCP_TRANSPORT=http): 바인딩과 Origin 검사(airmcp-dev/air#11), 그리고 같은 엔진 ---
+  {
+    const http = await startHttp(SERVER_JS, {});
+    try {
+      ok(http.log().includes("(127.0.0.1)"), `기본 바인딩은 루프백(127.0.0.1)이다 (got ${http.log().split("\n").find((l) => l.includes("listening")) ?? http.log().slice(-200)})`);
+      const init = await http.post({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "surfaces-test", version: "0" } } });
+      ok(init.status === 200 && init.body.includes(`"protocolVersion":"${PROTOCOL}"`), `Origin 없는 클라이언트(Inspector CLI, SDK)는 받는다 (got ${init.status} ${init.body.slice(0, 120)})`);
+      const inspector = await http.post({ jsonrpc: "2.0", id: 2, method: "tools/list" }, { origin: "http://localhost:6274" });
+      ok(inspector.status === 200 && inspector.body.includes('"name":"route"'), `MCP Inspector 웹 UI 의 출처(http://localhost:6274)는 받는다 (got ${inspector.status})`);
+      const evil = await http.post({ jsonrpc: "2.0", id: 3, method: "tools/list" }, { origin: "http://attacker.example" });
+      ok(evil.status === 403 && !evil.body.includes('"name":"route"'), `루프백이 아닌 Origin 은 403 이다(DNS 리바인딩 방어) (got ${evil.status} ${evil.body.slice(0, 120)})`);
+      const get = await http.request("GET", "/mcp");
+      ok(get.status === 405, `GET /mcp 는 405 다(서버 발신 SSE 스트림 없음) (got ${get.status})`);
+      const badVersion = await http.post({ jsonrpc: "2.0", id: 4, method: "tools/list" }, { "mcp-protocol-version": "1999-01-01" });
+      ok(badVersion.status === 400, `지원하지 않는 MCP-Protocol-Version 은 400 이다 (got ${badVersion.status})`);
+      const blank = await http.post({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "ask", arguments: { query: "" } } });
+      ok(blank.status === 200 && blank.body.includes('"isError":true') && blank.body.includes(EMPTY_QUERY_MESSAGE), `HTTP 도 같은 엔진과 입력 검증을 지난다 (got ${blank.body.slice(0, 160)})`);
+    } finally {
+      await http.close();
+    }
+    const opened = await startHttp(SERVER_JS, { MCP_ALLOWED_ORIGINS: "https://app.example.com" });
+    try {
+      const app = await opened.post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { origin: "https://app.example.com" });
+      ok(app.status === 200, `MCP_ALLOWED_ORIGINS 에 적은 출처는 받는다 (got ${app.status})`);
+      const other = await opened.post({ jsonrpc: "2.0", id: 2, method: "tools/list" }, { origin: "https://other.example.com" });
+      ok(other.status === 403, `적지 않은 출처는 여전히 403 이다 (got ${other.status})`);
+    } finally {
+      await opened.close();
+    }
+  }
+
+  // --- MCP HTTP+SSE(MCP_TRANSPORT=sse): 바인딩과 Origin 검사(air-server/vendor 의 003 패치). 규칙은 http 와 같다 ---
+  {
+    const sse = await startHttp(SERVER_JS, {}, "sse");
+    try {
+      ok(sse.log().includes("(127.0.0.1)"), `sse 도 기본 바인딩은 루프백(127.0.0.1)이다 (got ${sse.log().split("\n").find((l) => l.includes("listening")) ?? sse.log().slice(-200)})`);
+      const plain = await sse.openStream("/sse");
+      ok(plain.status === 200 && /^\/message\?sessionId=/.test(plain.endpoint ?? ""), `Origin 없는 클라이언트는 /sse 로 세션을 연다 (got ${plain.status} ${plain.body.slice(0, 120)})`);
+      const local = await sse.openStream("/sse", { origin: "http://localhost:6274" });
+      ok(local.status === 200, `루프백 출처(http://localhost:6274)는 /sse 를 연다 (got ${local.status})`);
+      const foreign = { origin: "http://attacker.example" };
+      const evil = await sse.openStream("/sse", foreign);
+      ok(evil.status === 403 && evil.endpoint === undefined, `루프백이 아닌 Origin 은 /sse 에서 403 이다(DNS 리바인딩 방어) (got ${evil.status} ${evil.body.slice(0, 120)})`);
+      const post = await sse.request("POST", plain.endpoint ?? "/message", { jsonrpc: "2.0", id: 1, method: "tools/list" }, foreign);
+      ok(post.status === 403, `열린 세션이라도 루프백이 아닌 Origin 의 POST /message 는 403 이다 (got ${post.status} ${post.body.slice(0, 120)})`);
+    } finally {
+      await sse.close();
+    }
+    const allowed = await startHttp(SERVER_JS, { MCP_ALLOWED_ORIGINS: "https://app.example.com" }, "sse");
+    try {
+      ok((await allowed.openStream("/sse", { origin: "https://app.example.com" })).status === 200, "sse 도 MCP_ALLOWED_ORIGINS 에 적은 출처는 받는다");
+      ok((await allowed.openStream("/sse", { origin: "https://other.example.com" })).status === 403, "sse 도 적지 않은 출처는 403 이다");
+    } finally {
+      await allowed.close();
+    }
   }
 
   console.log(`\nsurfaces.test: ${pass} passed, ${fail} failed`);

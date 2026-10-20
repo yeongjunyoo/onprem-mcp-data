@@ -26,10 +26,14 @@
 //
 // 실행: npm run companyx:score                 30문항, 정본 eval/results/companyx-scorecard.json 을 쓴다
 //       npm run companyx:score -- --limit 3    앞 3문항만. 정본은 쓰지 않는다
-//       npm run companyx:score -- --from <json> 모델 없이 저장된 답만 다시 채점한다(규칙을 고쳤을 때)
+//       npm run companyx:score -- --from <json> 모델 없이 저장된 답만 다시 채점한다(규칙을 고쳤을 때).
+//                                              <json> 옆에 -rescored.json 을 쓴다(--out 으로 바꾼다). 원본은 덮지 않는다.
+//                                              행마다 저장된 판정, v1, v2(라벨 없이), v2 판정을 함께 적는다
 //       CX_SET=holdout3|holdout4               봉인 홀드아웃 60문항 → eval/results/companyx-scorecard-<set>.json
 //       CX_BUDGET=512                          큐레이션 예산. 파일 이름에 -b512 가 붙는다(30문항도) —
 //                                              예산 실행이 기본 예산 정본을 덮지 않는다
+//       CX_RULES=v1|v2 (--rules)               채점 규칙 판. 기본 v2. v1 은 공개 수치(28/30, 27/59)를 낸 규칙
+//       CX_LABELS=0 (--no-labels)              v2 에서 eval/companyx/gold_labels.json 의 「묻는 것」 라벨을 끈다(정답 정정은 쓴다)
 // 환경변수는 셸 문법 대신 with-env 로 넘긴다(Windows 에서도 같다). air-server 에서 빌드한 뒤:
 //   node scripts/with-env.mjs DATASET=companyx EMBEDDER=ollama CX_SET=holdout4 CX_BUDGET=512 -- dist/cli/companyx-scorecard.js
 import { createHash } from "node:crypto";
@@ -77,12 +81,18 @@ import {
   holdoutItem,
   parseScoreSet,
   parseBudget,
+  parseRules,
   scorecardOut,
+  labelsFor,
+  checkAskedColumns,
+  LABELS_FILE,
   type AnswerState,
+  type GoldLabelsFile,
   type GoldOrWhy,
   type HoldoutItem,
   type Lane,
   type ScoreItem,
+  type ScoreRules,
   type ScoreSet,
   type SqlField,
   type SqlGold,
@@ -153,7 +163,7 @@ interface Row {
   answer: string;
 }
 
-/** 저장된 답만 다시 채점할 때의 입력. 스코어카드 행과 companyx-ask.json 행 둘 다 받는다. */
+/** 저장된 답만 다시 채점할 때의 입력. 스코어카드 행, companyx-ask.json 행, 진단 하네스(answer-stages) 행을 받는다. */
 interface StoredRow {
   q: string;
   answer: string;
@@ -162,6 +172,18 @@ interface StoredRow {
   lane_routed?: string;
   state?: AnswerState;
   branch_errors?: string[];
+  /** 저장 당시의 판정. 스코어카드는 answer_correct, 진단 하네스는 correct */
+  answer_correct?: boolean;
+  correct?: boolean;
+  unscorable?: string | null;
+}
+
+/** 재채점 행의 판정 넷. stored 는 그 파일을 쓴 날의 채점기가 낸 값이다. */
+interface Verdicts {
+  stored: boolean | null;
+  v1: boolean;
+  v2_mechanical: boolean;
+  v2: boolean;
 }
 
 function storedState(r: StoredRow): AnswerState {
@@ -214,13 +236,16 @@ async function main() {
   requireCompanyxProfile();
   let set: ScoreSet;
   let budget: number | undefined;
+  let rules: ScoreRules;
   try {
     set = parseScoreSet(process.env.CX_SET);
     budget = parseBudget(process.env.CX_BUDGET);
+    rules = parseRules(arg("--rules") ?? process.env.CX_RULES);
   } catch (e) {
     console.error(`\n${e instanceof Error ? e.message : String(e)}\n`);
     return shutdown(1);
   }
+  const useLabels = rules === "v2" && !process.argv.includes("--no-labels") && process.env.CX_LABELS !== "0";
   const OUT = scorecardOut(set, budget);
   // 기본 예산의 사업자 30문항만 대본 표와 증거 매니페스트가 읽는 정본이다.
   const canonical = set === "sponsor30" && budget === undefined;
@@ -228,12 +253,18 @@ async function main() {
   const from = arg("--from");
   const dir = datasetDir();
   const inputFiles = set === "sponsor30" ? GOLD_FILES : [HOLDOUT_FILES[set]];
-  console.log(`[세트] ${set} — ${inputFiles.join(", ")}, 예산 ${budget ?? "기본"} → ${OUT}`);
+  console.log(
+    `[세트] ${set} — ${inputFiles.join(", ")}, 예산 ${budget ?? "기본"} → ${OUT}` +
+      `\n[규칙] ${rules}${rules === "v2" ? (useLabels ? `, 라벨과 정정 ${LABELS_FILE}` : `, 정정만 ${LABELS_FILE}(라벨 끔)`) : " (공개 수치를 낸 규칙)"}`,
+  );
 
   // ── 정답 준비 — 모델을 부르기 전에 전부 계산한다 ─────────────────────
   const goldText = Object.fromEntries(
     await Promise.all(inputFiles.map(async (f) => [f, await readFile(resolve(root, f), "utf8")] as const)),
   );
+  // v2 라벨과 정정. 재채점은 세 판을 다 내므로 규칙과 상관없이 읽는다. 라이브 실행은 v2 + 라벨일 때만 쓴다.
+  const labelsText = await readFile(resolve(root, LABELS_FILE), "utf8");
+  const labelsFile = JSON.parse(labelsText) as GoldLabelsFile;
   const { nodes, edges } = await loadGraph(dir);
   const cat = buildCatalog(nodes);
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
@@ -258,24 +289,16 @@ async function main() {
           .map((l) => JSON.parse(l) as { id: string; q: string; gold: string; ordered?: boolean })
       : [];
 
-  // 정답 SQL 을 DB 에서 실행한다. 사업자 정답은 질문으로, 홀드아웃 정답은 문항 id 로 찾는다.
-  const sqlGold = new Map<string, SqlGold>();
-  const holdoutSql = new Map<string, GoldOrWhy<SqlGold>>();
+  // 정답 SQL 을 DB 에서 한 번 실행한다. 사업자 정답은 질문으로, 홀드아웃 정답은 문항 id 로 찾는다. 규칙 판마다
+  // 정답 객체만 따로 만든다(라벨의 열이 판마다 다르다).
+  const sponsorRuns = new Map<string, { id: string; ordered: boolean; run: Awaited<ReturnType<typeof runGold>> }>();
+  const holdoutRuns = new Map<string, Awaited<ReturnType<typeof runGold>> | { unscorable: string }>();
   const pool = getPool();
   try {
-    for (const g of sqlGoldList) {
-      const r = await runGold(pool, g.gold);
-      sqlGold.set(g.q, { rows: r.rows, ordered: Boolean(g.ordered), limited: r.limited, tied: r.tied });
-    }
+    for (const g of sqlGoldList) sponsorRuns.set(g.q, { id: g.id, ordered: Boolean(g.ordered), run: await runGold(pool, g.gold) });
     for (const it of holdout) {
       if (it.expected !== "nl2sql") continue;
-      if (!it.gold_sql) {
-        holdoutSql.set(it.id, { unscorable: "gold_sql 이 없다" });
-        continue;
-      }
-      const r = await runGold(pool, qualifyCompanyx(it.gold_sql));
-      // 순서는 보지 않는다 — 봉인 파일에는 사업자 정답의 ordered 표시가 없다.
-      holdoutSql.set(it.id, sqlGoldFromResult(r.rows, r.fields, { ordered: false, limited: r.limited, tied: r.tied }));
+      holdoutRuns.set(it.id, it.gold_sql ? await runGold(pool, qualifyCompanyx(it.gold_sql)) : { unscorable: "gold_sql 이 없다" });
     }
   } catch (e) {
     console.error(`\n정답 SQL 을 실행하지 못했다: ${e instanceof Error ? e.message : String(e)}`);
@@ -284,8 +307,37 @@ async function main() {
     return shutdown(1);
   }
 
-  let items: ScoreItem[];
-  if (set === "sponsor30") {
+  /** 규칙 판 하나의 문항들. v2 는 gold_labels.json 의 정답 정정을 늘 쓰고, withLabels 면 묻는 열과 사실도 쓴다. */
+  const buildItems = (r: ScoreRules, withLabels: boolean): ScoreItem[] => {
+    const use = { asked: r === "v2" && withLabels, errata: r === "v2" };
+    const lab = use.asked || use.errata ? labelsFile : null;
+    const labelsOf = (id: string) => labelsFor(lab, id, use);
+    const asked = (id: string) => labelsOf(id)?.asked_columns;
+    if (set !== "sponsor30") {
+      const docMap = new Map(docs.map((d) => [d.id, d.text]));
+      return holdout.map((it) => {
+        const run = holdoutRuns.get(it.id);
+        const sql: GoldOrWhy<SqlGold> | undefined =
+          run === undefined
+            ? undefined
+            : "unscorable" in run
+              ? run
+              : // 순서는 보지 않는다 — 봉인 파일에는 사업자 정답의 ordered 표시가 없다.
+                sqlGoldFromResult(run.rows, run.fields, { ordered: false, limited: run.limited, tied: run.tied, asked: asked(it.id) });
+        return holdoutItem(it, { docs: docMap, cat, sql, rules: r, labels: labelsOf(it.id) });
+      });
+    }
+    const sqlGold = new Map<string, SqlGold>();
+    for (const [q, g] of sponsorRuns) {
+      const a = asked(g.id);
+      const wrong = a ? checkAskedColumns(a, g.run.rows) : [];
+      if (wrong.length) throw new Error(`${g.id} 라벨의 asked_columns ${wrong.join(", ")} 가 정답 결과 열에 없다`);
+      sqlGold.set(q, { rows: g.run.rows, ordered: g.ordered, limited: g.run.limited, tied: g.run.tied, ...(a ? { asked: a } : {}) });
+    }
+    return sponsorItems(r, sqlGold);
+  };
+
+  const sponsorItems = (r: ScoreRules, sqlGold: Map<string, SqlGold>): ScoreItem[] => {
     const kgGoldList = JSON.parse(goldText["eval/companyx/kg_gold.json"]) as { q: string; spec: KgSpec }[];
     const vecGold = JSON.parse(goldText["eval/companyx/vector_gold.json"]) as {
       items: { q: string; keywords: string[]; type?: string | null; gold_docs?: string[] }[];
@@ -335,7 +387,7 @@ async function main() {
       if (item.tool === "nl2sql") {
         const g = sqlGold.get(item.q);
         if (!g) return { correct: false, reason: "정답 SQL 없음", required: [], missing: [], extra: [] };
-        return scoreSql(answer, item.q, g, cat, state);
+        return scoreSql(answer, item.q, g, cat, state, r);
       }
       if (item.tool === "knowledge_graph") {
         const g = kgGold.get(item.q);
@@ -363,16 +415,24 @@ async function main() {
       return fact ? `${g.keywords.join(" ")} ${fact}`.trim() : null;
     };
 
-    items = all.map((item) => ({
+    return all.map((item) => ({
       q: item.q,
       lane: item.tool,
       ideal: ideal(item),
       abstainIsRight: kgGold.get(item.q)?.absent === true,
       judge: (answer, state) => judge(item, answer, state),
     }));
-  } else {
-    const docMap = new Map(docs.map((d) => [d.id, d.text]));
-    items = holdout.map((it) => holdoutItem(it, { docs: docMap, cat, sql: holdoutSql.get(it.id) }));
+  };
+
+  // 라이브 실행은 고른 판 하나로, 재채점은 세 판으로 가른다(v1 = 공개 수치의 규칙, v2 라벨 없이, v2).
+  let items: ScoreItem[];
+  let variants: Record<keyof Omit<Verdicts, "stored">, ScoreItem[]> | null = null;
+  try {
+    items = buildItems(rules, useLabels);
+    if (from) variants = { v1: buildItems("v1", false), v2_mechanical: buildItems("v2", false), v2: buildItems("v2", true) };
+  } catch (e) {
+    console.error(`\n정답 라벨을 쓸 수 없다: ${e instanceof Error ? e.message : String(e)}\n`);
+    return shutdown(1);
   }
 
   // ── 자기 점검: 정답을 정답으로, 기권을 오답으로 가르는가 ──────────────
@@ -380,9 +440,12 @@ async function main() {
   // 규칙이 정답 자체를 오답으로 판정하면 표의 모든 X 가 의심스러워진다. 정답 값을 이어 붙인
   // 「모범 답」과 기권 문장으로 전 문항을 한 번 돌려 본다. 모델 호출 없이 1초 안에 끝난다.
   // 홀드아웃의 그래프, 벡터 문항은 같은 점검을 오프라인 단위 테스트(scorecard.test)도 돈다.
-  // SQL 문항은 정답이 DB 에서 나오므로 여기서만 돈다.
+  // SQL 문항은 정답이 DB 에서 나오므로 여기서만 돈다. 재채점은 세 판을 다 점검한다.
   {
-    const fails = [...selfCheckPrimitives(), ...selfCheckItems(items)];
+    const fails = [
+      ...selfCheckPrimitives(),
+      ...(variants ? Object.entries(variants).flatMap(([k, xs]) => selfCheckItems(xs).map((f) => `[${k}] ${f}`)) : selfCheckItems(items)),
+    ];
     if (fails.length) {
       console.error("\n채점기 자기 점검 실패 — 모델을 부르기 전에 멈춘다:");
       for (const f of fails) console.error(`  - ${f}`);
@@ -404,18 +467,25 @@ async function main() {
   // ── 실행 ────────────────────────────────────────────────────────────
   const partial = Number.isFinite(limit) && limit > 0 && limit < items.length;
   const questions = partial ? items.slice(0, limit) : items;
-  const stored = from
-    ? new Map(
-        ((JSON.parse(await readFile(resolve(root, from), "utf8")) as { rows: StoredRow[] }).rows ?? []).map((r) => [r.q, r]),
-      )
-    : null;
+  const fromText = from ? await readFile(resolve(root, from), "utf8") : "";
+  const fromJson = from ? (JSON.parse(fromText) as { rows?: StoredRow[]; summary?: Record<string, unknown>; set?: string; mode?: string; generated_at?: string }) : null;
+  const stored = fromJson ? new Map((fromJson.rows ?? []).map((r) => [r.q, r])) : null;
+  // 재채점 결과는 원본 옆의 -rescored.json 이다. 원본을 덮지 않고, -rescored 가 아닌 파일도 덮지 않는다.
+  const rescoredOut = from ? resolve(root, arg("--out") ?? from.replace(/\.json$/i, "") + "-rescored.json") : null;
+  if (from && rescoredOut) {
+    const src = resolve(root, from);
+    if (rescoredOut === src || !/-rescored\.json$/i.test(rescoredOut)) {
+      console.error(`\n재채점 결과 경로가 원본이거나 -rescored.json 이 아니다: ${rescoredOut} — 원본을 덮지 않는다.\n`);
+      return shutdown(1);
+    }
+  }
   const model = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
   const host = process.env.OLLAMA_HOST ?? "http://localhost:11434";
   if (!stored) {
     const probe = await probeOllama(host);
     if (!reportOllama(probe, [model, process.env.EMBED_MODEL ?? "bge-m3"])) return shutdown(1);
   } else {
-    console.log(`[재채점] ${from} 의 저장된 답을 다시 채점한다. 모델을 부르지 않고 결과 파일도 쓰지 않는다.`);
+    console.log(`[재채점] ${from} 의 저장된 답을 v1, v2(라벨 없이), v2 로 다시 채점한다. 모델을 부르지 않는다 → ${rescoredOut}`);
   }
 
   const embedder = getEmbedder();
@@ -423,12 +493,20 @@ async function main() {
   // 서버 기동과 같은 라우터 상태(온톨로지, 시맨틱 앵커). 재채점은 모델을 부르지 않으므로 필요 없다.
   const routing = stored ? null : await initRouting();
   const rows: Row[] = [];
+  const rescored: (Row & {
+    verdicts: Verdicts;
+    reasons: Record<keyof Omit<Verdicts, "stored">, string>;
+    scorable: Record<keyof Omit<Verdicts, "stored">, boolean>;
+    stored_unscorable?: string;
+    answer_truncated?: boolean;
+  })[] = [];
   tableHeader();
   for (const [n, item] of questions.entries()) {
     let answer: string, ms: number, routed: string, state: AnswerState, errs: string[];
     let kept: Row["context_items"];
+    let s: StoredRow | undefined;
     if (stored) {
-      const s = stored.get(item.q);
+      s = stored.get(item.q);
       if (!s) {
         console.log(` ${lpad(String(n + 1), 2)}  (저장된 답 없음) ${item.q}`);
         continue;
@@ -474,6 +552,19 @@ async function main() {
     };
     rows.push(row);
     tableRow(row);
+    if (variants && s) {
+      const by = (k: keyof typeof variants) => variants![k][n].judge(answer, state);
+      const [a, b, c] = [by("v1"), by("v2_mechanical"), by("v2")];
+      rescored.push({
+        ...row,
+        verdicts: { stored: s.answer_correct ?? s.correct ?? null, v1: a.correct, v2_mechanical: b.correct, v2: c.correct },
+        reasons: { v1: a.reason, v2_mechanical: b.reason, v2: c.reason },
+        scorable: { v1: !variants.v1[n].unscorable, v2_mechanical: !variants.v2_mechanical[n].unscorable, v2: !variants.v2[n].unscorable },
+        ...(s.unscorable ? { stored_unscorable: s.unscorable } : {}),
+        // 저장할 때 상한에서 잘린 답은 잘린 글로 다시 채점한 것이다. 그런 행이 있으면 센다.
+        ...(/…\(전체 \d+자, 판정은 전문으로 했다\)$/.test(s.answer) ? { answer_truncated: true } : {}),
+      });
+    }
   }
 
   // ── 요약 ────────────────────────────────────────────────────────────
@@ -527,10 +618,84 @@ async function main() {
       `\n 모델 ${model}, 임베더 ${embedder.name}, Ollama ${host}, 예산 ${budget ?? "기본"}`,
   );
 
-  if (stored || partial) {
-    console.log(
-      `\n[${stored ? "재채점" : `부분 실행 --limit ${limit}`}] ${canonical ? "정본" : "결과 파일"} ${OUT} 는 쓰지 않는다 — 전량 수치는 그 파일을 본다.`,
-    );
+  const git = (args: string[]): string | null => {
+    try {
+      return execFileSync("git", args, { cwd: root, encoding: "utf8", windowsHide: true }).trim();
+    } catch {
+      return null; // git 이 없는 배포본 — 커밋을 모른다고 적는다
+    }
+  };
+  const activeVariant = rules === "v1" ? "v1" : useLabels ? "v2" : "v2_mechanical";
+  const inputHashes = {
+    ...Object.fromEntries(inputFiles.map((f) => [f, hash(goldText[f])])),
+    ...(activeVariant === "v2" || stored ? { [LABELS_FILE]: hash(labelsText) } : {}),
+  };
+
+  if (stored && fromJson && rescoredOut) {
+    // ── 재채점 기록 — 원본 옆에 -rescored.json 을 쓴다 ──────────────────
+    type Key = keyof Verdicts;
+    const KEYS: Key[] = ["stored", "v1", "v2_mechanical", "v2"];
+    const tag = (r: (typeof rescored)[number]) => r.id ?? `s30-${String(r.i).padStart(2, "0")}`;
+    const count = (xs: typeof rescored, k: Key): string | null => {
+      if (k === "stored") {
+        const sc = xs.filter((r) => !r.stored_unscorable);
+        if (sc.some((r) => r.verdicts.stored === null)) return null; // 저장 판정이 없는 파일(ask 결과 등)
+        return `${sc.filter((r) => r.verdicts.stored).length}/${sc.length}`;
+      }
+      const sc = xs.filter((r) => r.scorable[k]);
+      return `${sc.filter((r) => r.verdicts[k]).length}/${sc.length}`;
+    };
+    const flips = (a: Key, b: Exclude<Key, "stored">) => ({
+      to_right: rescored.filter((r) => r.scorable[b] && r.verdicts[a] === false && r.verdicts[b]).map(tag),
+      to_wrong: rescored.filter((r) => r.scorable[b] && r.verdicts[a] === true && !r.verdicts[b]).map(tag),
+    });
+    const srcSummary = fromJson.summary ?? {};
+    const summary = {
+      dataset: isHoldout ? `${HOLDOUT_FILES[set as Exclude<ScoreSet, "sponsor30">]} (재채점)` : "companyx-dataset-v1.0 / questions.json (재채점)",
+      set,
+      rescored_from: {
+        file: from,
+        sha16: hash(fromText),
+        rows: stored.size,
+        source_generated_at: (srcSummary.generated_at as string | undefined) ?? fromJson.generated_at ?? null,
+        source_git_commit: (srcSummary.git_commit as string | undefined) ?? null,
+        source_mode: fromJson.mode ?? null,
+      },
+      rule:
+        "모델을 부르지 않고 저장된 답을 다시 채점했다(답은 한 글자도 다시 만들지 않았다). verdicts.stored 는 그 파일을 쓴 날의 " +
+        "채점기, v1 은 공개 수치를 낸 규칙(CX_RULES=v1), v2_mechanical 은 「묻는 것」 라벨을 끈 v2(CX_LABELS=0, 정답 정정은 쓴다), " +
+        `v2 는 라벨까지 쓴 v2(기본). 규칙은 air-server/src/scorecard.ts 머리말. answer_correct, reason, required, missing 은 ${activeVariant} 판정이다.`,
+      rules_active: activeVariant,
+      input_hashes: inputHashes,
+      git_commit: git(["rev-parse", "--short", "HEAD"]),
+      git_dirty: (git(["status", "--porcelain", "--", "air-server/src", "eval/companyx"]) ?? "") !== "",
+      n: rescored.length,
+      correct: Object.fromEntries(KEYS.map((k) => [k, count(rescored, k)])),
+      by_lane: Object.fromEntries(LANES.map((l) => [l, Object.fromEntries(KEYS.map((k) => [k, count(rescored.filter((r) => r.lane === l), k)]))])),
+      changed: {
+        v1_vs_stored: rescored.filter((r) => r.verdicts.stored !== null && r.verdicts.stored !== r.verdicts.v1).map(tag),
+        v2_mechanical_vs_v1: flips("v1", "v2_mechanical"),
+        v2_vs_v1: flips("v1", "v2"),
+      },
+      scorable_differs: rescored.filter((r) => new Set(Object.values(r.scorable)).size > 1).map(tag),
+      answer_truncated: rescored.filter((r) => r.answer_truncated).length,
+      generated_at: new Date().toISOString(),
+    };
+    console.log(`\n 재채점 (${from})`);
+    console.log(` ${pad("레인", 8)}${KEYS.map((k) => pad(k, 15)).join("")}`);
+    for (const l of [...LANES, "전체"] as const) {
+      const xs = l === "전체" ? rescored : rescored.filter((r) => r.lane === l);
+      console.log(` ${pad(SHORT[l] ?? l, 8)}${KEYS.map((k) => pad(count(xs, k) ?? "-", 15)).join("")}`);
+    }
+    console.log(` v1 대비 v2 맞게 바뀜: ${summary.changed.v2_vs_v1.to_right.join(", ") || "없음"} / 틀리게 바뀜: ${summary.changed.v2_vs_v1.to_wrong.join(", ") || "없음"}`);
+    if (summary.changed.v1_vs_stored.length) console.log(` 저장 판정과 v1 이 다른 행: ${summary.changed.v1_vs_stored.join(", ")}`);
+    await mkdir(dirname(rescoredOut), { recursive: true });
+    await writeFile(rescoredOut, JSON.stringify({ summary, rows: rescored }, null, 2) + "\n");
+    console.log(`\n재채점 결과를 썼다: ${rescoredOut} (원본은 그대로다)`);
+    return shutdown(0);
+  }
+  if (partial) {
+    console.log(`\n[부분 실행 --limit ${limit}] ${canonical ? "정본" : "결과 파일"} ${OUT} 는 쓰지 않는다 — 전량 수치는 그 파일을 본다.`);
     return shutdown(0);
   }
   // 전 문항이 조회 실패면 0점이 아니라 DB 가 없는 것이다. 그 표를 결과로 남기지 않는다.
@@ -540,13 +705,6 @@ async function main() {
   }
 
   // ── 기록 ────────────────────────────────────────────────────────────
-  const git = (args: string[]): string | null => {
-    try {
-      return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
-    } catch {
-      return null; // git 이 없는 배포본 — 커밋을 모른다고 적는다
-    }
-  };
   const ollamaGet = async (path: string): Promise<unknown> => {
     try {
       const res = await fetch(`${host.replace(/\/$/, "")}${path}`, { signal: AbortSignal.timeout(5000) });
@@ -572,7 +730,8 @@ async function main() {
     rule:
       "판정은 최종 답과 정답 파일만 본다. 라우팅은 판정에 쓰지 않는다. 레인별 규칙은 air-server/src/scorecard.ts 머리말." +
       (isHoldout ? " 채점 불가 문항은 정답 칸의 분모에서 뺀다(이유는 행의 unscorable)." : ""),
-    input_hashes: Object.fromEntries(inputFiles.map((f) => [f, hash(goldText[f])])),
+    rules: activeVariant,
+    input_hashes: inputHashes,
     ...(isHoldout ? {} : { dataset_questions_sha: hash(await readFile(join(dir, "questions.json"), "utf8")) }),
     git_commit: git(["rev-parse", "--short", "HEAD"]),
     git_dirty: (git(["status", "--porcelain", "--", "air-server/src"]) ?? "") !== "",

@@ -8,7 +8,7 @@
         한국어 질의
             │
             ▼
-   ┌──────────────────┐  L3  규칙기반 라우터 route (LLM 호출 0 = 결정론)
+   ┌──────────────────┐  L3  규칙기반 라우터 route (기본 LLM 호출 0 = 결정론)
    │  route()         │      structured / semantic / hybrid 분류
    └────────┬─────────┘
             │ 병렬 fan-out (Promise.allSettled + branch_errors 감사)

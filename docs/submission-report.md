@@ -34,18 +34,18 @@
 ### 개발환경
 
 - 언어와 런타임: TypeScript 5.9, Node.js 20 LTS
-- MCP 프레임워크: air(@airmcp-dev/core 0.3.0), 도구 정의는 defineServer와 defineTool
+- MCP 프레임워크: air(@airmcp-dev/core 0.5.2, 상류에 올린 수정 PR 다섯과 SSE 의 Origin 검사를 릴리스 전까지 배포본에 얹은 tarball 로 쓴다. `docs/air-patch.md`), 도구 정의는 defineServer와 defineTool, 전송은 air의 stdio, SSE, Streamable HTTP
 - 데이터 저장소: PostgreSQL 16, pgvector 0.8.6, primary와 streaming replica 구성
 - 모델 런타임: Ollama 0.32.14(2026-08-18 실측). 생성 모델 qwen2.5-coder:7b(Apache-2.0, Q4_K_M), 임베딩 모델 bge-m3(MIT, 1024차원)
 - 컨테이너: Docker Compose가 PostgreSQL(pgvector, 호스트 5433)과 Ollama(호스트 11435)를 기동한다. MCP 서버는 `full` 프로파일의 선택 서비스이며 **stdio 전송**이라 TCP 포트를 열지 않는다. 읽기 복제본은 별도 스파이크 스크립트로 검증했고 상시 구성이 아니다. 서버 Dockerfile 빌드 검증 완료
 - 외부 통신: 없음. 코드 전체에서 접근하는 원격 주소는 **로컬 Ollama뿐**이며, 이는 CI 검사(`scripts/verify-no-external-api.mjs`)로 강제한다 — 루프백이 아닌 대상이 생기면 빌드가 실패한다. 기본값은 `localhost:11434`(호스트 설치)이고, `docker compose`로 띄우면 `localhost:11435`다. 어느 쪽이든 루프백이며 외부로 나가지 않는다. 실행 시작 시 실제로 붙은 엔드포인트를 찍는다.
-- 테스트: 자체 러너 기반 단위와 통합 테스트 2383단언 전량 통과(오프라인 2231 + DB·모델 152). 집계 원자료 `eval/results/test-counts.json`
+- 테스트: 자체 러너 기반 단위와 통합 테스트 2867단언 전량 통과(오프라인 2715 + DB·모델 152). 집계 원자료 `eval/results/test-counts.json`
 
 ### 시스템 구성 및 아키텍처
 
 질문이 들어오면 다음 순서로 흐른다.
 
-1. **라우팅**: 규칙 우선 라우터가 질문 어휘를 스키마, 그래프 온톨로지와 대조해 structured, semantic, knowledge_graph 중 하나 이상을 고른다. 도구별 점수의 1위와 2위 격차가 작으면 bge-m3 임베딩으로 질문 유형 앵커 175개와 비교해 고른다(시맨틱 폴백). 생성 모델 호출이 없고, 튜닝 값은 두 격차 경계뿐이며 개발용 150문항의 경계 실측이 정한다. 같은 임베딩 모델이면 재실행 결과가 같다.
+1. **라우팅**: 규칙 우선 라우터가 질문 어휘를 스키마, 그래프 온톨로지와 대조해 structured, semantic, knowledge_graph 중 하나 이상을 고른다. 도구별 점수의 1위와 2위 격차가 작으면 bge-m3 임베딩으로 질문 유형 앵커 423개와 비교해 고른다(시맨틱 폴백). 생성 모델 호출이 없고, 튜닝 값은 두 격차 경계뿐이며 개발용 150문항의 경계 실측이 정한다. 같은 임베딩 모델이면 재실행 결과가 같다.
 2. **병렬 조회**: 선택된 레인이 동시에 실행된다. structured는 스키마 카드를 받은 NL2SQL이 읽기 전용 가드를 통과한 SQL만 실행하고, semantic은 pgvector 코사인 검색, knowledge_graph는 양방향 BFS로 관계를 따라간다. 탐색은 홉·노드·엣지 상한으로 묶이고, 상한에 걸리면 조용히 자르지 않고 `truncated`로 알린다.
 3. **융합**: RRF로 레인별 결과를 하나의 후보 목록으로 합친다. 리스트마다 같은 키를 한 번만 가산하도록 고쳐, 연결 수가 많은 그래프 허브가 교차 소스 합의를 이기는 문제를 제거했다. 순위도 서로 다른 키 사이에서 매겨, 반복된 키가 같은 리스트의 다른 후보를 밀어내지 않는다.
 4. **큐레이션**: 후보를 구조를 보존한 형태로 잘라 컨텍스트를 만든다. 표는 표로, 관계는 관계 문장으로 남긴다.

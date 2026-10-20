@@ -55,6 +55,7 @@ const server = spawn(process.execPath, ["air-server/dist/index.js"], {
   cwd: ROOT,
   env,
   stdio: ["pipe", "pipe", "pipe"],
+  windowsHide: true, // Windows 에서 서버 콘솔 창을 띄우지 않는다
 });
 
 const responses = new Map();

@@ -24,6 +24,8 @@
 //   * scores each item's relevance (deterministic term overlap — training-free),
 //   * greedily packs the highest-relevance items WHOLE under a token budget,
 //   * NEVER partially includes a structured row (rows are atomic),
+//   * keeps an evidence unit (items sharing `unit`: the sections of the one document a
+//     question names, the edge set of the planned relation) whole or drops it whole,
 //   * emits an audit of kept/dropped + a structure-integrity guarantee (0 broken rows).
 // Thesis is structure integrity at a fixed budget, NOT a token-reduction percentage.
 
@@ -36,6 +38,8 @@ export interface ContextItem {
   text: string; // rendered text that would go into the prompt
   source: string; // e.g. 'orders#2' or 'documents#1'
   fields?: number; // for rows: number of fields (integrity check)
+  /** Evidence unit id (evidence.ts). Items with the same unit are packed together, whole or not at all. */
+  unit?: string;
 }
 
 export interface CurateAudit {
@@ -77,25 +81,54 @@ function relevance(queryTerms: Set<string>, item: ContextItem): number {
   return n;
 }
 
-/** Greedy relevance-ranked packing; rows stay whole. Deterministic. */
+/** Greedy relevance-ranked packing; rows and evidence units stay whole. Deterministic.
+ *
+ * The packing step is a group: an item without `unit` is a group of one, items sharing a
+ * `unit` are one group ranked by their best member. A group that fits is kept whole; one
+ * that does not is dropped whole. A unit larger than the entire budget can never fit, so it
+ * is the one exception: its members are packed one by one by relevance (what every item got
+ * before units existed) and a note says how much of it was kept. */
 export function curate(query: string, items: ContextItem[], budget: number): Curated {
   const qt = contentTerms(query);
+  const groups: { members: { it: ContextItem; i: number; rel: number; cost: number }[]; rel: number; first: number; cost: number; unit?: string }[] = [];
+  const byUnit = new Map<string, (typeof groups)[number]>();
+  items.forEach((it, i) => {
+    const m = { it, i, rel: relevance(qt, it), cost: estTokens(it.text) };
+    const g = it.unit !== undefined ? byUnit.get(it.unit) : undefined;
+    if (g) {
+      g.members.push(m);
+      g.rel = Math.max(g.rel, m.rel);
+      g.cost += m.cost;
+      return;
+    }
+    const fresh = { members: [m], rel: m.rel, first: i, cost: m.cost, ...(it.unit !== undefined ? { unit: it.unit } : {}) };
+    groups.push(fresh);
+    if (it.unit !== undefined) byUnit.set(it.unit, fresh);
+  });
   // Stable sort: relevance desc, then original index (deterministic, no tie RNG).
-  const ranked = items
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => relevance(qt, b.it) - relevance(qt, a.it) || a.i - b.i);
+  groups.sort((a, b) => b.rel - a.rel || a.first - b.first);
 
   const kept: ContextItem[] = [];
   const dropped: ContextItem[] = [];
+  const notes: string[] = [];
   let used = 0;
-  for (const { it } of ranked) {
-    const cost = estTokens(it.text);
-    if (used + cost <= budget) {
-      kept.push(it);
-      used += cost;
+  for (const g of groups) {
+    if (used + g.cost <= budget) {
+      for (const m of g.members) kept.push(m.it);
+      used += g.cost;
+    } else if (g.unit !== undefined && g.members.length > 1 && g.cost > budget) {
+      let n = 0;
+      for (const m of [...g.members].sort((a, b) => b.rel - a.rel || a.i - b.i)) {
+        if (used + m.cost <= budget) {
+          kept.push(m.it);
+          used += m.cost;
+          n++;
+        } else dropped.push(m.it);
+      }
+      notes.push(`unit ${g.unit} exceeds the budget (${g.cost} > ${budget}): kept ${n} of ${g.members.length}`);
     } else {
-      // A row is atomic: if it does not fit whole, it is dropped, never split.
-      dropped.push(it);
+      // A row (or a unit) is atomic: if it does not fit whole, it is dropped, never split.
+      for (const m of g.members) dropped.push(m.it);
     }
   }
   // restore original order among kept for readable context
@@ -107,7 +140,7 @@ export function curate(query: string, items: ContextItem[], budget: number): Cur
     tokensUsed: used,
     budget,
     brokenRows: 0,
-    notes: [`${kept.length} kept / ${dropped.length} dropped, rows atomic`],
+    notes: [`${kept.length} kept / ${dropped.length} dropped, rows atomic`, ...notes],
   };
 }
 

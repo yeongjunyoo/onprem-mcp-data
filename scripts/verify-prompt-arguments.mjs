@@ -24,9 +24,10 @@
 // 클라이언트는 목록만 보고 **무엇을 채워야 하는지 알 수 없다.** 프롬프트가
 // `[질문]` 자리가 빈 채로 돌아온다 — 쓸 수 없는 템플릿이다.
 //
-// ★ 이건 우리 결함이 아니라 프레임워크(@airmcp-dev/core)가 목록을 만들 때
-//   arguments 를 빠뜨리는 것이다. 그래도 **우리 제품의 사용성 문제**이므로
-//   조용히 두지 않는다 — 알고 있다는 것과 모르는 것은 다르다.
+// ★ 그때는 우리 결함이 아니라 프레임워크(@airmcp-dev/core 0.2, 0.3)가 목록을 만들 때
+//   arguments 를 빠뜨린 것이었다. 그래도 **우리 제품의 사용성 문제**이므로
+//   조용히 두지 않았다 — 알고 있다는 것과 모르는 것은 다르다. air 0.5 는 선언한
+//   인자를 목록에 그대로 싣는다. 이 검사는 그것이 계속 그런지 본다.
 //
 // 실행: node scripts/verify-prompt-arguments.mjs   (DB·모델 필요)
 import { spawn } from "node:child_process";
@@ -48,6 +49,7 @@ console.log(`소스가 정의한 프롬프트 ${defined.size}종`);
 const child = spawn("node", [resolve(ROOT, "air-server/dist/index.js")], {
   cwd: ROOT,
   stdio: ["pipe", "pipe", "ignore"],
+  windowsHide: true, // Windows 에서 서버 콘솔 창을 띄우지 않는다
 });
 const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);
 send({
@@ -101,27 +103,13 @@ for (const p of listed) {
   }
   const got = (p.arguments ?? []).map((a) => a.name);
 
-  // ★ 프레임워크(@airmcp-dev/core)가 MCP SDK 의 **deprecated 오버로드**
-  //   `server.prompt(name, description, cb)` 를 써서 arguments 가 목록에 안 실린다.
-  //   그 오버로드는 "zero-argument prompt" 용이다. mcp 핸들이 private 이라
-  //   밖에서 재등록할 수도 없다. 2026-10-07 부터는 air-server/src/promptargs.ts 가
-  //   SDK 의 prompt() 를 감싸 선언한 인자를 끼워 넣으므로 arguments 로 실린다.
-  //
-  //   고칠 수 없는 층은 우회하되 **숨기지 않는다** — 설명 끝에 `[인자] ...` 를
-  //   넣어 클라이언트가 읽을 수 있게 했다. 목록이 곧 사용 설명서다.
-  //
-  //   둘 중 하나로 전달되면 통과한다. 프레임워크가 고쳐져 arguments 가 실리면
-  //   그것도 통과다 — 우회로를 영구화하지 않는다.
-  const inDescription = want.every((n) => (p.description ?? "").includes(`${n}(`));
-  const inArguments = want.join(",") === got.join(",");
-
-  if (!inArguments && !inDescription) {
+  // 0.3.0 까지는 목록에 arguments 가 비어 와서 설명 끝의 `[인자] ...` 와 promptargs.ts 로 우회했다. air 0.5 는
+  // 선언한 인자를 그대로 싣고 두 우회는 지웠다(docs/air-patch.md). 이제 목록의 arguments 만 본다.
+  if (want.join(",") !== got.join(",")) {
     fails.push(
-      `${p.name}: 인자 ${want.join(", ")} 가 목록에도 설명에도 없다 — ` +
+      `${p.name}: 인자 ${want.join(", ")} 가 목록에 없다(목록: ${got.join(", ") || "없음"}) — ` +
         "클라이언트가 무엇을 채울지 알 수 없다",
     );
-  } else if (!inArguments && inDescription) {
-    console.log(`  ${p.name}: arguments 는 비었지만 설명이 인자를 알린다 (프레임워크 우회)`);
   }
 }
 

@@ -30,8 +30,10 @@ import {
   uninstallSemanticRouter,
   semanticReady,
   ROUTE_ANCHORS,
+  INSTALLED_ANCHORS,
   SEMANTIC_MIN_MARGIN,
 } from "./semroute.js";
+import { PARAPHRASE_ANCHORS } from "./semparaphrase.js";
 import type { Embedder } from "./embedder.js";
 import { z } from "zod";
 import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
@@ -75,17 +77,19 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
 
 // ── 앵커 표 불변식 ────────────────────────────────────────────────────
 {
-  eq(Object.keys(ROUTE_ANCHORS).sort(), [...LANES].sort(), "앵커는 세 도구 전부에 있다");
+  // 구어 변형은 ROUTE_ANCHORS 의 유형에만 붙는다. 없는 유형에 쓰면 INSTALLED_ANCHORS 에서 조용히 빠진다.
+  const typesOf = (t: typeof ROUTE_ANCHORS) => LANES.map((l) => Object.keys(t[l] ?? {}).sort().join(","));
+  eq([Object.keys(ROUTE_ANCHORS).sort(), typesOf(PARAPHRASE_ANCHORS)], [[...LANES].sort(), typesOf(ROUTE_ANCHORS)], "앵커는 세 도구 전부에 있고 구어 변형은 같은 유형에 붙는다");
   const PH = ["{고객사}", "{제품}", "{직원}", "{부서}", "{프로젝트}", "{날짜}"];
   const sizeOff: string[] = [], dup: string[] = [], badPh: string[] = [];
   for (const lane of LANES) {
-    for (const [type, texts] of Object.entries(ROUTE_ANCHORS[lane])) {
-      if (texts.length < 3 || texts.length > 5) sizeOff.push(`${lane}/${type}:${texts.length}`);
+    for (const [type, texts] of Object.entries(INSTALLED_ANCHORS[lane])) {
+      if (texts.length < 10 || texts.length > 14) sizeOff.push(`${lane}/${type}:${texts.length}`);
       if (new Set(texts).size !== texts.length) dup.push(`${lane}/${type}`);
       for (const t of texts) if ((t.match(/\{[^}]+\}/g) ?? []).some((ph) => !PH.includes(ph))) badPh.push(t);
     }
   }
-  eq(sizeOff, [], "유형당 표현 3~5개");
+  eq(sizeOff, [], "설치하는 앵커는 유형당 10~14개(기존 2~5, 구어 변형 6~9)");
   eq(dup, [], "유형 안에 중복 표현 없음");
   eq(badPh, [], "자리표시는 maskEntities 표기만");
   // 그래프 앵커의 유형 이름은 엣지 타입이다(routeQuery 가 탐색 계획에 그대로 쓴다).
@@ -94,7 +98,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   const edgesPath = resolve(here, "../../datasets/companyx-v1.0/graph/edges.json");
   if (!TEST_AS_CI && existsSync(edgesPath)) {
     const edges = JSON.parse(readFileSync(edgesPath, "utf8")) as { relation: string }[];
-    const missing = [...new Set(edges.map((e) => e.relation))].filter((r) => !(r in ROUTE_ANCHORS.knowledge_graph));
+    const missing = [...new Set(edges.map((e) => e.relation))].filter((r) => !(r in INSTALLED_ANCHORS.knowledge_graph));
     eq(missing, [], "모든 엣지 타입에 그래프 앵커");
   } else {
     console.log("  SKIP: 엣지 타입 앵커 커버리지 (데이터셋 없음)");
@@ -122,7 +126,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
 // 앵커의 도구를 표에서 직접 읽으므로 앵커 문구를 고쳐도 이 테스트는 깨지지 않는다.
 const LANE_OF_ANCHOR = new Map<string, number>();
 LANES.forEach((lane, i) => {
-  for (const texts of Object.values(ROUTE_ANCHORS[lane])) for (const t of texts) LANE_OF_ANCHOR.set(t, i);
+  for (const texts of Object.values(INSTALLED_ANCHORS[lane])) for (const t of texts) LANE_OF_ANCHOR.set(t, i);
 });
 class MarkerEmbedder implements Embedder {
   readonly name = "marker";
@@ -140,7 +144,7 @@ const marker = new MarkerEmbedder();
   eq(JSON.stringify(await routeQuery(q, marker)), JSON.stringify(route(q)), "폴백 미설치면 규칙 결정 그대로");
 
   const inst = await installSemanticRouter(marker);
-  const total = Object.values(ROUTE_ANCHORS).reduce((n, t) => n + Object.values(t).reduce((m, x) => m + x.length, 0), 0);
+  const total = Object.values(INSTALLED_ANCHORS).reduce((n, t) => n + Object.values(t).reduce((m, x) => m + x.length, 0), 0);
   eq(inst.anchors, total, "앵커 전부 임베딩");
 
   // 규칙은 판단을 포기하는데(개체만 있음) 시맨틱은 그래프라고 본다.
@@ -202,9 +206,9 @@ const marker = new MarkerEmbedder();
 
 // ── route 도구 출력은 공개한 스키마를 통과한다 ──────────────────────────
 //
-// SDK 는 outputSchema 를 추가 필드 금지로 공개하고, 엄격한 클라이언트(MCP Inspector 2.8)는
-// 스키마 밖의 필드가 하나라도 있으면 결과를 거부한다. 규칙 결정, 시맨틱 적용, 시맨틱 박빙 세
-// 경우의 출력을 같은 엄격도로 검사한다.
+// 출력과 공개 스키마는 같은 칸을 가진다(routeschema.ts). air 0.3.0 의 SDK 는 outputSchema 를 추가 필드 금지로
+// 공개했고 엄격한 클라이언트(MCP Inspector 2.8)는 스키마 밖의 필드가 하나라도 있으면 결과를 거부했다. 규칙 결정,
+// 시맨틱 적용, 시맨틱 박빙 세 경우의 출력을 그 엄격도로 검사한다.
 {
   const strict = z.object(ROUTE_OUTPUT_SCHEMA).strict();
   await installSemanticRouter(marker);
@@ -219,7 +223,7 @@ const marker = new MarkerEmbedder();
   const failures = outs.map((o) => strict.safeParse(o)).filter((r) => !r.success).map((r) => (r.success ? "" : r.error.issues[0]?.message));
   eq(failures, [], "route 출력 세 경우가 공개 스키마를 통과한다");
   ok(!strict.safeParse({ ...outs[0], surprise: 1 }).success, "스키마 밖의 필드는 거부된다(클라이언트와 같은 엄격도)");
-  // 공개 JSON Schema 는 안쪽 객체(graph_plan)의 추가 필드도 막는다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
+  // 안쪽 객체(graph_plan)도 같은 엄격도로 본다. 「가장 적은」 계획의 order 와 상태 조건까지 스키마에 있어야 한다.
   const plan = ROUTE_OUTPUT_SCHEMA.graph_plan.unwrap().strict();
   const plans = [
     route("담당하는 고객사가 가장 적은 직원은 누구야?").graphPlan,
@@ -249,6 +253,61 @@ const marker = new MarkerEmbedder();
     eq(missing, [], "ask/retrieve/graphLane 을 부르는 companyx 평가 CLI 는 initRouting 을 부른다");
   } else {
     console.log("  SKIP: 평가 CLI 라우터 초기화 검사 (소스 없음)");
+  }
+}
+
+// ── 앵커 벡터 캐시(anchorcache.ts) ──────────────────────────────────────
+// 423문장을 기동마다 다시 임베딩하지 않는다. 캐시가 모델 교체를 놓치거나 지난 앵커를 읽으면 라우팅이 조용히 틀어지므로 그 둘을 본다.
+{
+  const { embedAnchors } = await import("./anchorcache.js");
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(resolve(tmpdir(), "anchorcache-"));
+  let calls = 0;
+  let shift = 0;
+  const fake: Embedder = {
+    name: "ollama:fake",
+    dim: 3,
+    async embed(t: string) {
+      calls++;
+      const h = [...t].reduce((n, c) => n + c.charCodeAt(0), 0) + shift;
+      const v = [Math.cos(h), Math.sin(h), 0.5];
+      const n = Math.hypot(...v);
+      return v.map((x) => x / n);
+    },
+  };
+  const texts = ["매출 합계", "설치 절차", "담당 엔지니어"];
+  try {
+    const a = await embedAnchors(fake, texts, dir);
+    eq([a.cache, calls], ["miss", 3], "처음에는 전부 임베딩하고 캐시에 쓴다");
+    calls = 0;
+    const b = await embedAnchors(fake, texts, dir);
+    eq([b.cache, calls], ["hit", 1], "같은 임베더와 앵커면 첫 앵커 하나만 새로 재고 나머지는 파일에서 읽는다");
+    eq(b.vecs, a.vecs, "파일에서 읽은 벡터는 임베딩한 벡터와 같다");
+    calls = 0;
+    shift = 0.5; // 같은 이름으로 가중치가 바뀐 모델
+    const c = await embedAnchors(fake, texts, dir);
+    eq([c.cache, calls], ["stale", 4], "첫 앵커 벡터가 달라지면 전부 다시 임베딩한다");
+    calls = 0;
+    const d = await embedAnchors(fake, [...texts, "새 앵커"], dir);
+    eq([d.cache, calls], ["miss", 4], "앵커 목록이 바뀌면 새로 임베딩한다");
+    eq(readdirSync(dir).filter((f) => f.endsWith(".bin")).length, 1, "지난 앵커의 캐시는 지운다");
+    calls = 0;
+    const other: Embedder = { ...fake, name: "ollama:fake@768" };
+    const o1 = await embedAnchors(other, texts, dir);
+    calls = 0;
+    const back = await embedAnchors(fake, [...texts, "새 앵커"], dir);
+    eq([o1.cache, back.cache, calls], ["miss", "hit", 1], "다른 임베더(다른 프로필)가 캐시를 써도 이 임베더의 캐시는 남는다");
+    eq(readdirSync(dir).filter((f) => f.endsWith(".bin")).length, 2, "임베더마다 캐시 하나");
+    calls = 0;
+    const e = await embedAnchors({ ...fake, name: "hash" }, texts, dir);
+    eq([e.cache, calls], ["off", 3], "ollama 가 아닌 임베더는 캐시를 쓰지 않는다");
+    const blocked = resolve(dir, "file");
+    writeFileSync(blocked, "");
+    const f = await embedAnchors(fake, texts, blocked);
+    ok(f.vecs.length === 3 && f.cache === "miss" && /앵커 캐시를 쓰지 못했다/.test(f.note ?? ""), `캐시를 쓰지 못해도 벡터는 쓰고 이유를 남긴다 (got ${f.cache} ${f.note})`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 

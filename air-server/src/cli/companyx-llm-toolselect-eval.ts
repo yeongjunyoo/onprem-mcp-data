@@ -31,6 +31,7 @@
 //
 // 사용: npm run companyx:toolselect   (EMBEDDER=ollama, Ollama 필요)
 //       TOOLSELECT_SETS=holdout4 로 봉인 세트만 따로 잰다.
+//       TOOLSELECT_OUT=eval/results/<이름>.json 으로 결과 파일 경로를 바꾼다.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -42,6 +43,8 @@ import { route, installOntology } from "../router.js";
 import { routeQuery, installSemanticRouter } from "../semroute.js";
 import { getEmbedder } from "../embedder.js";
 import { DEFAULT_MODEL } from "../llm.js";
+import { TOOL_SELECT_OPTIONS, TOOL_SELECT_SYSTEM, installLlmLaneTools, listLaneTools, llmStageEnabled } from "../llmroute.js";
+import { buildServer } from "../server.js";
 
 const HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const MODEL = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
@@ -58,9 +61,21 @@ const LANE_OF_ROUTE: Record<string, string> = {
   graph: "knowledge_graph",
   hybrid: "hybrid",
 };
-const SYSTEM =
-  "당신은 사내 데이터 질의 어시스턴트입니다. 사용자 질문에 답하려면 먼저 제공된 도구 중 하나를 호출해 " +
-  "데이터를 가져와야 합니다. 질문에 가장 알맞은 도구 하나를 골라 호출하세요.";
+
+/** 본문에서 가장 먼저 나오는 레인 도구 이름. 없으면 null. */
+function firstNamedTool(content: string): string | null {
+  let first: string | null = null;
+  let at = Infinity;
+  for (const t of LANE_TOOLS) {
+    const i = content.indexOf(t);
+    if (i >= 0 && i < at) [first, at] = [t, i];
+  }
+  return first;
+}
+// 시스템 문장과 생성 설정은 라우터 셋째 단계(llmroute.ts)와 같은 상수다. 여기서 잰 선택 정확도가 그 단계의 정확도다.
+// 생성 설정의 num_predict 상한이 왜 있는지는 llmroute.ts 에 적었다.
+const GEN_OPTIONS = TOOL_SELECT_OPTIONS;
+const SYSTEM = TOOL_SELECT_SYSTEM;
 
 const SETS: Record<string, { path: string; label: "tool" | "expected" }> = {
   sponsor30: { path: "datasets/companyx-v1.0/questions.json", label: "tool" },
@@ -127,7 +142,9 @@ async function listServerTools(root: string): Promise<McpTool[]> {
   }
 }
 
-async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
+type Choice = { tool: string | null; via: string; ms: number; raw?: string };
+
+async function chooseTool(q: string, tools: McpTool[]): Promise<Choice> {
   const t0 = Date.now();
   const res = await fetch(`${HOST}/api/chat`, {
     method: "POST",
@@ -135,7 +152,7 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string |
     body: JSON.stringify({
       model: MODEL,
       stream: false,
-      options: { temperature: 0, seed: 42, num_ctx: 8192 },
+      options: GEN_OPTIONS,
       messages: [
         { role: "system", content: SYSTEM },
         { role: "user", content: q },
@@ -149,19 +166,21 @@ async function chooseTool(q: string, tools: McpTool[]): Promise<{ tool: string |
   if (!res.ok) throw new Error(`Ollama /api/chat ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { message?: { content?: string; tool_calls?: { function?: { name?: string } }[] } };
   const called = data.message?.tool_calls?.[0]?.function?.name;
-  if (called) return { tool: called, via: "tool_calls", ms: Date.now() - t0 };
+  if (called) return { tool: called, via: "tool_calls", ms: Date.now() - t0, raw: JSON.stringify(data.message?.tool_calls).slice(0, 300) };
   // qwen2.5-coder 는 호출을 tool_calls 필드 대신 본문에 JSON 으로 적기도 한다. 호스트마다
   // 파싱이 다르므로, 본문에 도구 이름이 있으면 그것을 선택으로 읽고 경로를 따로 센다.
   // 이것을 빼면 모델의 선택 능력이 아니라 출력 형식을 재게 된다.
+  // 호출을 여럿 적으면 모델이 먼저 적은 도구가 선택이다(고정 목록 순서로 고르면 sql.query 가 늘 이긴다).
   const content = data.message?.content ?? "";
-  const named = LANE_TOOLS.find((t) => content.includes(t)) ?? null;
-  return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0 };
+  const named = firstNamedTool(content);
+  // 본문 원문을 남긴다. 도구 이름이 둘 이상 적힌 본문과 도구를 안 고른 본문을 나중에 원문으로 가른다.
+  return { tool: named, via: named ? "content" : "none", ms: Date.now() - t0, raw: content.slice(0, 300) };
 }
 
 /** 한 문항의 호출이 실패해도 실험 전체를 죽이지 않는다. GPU 를 다른 작업과 나눠 쓰면
  * 응답이 5분을 넘겨 fetch 가 끊긴다(2026-09-30 실측). 한 번 다시 부르고, 그래도 안 되면
  * 그 문항을 오류로 세고 넘어간다 — 오류는 선택이 아니므로 정답에도 오답에도 넣지 않는다. */
-async function chooseToolOrError(q: string, tools: McpTool[]): Promise<{ tool: string | null; via: string; ms: number }> {
+async function chooseToolOrError(q: string, tools: McpTool[]): Promise<Choice> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await chooseTool(q, tools);
@@ -190,6 +209,17 @@ async function main() {
     if (sem.error) throw new Error(`시맨틱 앵커 임베딩 실패: ${sem.error}`);
   }
 
+  // ROUTER_LLM_STAGE=1 이면 router 열이 3단계 라우터(규칙 → 시맨틱 → LLM)다. 셋째 단계는 서버와 같은 레인 도구를 본다 —
+  // 서버가 쓰는 listLaneTools 의 결과가 tools/list 와 다르면 여기서 잰 값이 서버의 값이 아니므로 멈춘다.
+  const llmStage = llmStageEnabled();
+  if (llmStage) {
+    const sortByName = (xs: McpTool[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
+    const served = JSON.stringify(sortByName(tools).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })));
+    const inProcess = JSON.stringify(sortByName(listLaneTools(buildServer().tools())));
+    if (served !== inProcess) throw new Error("셋째 단계가 서버 안에서 만드는 레인 도구가 tools/list 와 다르다");
+    if (installLlmLaneTools(tools) !== LANE_TOOLS.length) throw new Error("셋째 단계에 레인 도구 넷을 걸지 못했다");
+  }
+
   const want = (process.env.TOOLSELECT_SETS ?? "sponsor30,holdout1,holdout2,holdout3").split(",");
   const rows: Record<string, unknown>[] = [];
   const bySet: Record<string, { n: number; llm: number; rule_only: number; router: number; no_tool: number; errors: number }> = {};
@@ -213,13 +243,15 @@ async function main() {
       }
       const llm = c.tool ? LANE_OF_TOOL[c.tool] ?? `other:${c.tool}` : "none";
       const ruleOnly = LANE_OF_ROUTE[route(it.q).route];
-      const router = LANE_OF_ROUTE[(await routeQuery(it.q, embedder)).route];
+      const decision = await routeQuery(it.q, embedder);
+      const router = LANE_OF_ROUTE[decision.route];
+      const routerVia = decision.llm ? (decision.llm.applied ? "llm" : "llm_kept_rule") : decision.semantic?.applied ? "semantic" : "rule";
       s.n++;
       if (llm === it.expected) s.llm++;
       if (ruleOnly === it.expected) s.rule_only++;
       if (router === it.expected) s.router++;
       if (llm === "none") s.no_tool++;
-      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, llm_ms: c.ms });
+      rows.push({ set: name, q: it.q, expected: it.expected, llm_tool: c.tool, llm_via: c.via, llm, rule_only: ruleOnly, router, router_via: routerVia, llm_ms: c.ms, llm_raw: c.raw });
       console.log(`${llm === it.expected ? "O" : "X"} llm=${llm.padEnd(15)} router=${router.padEnd(15)} 기대=${it.expected} :: ${it.q}`);
     }
   }
@@ -232,8 +264,11 @@ async function main() {
   const out = {
     note:
       "LLM 자율 도구 선택(MCP tools/list 의 description 만 보고 고름) 대 규칙 라우터, 규칙+시맨틱 라우터. " +
-      "후보는 레인 도구 넷. 채점은 도구 → 레인 매핑의 문자열 일치, LLM 판정자 없음. llm_ms 는 CPU 추론 시간.",
+      "후보는 레인 도구 넷. 채점은 도구 → 레인 매핑의 문자열 일치, LLM 판정자 없음. llm_ms 는 CPU 추론 시간." +
+      (llmStage ? " ROUTER_LLM_STAGE=1 실행이라 router 열은 3단계 라우터(규칙 → 시맨틱 → LLM)다. router_via 가 어느 단계가 정했는지다." : ""),
     model: MODEL,
+    options: GEN_OPTIONS,
+    router_llm_stage: llmStage,
     ollama_host: HOST,
     embedder: embedder?.name ?? "none (rule only)",
     tool_descriptions: Object.fromEntries(tools.map((t) => [t.name, t.description ?? ""])),
@@ -242,16 +277,25 @@ async function main() {
     total,
     llm_ms_median: ms[Math.floor(ms.length / 2)] ?? null,
     llm_via: rows.reduce<Record<string, number>>((a, r) => ((a[r.llm_via as string] = (a[r.llm_via as string] ?? 0) + 1), a), {}),
+    router_via: rows.reduce<Record<string, number>>((a, r) => (r.router_via ? ((a[r.router_via as string] = (a[r.router_via as string] ?? 0) + 1), a) : a), {}),
     rows,
     generated_at: new Date().toISOString(),
   };
+  // TOOLSELECT_OUT 로 결과 파일을 따로 둔다(저장소 루트 기준 경로). 설명을 바꿔 가며 재는 실험이 커밋된 결과를 덮지 않게 한다.
   const suffix = want.length === 1 ? `-${want[0]}` : "";
-  await mkdir(resolve(root, "eval/results"), { recursive: true });
-  await writeFile(resolve(root, `eval/results/companyx-toolselect${suffix}.json`), JSON.stringify(out, null, 2) + "\n");
+  const outPath = resolve(root, process.env.TOOLSELECT_OUT ?? `eval/results/companyx-toolselect${suffix}.json`);
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, JSON.stringify(out, null, 2) + "\n");
+  console.error(`결과: ${outPath}`);
   console.log(JSON.stringify({ by_set: bySet, total, llm_ms_median: out.llm_ms_median }, null, 2));
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// 끝나면 바로 내린다. ROUTER_LLM_STAGE=1 실행은 레인 도구를 대조하려고 buildServer() 를 부르는데, air 플러그인의 타이머가
+// 이벤트 루프를 붙잡아 결과를 다 쓴 뒤에도 프로세스가 남았다(2026-10-11 실측).
+main().then(
+  () => process.exit(0),
+  (e) => {
+    console.error(e);
+    process.exit(1);
+  },
+);

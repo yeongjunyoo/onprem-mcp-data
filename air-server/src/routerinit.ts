@@ -21,7 +21,7 @@
 // (2026-09-30: 홀드아웃3 정형 20문항 중 13문항만 SQL 레인에 갔다. 서버 경로는 19문항).
 // 평가가 서버와 같은 상태에서 돌려면 같은 함수를 불러야 한다.
 import { installOntology } from "./router.js";
-import { installSemanticRouter } from "./semroute.js";
+import { installSemanticRouter, type SemanticInstall } from "./semroute.js";
 import { getPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
 import { loadOntologyForRouter } from "./graph.js";
@@ -59,7 +59,7 @@ export async function loadRouterOntology(): Promise<Readonly<typeof ontologyStat
 
 /** 기동 시 1회. 임베딩 모델(bge-m3)이 있을 때만 시맨틱 폴백 앵커를 임베딩한다.
  * 해시 임베더는 의미를 담지 않으므로 설치하지 않는다 — 그때 라우터는 규칙만으로 돈다. */
-export async function loadSemanticRouter(): Promise<{ anchors: number; error?: string }> {
+export async function loadSemanticRouter(): Promise<SemanticInstall> {
   const embedder = getEmbedder();
   if (!embedder.name.startsWith("ollama")) return { anchors: 0, error: `embedder ${embedder.name}: 규칙만 사용` };
   return installSemanticRouter(embedder);
@@ -69,7 +69,7 @@ export async function loadSemanticRouter(): Promise<{ anchors: number; error?: s
  * (semroute.test 가 companyx 평가 CLI 소스를 읽어 강제한다). 결과는 평가 파일에 그대로 싣는다. */
 export async function initRouting(): Promise<{
   ontology: Readonly<typeof ontologyState>;
-  semantic: { anchors: number; error?: string };
+  semantic: SemanticInstall;
 }> {
   const ontology = await loadRouterOntology();
   const semantic = await loadSemanticRouter();

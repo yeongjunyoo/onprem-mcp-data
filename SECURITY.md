@@ -10,6 +10,11 @@
 
 이 셋 중 하나가 우회되는 것은 보안 문제로 취급합니다. 예: 읽기 전용 가드를 통과하는 쓰기 구문, 권한이 없어야 할 테이블의 노출, 컨텍스트 밖 데이터가 답변에 유입되는 경로, 로컬 외부로 나가는 네트워크 호출.
 
+## 자동 점검
+
+- **코드 스캐닝(SAST)**: CodeQL 이 PR 과 main 푸시마다, 그리고 주 1회 `security-extended` 쿼리로 TypeScript 와 스크립트를 봅니다(`.github/workflows/codeql.yml`). 결과는 Security 탭의 Code scanning 에 있습니다.
+- **의존성(SCA)**: Dependabot 이 npm 과 GitHub Actions 의존성을 매주 봅니다(`.github/dependabot.yml`). 설치된 패키지의 라이선스와 버전은 `docs/sbom.md` 가 생성물로 담고, CI 가 손으로 고친 흔적을 막습니다.
+
 ## 신고 방법
 
 **공개 이슈로 올리지 마세요.** GitHub의 비공개 취약점 신고(Security 탭 > Report a vulnerability)를 이용하거나, 저장소 소유자에게 직접 연락해 주세요.

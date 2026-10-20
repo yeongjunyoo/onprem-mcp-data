@@ -215,6 +215,10 @@ function main() {
   const text = renderAudit(denied);
   ok(text.includes("정책 sql-read-only: deny"), "요약에 정책 판정이 나온다");
   ok(text.split("\n").length <= 12, "요약은 열 줄 안쪽");
+  ok(!/^호출:/m.test(text), "호출 주체가 없는 레코드(파이프라인이 만든 것)는 호출 줄을 쓰지 않는다");
+  const called = renderAudit({ ...denied, executed_at: "2026-10-20T03:00:00.000Z", caller: { transport: "stdio", os_user: "alice" } });
+  ok(called.split("\n")[1] === "호출: 2026-10-20T03:00:00.000Z, stdio (OS 계정 alice)", `audit.explain 레코드면 언제, 누가 (got ${called.split("\n")[1]})`);
+  ok(renderAudit({ ...denied, executed_at: "t", caller: { transport: "http", os_user: null } }).includes("호출: t, http\n"), "계정이 없으면 전송만");
 
   // --- 9. 실행하지 않은 생성 문장(G17 ②④) ---
   // 쓰기 문장은 실행되지 않았지만 종전 레코드에는 흔적이 없었다(sql.text null, policies []).
@@ -256,6 +260,25 @@ function main() {
   ok(pGate?.verdict === "degrade" && pGate.detail.includes("(서울물산: not_in_database)") && pGate.detail.includes("「Client-A가 사용 중인 제품을 알려줘」"), `일부만 해소되면 degrade 와 그 이름 (got ${JSON.stringify(pGate)})`);
   ok(partial.missing_entities?.[0]?.query_entity === "서울물산" && partial.not_found === undefined, "레코드에 missing_entities 가 실리고 not_found 는 없다");
   ok(r1.missing_entities === undefined, "없는 개체가 없으면 필드도 없다");
+
+  // --- 11. 근거 단위(evidence.ts) ---
+  const docUnit = { kind: "document" as const, title: "[기술문서] Product-Z1 설치 가이드", named_by: ["식별자 Product-Z1"], sections: 3, sections_total: 3, chunks: 7, hits_in_document: 2 };
+  const withDoc = buildAuditRecord(base({ route: "semantic", audit: { ...base().audit, evidence_unit: docUnit } } as unknown as Partial<RetrieveResult>));
+  ok(JSON.stringify(withDoc.context.evidence_unit) === JSON.stringify(docUnit), "문서 단위가 context.evidence_unit 에 실린다");
+  ok(renderAudit(withDoc).includes("근거 단위: 문서 「[기술문서] Product-Z1 설치 가이드」 절 3/3개, 조각 7개"), "요약에도 문서 단위가 나온다");
+  const relUnit = { kind: "relation" as const, relations: ["BELONGS_TO"], seeds: ["영업팀"], edges: 10 };
+  const withRel = buildAuditRecord(base({ route: "graph", audit: { ...base().audit, evidence_unit: relUnit } } as unknown as Partial<RetrieveResult>));
+  ok(renderAudit(withRel).includes("근거 단위: 관계 BELONGS_TO 엣지 10건 (시드 영업팀)"), "요약에 관계 단위가 나온다");
+  ok(r1.context.evidence_unit === undefined && !renderAudit(r1).includes("근거 단위"), "단위가 없으면 필드도 줄도 없다");
+
+  // --- 12. 다음 순위 레인(fallback.ts) ---
+  const fbk = { from: "structured", to: "semantic", reason: "0 rows", used: true };
+  const withFb = buildAuditRecord(base({ route: "semantic", audit: { ...base().audit, route_fallback: fbk } } as unknown as Partial<RetrieveResult>));
+  ok(JSON.stringify(withFb.routing.fallback) === JSON.stringify(fbk), "다음 순위 레인이 routing.fallback 에 실린다");
+  ok(renderAudit(withFb).includes("다음 순위 레인: structured 이 빈손(0 rows) -> semantic 의 근거로 답했다"), "요약에도 나온다");
+  const tried = buildAuditRecord(base({ audit: { ...base().audit, route_fallback: { ...fbk, used: false, rejected: "no rows to answer from" } } } as unknown as Partial<RetrieveResult>));
+  ok(renderAudit(tried).includes("의 결과를 쓰지 않고(no rows to answer from) 처음 레인의 결과로 답했다"), "시도만 했으면 쓰지 않은 이유와 함께 적는다");
+  ok(r1.routing.fallback === undefined && !renderAudit(r1).includes("다음 순위"), "돌리지 않았으면 필드도 줄도 없다");
 
   console.log(`\nauditrecord.test: ${pass} passed, ${fail} failed`);
   if (fail > 0) process.exit(1);

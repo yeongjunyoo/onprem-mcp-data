@@ -22,9 +22,9 @@
 // vector.search 는 빈 질문을 임베딩해 pgvector 오류(vector must have at least 1 dimension)를, ontology.search 는
 // 아무 표시 없이 ok 와 빈 hits 를 돌려줬다(2026-10-07 실측). 같은 안내 문장으로 맞춘다.
 //
-// 거절은 TC-040·041 의 인자 오류와 같은 길로 나간다. air 는 zod 스키마를 그대로 MCP SDK 에
-// 넘기고, SDK 는 핸들러보다 먼저 이 스키마로 검증해 isError 로 돌려준다(Inspector exit 5).
-// refine 은 JSON Schema 에 나타나지 않으므로 tools/list 의 입력 스키마는 바뀌지 않는다.
+// 거절은 TC-041·042 의 인자 오류와 같은 길로 나간다. air 의 입력 검증 미들웨어가 핸들러보다 먼저 이 스키마로
+// 검증해 isError 결과로 돌려준다(Inspector exit 5). refine 은 JSON Schema 에 나타나지 않으므로 tools/list 의 입력
+// 스키마는 바뀌지 않는다(설명과 형은 airmcp-dev/air#7 이 refine 안쪽에서 읽어 낸다).
 //
 // 값은 바꾸지 않는다(트림하지 않는다). 감사 레코드의 query 는 받은 그대로여야 한다(TC-153 의
 // query_length 2200 은 끝 공백까지 센 길이다).
@@ -99,17 +99,6 @@ export function budgetParam(description: string) {
       (b) => ({ message: `budget 은 1 이상의 정수(토큰 수)만 받습니다. 기본은 1024 입니다. 받은 값: ${JSON.stringify(b) ?? String(b)}` }),
     )
     .optional();
-}
-
-/** 빠진 필수 인자의 검증 문장에 기대한 형을 남긴다. MCP SDK 1.30 부터 입력 검증 오류가 「<문장> at <경로>」 한 줄로 줄어
- * 나가는데, zod 3 의 빠진 인자 문장은 「Required」뿐이라 무엇이 와야 하는지가 화면에서 사라졌다(1.29 는 expected, received 가 든
- * 오류 목록을 그대로 보냈다. TC-042). 다른 오류 문장은 zod 기본 그대로다. zod 전역 설정이라 buildServer 가 건다. */
-export function installInputErrorMessages(): void {
-  z.setErrorMap((issue, ctx) =>
-    issue.code === z.ZodIssueCode.invalid_type && issue.received === z.ZodParsedType.undefined
-      ? { message: `Required (expected ${issue.expected}, received undefined)` }
-      : { message: ctx.defaultError },
-  );
 }
 
 /** audit.explain 의 format 칸. json 과 text 말고는 같은 입력 검증 길(-32602)로 거절한다. 종전에는 모르는 값(xml 등)을

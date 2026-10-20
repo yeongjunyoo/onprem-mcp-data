@@ -39,6 +39,11 @@ cd air-server && npm run companyx:load    # schema + rows + chunks + graph -> Po
 2. Everything is created inside the `companyx` schema (not `public`) so the sponsor
    corpus, the internal benchmark (`bench`) and the smoke seed (`public`) coexist in
    one instance. Table/column names are untouched.
+3. After the official DDL and data, the loader applies the reviewed table and column
+   comments in `sql/companyx/comments.sql` (`COMMENT ON TABLE`, `COMMENT ON COLUMN`;
+   catalog metadata only, no table, column or row changes). `npm run companyx:load`
+   reports the count under `comments` (added 2026-10-11, so loads before that date have
+   no such field). `SQL_CARD=comments` builds the NL2SQL schema card from these comments.
 
 ### Data defects found (reported upstream)
 

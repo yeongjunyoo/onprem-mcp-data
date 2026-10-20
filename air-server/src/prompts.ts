@@ -22,21 +22,38 @@
 //
 // 원칙: 여기 있는 템플릿은 코드가 쓰는 것과 같은 규칙을 담는다. 홍보용 문구를
 // 새로 만들지 않는다.
-import { definePrompt } from "@airmcp-dev/core";
+import { definePrompt, McpErrors, type AirPromptDef } from "@airmcp-dev/core";
 
 // 노출본을 손으로 베끼지 않는다. 실행 경로가 쓰는 바로 그 함수를 부른다.
 import { buildAnswerPrompt } from "./llm.js";
 import { buildCompanyxSqlPrompt } from "./nl2sql.js";
-import { exposeArguments } from "./promptargs.js"; // prompts/get 인자 전달(air 0.3.0 우회)
 import { profile } from "./profile.js";
+import { isBlankQuery } from "./queryinput.js";
+
+/** 필수 인자가 비어 있으면(공백, 보이지 않는 문자뿐) 템플릿을 만들지 않고 -32602 로 거절한다. 도구의 빈 질문과 같은 판정이다
+ * (queryinput.ts). 종전에는 question="" 를 받아 질문 칸이 빈 템플릿을 돌려줬다(랜덤 테스트 사전 점검 3차 X04).
+ * 빠진 필수 인자는 air 가 핸들러를 부르기 전에 같은 코드로 거절한다(airmcp-dev/air#9). */
+function rejectBlankArguments(prompt: AirPromptDef): AirPromptDef {
+  const required = (prompt.arguments ?? []).filter((a) => a.required).map((a) => a.name);
+  return {
+    ...prompt,
+    handler: (args) => {
+      const blank = required.filter((name) => typeof args[name] === "string" && isBlankQuery(args[name]));
+      if (blank.length > 0) {
+        throw McpErrors.invalidParams(`prompt ${prompt.name}: ${blank.join(", ")} 인자가 비어 있습니다. 내용을 넣어 주세요.`);
+      }
+      return prompt.handler(args);
+    },
+  };
+}
 
 export function buildPrompts() {
-  return exposeArguments([
+  return [
     definePrompt({
       name: "grounded-answer",
       description:
         "큐레이션된 컨텍스트만 근거로 한국어 답변을 만드는 템플릿. 컨텍스트 밖 개체를 답에 넣지 않고, " +
-        "근거가 없으면 모른다고 답하도록 지시한다. 서버의 ask 도구가 쓰는 규칙과 같다. [인자] question(필수): 사용자 질문 · context(필수): 검색으로 모은 근거 묶음",
+        "근거가 없으면 모른다고 답하도록 지시한다. 서버의 ask 도구가 쓰는 규칙과 같다.",
       arguments: [
         { name: "question", description: "사용자 질문", required: true },
         { name: "context", description: "검색으로 모은 근거 묶음", required: true },
@@ -57,7 +74,7 @@ export function buildPrompts() {
       name: "nl2sql-with-schema-card",
       description:
         "값 어휘까지 담은 스키마 카드를 주고 단일 읽기 전용 SQL을 생성하게 하는 템플릿. " +
-        "이 카드의 유무가 정확도를 가른다는 것이 이 프로젝트의 실증 논지다(개발보고서 0.6, 0.10). [인자] question(필수): 자연어 질문",
+        "이 카드의 유무가 정확도를 가른다는 것이 이 프로젝트의 실증 논지다(개발보고서 0.6, 0.10).",
       arguments: [{ name: "question", description: "자연어 질문", required: true }],
       // companyx NL2SQL 경로가 실제로 쓰는 프롬프트. 사본을 두면
       // "테이블은 반드시 companyx. 접두사" 같은 규칙이 조용히 빠진다.
@@ -73,7 +90,7 @@ export function buildPrompts() {
       name: "explain-routing",
       description:
         "라우터가 왜 그 레인을 골랐는지 설명하게 하는 템플릿. 라우팅 자체는 규칙 기반이라 " +
-        "모델이 결정에 관여하지 않는다. 이 프롬프트는 결정을 사람에게 설명하는 용도다. [인자] question(필수): 사용자 질문 · routing(필수): route 도구가 반환한 결정과 감사 로그",
+        "모델이 결정에 관여하지 않는다. 이 프롬프트는 결정을 사람에게 설명하는 용도다.",
       arguments: [
         { name: "question", description: "사용자 질문", required: true },
         { name: "routing", description: "route 도구가 반환한 결정과 감사 로그", required: true },
@@ -97,7 +114,7 @@ export function buildPrompts() {
     definePrompt({
       name: "review-generated-sql",
       description:
-        "생성된 SQL을 스키마 카드와 대조해 검토하게 하는 템플릿. 실행 전에 사람이 확인하는 경로를 만든다. [인자] question(필수): 원래 질문 · sql(필수): 검토할 SQL",
+        "생성된 SQL을 스키마 카드와 대조해 검토하게 하는 템플릿. 실행 전에 사람이 확인하는 경로를 만든다.",
       arguments: [
         { name: "question", description: "원래 질문", required: true },
         { name: "sql", description: "검토할 SQL", required: true },
@@ -117,5 +134,5 @@ export function buildPrompts() {
         },
       ],
     }),
-  ]);
+  ].map(rejectBlankArguments);
 }

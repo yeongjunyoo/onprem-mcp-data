@@ -28,9 +28,11 @@ import {
   sanitizerPlugin,
   jsonLoggerPlugin,
   type AirServer,
+  type TransportConfig,
 } from "@airmcp-dev/core";
 import { SQL_TOOL, VECTOR_TOOL } from "./router.js";
 import { routeQuery } from "./semroute.js";
+import { llmStageEnabled } from "./llmroute.js";
 import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
 import { getPool, getReadPool } from "./db.js";
 import { getEmbedder } from "./embedder.js";
@@ -40,10 +42,12 @@ import { retrieve, ask } from "./pipeline.js";
 import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 import { clampK, entityIdError } from "./sqltrust.js";
 import { readFileSync } from "node:fs";
+import { isIP } from "node:net";
+import { userInfo } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { budgetParam, formatParam, installInputErrorMessages, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
+import { budgetParam, formatParam, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
 import { buildPrompts } from "./prompts.js";
@@ -76,8 +80,11 @@ export { loadRouterOntology, loadSemanticRouter, routerOntologyState } from "./r
  * 여기서 빼면 레코드 표기도 함께 바뀐다 — 선언과 표기가 갈리지 않는다. */
 const CACHE_EXCLUDED = ["audit.explain"];
 
-/** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. */
-const TRANSPORTS = ["stdio", "sse"] as const;
+/** 지원하는 전송 — 이 목록 밖은 조용히 받아주지 않는다. http 는 air 의 세션 없는 Streamable HTTP(POST /mcp)다. */
+const TRANSPORTS = ["stdio", "sse", "http"] as const;
+
+/** sse 와 http 의 기본 바인딩. 루프백만 듣는다. 다른 기기나 컨테이너 밖에서 붙으려면 MCP_HOST 를 준다. */
+const DEFAULT_MCP_HOST = "127.0.0.1";
 
 /**
  * MCP_TRANSPORT 를 해석하되, **모르는 값은 소리내어 거절한다.**
@@ -91,10 +98,15 @@ const TRANSPORTS = ["stdio", "sse"] as const;
  * 어느 쪽에 붙었는지 모르게 되는 문제. 같은 잣대를 우리 코드에도 댄다.
  *
  * 잘못 다룬 설정은 기본값으로 메꾸는 것보다 기동을 멈추는 편이 싸다.
+ *
+ * 돌려주는 값은 air 의 transport 설정 그대로다(`satisfies TransportConfig`). host 와 allowedOrigins 는 air 에
+ * 기본값이 있어도 여기서 정한다. 바인딩과 허용 출처는 보안 설정이라 의존성의 기본값이 바뀌어도 따라가지 않게 한다.
+ * allowedOrigins 는 air-server/vendor 의 패치 얹은 air(airmcp-dev/air#11, SSE 는 003 패치)가 더한 칸이라, 패치가 빠진
+ * air 에서는 이 파일이 컴파일되지 않는다(docs/air-patch.md).
  */
-export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: number } {
+export function resolveTransport() {
   const raw = process.env.MCP_TRANSPORT?.trim();
-  if (!raw) return { type: "stdio" };
+  if (!raw) return { type: "stdio" } satisfies TransportConfig;
 
   if (!(TRANSPORTS as readonly string[]).includes(raw)) {
     throw new Error(
@@ -102,16 +114,61 @@ export function resolveTransport(): { type: "stdio" } | { type: "sse"; port: num
         `  조용히 stdio 로 떨어뜨리면 어느 전송으로 돌고 있는지 알 수 없게 된다 — 그래서 멈춘다.`,
     );
   }
+  if (raw === "stdio") return { type: "stdio" } satisfies TransportConfig;
 
-  if (raw === "sse") {
-    const port = Number(process.env.MCP_PORT ?? 3510);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
-    }
-    return { type: "sse", port };
+  const port = Number(process.env.MCP_PORT ?? 3510);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`MCP_PORT="${process.env.MCP_PORT}" 는 유효한 포트가 아니다.`);
   }
+  const host = resolveHost();
+  const type = raw === "sse" ? "sse" : "http";
+  return { type, port, host, allowedOrigins: resolveAllowedOrigins() } satisfies TransportConfig;
+}
 
-  return { type: "stdio" };
+/** 감사 레코드의 호출 주체(Who). stdio 는 MCP 클라이언트가 서버를 자식 프로세스로 띄우므로 서버의 OS 계정이 곧 부른
+ * 사람의 계정이다. sse, http 는 연결마다 부른 쪽이 다른데 이 서버는 인증을 두지 않으므로(127.0.0.1 바인딩, Origin 검사)
+ * 계정을 적지 않는다. MCP 클라이언트 이름(initialize 의 clientInfo)은 air 0.5.2 가 도구 핸들러에 넘기지 않아 아직 적지 못한다. */
+export function auditCaller(): { transport: string; os_user: string | null } {
+  const transport = resolveTransport().type;
+  if (transport !== "stdio") return { transport, os_user: null };
+  try {
+    return { transport, os_user: userInfo().username };
+  } catch {
+    // 폴백: passwd 에 없는 uid 로 도는 컨테이너는 계정 이름이 없다. 모른다는 값(null)을 그대로 적는다.
+    return { transport, os_user: null };
+  }
+}
+
+/** MCP_HOST: 바인딩 주소. 비우면 루프백(127.0.0.1). 주소나 호스트 이름이 아니면(포트나 스킴을 붙인 값) 기동을 멈춘다. */
+function resolveHost(): string {
+  const host = process.env.MCP_HOST?.trim();
+  if (!host) return DEFAULT_MCP_HOST;
+  if (isIP(host) === 0 && !/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(host)) {
+    throw new Error(`MCP_HOST="${host}" 는 바인딩할 주소가 아니다. IP 나 호스트 이름만 쓴다(예: 127.0.0.1, 0.0.0.0). 포트는 MCP_PORT 로 준다.`);
+  }
+  return host;
+}
+
+/**
+ * MCP_ALLOWED_ORIGINS: sse 와 http 전송이 루프백 출처 말고 더 받을 브라우저 Origin(쉼표로 구분, 예: https://app.example.com).
+ * 비우면 루프백 출처(localhost, 127.0.0.1, [::1], 포트 무관)만 받고 나머지 Origin 은 403 이다. Origin 을 보내지 않는
+ * 클라이언트(Inspector CLI, SDK, curl)는 이 검사와 상관없다. 출처는 스킴, 호스트, 포트까지 정확히 적는다. `*` 는 DNS
+ * 리바인딩 방어를 끄는 값이라 받지 않는다.
+ */
+function resolveAllowedOrigins(): string[] {
+  const raw = process.env.MCP_ALLOWED_ORIGINS?.trim();
+  if (!raw) return [];
+  return raw.split(",").map((o) => {
+    const origin = o.trim();
+    const parsed = URL.canParse(origin) ? new URL(origin) : undefined;
+    if (!parsed || !/^https?:$/.test(parsed.protocol) || parsed.origin !== origin) {
+      throw new Error(
+        `MCP_ALLOWED_ORIGINS 의 "${origin}" 는 출처가 아니다. 스킴, 호스트, 포트만 적는다(예: https://app.example.com, http://192.168.0.5:8080). ` +
+          `경로, 끝의 슬래시, * 는 받지 않는다.`,
+      );
+    }
+    return origin;
+  });
 }
 
 /** 버전 정본은 package.json 하나다.
@@ -138,7 +195,11 @@ export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POS
 
 export function buildServer(): AirServer {
   const ds = profile();
-  installInputErrorMessages();
+  // 레인 도구 설명에 적은 표·문서·관계 목록은 Company-X 데이터셋의 것이다. 다른 프로파일(smoke, bench)에서는 빼서
+  // 없는 표와 문서를 있다고 말하지 않는다.
+  const cx = (text: string) => (ds.name === "companyx" ? text : "");
+  // 라우터 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)를 켜면 라우팅이 생성 모델을 부를 수 있다. 켰을 때만 설명이 그렇게 말한다.
+  const llmStage = llmStageEnabled();
   return defineServer({
     name: "onprem-mcp-data",
     version: PACKAGE_VERSION,
@@ -172,8 +233,9 @@ export function buildServer(): AirServer {
       circuitBreakerPlugin(),
     ],
 
-    // stdio(기본) / sse — 심사자가 Claude Desktop에 붙일 때는 stdio, 컨테이너로
-    // 띄울 때는 MCP_TRANSPORT=sse. 그 둘뿐이며, 모르는 값은 위에서 이미 막았다.
+    // stdio(기본) / sse / http — 심사자가 Claude Desktop에 붙일 때는 stdio, 네트워크로 붙일 때는
+    // MCP_TRANSPORT=sse 나 http(세션 없는 Streamable HTTP, POST /mcp). 셋 다 air 의 전송이 그대로 받는다.
+    // 모르는 값은 위에서 이미 막았다.
     transport: resolveTransport(),
 
     // MCP 표준 표면. 도구는 "실행", 리소스는 "열람", 프롬프트는 "재사용 템플릿"이다.
@@ -187,7 +249,10 @@ export function buildServer(): AirServer {
           "한국어 질문 하나를 어느 데이터 레인으로 보낼지 결정만 한다. 조회도 답변도 하지 않는다. " +
           "레인: structured → sql.query(표의 값·집계), semantic → vector.search(문서 서술), " +
           "graph → ontology.search + graph.expand(개체 사이 관계), hybrid → sql.query 와 vector.search 병렬. " +
-          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. 생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). " +
+          "규칙 신호로 먼저 결정하고, 규칙이 확신하지 못하면 임베딩(bge-m3)으로 질문 유형 앵커와 비교한다. " +
+          (llmStage
+            ? "둘 다 확신하지 못한 질문만 생성 모델이 레인 도구 설명을 보고 고른다(ROUTER_LLM_STAGE=1, temperature 0). "
+            : "생성 모델은 부르지 않아 같은 질문은 같은 결정을 낸다(MCP Parallel 패턴). ") +
           "예: 「서울 지역 매출 상위 5개 고객사를 알려줘」→ structured, 「Product-C1 설치 방법이 궁금해」→ semantic, " +
           "「Client-A가 사용 중인 제품 목록은?」→ graph. " +
           "돌려주는 것: route, lane, tools(부를 도구), 판단 근거 신호와 rationale. " +
@@ -204,15 +269,26 @@ export function buildServer(): AirServer {
 
       defineTool(SQL_TOOL, {
         description:
-          "이미 작성된 읽기 전용 SQL 한 문장(SELECT 또는 WITH)을 PostgreSQL 에서 그대로 실행해 행을 돌려준다. SQL 을 만들지는 않는다. " +
+          "표(관계형 테이블)에 저장된 값으로 답하는 질문에 쓴다. 이미 작성된 읽기 전용 SQL 한 문장(SELECT 또는 WITH)을 " +
+          "PostgreSQL 에서 그대로 실행해 행을 돌려준다. SQL 을 만들지는 않는다. " +
+          cx("표는 부서, 직원, 고객사, 제품, 계약, 프로젝트, 매출, 기술 지원 티켓이다. ") +
+          "고르는 기준: 질문이 묻는 것이 표의 값이다. 개수·합계·평균·비율·순위, 조건에 맞는 행의 목록과 정렬(큰·오래된·최근 것부터), " +
+          "그리고 개체 하나의 속성값" +
+          cx(
+            "(직원의 연봉·입사일·직급·이메일, 고객사의 업종·지역·담당 연락처·등록일, " +
+              "제품의 월 요금·버전·출시일·상태, 계약과 프로젝트의 금액·예산·기간·상태, 티켓의 우선순위·상태·접수와 해결 시각, 매출 금액)",
+          ) +
+          ". " +
+          "질문에 제품·고객사·직원·프로젝트 이름이 나와도 묻는 것이 이런 값이면 이 도구다. 이름은 WHERE 조건으로 거른다. " +
           "읽는 것: 활성 데이터셋의 관계형 테이블(컬럼은 리소스 schema://dataset/tables 의 스키마 카드). " +
-          "답하는 질문: 개수·합계·평균·순위·기간·조건 필터처럼 컬럼 값으로 정해지는 것. " +
           "예: 「현재 활성 상태인 계약 수는?」→ SELECT count(*) FROM companyx.contracts WHERE status = 'active', " +
           "「부서별 평균 연봉」, 「2025년 3분기 총 매출액」. " +
           "돌려주는 것: ok, rows, rowCount, columns, truncated(행 상한을 넘었는지), 실패하면 error. " +
           "READ ONLY 트랜잭션(mcp_ro 롤이 있으면 그 롤)에서 돌고 쓰기·DDL·여러 문장 연결은 거부된다. " +
-          "쓰지 말 것: 자연어 질문을 그대로 넣을 때(→ retrieve·ask 가 SQL 을 만든다), 문서 내용(→ vector.search), " +
-          "개체 사이 관계 탐색(→ graph.expand).",
+          "쓰지 말 것: 자연어 질문을 그대로 넣을 때(→ retrieve·ask 가 SQL 을 만든다), " +
+          "문서에 적힌 내용(제품의 설정값·권장값·절차, 제안서에 적은 비용·일정, 회의에서 정한 것, 장애의 원인과 조치 → vector.search. " +
+          "위 표에 없는 컬럼을 지어내야 한다면 문서 질문이다), " +
+          "누가 무엇을 쓰고 맡고 이끄는지, 누가 어느 조직 소속인지 같은 개체 사이 관계(→ ontology.search).",
         params: { sql: sqlParam("실행할 단일 SELECT/WITH 쿼리") },
         annotations: { readOnlyHint: true, idempotentHint: true },
         layer: 2, // air Meter: simple lookup (DB read, no model)
@@ -223,12 +299,20 @@ export function buildServer(): AirServer {
 
       defineTool(VECTOR_TOOL, {
         description:
+          "문서에 적힌 내용을 묻는 질문에 쓴다. " +
           `질의를 임베딩해 ${ds.vectorTable} 에서 pgvector 코사인 유사도 상위 k건(기본 5)을 찾는다(의미 검색). ` +
+          "고르는 기준: 답이 문서 본문에 있다. " +
+          cx(
+            "문서는 제품 기술 문서(설치·설정·운영·백업·성능 튜닝·API·아키텍처), " +
+              "장애 보고서(발생 일시·영향·원인·조치·복구·대응자와 검토자), 회의록(일시·참석자·안건·결정 사항·다음 회의), " +
+              "제안서(고객 과제·제안 내용·구축 일정·투자 비용·기대 효과)다. ",
+          ) +
+          "방법·절차·권장값·오류의 뜻, 특정 장애·회의·제안의 내용을 묻는 질문이다. " +
+          "질문에 제품·고객사·사람 이름이나 날짜가 나와도 그것은 어느 문서인지를 가리킬 뿐이니, 묻는 것이 문서 내용이면 이 도구다. " +
           "읽는 것: 문서 테이블의 제목·본문·임베딩. 임베더는 오프라인 결정론(hash) 기본, 데모는 bge-m3(Ollama)로 교체 가능. " +
-          "답하는 질문: 절차·원인·정책·회의 내용처럼 문서에 서술된 것, 낱말이 달라도 뜻이 가까운 것. " +
           "예: 「Product-C1 설치 방법이 궁금해」, 「최근 서버 장애 사례와 원인을 알려줘」, 「백업 정책은 어떻게 되어 있어?」. " +
           "돌려주는 것: ok, hits[{id, title, body, score}], embedder. " +
-          "쓰지 말 것: 개수·합계·순위(문서는 행을 세지 않는다 → sql.query), 누가 무엇과 연결됐는지(→ ontology.search·graph.expand).",
+          "쓰지 말 것: 개수·합계·순위나 표에 저장된 값(문서는 행을 세지 않는다 → sql.query), 누가 무엇과 연결됐는지(→ ontology.search·graph.expand).",
         params: {
           query: queryParam("검색할 한국어 질의"),
           k: { type: "number", description: "반환할 상위 건수 (기본 5)", optional: true },
@@ -244,7 +328,10 @@ export function buildServer(): AirServer {
         description:
           "질문 하나로 조회 전 과정을 돌리고 답을 만들기 직전의 근거(컨텍스트)를 돌려준다: route → 고른 레인 병렬 조회" +
           "(sql.query ∥ vector.search, 또는 지식그래프의 개체 해소·관계 확장·관계 집계) → RRF 융합 → 구조 보존 큐레이션. " +
-          "라우팅·RRF·큐레이션은 결정론이고, 구조화 레인의 SQL 은 로컬 7B 가 스키마 카드로 만든다. 최종 답은 만들지 않는다. " +
+          (llmStage
+            ? "RRF·큐레이션은 결정론이고, 라우팅은 규칙과 시맨틱이 둘 다 확신하지 못한 질문만 생성 모델이 고른다(ROUTER_LLM_STAGE=1). "
+            : "라우팅·RRF·큐레이션은 결정론이고, ") +
+          "구조화 레인의 SQL 은 로컬 7B 가 스키마 카드로 만든다. 최종 답은 만들지 않는다. " +
           "답하는 질문: 레인을 미리 모르는 자연어 질문 전부. 호출하는 LLM 이 근거를 직접 읽고 답을 쓸 때 쓴다. " +
           "예: 「평균 연봉이 가장 높은 부서는 어디야?」, 「Kubernetes 관련 장애 대응 방법은?」, 「진행 중인 프로젝트를 이끄는 직원 목록」. " +
           "돌려주는 것: route, context, audit(라우팅 근거, 레인별 후보 수, branch_errors, 큐레이션 통계. " +
@@ -328,6 +415,7 @@ export function buildServer(): AirServer {
           const record = {
             ...buildAuditRecord(r),
             executed_at,
+            caller: auditCaller(),
             cache_policy: CACHE_EXCLUDED.includes("audit.explain") ? ("excluded" as const) : ("cached" as const),
           };
           return format === "text" ? { text: renderAudit(record) } : record;
@@ -336,16 +424,23 @@ export function buildServer(): AirServer {
 
       defineTool("ontology.search", {
         description:
-          "질문 속 이름(한국어/영어)을 지식그래프의 정규 개체로 해소한다. " +
-          "읽는 것: 그래프의 entities(정규명)와 aliases(별칭·속성값). 정규명 일치 > 별칭 일치 > 접두 > 부분 일치 순으로 " +
-          "점수(4~1)를 매겨 상위 k개를 준다. " +
-          "답하는 질문: 「이 이름이 데이터의 어느 개체인가」 — graph.expand 에 넘길 entityId 를 얻는 첫 단계이고, SQL/vector 가 못 잇는 동의어를 잇는다. " +
+          "개체 사이 관계를 묻는 질문의 첫 단계다. 질문 속 이름(한국어/영어)을 지식그래프의 정규 개체로 해소해 " +
+          "graph.expand 에 넘길 entityId 를 얻는다. " +
+          "고르는 기준: 질문이 개체와 개체의 연결을 묻는다. " +
+          cx(
+            "누가 어느 부서 소속인지, 부서장이 누구인지, 고객사가 어떤 제품을 쓰는지, " +
+              "고객사를 맡은 직원, 고객사의 프로젝트와 그 리드, 고객사가 이슈를 올린 제품. ",
+          ) +
+          "이름이 나왔다는 것만으로 고르지 않는다. 그 이름에 관한 문서 내용(설치·설정·장애·회의·제안)은 vector.search, " +
+          "그 개체의 값(연봉·금액·가격·날짜·연락처)은 sql.query 다. " +
+          "읽는 것: 그래프의 entities(정규명)와 aliases(별칭·속성값). 질문에 통째로 든 여러 낱말 이름 > 정규명 일치 > 별칭 일치 > 접두 > " +
+          "부분 일치 순으로 점수(5~1)를 매겨 상위 k개를 준다. SQL/vector 가 못 잇는 동의어를 잇는다. " +
           "예: 「Product-C1을 사용하는 고객사는 어디야?」→ Product-C1(product), " +
           "「경영지원팀 팀장은 누구야?」→ 경영지원팀(department)이 소속 직원보다 먼저, 「클라우드사업부」→ 부서 개체. " +
           "돌려주는 것: ok, hits[{entityId, type, canonicalName, via, matched, score, properties}]. " +
           "하나도 못 찾으면 not_found{reason, query_entity, candidates[{name, type, score}]}: reason 은 not_in_database(비슷한 이름도 없음) " +
           "또는 similar_name_mismatch(비슷한 이름의 다른 개체 — 후보로만 알리고 해소하지 않는다). " +
-          "쓰지 말 것: 관계를 물을 때(이 도구는 개체만 찾는다 → graph.expand), 숫자 집계(→ sql.query).",
+          "쓰지 말 것: 문서 내용(→ vector.search), 숫자 집계나 표의 값(→ sql.query). 이 도구는 개체만 찾고 관계는 graph.expand 가 펼친다.",
         params: {
           query: queryParam("해소할 이름 또는 그 이름이 든 질문"),
           k: { type: "number", description: "최대 엔티티 수 (기본 5)", optional: true },
@@ -359,17 +454,18 @@ export function buildServer(): AirServer {
 
       defineTool("graph.expand", {
         description:
-          "시드 개체(entityId)에서 관계 엣지를 양방향 BFS 로 따라가 관계와 출처(provenance)를 돌려준다. " +
+          "개체 사이 관계를 펼친다. 시드 개체(entityId)에서 관계 엣지를 양방향 BFS 로 따라가 관계와 출처(provenance)를 돌려준다. " +
           "역방향(「X를 사용하는 고객사」)도 같은 호출로 나온다. " +
+          "고르는 기준: ontology.search 로 얻은 entityId 가 있고, 질문이 누가 무엇을 사용·담당·소속·리드하는지처럼 " +
+          "표의 한 행이나 문서가 아니라 엣지만 아는 관계를 묻는다. " +
           "읽는 것: 그래프의 relations 와 entities. " +
-          "답하는 질문: 누가 무엇을 사용·담당·소속·리드하는지처럼 표의 한 행이나 문서가 아니라 엣지만 아는 관계. " +
           "예: 「Client-A가 사용 중인 제품 목록은?」(Client-A 의 entityId, depth 1), " +
           "「Product-C1을 사용하는 고객사는 어디야?」(depth 1, 역방향), 「Product-D1 제품과 관련된 프로젝트는?」(depth 2). " +
           "돌려주는 것: ok, edges[{srcName, relType, dstName, srcType, dstType, depth, confidence, provenance}]. " +
           "탐색은 홉·노드·엣지 상한(기본 3·500·2000, GRAPH_MAX_HOPS/GRAPH_MAX_NODES/GRAPH_MAX_EDGES)으로 묶이고, " +
           "걸리면 예외 대신 truncated{by, limit} 로 알린다. " +
-          "쓰지 말 것: entityId 를 모를 때(→ 먼저 ontology.search), 관계를 세거나 순위를 매길 때" +
-          "(「가장 많은 고객을 담당하는 직원은?」→ retrieve·ask 의 관계 집계).",
+          "쓰지 말 것: entityId 를 모를 때(→ 먼저 ontology.search). " +
+          "관계를 세거나 순위를 매기는 질문도 그래프가 아는 관계의 질문이지만, 이 도구는 엣지를 펼칠 뿐 세지 않는다.",
         params: {
           entityId: { type: "number", description: "시드 개체 id (ontology.search 의 hits[].entityId)" },
           depth: {

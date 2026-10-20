@@ -1,0 +1,591 @@
+diff --git a/dist/middleware/before-hook.js b/dist/middleware/before-hook.js
+index ef9ce16..b2bffe2 100644
+--- a/dist/middleware/before-hook.js
++++ b/dist/middleware/before-hook.js
+@@ -1,6 +1,24 @@
+ // @airmcp-dev/core — middleware/before-hook.ts
+ // 내장 before 미들웨어 — 입력 검증
+-import { paramsToZodSchema } from '../tool/tool-schema.js';
++import { paramsToZodSchema, paramsToJsonSchema } from '../tool/tool-schema.js';
++/** JSON Schema 속성의 타입 이름 — nullable의 anyOf는 `number | null`처럼 잇는다 */
++function typeLabel(prop) {
++    if (Array.isArray(prop.anyOf))
++        return prop.anyOf.map(typeLabel).join(' | ');
++    return Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type || 'any';
++}
++/** 검증 실패 메시지의 "Expected schema" 줄 — 단축 표기는 그대로, 나머지는 JSON Schema의 타입과 필수 여부 */
++function describeParams(params = {}) {
++    const json = paramsToJsonSchema(params);
++    return Object.entries(params)
++        .map(([k, v]) => {
++        if (typeof v === 'string')
++            return `  - ${k}: ${v}`;
++        const prop = json?.properties?.[k] ?? {};
++        return `  - ${k}: ${typeLabel(prop)}${json?.required?.includes(k) ? '' : ' (optional)'}`;
++    })
++        .join('\n');
++}
+ /** 입력 파라미터 자동 검증 미들웨어 */
+ export function validationMiddleware() {
+     return {
+@@ -26,7 +44,7 @@ export function validationMiddleware() {
+                     abortResponse: {
+                         content: [{
+                                 type: 'text',
+-                                text: `[Validation] Invalid parameters for "${ctx.tool.name}":\n${summary}\n\nExpected schema:\n${Object.entries(ctx.tool.params || {}).map(([k, v]) => `  - ${k}: ${typeof v === 'string' ? v : v.type || 'any'}${v?.optional ? ' (optional)' : ''}`).join('\n')}`,
++                                text: `[Validation] Invalid parameters for "${ctx.tool.name}":\n${summary}\n\nExpected schema:\n${describeParams(ctx.tool.params)}`,
+                             }],
+                         isError: true,
+                     },
+diff --git a/dist/middleware/chain.d.ts b/dist/middleware/chain.d.ts
+index 08ae729..e6071cf 100644
+--- a/dist/middleware/chain.d.ts
++++ b/dist/middleware/chain.d.ts
+@@ -1,11 +1,17 @@
+ import type { AirMiddleware } from '../types/middleware.js';
+ import type { AirToolDef, AirToolContext } from '../types/tool.js';
++import { type McpToolResult } from '../tool/tool-result.js';
+ export declare class MiddlewareChain {
+     private middlewares;
+     add(mw: AirMiddleware): void;
+     addAll(mws: AirMiddleware[]): void;
+-    /** 미들웨어 체인을 실행하고 도구 핸들러를 호출 */
++    /** 미들웨어 체인을 실행하고 도구 핸들러를 호출 (content 배열 반환) */
+     execute(tool: AirToolDef, params: Record<string, any>, toolCtx: AirToolContext): Promise<import("../tool/tool-result.js").McpContent[]>;
++    /**
++     * 미들웨어 체인을 실행하고 tools/call 결과({ content, isError })를 반환.
++     * 검증 실패, 핸들러 예외, { isError: true } 응답은 isError: true로 남는다.
++     */
++    executeTool(tool: AirToolDef, params: Record<string, any>, toolCtx: AirToolContext): Promise<McpToolResult>;
+     private handleError;
+ }
+ //# sourceMappingURL=chain.d.ts.map
+\ No newline at end of file
+diff --git a/dist/middleware/chain.js b/dist/middleware/chain.js
+index bb27a30..9487b7c 100644
+--- a/dist/middleware/chain.js
++++ b/dist/middleware/chain.js
+@@ -1,6 +1,6 @@
+ // @airmcp-dev/core — middleware/chain.ts
+ // 미들웨어 체인 실행기 — before → handler → after, 에러 시 onError
+-import { normalizeResult } from '../tool/tool-result.js';
++import { normalizeResult, normalizeToolResult } from '../tool/tool-result.js';
+ export class MiddlewareChain {
+     middlewares = [];
+     add(mw) {
+@@ -9,8 +9,15 @@ export class MiddlewareChain {
+     addAll(mws) {
+         this.middlewares.push(...mws);
+     }
+-    /** 미들웨어 체인을 실행하고 도구 핸들러를 호출 */
++    /** 미들웨어 체인을 실행하고 도구 핸들러를 호출 (content 배열 반환) */
+     async execute(tool, params, toolCtx) {
++        return (await this.executeTool(tool, params, toolCtx)).content;
++    }
++    /**
++     * 미들웨어 체인을 실행하고 tools/call 결과({ content, isError })를 반환.
++     * 검증 실패, 핸들러 예외, { isError: true } 응답은 isError: true로 남는다.
++     */
++    async executeTool(tool, params, toolCtx) {
+         const ctx = {
+             tool,
+             params: { ...params },
+@@ -29,11 +36,11 @@ export class MiddlewareChain {
+                 const result = await mw.before(ctx);
+                 if (result?.abort) {
+                     const abortResult = result.abortResponse
+-                        ? normalizeResult(result.abortResponse)
+-                        : normalizeResult('Request aborted by middleware');
++                        ? normalizeToolResult(result.abortResponse)
++                        : { content: normalizeResult('Request aborted by middleware'), isError: true };
+                     // abort 시에도 after 미들웨어를 실행 (로깅/메트릭 수집 보장)
+                     const duration = Date.now() - ctx.startedAt;
+-                    const afterCtx = { ...ctx, result: abortResult, duration };
++                    const afterCtx = { ...ctx, result: abortResult.content, duration };
+                     for (const afterMw of this.middlewares) {
+                         if (!afterMw.after)
+                             continue;
+@@ -74,7 +81,7 @@ export class MiddlewareChain {
+                 // after 미들웨어 에러는 무시 (결과는 이미 나왔으므로)
+             }
+         }
+-        return normalizeResult(afterCtx.result);
++        return normalizeToolResult(afterCtx.result);
+     }
+     async handleError(ctx, error) {
+         // onError 미들웨어가 있으면 위임
+@@ -84,14 +91,14 @@ export class MiddlewareChain {
+             try {
+                 const recovery = await mw.onError(ctx, error);
+                 if (recovery !== undefined)
+-                    return normalizeResult(recovery);
++                    return normalizeToolResult(recovery);
+             }
+             catch {
+                 // onError도 실패하면 다음으로
+             }
+         }
+         // 아무도 처리 못하면 에러 메시지 반환
+-        return normalizeResult({ text: `Error: ${error.message}` });
++        return { content: normalizeResult({ text: `Error: ${error.message}` }), isError: true };
+     }
+ }
+ //# sourceMappingURL=chain.js.map
+\ No newline at end of file
+diff --git a/dist/protocol/http-transport.d.ts b/dist/protocol/http-transport.d.ts
+index af5d512..ca7db6c 100644
+--- a/dist/protocol/http-transport.d.ts
++++ b/dist/protocol/http-transport.d.ts
+@@ -5,12 +5,23 @@ export interface AirHttpTransportOptions {
+     endpoint?: string;
+     /** CORS origin (기본: '*') */
+     corsOrigin?: string;
++    /**
++     * 루프백 출처(localhost, 127.0.0.1, [::1]) 외에 더 허용할 브라우저 Origin 목록.
++     * 예: ['https://app.example.com']. '*'는 모든 Origin 허용.
++     */
++    allowedOrigins?: string[];
+ }
+ export declare class AirHttpTransport {
+     private engine;
+     private endpoint;
+     private corsOrigin;
++    private allowedOrigins?;
+     constructor(engine: McpProtocolEngine, options?: AirHttpTransportOptions);
++    /**
++     * Origin 헤더 검증 (DNS rebinding 방지).
++     * Origin이 없으면(브라우저가 아닌 클라이언트) 통과, 있으면 루프백 출처나 allowedOrigins만 통과.
++     */
++    private isAllowedOrigin;
+     /**
+      * HTTP 요청을 처리한다.
+      * server-runner의 HTTP 서버에서 호출됨.
+diff --git a/dist/protocol/http-transport.js b/dist/protocol/http-transport.js
+index e8c678c..185ab5e 100644
+--- a/dist/protocol/http-transport.js
++++ b/dist/protocol/http-transport.js
+@@ -10,15 +10,35 @@
+ //   - MCP-Protocol-Version 헤더로 프로토콜 버전 전달
+ //   - 단순 요청은 JSON 응답, 스트리밍이 필요하면 SSE 응답
+ //   - 레거시 클라이언트(initialize)도 폴백 지원
+-import { PROTOCOL_VERSIONS } from './mcp-protocol.js';
++import { PROTOCOL_VERSIONS, SUPPORTED_VERSIONS, ErrorCodes } from './mcp-protocol.js';
++/** 항상 허용하는 Origin 호스트 (루프백) */
++const LOOPBACK_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
+ export class AirHttpTransport {
+     engine;
+     endpoint;
+     corsOrigin;
++    allowedOrigins;
+     constructor(engine, options) {
+         this.engine = engine;
+         this.endpoint = options?.endpoint ?? '/mcp';
+         this.corsOrigin = options?.corsOrigin ?? '*';
++        this.allowedOrigins = options?.allowedOrigins;
++    }
++    /**
++     * Origin 헤더 검증 (DNS rebinding 방지).
++     * Origin이 없으면(브라우저가 아닌 클라이언트) 통과, 있으면 루프백 출처나 allowedOrigins만 통과.
++     */
++    isAllowedOrigin(origin) {
++        if (origin === undefined)
++            return true;
++        if (this.allowedOrigins?.includes('*') || this.allowedOrigins?.includes(origin))
++            return true;
++        try {
++            return LOOPBACK_HOSTNAMES.includes(new URL(origin).hostname);
++        }
++        catch {
++            return false; // 'null' 같은 불투명 Origin
++        }
+     }
+     /**
+      * HTTP 요청을 처리한다.
+@@ -26,6 +46,15 @@ export class AirHttpTransport {
+      */
+     async handleRequest(req, res) {
+         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
++        // Origin이 허용되지 않으면 403 (MCP 스펙 Streamable HTTP, Security Warning)
++        if (!this.isAllowedOrigin(req.headers.origin)) {
++            res.writeHead(403, { 'Content-Type': 'application/json' });
++            res.end(JSON.stringify({
++                jsonrpc: '2.0',
++                error: { code: -32000, message: `Forbidden: Origin ${req.headers.origin} is not allowed` },
++            }));
++            return;
++        }
+         // CORS
+         res.setHeader('Access-Control-Allow-Origin', this.corsOrigin);
+         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+@@ -39,18 +68,11 @@ export class AirHttpTransport {
+             await this.handlePost(req, res);
+             return;
+         }
+-        // GET /mcp — server/discover 단축
++        // GET /mcp — 서버 발신 SSE 스트림을 제공하지 않으므로 405 (MCP 스펙 Streamable HTTP).
++        // 서버 정보는 POST server/discover 또는 GET /로 얻는다.
+         if (req.method === 'GET' && url.pathname === this.endpoint) {
+-            const discoverResponse = await this.engine.handleMessage({
+-                jsonrpc: '2.0',
+-                method: 'server/discover',
+-                id: 'discover-' + Date.now(),
+-            });
+-            res.writeHead(200, {
+-                'Content-Type': 'application/json',
+-                'MCP-Protocol-Version': PROTOCOL_VERSIONS.MODERN,
+-            });
+-            res.end(JSON.stringify(discoverResponse));
++            res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'POST, OPTIONS' });
++            res.end(JSON.stringify({ error: 'GET not supported: this endpoint does not offer an SSE stream' }));
+             return;
+         }
+         // GET / — 서버 상태
+@@ -101,10 +123,22 @@ export class AirHttpTransport {
+         // MCP 헤더 검증 (2026-07-28)
+         const mcpVersion = req.headers['mcp-protocol-version'];
+         const mcpMethod = req.headers['mcp-method'];
+-        // 프로토콜 버전 응답 헤더 설정
+-        const responseVersion = mcpVersion === PROTOCOL_VERSIONS.MODERN
+-            ? PROTOCOL_VERSIONS.MODERN
+-            : PROTOCOL_VERSIONS.LEGACY;
++        // 지원하지 않는 MCP-Protocol-Version은 400 (MCP 스펙 Streamable HTTP, Protocol Version Header)
++        if (mcpVersion !== undefined && !SUPPORTED_VERSIONS.includes(mcpVersion)) {
++            res.writeHead(400, { 'Content-Type': 'application/json' });
++            res.end(JSON.stringify({
++                jsonrpc: '2.0',
++                id: Array.isArray(body) ? null : body?.id ?? null,
++                error: {
++                    code: ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION,
++                    message: `Unsupported protocol version: ${mcpVersion}`,
++                    data: { supported: SUPPORTED_VERSIONS, requested: mcpVersion },
++                },
++            }));
++            return;
++        }
++        // 프로토콜 버전 응답 헤더 설정 — 요청 헤더의 버전, 없으면 레거시
++        const responseVersion = mcpVersion ?? PROTOCOL_VERSIONS.LEGACY;
+         // 배치 요청 처리
+         if (Array.isArray(body)) {
+             const responses = await Promise.all(body.map((msg) => this.engine.handleMessage(msg)));
+diff --git a/dist/protocol/mcp-protocol.d.ts b/dist/protocol/mcp-protocol.d.ts
+index 6035977..e543f0a 100644
+--- a/dist/protocol/mcp-protocol.d.ts
++++ b/dist/protocol/mcp-protocol.d.ts
+@@ -72,7 +72,7 @@ export interface ProtocolEngineConfig {
+     tools: AirToolDef[];
+     resources: AirResourceDef[];
+     prompts: AirPromptDef[];
+-    /** 도구 실행 함수 — 미들웨어 체인을 거쳐 실행 */
++    /** 도구 실행 함수 — 미들웨어 체인을 거쳐 실행 (content 배열 또는 { content, isError } 반환) */
+     callTool: (toolName: string, params: Record<string, any>, meta?: ClientMeta, inputResponses?: any[]) => Promise<any>;
+     /** 캐시 힌트 (기본: 300000ms) */
+     defaultTtlMs?: number;
+diff --git a/dist/protocol/mcp-protocol.js b/dist/protocol/mcp-protocol.js
+index 72e65cc..aa9f3f8 100644
+--- a/dist/protocol/mcp-protocol.js
++++ b/dist/protocol/mcp-protocol.js
+@@ -222,10 +222,14 @@ export class McpProtocolEngine {
+                 content: [{ type: 'text', text: content.inputRequests[0]?.message || 'Additional input required' }],
+             };
+         }
+-        const result = { content };
+-        // outputSchema가 있으면 structuredContent 추가
+-        if (tool.outputSchema && Array.isArray(content) && content.length > 0) {
+-            const firstText = content[0];
++        // callTool은 content 배열이나 { content, isError }를 돌려준다 — isError는 그대로 전달
++        const isError = !Array.isArray(content) && content?.isError === true;
++        const result = { content: Array.isArray(content?.content) ? content.content : content };
++        if (isError)
++            result.isError = true;
++        // outputSchema가 있으면 structuredContent 추가 (에러 결과에는 붙이지 않는다)
++        if (tool.outputSchema && !isError && Array.isArray(result.content) && result.content.length > 0) {
++            const firstText = result.content[0];
+             if (firstText?.type === 'text' && typeof firstText.text === 'string') {
+                 try {
+                     result.structuredContent = JSON.parse(firstText.text);
+@@ -320,6 +324,13 @@ export class McpProtocolEngine {
+         const prompt = this.config.prompts.find(p => p.name === name);
+         if (!prompt)
+             throw Object.assign(new Error(`Prompt not found: ${name}`), { code: ErrorCodes.INVALID_PARAMS });
++        // 필수 인자 확인 — 빠지면 -32602 (MCP 스펙 server/prompts, Error Handling)
++        const missing = (prompt.arguments ?? [])
++            .filter(a => a.required && (args[a.name] === undefined || args[a.name] === null))
++            .map(a => a.name);
++        if (missing.length > 0) {
++            throw Object.assign(new Error(`Missing required arguments for prompt ${name}: ${missing.join(', ')}`), { code: ErrorCodes.INVALID_PARAMS });
++        }
+         const messages = await prompt.handler(args);
+         return {
+             resultType: 'complete',
+diff --git a/dist/protocol/stdio-transport.d.ts b/dist/protocol/stdio-transport.d.ts
+index e69d136..fbe73f7 100644
+--- a/dist/protocol/stdio-transport.d.ts
++++ b/dist/protocol/stdio-transport.d.ts
+@@ -6,12 +6,10 @@ export declare class AirStdioTransport {
+     constructor(engine: McpProtocolEngine);
+     /** stdio transport를 시작한다. stdin을 읽고 stdout으로 응답한다. */
+     start(): Promise<void>;
+-    /** 메시지를 stdout으로 전송한다 (Content-Length 프레이밍). */
++    /** 메시지를 stdout으로 전송한다 (JSON 한 줄 + 줄바꿈). */
+     private write;
+-    /** 버퍼에서 완전한 메시지를 추출하고 처리한다. */
++    /** 버퍼에서 완성된 줄을 꺼내 메시지로 처리한다. */
+     private processBuffer;
+-    /** UTF-8 바이트 길이에 해당하는 문자 길이를 반환한다. */
+-    private getCharLength;
+     /** 개별 메시지를 파싱하고 프로토콜 엔진에 전달한다. */
+     private handleMessage;
+     /** transport를 중지한다. */
+diff --git a/dist/protocol/stdio-transport.js b/dist/protocol/stdio-transport.js
+index 059c82d..89dbfe5 100644
+--- a/dist/protocol/stdio-transport.js
++++ b/dist/protocol/stdio-transport.js
+@@ -3,9 +3,9 @@
+ // air 자체 stdio transport.
+ // MCP SDK의 StdioServerTransport를 대체.
+ // stdin에서 JSON-RPC 메시지를 읽고, stdout으로 응답을 쓴다.
+-// Content-Length 헤더 기반 메시지 프레이밍 (LSP 스타일).
+-const HEADER_DELIMITER = '\r\n\r\n';
+-const CONTENT_LENGTH_RE = /^Content-Length:\s*(\d+)\s*$/im;
++// 줄 단위 JSON 프레이밍 (MCP 스펙 basic/transports, stdio):
++//   - 메시지 하나가 JSON 한 줄이고 줄바꿈(\n)으로 구분한다. 메시지 안에는 줄바꿈을 넣지 않는다.
++//   - stdout에는 MCP 메시지 외에는 아무것도 쓰지 않는다.
+ export class AirStdioTransport {
+     engine;
+     buffer = '';
+@@ -34,59 +34,23 @@ export class AirStdioTransport {
+         // stdin resume (paused 상태일 수 있음)
+         process.stdin.resume();
+     }
+-    /** 메시지를 stdout으로 전송한다 (Content-Length 프레이밍). */
++    /** 메시지를 stdout으로 전송한다 (JSON 한 줄 + 줄바꿈). */
+     write(message) {
+-        const json = JSON.stringify(message);
+-        const header = `Content-Length: ${Buffer.byteLength(json, 'utf-8')}${HEADER_DELIMITER}`;
+-        process.stdout.write(header + json);
++        // JSON.stringify는 문자열 안의 줄바꿈을 \n으로 이스케이프하므로 한 줄로 나간다
++        process.stdout.write(JSON.stringify(message) + '\n');
+     }
+-    /** 버퍼에서 완전한 메시지를 추출하고 처리한다. */
++    /** 버퍼에서 완성된 줄을 꺼내 메시지로 처리한다. */
+     processBuffer() {
+-        while (true) {
+-            // 헤더 구분자 찾기
+-            const headerEnd = this.buffer.indexOf(HEADER_DELIMITER);
+-            if (headerEnd === -1)
+-                break;
+-            // Content-Length 파싱
+-            const headerBlock = this.buffer.slice(0, headerEnd);
+-            const match = headerBlock.match(CONTENT_LENGTH_RE);
+-            if (!match) {
+-                // 헤더가 올바르지 않으면 해당 부분 버리기
+-                this.buffer = this.buffer.slice(headerEnd + HEADER_DELIMITER.length);
+-                continue;
+-            }
+-            const contentLength = parseInt(match[1], 10);
+-            const bodyStart = headerEnd + HEADER_DELIMITER.length;
+-            const bodyEnd = bodyStart + contentLength;
+-            // 본문이 아직 다 안 왔으면 대기
+-            if (Buffer.byteLength(this.buffer.slice(bodyStart), 'utf-8') < contentLength)
+-                break;
+-            // 본문 추출
+-            const body = this.buffer.slice(bodyStart, bodyStart + this.getCharLength(this.buffer, bodyStart, contentLength));
+-            this.buffer = this.buffer.slice(bodyStart + this.getCharLength(this.buffer, bodyStart, contentLength));
+-            // JSON-RPC 메시지 처리
+-            this.handleMessage(body);
+-        }
+-    }
+-    /** UTF-8 바이트 길이에 해당하는 문자 길이를 반환한다. */
+-    getCharLength(str, start, byteLength) {
+-        let bytes = 0;
+-        let chars = 0;
+-        for (let i = start; i < str.length && bytes < byteLength; i++) {
+-            const code = str.charCodeAt(i);
+-            if (code <= 0x7f)
+-                bytes += 1;
+-            else if (code <= 0x7ff)
+-                bytes += 2;
+-            else if (code >= 0xd800 && code <= 0xdbff) {
+-                bytes += 4;
+-                i++;
+-            } // surrogate pair
+-            else
+-                bytes += 3;
+-            chars++;
++        let newline = this.buffer.indexOf('\n');
++        while (newline !== -1) {
++            // CRLF로 보내는 클라이언트도 받는다
++            const line = this.buffer.slice(0, newline).replace(/\r$/, '');
++            this.buffer = this.buffer.slice(newline + 1);
++            // 빈 줄은 메시지가 아니므로 건너뛴다
++            if (line.trim() !== '')
++                this.handleMessage(line);
++            newline = this.buffer.indexOf('\n');
+         }
+-        return chars;
+     }
+     /** 개별 메시지를 파싱하고 프로토콜 엔진에 전달한다. */
+     async handleMessage(raw) {
+diff --git a/dist/server/server-runner.js b/dist/server/server-runner.js
+index 54708be..f45eb9c 100644
+--- a/dist/server/server-runner.js
++++ b/dist/server/server-runner.js
+@@ -37,7 +37,7 @@ export class ServerRunner {
+                 const reqCtx = createRequestContext(this.config.name, this.serverCtx.state, {
+                     inputResponses,
+                 });
+-                return this.middlewareChain.execute(tool, params, reqCtx);
++                return this.middlewareChain.executeTool(tool, params, reqCtx);
+             },
+         });
+     }
+@@ -91,14 +91,17 @@ export class ServerRunner {
+     async startHTTP() {
+         const { createServer } = await import('http');
+         const port = this.config.transport?.port || this.config.dev?.port || 3100;
++        // 기본은 루프백만 (MCP 스펙: 로컬 서버는 localhost에만 바인딩 권장)
++        const host = this.config.transport?.host ?? '127.0.0.1';
+         const httpTransport = new AirHttpTransport(this.engine, {
+             endpoint: '/mcp',
++            allowedOrigins: this.config.transport?.allowedOrigins,
+         });
+         const server = createServer(async (req, res) => {
+             await httpTransport.handleRequest(req, res);
+         });
+-        server.listen(port, () => {
+-            console.log(`[air] HTTP server listening on port ${port}`);
++        server.listen(port, host, () => {
++            console.log(`[air] HTTP server listening on port ${port} (${host})`);
+         });
+         onShutdown(async () => {
+             this.serverCtx.status = 'stopping';
+@@ -192,8 +195,9 @@ export class ServerRunner {
+             }
+             res.writeHead(404).end();
+         });
+-        httpServer.listen(port, () => {
+-            console.log(`[air] SSE server listening on port ${port}`);
++        const host = this.config.transport?.host ?? '127.0.0.1';
++        httpServer.listen(port, host, () => {
++            console.log(`[air] SSE server listening on port ${port} (${host})`);
+         });
+         onShutdown(async () => {
+             this.serverCtx.status = 'stopping';
+diff --git a/dist/tool/tool-result.d.ts b/dist/tool/tool-result.d.ts
+index dce635b..49a48db 100644
+--- a/dist/tool/tool-result.d.ts
++++ b/dist/tool/tool-result.d.ts
+@@ -9,6 +9,16 @@ export interface McpContent {
+     name?: string;
+     description?: string;
+ }
++/** tools/call 결과 (MCP CallToolResult의 content + isError) */
++export interface McpToolResult {
++    content: McpContent[];
++    isError?: boolean;
++}
++/**
++ * AirToolResponse를 tools/call 결과로 변환한다.
++ * 핸들러나 미들웨어가 { content, isError: true }를 돌려주면 isError를 보존한다.
++ */
++export declare function normalizeToolResult(result: AirToolResponse): McpToolResult;
+ /** AirToolResponse를 MCP content 배열로 변환 */
+ export declare function normalizeResult(result: AirToolResponse): McpContent[];
+ //# sourceMappingURL=tool-result.d.ts.map
+\ No newline at end of file
+diff --git a/dist/tool/tool-result.js b/dist/tool/tool-result.js
+index 76efd16..0daa8ce 100644
+--- a/dist/tool/tool-result.js
++++ b/dist/tool/tool-result.js
+@@ -1,5 +1,14 @@
+ // @airmcp-dev/core — tool/tool-result.ts
+ // 도구 핸들러 반환값 → MCP content 형식으로 정규화
++/**
++ * AirToolResponse를 tools/call 결과로 변환한다.
++ * 핸들러나 미들웨어가 { content, isError: true }를 돌려주면 isError를 보존한다.
++ */
++export function normalizeToolResult(result) {
++    const content = normalizeResult(result);
++    const isError = typeof result === 'object' && result !== null && !Array.isArray(result) && result.isError === true;
++    return isError ? { content, isError: true } : { content };
++}
+ /** AirToolResponse를 MCP content 배열로 변환 */
+ export function normalizeResult(result) {
+     if (result === null || result === undefined) {
+diff --git a/dist/tool/tool-schema.js b/dist/tool/tool-schema.js
+index 77686a4..b0d763e 100644
+--- a/dist/tool/tool-schema.js
++++ b/dist/tool/tool-schema.js
+@@ -67,6 +67,29 @@ function isZodSchema(value) {
+ }
+ /** Zod 스키마에서 JSON Schema를 추출한다 (v3 + v4 호환) */
+ function zodToJsonSchemaProperty(schema) {
++    const prop = zodTypeToJsonSchema(schema);
++    // .describe()가 optional/default/refine 같은 래퍼 쪽에 붙어도 설명을 살린다
++    const description = schema?._def?.description;
++    return description ? { ...prop, description } : prop;
++}
++/**
++ * JSON Schema에 null을 허용한다 (Zod .nullable()).
++ * 타입 배열(`type: ['number', 'null']`) 대신 `anyOf: [안쪽, { type: 'null' }]`로 감싼다. 타입 배열은 단일
++ * `type`만 받는 클라이언트(OpenAPI 부분집합으로 옮기는 Gemini 함수 선언 등)가 거부하거나 제약을 버릴 수 있다.
++ * 설명은 감싼 쪽에 둔다. 속성의 description을 바로 읽는 클라이언트가 지금처럼 보게 한다.
++ */
++function withNull(prop) {
++    const { description, ...schema } = prop;
++    // {}는 이미 null을 허용한다
++    if (Object.keys(schema).length === 0)
++        return prop;
++    return {
++        anyOf: [schema, { type: 'null' }],
++        ...(description !== undefined ? { description } : {}),
++    };
++}
++/** Zod 스키마의 타입 정보를 JSON Schema로 옮긴다 */
++function zodTypeToJsonSchema(schema) {
+     // Zod v4: ~standard.type으로 타입 정보 접근
+     if ('~standard' in schema) {
+         const std = schema['~standard'];
+@@ -92,7 +115,7 @@ function zodToJsonSchemaProperty(schema) {
+         if (typeName === 'ZodBoolean')
+             return { type: 'boolean', ...(def.description ? { description: def.description } : {}) };
+         if (typeName === 'ZodArray')
+-            return { type: 'array' };
++            return { type: 'array', items: zodToJsonSchemaProperty(def.type) };
+         if (typeName === 'ZodObject') {
+             // 중첩 object — shape에서 재귀 추출
+             const shape = def.shape?.();
+@@ -115,6 +138,14 @@ function zodToJsonSchemaProperty(schema) {
+             const inner = zodToJsonSchemaProperty(def.innerType);
+             return { ...inner, default: def.defaultValue() };
+         }
++        // .nullable() — 안쪽 타입 + null
++        if (typeName === 'ZodNullable') {
++            return withNull(zodToJsonSchemaProperty(def.innerType));
++        }
++        // .refine() / .transform() / .superRefine() / z.preprocess() — 안쪽 스키마의 타입을 따른다
++        if (typeName === 'ZodEffects') {
++            return zodToJsonSchemaProperty(def.schema);
++        }
+         if (typeName === 'ZodEnum') {
+             return { type: 'string', enum: def.values };
+         }
+diff --git a/dist/types/transport.d.ts b/dist/types/transport.d.ts
+index 7e4b6ca..6afa4bc 100644
+--- a/dist/types/transport.d.ts
++++ b/dist/types/transport.d.ts
+@@ -4,8 +4,13 @@ export interface TransportConfig {
+     type?: TransportType;
+     /** HTTP/SSE 포트 */
+     port?: number;
+-    /** HTTP/SSE 호스트 (기본: localhost) */
++    /** HTTP/SSE 바인딩 호스트 (기본: 127.0.0.1, 외부 접속을 받으려면 '0.0.0.0') */
+     host?: string;
++    /**
++     * HTTP transport에서 루프백 출처(localhost, 127.0.0.1, [::1]) 외에 더 허용할 브라우저 Origin.
++     * 목록에 없는 Origin 헤더는 403. '*'는 모든 Origin 허용.
++     */
++    allowedOrigins?: string[];
+     /** HTTP 기본 경로 (기본: /) */
+     basePath?: string;
+ }

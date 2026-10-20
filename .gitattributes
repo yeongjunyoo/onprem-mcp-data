@@ -14,6 +14,9 @@
 *.json text eol=lf
 *.yml  text eol=lf
 *.md   text eol=lf
+# build-air-vendor 가 air 배포본에 대는 패치(air-server/vendor/patches). CRLF 로 체크아웃되면 문맥이 맞지 않아 빌드가 멈추고
+# 해시가 air-vendor.json 과 달라진다.
+*.patch text eol=lf
 
 # 바이너리는 건드리지 않는다.
 *.png  binary
@@ -21,3 +24,4 @@
 *.pdf  binary
 *.docx binary
 *.zip  binary
+*.tgz  binary

@@ -24,6 +24,8 @@
 //   CX_STRATEGY=naive           bare table names (ablation)
 //   SQL_CARD=compact            종전 한 줄 카드(ablation). 기본은 컬럼마다 뜻과 단위를 주석으로
 //                               붙인 카드다.
+//   SQL_CARD=comments           카탈로그 주석(COMMENT ON COLUMN)으로 만든 카드. 주석이 없으면 기본 카드로
+//                               돌고 summary.schema_card 가 그 사실을 적는다. 결과 파일 이름에 -comments.
 //   CX_GOLD=eval/companyx/holdout3_route.json
 //                               사업자 10문항 뒤에 홀드아웃의 nl2sql 문항(gold_sql)을
 //                               붙인다. n=10 은 한 문항이 10pp 라 카드 비교를 못 가른다.
@@ -34,7 +36,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { sqlQuery, columnsForSql } from "../sql.js";
-import { companyxNL2SQL, companyxNL2SQLNaive } from "../nl2sql.js";
+import { companyxNL2SQL, companyxNL2SQLNaive, companyxSchemaCard, companyxSchemaCardName, loadCompanyxSchemaCard } from "../nl2sql.js";
 import { executeWithRepair } from "../sqlrepair.js";
 import { resultsMatch, type MatchOpts } from "../evalmatch.js";
 import { isAvailable, DEFAULT_MODEL } from "../llm.js";
@@ -93,6 +95,8 @@ async function main() {
     : undefined;
 
   const pool = getPool();
+  // 서버 기동과 같은 카드 상태에서 잰다(SQL_CARD=comments 면 카탈로그 주석을 한 번 읽는다).
+  const card = await loadCompanyxSchemaCard(pool);
   const rows = [];
   let correct = 0;
   let goldFailures = 0;
@@ -149,7 +153,9 @@ async function main() {
   const summary = {
     dataset: extra ? `questions.json (nl2sql subset) + ${extra} (nl2sql)` : "companyx-dataset-v1.0 / questions.json (nl2sql subset)",
     strategy,
-    schema_card: strategy === "naive" ? "table-names" : process.env.SQL_CARD === "compact" ? "compact" : "annotated",
+    schema_card: strategy === "naive" ? "table-names" : companyxSchemaCardName(),
+    schema_card_chars: strategy === "naive" ? null : companyxSchemaCard().length,
+    ...(card ? { comments_card: { source: card.source, tables: card.tables, columns: card.columns, omitted: card.omitted, reason: card.reason ?? null } } : {}),
     model: process.env.OLLAMA_MODEL ?? DEFAULT_MODEL,
     total: items.length,
     correct,
@@ -170,6 +176,7 @@ async function main() {
   const suffix =
     (process.env.CX_REPAIR === "0" ? "-norepair" : "") +
     (strategy !== "naive" && process.env.SQL_CARD === "compact" ? "-compact" : "") +
+    (strategy !== "naive" && process.env.SQL_CARD === "comments" ? "-comments" : "") +
     (process.env.SQL_EMPTY_REPAIR === "0" ? "-noemptyrepair" : "") +
     (process.env.OLLAMA_MODEL ? `-${process.env.OLLAMA_MODEL.replace(/[^a-zA-Z0-9.]+/g, "_")}` : "") +
     (extra ? `-${extra.replace(/^.*[/\\]/, "").replace(/_route\.json$|\.json$/, "")}` : "");

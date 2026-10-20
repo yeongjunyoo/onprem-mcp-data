@@ -7,11 +7,15 @@ __pycache__/
 pgdata/
 data/local/
 *.tgz
+# 패치 얹은 air tarball 은 저장소에 둔다. package-lock.json 이 이 파일의 sha512 를 고정한다(docs/air-patch.md).
+!air-server/vendor/*.tgz
 eval/external/
 
 # Node / build output
 node_modules/
 air-server/dist/
+# 시맨틱 앵커 벡터 캐시(anchorcache.ts). 지우면 다음 기동이 다시 임베딩한다
+air-server/.cache/
 dist/
 
 # Agent runtime state (build provenance lives in docs/report.md)

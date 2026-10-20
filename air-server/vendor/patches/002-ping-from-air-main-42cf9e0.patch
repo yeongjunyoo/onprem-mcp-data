@@ -1,0 +1,13 @@
+diff --git a/dist/protocol/mcp-protocol.js b/dist/protocol/mcp-protocol.js
+index aa9f3f8..d61786e 100644
+--- a/dist/protocol/mcp-protocol.js
++++ b/dist/protocol/mcp-protocol.js
+@@ -88,7 +88,7 @@ export class McpProtocolEngine {
+                     break;
+                 // ── ping (레거시, 2026-07-28에서 제거됨) ──
+                 case 'ping':
+-                    result = { resultType: 'complete' };
++                    result = {};
+                     break;
+                 // ── subscriptions (2026-07-28) ──
+                 case 'subscriptions/listen':
