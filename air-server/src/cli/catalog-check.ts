@@ -160,7 +160,8 @@ async function main() {
     })(),
     model: process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b",
     card: card && { kind: card.kind, tables: card.tables, columns: card.columns, omitted: card.omitted.length, reason: card.reason ?? null },
-    set: { path: setPath.replace(/\\/g, "/"), sha256: createHash("sha256").update(raw).digest("hex"), items: items.length },
+    // 해시는 줄바꿈을 LF 로 맞춘 내용으로 낸다. Windows 에서 클론하면 세트 파일이 CRLF 로 체크아웃된다.
+    set: { path: setPath.replace(/\\/g, "/"), sha256: createHash("sha256").update(raw.replace(/\r\n/g, "\n")).digest("hex"), items: items.length },
     scoring: "catalogcheck.ts: answer_ok = 답 문장에 must 값이 모두 있다, rows_exact = 행이 정답과 같다, rows_cover = 행 수가 같고 정답 행의 값을 모두 담는다",
     summary,
     results,
