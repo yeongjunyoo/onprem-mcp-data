@@ -41,6 +41,8 @@ export interface Candidate {
   text: string;
   /** Human-readable origin for the audit log. */
   provenance: string;
+  /** Evidence unit (evidence.ts) the candidate belongs to; the curator keeps a unit whole or drops it whole. */
+  unit?: string;
 }
 
 /** Canonical key for an entity (the bridge target in bench.entity_links). */
