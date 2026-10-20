@@ -34,6 +34,8 @@ export class McpStdioClient {
   /** onExit: 서버가 끝나면 사유와 stderr 끝부분을 받는다(시연 화면은 그것을 터미널에만 찍는다). */
   constructor(command: string, args: string[], env: NodeJS.ProcessEnv, onExit?: (reason: string, stderr: string) => void) {
     this.child = spawn(command, args, { env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    // 끝난 서버에 쓰면 stdin 에 EPIPE 가 난다. 듣는 곳이 없으면 시연 화면 프로세스까지 죽으므로 삼키고, 사유는 exit 에서 알린다.
+    this.child.stdin.on("error", () => undefined);
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (d: string) => this.onData(d));
     this.child.stderr.setEncoding("utf8");
@@ -112,6 +114,71 @@ export class McpStdioClient {
         r(null);
       });
     });
+  }
+}
+
+/** initialize, notifications/initialized, tools/list 를 주고받고 서버가 내놓은 도구 수를 돌려준다. */
+export async function handshake(c: McpStdioClient, clientVersion: string, timeoutMs: number): Promise<number> {
+  await c.request("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "onprem-mcp-data demo-web", version: clientVersion } }, timeoutMs);
+  c.notify("notifications/initialized");
+  const list = await c.request("tools/list", {}, 30_000);
+  return ((list.result as { tools?: unknown[] } | undefined)?.tools ?? []).length;
+}
+
+/**
+ * 시연 화면의 서버 연결. 서버가 끝나 있으면 다음 요청 때 새로 띄워 handshake 부터 다시 한다. 시연 도중 서버 프로세스가 끝나도
+ * 화면을 다시 켜지 않고 다음 질문에서 이어 간다. 맥 시연 준비(2026-10-21)에서 서버만 끝나자 화면을 다시 켤 때까지 모든 질문이 실패했다.
+ * 기동이 실패하면 요청마다 한 번만 다시 띄운다(혼자 되풀이해 띄우지 않는다).
+ */
+export class McpConnection {
+  private current: McpStdioClient | null = null;
+  private ready = false;
+  private tools = 0;
+  private started = 0;
+  private starting: Promise<McpStdioClient> | null = null;
+
+  constructor(
+    private readonly spawnClient: () => McpStdioClient,
+    private readonly greet: (c: McpStdioClient) => Promise<number>,
+  ) {}
+
+  /** 살아 있는 연결. 없거나 끝났으면 새로 띄워 붙는다(동시에 불러도 한 번만 띄운다). 붙지 못하면 던진다. */
+  get(): Promise<McpStdioClient> {
+    if (this.current && this.ready && this.current.exitReason() === null) return Promise.resolve(this.current);
+    this.starting ??= this.start().finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
+
+  private async start(): Promise<McpStdioClient> {
+    this.ready = false;
+    if (this.current) await this.current.close(); // 끝난 서버면 바로 돌아오고, 살아 있는데 handshake 가 실패한 서버는 끈다
+    const c = (this.current = this.spawnClient());
+    this.started++;
+    try {
+      this.tools = await this.greet(c);
+      this.ready = true;
+      return c;
+    } catch (e) {
+      await c.close();
+      throw e;
+    }
+  }
+
+  /** 지금까지 서버를 띄운 횟수(다시 띄웠는지 알려고). */
+  starts(): number {
+    return this.started;
+  }
+
+  status(): { state: "ready" | "starting" | "down"; tools: number } {
+    if (this.starting) return { state: "starting", tools: 0 };
+    if (this.current && this.ready && this.current.exitReason() === null) return { state: "ready", tools: this.tools };
+    return { state: "down", tools: 0 };
+  }
+
+  async close(): Promise<void> {
+    await this.current?.close();
   }
 }
 
@@ -319,7 +386,7 @@ function rowsTable(t){const tb=el("table");const h=el("tr");t.columns.forEach(c=
 function render(card,q,res){
   card.textContent="";
   const top=el("div","top");top.append(el("div","question",q));
-  const meta=el("div","meta");meta.append(el("span",null,(res.ms/1000).toFixed(1)+"초"));meta.append(el("span",null,new Date().toLocaleTimeString("ko-KR")));top.append(meta);card.append(top);
+  const meta=el("div","meta");meta.append(el("span",null,(res.ms/1000).toFixed(1)+"초"));if(res.restarted)meta.append(el("span",null,"서버를 다시 띄워 답함"));meta.append(el("span",null,new Date().toLocaleTimeString("ko-KR")));top.append(meta);card.append(top);
   if(!res.ok){const n=el("div","notice bad",res.error||"실패");card.append(n);return;}
   const v=res.view;const a=v.audit||{};const ro=a.routing||{};
   const chips=el("div","chips");
@@ -353,7 +420,7 @@ async function ask(q){
   q=(q||"").trim();if(!q||busy)return;busy=true;$("#go").disabled=true;
   const out=$("#out");if(out.querySelector(".empty"))out.textContent="";
   const card=el("div","card");const w=el("div","question");w.append(el("span","spin"));w.append(document.createTextNode(q));card.append(w);out.prepend(card);
-  try{const r=await fetch("/api/ask",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({query:q})});render(card,q,await r.json());}
+  try{const r=await fetch("/api/ask",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({query:q})});const res=await r.json();render(card,q,res);if(res.ok&&res.restarted)status();}
   catch(e){render(card,q,{ok:false,ms:0,error:String(e)});}
   finally{busy=false;$("#go").disabled=false;}
 }
