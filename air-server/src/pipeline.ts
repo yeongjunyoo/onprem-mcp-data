@@ -905,7 +905,7 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
     const m = /^([a-z]+): ([\s\S]*)$/.exec(branchErrors[i]);
     const said = m ? connectionFailure(m[2]) : null;
     if (!m || !said) continue;
-    if (!m[2].includes(said)) logConnectionFailure(m[2]);
+    if (!m[2].includes(said)) logConnectionFailure(m[2], null);
     branchErrors[i] = `${m[1]}: ${said}`;
   }
 

@@ -91,9 +91,10 @@ export function connectionFailure(msg: string): string | null {
 
 const logged = new Set<string>();
 
-/** 연결 실패의 고칠 단서를 서버 로그에 한 번 남긴다(같은 주소와 같은 원본 오류는 다시 찍지 않는다). */
-export function logConnectionFailure(raw: string, endpoint?: string): void {
-  const url = safeEndpoint(endpoint ?? process.env.DATABASE_URL);
+/** 연결 실패의 고칠 단서를 서버 로그에 한 번 남긴다(같은 주소와 같은 원본 오류는 다시 찍지 않는다).
+ * endpoint 가 null 이면 실패한 풀의 주소를 모르는 자리다(파이프라인). 그때 주소는 원본 오류의 것을 본다. */
+export function logConnectionFailure(raw: string, endpoint?: string | null): void {
+  const url = endpoint === null ? "주소는 원본 오류에" : safeEndpoint(endpoint ?? process.env.DATABASE_URL);
   if (logged.has(url + raw)) return;
   logged.add(url + raw);
   console.error(

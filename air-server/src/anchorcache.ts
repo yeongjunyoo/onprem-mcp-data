@@ -76,8 +76,10 @@ export async function embedAnchors(embedder: Embedder, texts: readonly string[],
   };
   if (!embedder.name.startsWith("ollama:") || texts.length === 0) return { vecs: await all(), cache: "off" };
 
+  // 프로필마다 임베더가 다르다(companyx 는 768 절단, smoke 는 1024). 이름에 임베더를 넣어 서로의 캐시를 지우지 않게 한다.
+  const who = createHash("sha256").update(embedder.name).digest("hex").slice(0, 8);
   const key = createHash("sha256").update(embedder.name + "\0" + texts.join("\0")).digest("hex").slice(0, 16);
-  const file = join(dir, `anchors-${key}.bin`);
+  const file = join(dir, `anchors-${who}-${key}.bin`);
   let cache: AnchorCacheState = "miss";
   try {
     const cached = decode(await readFile(file), embedder.name, texts.length);
@@ -95,9 +97,11 @@ export async function embedAnchors(embedder: Embedder, texts: readonly string[],
     const tmp = `${file}.${process.pid}.tmp`;
     await writeFile(tmp, encode(embedder.name, vecs));
     await rename(tmp, file);
-    // 앵커나 모델이 바뀌어 남은 지난 캐시는 다시 쓸 일이 없다.
+    // 같은 임베더의 앵커가 바뀌어 남은 지난 캐시는 다시 쓸 일이 없다. 다른 임베더(다른 프로필)의 캐시는 그대로 둔다.
+    // 2026-10-20 리허설: 임베더를 가리지 않고 지웠더니 통합 테스트(smoke)와 서버(companyx)가 번갈아 서로의 캐시를 지웠다.
+    const stale = new RegExp(`^anchors-(${who}-[0-9a-f]{16}|[0-9a-f]{16})\\.bin$`);
     for (const f of await readdir(dir)) {
-      if (/^anchors-[0-9a-f]{16}\.bin$/.test(f) && join(dir, f) !== file) await rm(join(dir, f), { force: true });
+      if (stale.test(f) && join(dir, f) !== file) await rm(join(dir, f), { force: true });
     }
     return { vecs, cache };
   } catch (e) {
