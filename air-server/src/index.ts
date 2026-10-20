@@ -30,6 +30,7 @@ import { profile } from "./profile.js";
 import { buildServer, loadRouterOntology, loadSemanticRouter, resolveTransport } from "./server.js";
 import { DEFAULT_MODEL } from "./llm.js";
 import { installLlmLaneTools, listLaneTools, llmStageEnabled, LANE_TOOL_NAMES } from "./llmroute.js";
+import { loadCompanyxSchemaCard } from "./nl2sql.js";
 
 /** 기동 전 환경 검사. 통과하지 못하면 서버를 띄우지 않는다.
  *
@@ -98,6 +99,10 @@ async function main(): Promise<void> {
       ? `[router] 시맨틱 폴백 없음(${sem.error})`
       : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
   );
+
+  // SQL_CARD=comments 면 카탈로그 주석으로 NL2SQL 스키마 카드를 만들어 둔다(한 번 읽고 캐시, 결과는 stderr 에 한 줄).
+  // 다른 카드면 아무것도 읽지 않는다.
+  if (profile().name === "companyx") await loadCompanyxSchemaCard();
 
   const server = buildServer();
   // 라우터 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)는 tools/list 와 같은 레인 도구 설명과 스키마를 본다.

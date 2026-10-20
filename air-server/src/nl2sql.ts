@@ -52,6 +52,8 @@ import {
 } from "./llm.js";
 import { isReadOnly, tokenizeSql } from "./sql.js";
 import { annotateMoney } from "./money.js";
+import { getPool } from "./db.js";
+import { commentCardState, loadCommentCard, type CommentCardState, type Queryable } from "./schemacomments.js";
 
 /** Schema description handed to the model for NL2SQL. */
 export const SCHEMA_DDL = [
@@ -540,16 +542,43 @@ export const COMPANYX_SCHEMA_ANNOTATED = [
   ");",
 ].join("\n");
 
+/** 카드에 싣는 표. 주석 카드(COMPANYX_SCHEMA_ANNOTATED)의 표 여덟 개를 같은 순서로 쓴다(목록을 두 벌 두지 않는다). */
+export const COMPANYX_CARD_TABLES: readonly string[] = [...COMPANYX_SCHEMA_ANNOTATED.matchAll(/^CREATE TABLE companyx\.(\w+)/gm)].map((m) => m[1]);
+
+/** SQL_CARD=comments 일 때 카탈로그 주석(COMMENT ON TABLE, COMMENT ON COLUMN)으로 카드를 만들어 캐시한다. 서버는 기동 때
+ * 한 번 부르고(index.ts), 생성 경로(companyxNL2SQL)도 부르지만 두 번째부터는 캐시를 돌려준다. 다른 카드면 아무것도 읽지 않는다.
+ * 주석이 없거나 카탈로그를 읽지 못하면 그 이유를 남기고 주석 카드(annotated)로 돈다. */
+export async function loadCompanyxSchemaCard(db?: Queryable): Promise<CommentCardState | null> {
+  if (process.env.SQL_CARD !== "comments") return null;
+  return loadCommentCard(db ?? getPool(), "companyx", COMPANYX_CARD_TABLES);
+}
+
 /** 생성과 수리가 같은 카드를 쓴다. 기본은 주석 카드이고 SQL_CARD=compact 로 종전 한 줄
- * 카드를 켠다(ablation).
+ * 카드를, SQL_CARD=comments 로 카탈로그 주석 카드를 켠다.
  *
  * 기본값을 바꾼 근거(2026-09-30): 사업자 10문항과 홀드아웃3 정형 20문항에서 주석 카드는
  * 한 줄 카드와 사업자 7/10 동률, 홀드아웃3 11/20 대 9/20(질문이 묻지 않은 id 열을 뺀
  * 채점). 주석 카드만 맞힌 3문항, 한 줄 카드만 맞힌 1문항이고 그 1문항은 「연봉 4천」을
  * 4 로 읽은 단위 문제라 금액 주석에 환산 예시를 붙였다. 개발용 세트에서 고른 것이므로
- * 효과는 봉인 홀드아웃4 로 따로 잰다. */
+ * 효과는 봉인 홀드아웃4 로 따로 잰다.
+ *
+ * 카탈로그 주석 카드(SQL_CARD=comments)는 리원에이스 CTO 서면 답변(10-03, Q5)을 따른 것이다. 값 예시 없이 뜻, 타입, 추상 범위,
+ * 단위, 자주 쓰는 조건(SQL)을 DB 의 COMMENT 로 관리한다(sql/companyx/comments.sql, schemacomments.ts). 기동 때 읽기 전에는,
+ * 그리고 주석이 없으면 주석 카드로 돈다. 기본값은 바꾸지 않았다. */
 export function companyxSchemaCard(): string {
-  return process.env.SQL_CARD === "compact" ? COMPANYX_SCHEMA_DDL : COMPANYX_SCHEMA_ANNOTATED;
+  const mode = process.env.SQL_CARD;
+  if (mode === "compact") return COMPANYX_SCHEMA_DDL;
+  if (mode === "comments") return commentCardState()?.card ?? COMPANYX_SCHEMA_ANNOTATED;
+  return COMPANYX_SCHEMA_ANNOTATED;
+}
+
+/** 지금 쓰는 카드의 이름(평가 결과 파일의 schema_card). comments 인데 주석 카드가 없으면 대신 쓴 카드와 그 이유를 이름에 남긴다. */
+export function companyxSchemaCardName(): string {
+  const mode = process.env.SQL_CARD;
+  if (mode === "compact") return "compact";
+  if (mode !== "comments") return "annotated";
+  const s = commentCardState();
+  return s?.card ? "comments" : `annotated (comments 대신: ${s?.reason ?? "카탈로그를 아직 읽지 않았다"})`;
 }
 
 export { seoulYear };
@@ -648,6 +677,7 @@ export function buildCompanyxSqlPrompt(query: string): string {
 
 /** 생성 모델(기본 Qwen2.5-Coder-7B) NL->SQL over the sponsor's Company-X schema. */
 export async function companyxNL2SQL(query: string, report?: Nl2SqlReport): Promise<string | null> {
+  await loadCompanyxSchemaCard();
   const raw = await generate(buildCompanyxSqlPrompt(query));
   return pickSql(raw, report);
 }

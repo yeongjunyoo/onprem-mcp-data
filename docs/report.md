@@ -492,6 +492,7 @@ CX_COMPARE=1 CX_TOPK=5 CX_MODELS="bge-m3,nomic-embed-text,bge-m3@768" node dist/
 위 표는 라우팅(선행 지표)이다. 채점 기준인 최종 답 일치는 채점표(`npm run companyx:score`, 봉인 세트는 `CX_SET=holdout3|holdout4`)로 잰다. 판정은 LLM 심판 없이 답 문자열과 정답 파일만 본다(`air-server/src/scorecard.ts` 머리말). 아래는 결정을 내리려고 호스트 GPU 에서 잰 개발 측정이고, 정본 수치는 컨테이너 CPU 측정이다(§9).
 
 - **스키마 카드 인라인 주석**(멘토 제안). 질문이 묻지 않은 id 열을 뺀 실행 일치로 개발용 홀드아웃3 정형 20문항 주석 11 대 한 줄 9, 사업자 10문항 7 대 7. 봉인 홀드아웃4 정형 20문항 1회 13 대 8. 기본값을 주석 카드로 바꿨다(`SQL_CARD=compact` 가 종전 카드).
+- **카탈로그 주석 카드**(리원에이스 CTO 서면 답변 10-03 Q5, `SQL_CARD=comments`, 2026-10-11). 값 예시를 빼고 뜻, 타입, 추상 범위(「2020년 이후」, 「수천」), 단위(만원), 자주 쓰는 조건(SQL)만 `COMMENT ON TABLE`, `COMMENT ON COLUMN` 으로 DB 에 둔다(`sql/companyx/comments.sql`, 표 8개, 컬럼 58개). `npm run companyx:load` 가 표를 만든 뒤 같은 트랜잭션에서 걸고, 서버는 기동 때 카탈로그(`col_description`, `obj_description`)에서 카드를 한 번 만들어 캐시한다. 주석이 없으면 주석 카드로 돈다. 초안은 `npm run companyx:comments-draft` 가 information_schema 와 pg_stats 통계로 쓰고(`sql/companyx/comments.draft.sql`, 최빈값은 `--` 검토 힌트에만), 사람이 검토해 옮긴다. 개발용 세 세트(사업자 10문항, 홀드아웃3 정형 20문항, 한 번 채점한 뒤 이 레인의 개발용이 된 홀드아웃4 정형 20문항)에서 카드마다 6~7회 잰 세트별 중앙값은 주석 카드 8/10, 13/20, 13/20(합 34/50), 카탈로그 주석 카드 7/10, 13/20, 13/20(합 33), 한 줄 카드 7/10, 11/20, 11/20(합 29)이다. temperature 0 이어도 주석 카드는 홀드아웃3 에서 14 와 13 을 오갔다(앞선 요청이 남긴 서버 프롬프트 캐시에 따라 세 문항이 바뀌었다). 미리 정한 기준(개발 합계가 주석 카드 이상이고 어느 세트도 1문항 넘게 떨어지지 않음)에 못 미쳐 기본값은 주석 카드 그대로다. 차이는 사업자 7번 한 문항이고, 카탈로그 주석 카드가 정답이 고른 id 열을 빼서다. 홀드아웃처럼 묻지 않은 id 열을 빼고 사업자 문항을 채점하면 34 대 34 로 기준을 넘는다. 카탈로그 주석 카드는 생성 프롬프트가 1,470토큰에서 2,233토큰으로 늘었고, 질문의 「장사」를 제품 이름 LIKE 조건으로 쓴 문항이 생겼다(홀드아웃3, 6/6). 최종 판정은 봉인 세트에서 따로 한다. 원자료 `eval/results/schema-comments/summary.json`.
 - **0행 수리.** 결과가 0행이면 한 번 고쳐 보고, 고친 쿼리가 행을 돌려줄 때만 쓴다. 개발용 11 → 12, 퇴보 없음. 기본값으로 켰다(`SQL_EMPTY_REPAIR=0` 이 끈다).
 - **생성 모델.** 개발용 30문항에서 qwen2.5-coder:7b 18, qwen3.5:9b 20, gemma4:e4b 19. 미리 정한 교체 기준(+3)에 못 미쳐 유지했다.
 - **LLM 자율 도구 선택 대 규칙 라우터**(멘토 제안, `npm run companyx:toolselect`). 같은 7B 에게 MCP tools/list 설명만 주고 고르게 하면 봉인 홀드아웃4 38/60, 규칙만 45/60, 규칙+시맨틱 54/60. 개발용 150문항 113 대 109 대 145. 7B 는 선택 150건 중 148건을 tool_calls 가 아니라 본문 JSON 으로 냈다. Ollama 가 qwen2.5-coder 의 도구 호출을 tool_calls 로 옮기지 못하는 문제다(ollama/ollama 이슈 #12174 열림, 태그가 없을 때 본문 JSON 을 읽게 하는 PR #14162 미병합, 2026-10-08 확인). 채점은 본문 JSON 도 선택으로 읽으므로(`air-server/src/cli/companyx-llm-toolselect-eval.ts`) 38/60 은 전달 형식이 아니라 고르는 능력의 값이다.
@@ -700,7 +701,7 @@ h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서
 > **2026-08-18 까지의 기록.** 그때는 32문항 stride 표집이었고 다음 경고를 달았다: 「이 32문항으로 Mini-Dev 성능을 추정할 수 없다 — `question_id` 정렬 후 주기적 stride 표집이라 대표성이 없고, 11개 DB 중 `debit_card_specializing`이 통째로 빠졌으며, 난이도가 simple 6·moderate 19·challenging 7로 공식 30/50/20 구성과 다르다.」 **2026-08-19 에 전수 500 으로 바꿔 이 한계는 사라졌다**(위 §5 머리). 경고 자체는 그때 무엇을 알고 있었는지의 기록이라 남긴다.
 
   참고 앵커(1차): 원 500문항 Mini-Dev의 Llama3-8B 24.40%, Mixtral-8x7B 21.60%. 동일 Qwen2.5-7B-Instruct의 full BIRD-dev greedy 46.9%. 재현(현행 전수): `EXT_LIMIT=500 npm run external:bird` → `python scripts/rescore_bird.py`. 위 32문항 기록의 당시 명령은 `EXT_LIMIT=32 npm run external:bird` 였다 → `python scripts/rescore_bird.py`. **sqlite3 CLI 가 PATH 에 있어야 한다** — BIRD 는 SQLite 파일을 직접 조회하고, 없으면 평가가 시작 전에 멈춘다(gold 가 전부 실패한 상태의 0% 는 측정이 아니므로 결과 파일을 쓰지 않는다). 재채점기는 값을 문자열로 정규화하지 않고 **raw 튜플을 그대로** 비교한다 — 정규화하면 NULL과 리터럴 문자열이 충돌하고 정수/실수가 갈려 공식 의미와 어긋난다.
-- **테스트:** 오프라인 2493(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard/evidence/fallback) + DB·모델 통합 152(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **2645단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 2461. tsc strict clean.
+- **테스트:** 오프라인 2653(claims/normalize/auditrecord/surfaces/router/semroute/curator/rrf/graphcaps/evalmatch/errors/degraded/notfound/scorecard/evidence/fallback/schemacard) + DB·모델 통합 152(db/server/pipeline/llm/graph/kgretrieve/companyx/ontologyload/auditcache) = **2805단언 통과**. 데이터셋 없는 CI 와 갓 클론한 저장소에서는 오프라인 2621. tsc strict clean.
 
 ---
 
@@ -931,7 +932,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 
 | 평가항목(배점) | 대응 증거 | 상태 |
 |---|---|---|
-| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 2493단언(데이터셋 없는 CI 는 2461), 전체 2645단언 | 있음 |
+| 프로젝트 구조 및 코드 완성도 (6) | 레이어 분리(§3), 읽기 전용 SQL 가드(2층 — 1층 우회 드릴로 실증, `scripts/drill-readonly-defense.mjs`), 프로파일 단일화(`profile.ts`), 오프라인 테스트 2653단언(데이터셋 없는 CI 는 2621), 전체 2805단언 | 있음 |
 | 오픈소스 프로젝트로의 발전 가능성 (6) | Apache-2.0, 재현 커맨드 전량 공개, 데이터셋 비재배포 + fetch 스크립트, 확장 로드맵 | 있음 |
 | 개발 문서의 구체성 (6) | 본 개발보고서, `docs/architecture.md`, 모델카드 2종, `docs/sbom.md`, `docs/ai-model-spec.md`, evidence manifest(§9) | 있음 |
 | 프로젝트 혁신성 (6) | 3레인 자동 분기 + 구조보존 큐레이션의 인과 실증(내부 100문항 Δ **+51.0pp** 2026-09-30 재측정, 사업자 NL2SQL 무재시도 Δ **+70pp** 2026-10-01 정본, 둘 다 `qwen2.5-coder:7b`), 환각 차단 게이트, 자기 반증(§0.6) | 있음 |
