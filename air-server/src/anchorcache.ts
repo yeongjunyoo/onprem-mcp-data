@@ -101,6 +101,7 @@ export async function embedAnchors(embedder: Embedder, texts: readonly string[],
     }
     return { vecs, cache };
   } catch (e) {
+    // 폴백: 캐시만 못 쓴 것이라 벡터는 그대로 쓴다. 이유는 note 로 돌려주고 기동 로그(index.ts)가 찍는다.
     return { vecs, cache, note: `앵커 캐시를 쓰지 못했다(${String((e as Error).message ?? e).slice(0, 120)}). 다음 기동도 새로 임베딩한다` };
   }
 }
