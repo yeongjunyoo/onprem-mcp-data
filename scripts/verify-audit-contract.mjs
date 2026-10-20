@@ -90,7 +90,7 @@ if (fails.length) {
 if (process.argv.includes("--live")) {
   const { spawn } = await import("node:child_process");
   const entry = resolve(ROOT, "air-server/dist/index.js");
-  const child = spawn("node", [entry], { cwd: ROOT, stdio: ["pipe", "pipe", "ignore"] });
+  const child = spawn("node", [entry], { cwd: ROOT, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
   const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);
   send({
     jsonrpc: "2.0",

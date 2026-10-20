@@ -38,4 +38,4 @@ for (const kv of argv.slice(0, sep)) {
   env[kv.slice(0, i)] = kv.slice(i + 1);
 }
 const [script, ...rest] = argv.slice(sep + 1);
-spawn(process.execPath, [script, ...rest], { stdio: "inherit", env }).on("exit", (c) => process.exit(c ?? 1));
+spawn(process.execPath, [script, ...rest], { stdio: "inherit", env, windowsHide: true }).on("exit", (c) => process.exit(c ?? 1));

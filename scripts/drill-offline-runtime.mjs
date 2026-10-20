@@ -177,6 +177,7 @@ const child = spawn("npm run companyx:ask", {
   env: { ...process.env },
   stdio: "ignore",
   shell: true,
+  windowsHide: true,
 });
 
 childPid = child.pid;

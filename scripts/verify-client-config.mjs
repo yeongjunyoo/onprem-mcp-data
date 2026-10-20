@@ -180,6 +180,7 @@ const child = spawn(entry.command, entry.args, {
   cwd: ROOT,
   env: { ...process.env, ...(entry.env ?? {}) },
   stdio: ["pipe", "pipe", "pipe"],
+  windowsHide: true,
 });
 
 const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);

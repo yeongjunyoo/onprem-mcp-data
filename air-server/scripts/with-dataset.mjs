@@ -28,4 +28,5 @@ if (!dataset || !script) {
 spawn(process.execPath, [script, ...rest], {
   stdio: "inherit",
   env: { ...process.env, DATASET: dataset },
+  windowsHide: true,
 }).on("exit", (code) => process.exit(code ?? 1));

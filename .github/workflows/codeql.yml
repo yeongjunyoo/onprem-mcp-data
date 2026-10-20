@@ -1,0 +1,39 @@
+name: CodeQL
+
+# 코드 스캐닝(SAST). 리원에이스 세미나 체크리스트의 「AI 생성 코드 100% SAST/SCA 스캔 후 머지」 가운데 SAST 쪽이다.
+# SCA(의존성 취약점)는 dependabot(.github/dependabot.yml)과 CI 의 SBOM 검사가 맡는다.
+#
+# UI 의 기본 설정이 아니라 워크플로로 둔다. 설정이 저장소 밖에 있으면 바뀌어도 커밋에 남지 않는다(ci.yml 머리말).
+# 결과는 저장소 Security 탭의 Code scanning 에 쌓이고, PR 에는 새로 생긴 경고만 붙는다.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # 쿼리 팩이 갱신되면 바뀌지 않은 코드에서도 새 경고가 나온다. 주 1회 다시 본다(월요일 12:27 KST).
+    - cron: "27 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      # 결과(SARIF)를 Code scanning 에 올리는 데만 쓴다.
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
