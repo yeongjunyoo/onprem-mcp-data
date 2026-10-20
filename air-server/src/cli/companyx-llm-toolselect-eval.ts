@@ -30,7 +30,7 @@
 // 일치이며 LLM 판정자는 없다.
 //
 // 사용: npm run companyx:toolselect   (EMBEDDER=ollama, Ollama 필요)
-//       TOOLSELECT_SETS=holdout4 로 봉인 세트만 따로 잰다.
+//       TOOLSELECT_SETS=holdout4 (또는 holdout5) 로 봉인 세트만 따로 잰다.
 //       TOOLSELECT_OUT=eval/results/<이름>.json 으로 결과 파일 경로를 바꾼다.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -83,6 +83,7 @@ const SETS: Record<string, { path: string; label: "tool" | "expected" }> = {
   holdout2: { path: "eval/companyx/holdout2_route.json", label: "expected" },
   holdout3: { path: "eval/companyx/holdout3_route.json", label: "expected" },
   holdout4: { path: "eval/companyx/holdout4_route.json", label: "expected" },
+  holdout5: { path: "eval/companyx/holdout5_route.json", label: "expected" },
 };
 
 interface McpTool {

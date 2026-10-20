@@ -42,7 +42,7 @@
 //   공통     데이터셋에 없는 Client-/Product- 를 대면 오답. 첫 문장이 「알 수 없다」면
 //            기권이다. 조회·생성 실패 상태는 답이 없으므로 오답이다.
 //
-// 봉인 홀드아웃(CX_SET=holdout3|holdout4)은 같은 규칙에 봉인 파일의 정답을 넣는다.
+// 봉인 홀드아웃(CX_SET=holdout3|holdout4|holdout5)은 같은 규칙에 봉인 파일의 정답을 넣는다.
 //   nl2sql   gold_sql 을 companyx 로 한정해 실행한 행. 날짜, 시각, 기간은 표기가 아니라 값으로
 //            가른다(아래 「값의 모양」). 순서는 보지 않는다 — 봉인 파일에는 ordered 표시가 없다.
 //   graph    gold_answer_names. 정답이 프로젝트와 사람의 짝이면 채점 불가다.
@@ -760,19 +760,20 @@ export function latency(ms: number[]): { median_ms: number | null; p90_ms: numbe
 // 사업자 30문항은 규칙을 만들며 본 문항이다. 봉인 홀드아웃은 규칙도 라우터도 못 본 문구로 같은 채점을
 // 한다. 예산을 바꾼 실행은 파일 이름에 예산을 달아 기본 예산 정본을 덮지 않는다.
 
-export type ScoreSet = "sponsor30" | "holdout3" | "holdout4";
+export type ScoreSet = "sponsor30" | "holdout3" | "holdout4" | "holdout5";
 export type HoldoutSet = Exclude<ScoreSet, "sponsor30">;
 
 export const HOLDOUT_FILES: Record<HoldoutSet, string> = {
   holdout3: "eval/companyx/holdout3_route.json",
   holdout4: "eval/companyx/holdout4_route.json",
+  holdout5: "eval/companyx/holdout5_route.json",
 };
 
 /** CX_SET. 모르는 이름이면 던진다 — 오타가 조용히 30문항으로 돌면 홀드아웃을 쟀다고 믿게 된다. */
 export function parseScoreSet(v: string | undefined): ScoreSet {
   const s = (v ?? "").trim() || "sponsor30";
-  if (s === "sponsor30" || s === "holdout3" || s === "holdout4") return s;
-  throw new Error(`CX_SET=${v} 를 모른다 — sponsor30, holdout3, holdout4 중 하나다`);
+  if (s === "sponsor30" || s === "holdout3" || s === "holdout4" || s === "holdout5") return s;
+  throw new Error(`CX_SET=${v} 를 모른다 — sponsor30, holdout3, holdout4, holdout5 중 하나다`);
 }
 
 /** CX_BUDGET. 양의 정수만 받는다 — 숫자가 아니면 큐레이터가 항목을 전부 버려 컨텍스트가 비고 점수가 조용히 0 이 된다. */
