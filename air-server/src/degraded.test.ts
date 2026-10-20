@@ -1521,7 +1521,7 @@ const deadEmbedder: Embedder = {
   ok(
     at(/^SET LOCAL cursor_tuple_fraction = 1$/) >= 0 &&
       at(/^SET LOCAL cursor_tuple_fraction/) < at(/^SAVEPOINT mcp_read$/) &&
-      at(/^SAVEPOINT/) < at(new RegExp(`^DECLARE mcp_rows NO SCROLL CURSOR FOR ${sales.replace(/\*/g, "\\*")}$`)) &&
+      at(/^SAVEPOINT/) < at(new RegExp(`^DECLARE mcp_rows NO SCROLL CURSOR FOR ${sales.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}$`)) &&
       at(/^DECLARE/) < at(/^FETCH 201 FROM mcp_rows$/) &&
       at(/^FETCH/) < at(/^SET LOCAL statement_timeout = \d+$/) &&
       at(/^SET LOCAL statement_timeout = \d+$/) < at(/^MOVE FORWARD ALL IN mcp_rows$/) &&

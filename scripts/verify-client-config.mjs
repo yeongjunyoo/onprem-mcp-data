@@ -117,7 +117,7 @@ function staticDrift() {
       // 이름 경계를 앞에 둔다. `pg` 가 `@types/pg` 안에서 걸려 SBOM 의
       // "@types/pg | 8.23.1" 을 pg 의 값으로 오독했다 — **부분 문자열은 이름이
       // 아니다.**
-      const re = new RegExp(`(?<![\\w@/-])${name.replace(/[/@.]/g, "\\$&")}[\\s|]+(\\d+\\.\\d+\\.\\d+)`, "g");
+      const re = new RegExp(`(?<![\\w@/-])${name.replace(/[\\^$.*+?()[\]{}|/@]/g, "\\$&")}[\\s|]+(\\d+\\.\\d+\\.\\d+)`, "g");
       for (const m of t.matchAll(re)) {
         if (m[1] !== want) {
           bad.push(`${relative(ROOT, doc)}: ${name} 을 ${m[1]} 로 적었는데 설치본은 ${want} 다`);
