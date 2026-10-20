@@ -2,7 +2,7 @@
 
 > Written by a separate agent session that never saw the product code, its results, or the column comments under test, so the set measures `docs/connect-your-db.md` step 3 (comments) without being tuned to it. Gold rows and values come from the Chinook sample database (Luis Rocha, MIT License, https://github.com/lerocha/chinook-database), which is not stored in this repository. Scoring is `air-server/src/catalogcheck.ts` (Korean country names, dropped trailing zeros and whole-number tokens are handled there).
 
-Files: `chinook_check_v1.jsonl` (this set), `chinook_comments.sql` (the reviewed column comments used for the "with comments" run; fixed before this set was written).
+Files: `chinook_check_v1.jsonl` (this set), `chinook_comments.sql` (the reviewed column comments used for the "with comments" run; fixed before this set was written), `chinook_documents.sql` (three short notices for the document-lane check in `docs/connect-your-db.md`; not part of the scored set).
 
 Written 2026-10-20 (KST) against the Docker PostgreSQL copy of Chinook. 24 Korean questions: 8 simple, 10 medium, 6 hard.
 
