@@ -21,16 +21,20 @@
 // 이 도구는 읽기 전용 트랜잭션 안에서만 읽는다.
 //
 // 주석 문자열에는 뜻 자리(TODO), 타입, 추상 범위만 넣고, 정확한 최솟값, 최댓값, 최빈값은 -- 줄의 검토 힌트로만 적는다.
-// 검토자가 뜻, 단위, 자주 쓰는 조건을 채워 sql/companyx/comments.sql 로 옮긴다.
+// 검토자가 뜻, 단위, 자주 쓰는 조건을 채워 DB 에 건다(사업자 데이터셋은 sql/companyx/comments.sql 로 옮긴다).
 //
-// 사용: npm run companyx:comments-draft                 (sql/companyx/comments.draft.sql 에 쓴다)
-//       node dist/cli/companyx-comments-draft.js --out <파일>
+// 사용: npm run companyx:comments-draft                 사업자 데이터셋(sql/companyx/comments.draft.sql 에 쓴다)
+//       npm run comments-draft -- --schema <스키마>    다른 회사 DB(DATABASE_URL 의 DB, <스키마>.comments.draft.sql 에 쓴다)
+//       --tables a,b 로 표를 고르고 --out <파일> 로 쓸 곳을 정한다. 표를 고르지 않으면 그 스키마의 일반 표 전부(문서 레인,
+//       그래프 레인 표는 뺀다, catalog.ts laneTablesIn)다. 사업자 스키마는 종전처럼 카드의 표 여덟 개를 같은 순서로 쓴다.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPool, closePool } from "../db.js";
 import { CX_SCHEMA, CX_TABLES } from "../companyx.js";
-import { LOW_CARDINALITY, orderable, readCatalog, renderDraft, type ColumnStats, type Queryable, type TableStats } from "../schemacomments.js";
+import { laneTablesIn } from "../catalog.js";
+import { profile } from "../profile.js";
+import { LOW_CARDINALITY, listTables, orderable, readCatalog, renderDraft, type ColumnStats, type Queryable, type TableStats } from "../schemacomments.js";
 
 const ident = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
@@ -122,24 +126,47 @@ async function tableStats(db: Queryable, schema: string, table: string): Promise
   return { table, rows, source, comment: catalog.tables[0]?.comment ?? null, columns };
 }
 
+/** --이름 값. 값이 없으면 undefined. */
+function arg(argv: string[], name: string): string | undefined {
+  const at = argv.indexOf(name);
+  return at >= 0 && argv[at + 1] && !argv[at + 1].startsWith("--") ? argv[at + 1] : undefined;
+}
+
+const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 async function main() {
   const argv = process.argv.slice(2);
-  const at = argv.indexOf("--out");
   const here = dirname(fileURLToPath(import.meta.url));
-  const out = at >= 0 && argv[at + 1] ? resolve(argv[at + 1]) : resolve(here, "../../..", "sql", "companyx", "comments.draft.sql");
+  // 스키마를 말하지 않으면 활성 프로파일의 정형 스키마다(DATASET=catalog 면 CATALOG_SCHEMA).
+  const schema = arg(argv, "--schema") ?? profile().sqlSchema;
+  if (!IDENT.test(schema)) throw new Error(`--schema 는 스키마 이름이어야 한다: ${JSON.stringify(schema)}`);
+  const picked = arg(argv, "--tables")?.split(",").map((s) => s.trim()).filter(Boolean);
+  if (picked?.some((t) => !IDENT.test(t))) throw new Error(`--tables 는 쉼표로 가른 표 이름이어야 한다: ${picked.join(",")}`);
+  const outArg = arg(argv, "--out");
+  const out = outArg
+    ? resolve(outArg)
+    : schema === CX_SCHEMA
+      ? resolve(here, "../../..", "sql", "companyx", "comments.draft.sql")
+      : resolve(process.cwd(), `${schema}.comments.draft.sql`);
 
   const pool = getPool();
   const client = await pool.connect();
   const tables: TableStats[] = [];
   try {
     await client.query("BEGIN TRANSACTION READ ONLY");
-    for (const t of CX_TABLES) tables.push(await tableStats(client, CX_SCHEMA, t));
+    const names =
+      picked ??
+      (schema === CX_SCHEMA
+        ? [...CX_TABLES]
+        : await listTables(client, schema, laneTablesIn({ sqlSchema: schema, vectorTable: `${schema}.documents`, kgSchema: schema })));
+    if (names.length === 0) throw new Error(`${schema} 스키마에 일반 표가 없다(DATABASE_URL 의 DB 와 스키마 이름을 확인한다)`);
+    for (const t of names) tables.push(await tableStats(client, schema, t));
   } finally {
     // 읽기만 했으니 되돌려 끝낸다. 중간에 실패해도 열린 트랜잭션을 풀에 돌려주지 않는다.
     await client.query("ROLLBACK").catch(() => {});
     client.release();
   }
-  const sql = renderDraft(CX_SCHEMA, tables, { generatedAt: new Date().toISOString(), endpoint: endpoint(process.env.DATABASE_URL) });
+  const sql = renderDraft(schema, tables, { generatedAt: new Date().toISOString(), endpoint: endpoint(process.env.DATABASE_URL) });
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, sql + "\n", "utf-8");
   const cols = tables.reduce((n, t) => n + t.columns.length, 0);

@@ -97,10 +97,14 @@ export function logConnectionFailure(raw: string, endpoint?: string | null): voi
   const url = endpoint === null ? "주소는 원본 오류에" : safeEndpoint(endpoint ?? process.env.DATABASE_URL);
   if (logged.has(url + raw)) return;
   logged.add(url + raw);
+  // 다른 회사 DB(DATASET=catalog)는 이 저장소의 compose 스택도 적재 명령도 쓰지 않는다. 그 DB 를 가리키는지부터 본다.
+  const own = (process.env.DATASET ?? "").trim().toLowerCase() === "catalog";
   console.error(
     `[db] PostgreSQL 에 붙지 못했다 — ${url}\n` +
-      `  스택을 먼저 띄운다: docker compose up -d  (db 서비스, 호스트 포트 5433)\n` +
-      `  그다음 데이터를 적재한다: npm run companyx:load  또는  npm run gen:bench\n` +
+      (own
+        ? `  DATABASE_URL 이 붙일 DB 를 가리키는지, 그 DB 가 떠 있고 이 호스트의 접속을 받는지 확인한다(docs/connect-your-db.md)\n`
+        : `  스택을 먼저 띄운다: docker compose up -d  (db 서비스, 호스트 포트 5433)\n` +
+          `  그다음 데이터를 적재한다: npm run companyx:load  또는  npm run gen:bench\n`) +
       `  원본 오류: ${raw}`,
   );
 }

@@ -29,10 +29,11 @@
 //   DATASET=companyx npm start        # sponsor corpus (default for submission)
 //   DATASET=bench    npm run ...      # internal benchmark
 //   DATASET=smoke                     # tiny seed (unit/integration tests)
+//   DATASET=catalog CATALOG_SCHEMA=x  # 다른 회사 DB. 코드를 고치지 않고 환경 변수로 붙인다(docs/connect-your-db.md)
 
-import { type NL2SQL, llmNL2SQL, benchNL2SQL, companyxNL2SQL, SCHEMA_DDL, BENCH_SCHEMA_DDL, companyxSchemaCard } from "./nl2sql.js";
+import { type NL2SQL, llmNL2SQL, benchNL2SQL, companyxNL2SQL, SCHEMA_DDL, BENCH_SCHEMA_DDL, companyxSchemaCard, catalogSchemaCard } from "./nl2sql.js";
 
-export type DatasetName = "smoke" | "bench" | "companyx";
+export type DatasetName = "smoke" | "bench" | "companyx" | "catalog";
 
 export interface DatasetProfile {
   name: DatasetName;
@@ -53,7 +54,7 @@ export interface DatasetProfile {
   embedDim?: number;
 }
 
-const PROFILES: Record<DatasetName, DatasetProfile> = {
+const PROFILES: Record<Exclude<DatasetName, "catalog">, DatasetProfile> = {
   smoke: {
     name: "smoke",
     kgSchema: "bench", // the smoke seed has no KG of its own
@@ -90,17 +91,69 @@ const PROFILES: Record<DatasetName, DatasetProfile> = {
   },
 };
 
-/** 이 서버가 아는 SQL 스키마 이름(프로파일의 sqlSchema, kgSchema): public, bench, companyx. 질문의 「X.Y」를 스키마.표로 읽을지
- * 정할 때 쓴다(sqltrust.ts alignQualifiedTables). 「employees.salary」의 employees 는 스키마가 아니다. */
-export const SCHEMA_NAMES: readonly string[] = [...new Set(Object.values(PROFILES).flatMap((p) => [p.sqlSchema, p.kgSchema]))];
+/** SQL 식별자(스키마, 표). 환경 변수 값을 SQL 에 끼워 넣기 전에 이 모양만 받는다. */
+const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+let catalogMemo: { key: string; value: DatasetProfile } | undefined;
+
+/** 다른 회사 DB(catalog). 프로파일 항목을 코드에 더하지 않고 환경 변수로 붙인다.
+ *
+ *   CATALOG_SCHEMA        정형 레인의 표가 있는 스키마(필수). 예: public
+ *   CATALOG_VECTOR_TABLE  문서 레인 표(스키마.표, id/title/body/embedding). 기본 <스키마>.documents
+ *   CATALOG_KG_SCHEMA     그래프 레인(entities/aliases/relations)이 있는 스키마. 기본 <스키마>
+ *
+ * 스키마 카드는 기동 때 카탈로그 주석(COMMENT ON)에서 만든다(nl2sql.ts loadCatalogSchemaCard). 문서와 그래프 레인은 그 표가
+ * 있을 때만 쓴다(catalog.ts). 2026-08-18 의 첫 판은 profile.ts 에 항목을 더하는 코드 수정이었다. 다른 회사가 코드를 고쳐야
+ * 붙는다면 붙이는 절차가 아니다. */
+function catalogProfile(): DatasetProfile {
+  const schema = (process.env.CATALOG_SCHEMA ?? "").trim();
+  const vector = (process.env.CATALOG_VECTOR_TABLE ?? "").trim() || `${schema}.documents`;
+  const kg = (process.env.CATALOG_KG_SCHEMA ?? "").trim() || schema;
+  const key = `${schema}|${vector}|${kg}`;
+  if (catalogMemo?.key === key) return catalogMemo.value;
+  if (!IDENT.test(schema)) {
+    throw new Error(
+      `DATASET=catalog 은 CATALOG_SCHEMA(정형 레인 표가 있는 스키마 이름)가 필요하다. 받은 값: ${JSON.stringify(schema)}. 예: CATALOG_SCHEMA=public`,
+    );
+  }
+  const [vs, vt, ...extra] = vector.split(".");
+  if (extra.length || !IDENT.test(vs ?? "") || !IDENT.test(vt ?? "")) {
+    throw new Error(`CATALOG_VECTOR_TABLE 은 「스키마.표」 꼴이어야 한다. 받은 값: ${JSON.stringify(vector)}`);
+  }
+  if (!IDENT.test(kg)) throw new Error(`CATALOG_KG_SCHEMA 는 스키마 이름이어야 한다. 받은 값: ${JSON.stringify(kg)}`);
+  const value: DatasetProfile = {
+    name: "catalog",
+    kgSchema: kg,
+    sqlSchema: schema,
+    vectorTable: vector,
+    nl2sql: llmNL2SQL,
+    // 기동 때 카탈로그에서 만든 카드. 읽기 전에는 그렇다고 적힌 자리표시를 돌려준다(부를 때마다 묻는다).
+    get schemaCard() {
+      return catalogSchemaCard(schema);
+    },
+    description: `사내 DB(${schema} 스키마, 카탈로그 주석 카드)`,
+  };
+  catalogMemo = { key, value };
+  return value;
+}
+
+/** 이 서버가 아는 SQL 스키마 이름(프로파일의 sqlSchema, kgSchema): public, bench, companyx, 그리고 catalog 프로파일이면 CATALOG_SCHEMA.
+ * 질문의 「X.Y」를 스키마.표로 읽을지 정할 때 쓴다(sqltrust.ts alignQualifiedTables). 「employees.salary」의 employees 는 스키마가 아니다. */
+export const SCHEMA_NAMES: readonly string[] = [
+  ...new Set([
+    ...Object.values(PROFILES).flatMap((p) => [p.sqlSchema, p.kgSchema]),
+    ...(IDENT.test(process.env.CATALOG_SCHEMA ?? "") ? [process.env.CATALOG_SCHEMA as string] : []),
+  ]),
+];
 
 /** Active profile. DATASET wins; KG_SCHEMA stays supported for the older eval CLIs. */
-export const PROFILE_NAMES = ["companyx", "bench", "smoke"] as const;
+export const PROFILE_NAMES = ["companyx", "bench", "smoke", "catalog"] as const;
 
 export function profile(): DatasetProfile {
   const raw = process.env.DATASET ?? "";
   const name = raw.toLowerCase();
   if (name === "companyx" || name === "bench" || name === "smoke") return PROFILES[name];
+  if (name === "catalog") return catalogProfile();
 
   // ★ 모르는 값은 거절한다. 조용히 기본으로 떨어지면 안 된다.
   //

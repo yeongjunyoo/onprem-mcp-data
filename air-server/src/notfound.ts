@@ -176,15 +176,47 @@ const PERFORMANCE = /(?<![가-힣])성과/;
 const PERSON = /직원|사원|팀원|사람|누구/;
 const BUSINESS = /매출|영업|판매|계약|실적|수익|금액/;
 
+/** 항목마다 그 값을 담는 영문 열 이름의 낱말(밑줄로 나눈 조각). 다른 회사 DB(catalog 프로파일)의 카드는 열 이름이 영문이고 주석이 없을 수
+ * 있어, 한국어 낱말만 찾으면 있는 열을 없다고 막는다. Chinook 의 「직원 중에 나이가 제일 많은 사람」을 employee.birth_date 가 카드에
+ * 있는데도 「나이」 없음으로 막았다(2026-10-20 점검 세트 C07). 조각으로 견줘 manager_id 의 age 같은 부분 문자열은 보지 않는다. */
+const COLUMN_WORDS: Record<string, readonly string[]> = {
+  나이: ["age", "birth", "birthday", "birthdate", "dob"],
+  생년월일: ["birth", "birthday", "birthdate", "dob"],
+  성별: ["gender", "sex"],
+  주소: ["address", "addr", "street"],
+  전화번호: ["phone", "telephone", "mobile", "cellphone", "tel"],
+  학력: ["education", "degree", "school"],
+  국적: ["nationality", "citizenship"],
+  혈액형: ["blood"],
+  "결혼 여부": ["marital", "married", "spouse"],
+  주민등록번호: ["ssn", "rrn"],
+  연차: ["leave", "vacation", "pto"],
+  휴가: ["leave", "vacation", "holiday", "pto"],
+  근태: ["attendance"],
+  "인사 평가": ["appraisal", "evaluation", "review", "rating"],
+  "성과 평가": ["performance", "appraisal", "evaluation"],
+};
+
+/** 카드의 열 이름(CREATE TABLE 안의 줄 첫 낱말)을 밑줄로 나눈 조각들. */
+function columnWords(schemaCard: string): Set<string> {
+  const words = new Set<string>();
+  for (const m of schemaCard.matchAll(/^\s+([A-Za-z_][A-Za-z0-9_]*)\s+[A-Za-z]/gm)) {
+    for (const w of m[1].toLowerCase().split("_")) if (w) words.add(w);
+  }
+  return words;
+}
+
 /** 질문이 묻는 항목이 데이터에 없으면 그 항목 이름, 있으면 null. 결정론이다.
- * 스키마 카드에 같은 낱말이 있으면(그 열이 생기면) 막지 않는다 — 있는 열을 막지 않게 카드로 확인한다. */
+ * 스키마 카드에 같은 낱말이 있거나 그 값을 담는 영문 열 이름이 있으면(그 열이 생기면) 막지 않는다 — 있는 열을 막지 않게 카드로 확인한다. */
 export function absentAttribute(query: string, schemaCard: string): string | null {
+  const words = columnWords(schemaCard);
+  const hasColumn = (label: string) => (COLUMN_WORDS[label] ?? []).some((w) => words.has(w));
   for (const [re, label] of ABSENT_ATTRIBUTES) {
     const m = query.match(re);
-    if (m && !schemaCard.includes(m[0]) && !schemaCard.includes(label)) return label;
+    if (m && !schemaCard.includes(m[0]) && !schemaCard.includes(label) && !hasColumn(label)) return label;
   }
   if (CLIENT_REF.test(query) && HEADCOUNT.test(query) && !MANAGED.test(query)) return "고객사의 직원 수";
-  if (PERFORMANCE.test(query) && PERSON.test(query) && !BUSINESS.test(query) && !schemaCard.includes("성과")) return "성과 평가";
+  if (PERFORMANCE.test(query) && PERSON.test(query) && !BUSINESS.test(query) && !schemaCard.includes("성과") && !hasColumn("성과 평가")) return "성과 평가";
   return null;
 }
 
