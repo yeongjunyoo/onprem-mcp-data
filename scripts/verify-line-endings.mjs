@@ -29,7 +29,7 @@
 //   처음엔 `.sh` 만 고쳤다. 같은 위험이 `.py` 와 `.mjs` 에도 있었고, shebang 을
 //   기준으로 다시 훑고서야 7개가 더 나왔다.
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,8 +47,7 @@ for (const rel of tracked) {
   const abs = resolve(ROOT, rel);
   let buf;
   try {
-    if (!statSync(abs).isFile()) continue;
-    buf = readFileSync(abs);
+    buf = readFileSync(abs); // 디렉터리(서브모듈)나 지워진 경로는 여기서 던져 건너뛴다
   } catch {
     continue;
   }

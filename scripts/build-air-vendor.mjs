@@ -167,8 +167,15 @@ function npm(args, cwd) {
 // 파일 하나에 hunk 를 차례로 댄다. 문맥과 지우는 줄이 정확히 맞아야 한다(어긋나 있어도 찾아 대는 일은 하지 않는다).
 function applyFile(root, file, label) {
   const target = join(root, ...file.path.split("/"));
-  if (file.isNew === existsSync(target)) throw new Error(`${label}: ${file.path} 는 ${file.isNew ? "이미 있다" : "없다"}`);
-  const src = file.isNew ? [] : readFileSync(target, "utf8").split("\n");
+  // 있는지는 읽어 보고 정한다. existsSync 로 먼저 보면 보고 쓰는 사이에 파일이 바뀔 수 있다.
+  let text = null;
+  try {
+    text = readFileSync(target, "utf8");
+  } catch (e) {
+    if (e.code !== "ENOENT") throw e;
+  }
+  if (file.isNew === (text !== null)) throw new Error(`${label}: ${file.path} 는 ${file.isNew ? "이미 있다" : "없다"}`);
+  const src = file.isNew ? [] : text.split("\n");
   let srcEol = true; // 원래 파일이 줄바꿈으로 끝나는지
   if (!file.isNew) {
     if (src[src.length - 1] === "") src.pop();
@@ -204,6 +211,6 @@ function applyFile(root, file, label) {
   out.push(...src.slice(pos));
   const eol = pos < src.length || endEol === null ? srcEol : endEol;
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, out.join("\n") + (eol ? "\n" : ""));
+  writeFileSync(target, out.join("\n") + (eol ? "\n" : ""), { flag: file.isNew ? "wx" : "w" }); // 새 파일은 그 사이에 생겼어도 덮지 않는다
   return file.path;
 }

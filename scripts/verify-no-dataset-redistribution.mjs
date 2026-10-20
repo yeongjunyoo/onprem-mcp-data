@@ -31,7 +31,7 @@
 // 실행: node scripts/verify-no-dataset-redistribution.mjs
 // 데이터셋이 없으면(CI) 구조 규칙만 검사한다.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -93,10 +93,10 @@ console.log(`구조 검사: 커밋된 preview ${previewsChecked}개가 전부 �
 if (existsSync(DATASET)) {
   const bodies = [];
   const walk = (dir) => {
-    for (const name of readdirSync(dir)) {
-      const p = join(dir, name);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (/\.(txt|md)$/.test(name)) {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (/\.(txt|md)$/.test(ent.name)) {
         for (const line of readFileSync(p, "utf8").split("\n")) {
           const c = line.trim();
           if (c.length >= 30) bodies.push(c);
