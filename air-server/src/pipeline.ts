@@ -21,7 +21,7 @@
 // here is deterministic given a deterministic nl2sql + embedder, so the whole
 // spine is reproducible and unit-testable without a model.
 
-import type { Pool } from "./db.js";
+import { connectionFailure, logConnectionFailure, type Pool } from "./db.js";
 import type { Embedder } from "./embedder.js";
 import {
   route,
@@ -899,6 +899,15 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   if (docResult && !docResult.ok) branchErrors.push(`documents: ${docResult.error ?? "unknown"}`);
   if (pairSettled.status === "rejected") branchErrors.push(`graph: ${String(pairSettled.reason)}`);
   if (pairOut && !pairOut.ok) branchErrors.push(`graph: ${pairOut.error ?? "unknown"}`);
+  // 연결 실패는 주소와 원시 오류 대신 짧은 문장으로 답과 감사에 남긴다(db.ts connectionFailure). 고칠 단서는 서버 로그에 있다.
+  // 서버의 풀은 db.ts 가 이미 바꿔 주지만, 따로 만든 풀(fault:demo, 테스트)의 오류는 여기서 바꾼다.
+  for (let i = 0; i < branchErrors.length; i++) {
+    const m = /^([a-z]+): ([\s\S]*)$/.exec(branchErrors[i]);
+    const said = m ? connectionFailure(m[2]) : null;
+    if (!m || !said) continue;
+    if (!m[2].includes(said)) logConnectionFailure(m[2]);
+    branchErrors[i] = `${m[1]}: ${said}`;
+  }
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
   const lists: Ranked<ContextItem>[][] = [];

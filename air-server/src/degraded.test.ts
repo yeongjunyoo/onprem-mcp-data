@@ -82,6 +82,12 @@ const deadEmbedder: Embedder = {
     errs.some((e) => e.includes("ECONNREFUSED")),
     "branch_errors 가 진짜 이유를 담는다 (빈 문자열이 아니다)",
   );
+  // 감사 레코드도 사용자에게 보이는 출력이다(audit.explain). 주소와 원시 오류 문장 대신 짧은 문장으로 남긴다(G21, 2026-10-20).
+  ok(
+    errs.some((e) => /^[a-z]+: 데이터베이스에 연결하지 못했습니다\(ECONNREFUSED\)$/.test(e)),
+    `branch_errors 는 「레인: 데이터베이스에 연결하지 못했습니다(코드)」 (got ${JSON.stringify(errs)})`,
+  );
+  ok(!errs.some((e) => /127\.0\.0\.1|5433|connect ECONNREFUSED/.test(e)), "branch_errors 에 주소, 포트, 원시 오류 문장이 없다");
   ok(r.context.length === 0, "죽은 레인에서 컨텍스트는 비어 있다");
 }
 
@@ -102,7 +108,8 @@ const deadEmbedder: Embedder = {
     "장애를 '모른다' 로 덮지 않는다",
   );
   ok(r.answer.includes("조회"), "조회가 실패했다고 말한다");
-  ok(r.answer.includes("ECONNREFUSED"), "무엇 때문인지 말한다 — 사용자가 고칠 단서");
+  ok(r.answer.includes("데이터베이스에 연결하지 못했습니다(ECONNREFUSED)"), "무엇 때문인지 말한다 — 연결 실패와 그 종류");
+  ok(!/127\.0\.0\.1|5433|postgres:postgres/.test(r.answer), "답에 주소, 포트, 계정이 없다(고칠 단서는 서버 로그에)");
 }
 
 // ── 3) 근거가 없을 뿐이면 여전히 LLM 에 맡긴다

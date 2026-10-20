@@ -70,6 +70,40 @@ function safeEndpoint(raw: string | undefined): string {
   }
 }
 
+/** 연결 실패를 짧은 한 문장으로. 사용자 답과 감사 레코드에는 이 문장만 나간다. 주소, 계정, 원시 오류 문장은 내보내지 않는다
+ * (리원에이스 블로그 34 의 나쁜 에러 예시 “Error: ECONNREFUSED 127.0.0.1:5432”, 내부 구현 세부사항 노출 금지).
+ * 고칠 단서(스택 띄우기, 적재, 원본 오류)는 logConnectionFailure 가 서버 로그(stderr)에 남긴다. 연결 오류가 아니면 null.
+ *
+ * `does not exist` 는 **테이블/스키마 부재**이기도 하다 — 이 저장소는 그 상황을
+ * 일부러 만드는 장애 시나리오가 있다. 2026-08-18 리뷰 + 재현: 없는 테이블을 조회하면
+ * "붙지 못했다 ... docker compose up -d" 가 떴다. **연결은 성공했는데** 스택을
+ * 띄우라고 말하면 진짜 문제(테이블 부재)를 가린다.
+ * 데이터베이스 자체가 없는 경우(`database "x" does not exist`)만 연결 문제로 본다. */
+export function connectionFailure(msg: string): string | null {
+  const code =
+    /\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT)\b/.exec(msg)?.[1] ??
+    (/connection timeout/i.test(msg) ? "연결 시간 초과"
+      : /password authentication/i.test(msg) ? "인증 실패"
+      : /database "[^"]*" does not exist/i.test(msg) ? "데이터베이스 없음"
+      : undefined);
+  return code ? `데이터베이스에 연결하지 못했습니다(${code})` : null;
+}
+
+const logged = new Set<string>();
+
+/** 연결 실패의 고칠 단서를 서버 로그에 한 번 남긴다(같은 주소와 같은 원본 오류는 다시 찍지 않는다). */
+export function logConnectionFailure(raw: string, endpoint?: string): void {
+  const url = safeEndpoint(endpoint ?? process.env.DATABASE_URL);
+  if (logged.has(url + raw)) return;
+  logged.add(url + raw);
+  console.error(
+    `[db] PostgreSQL 에 붙지 못했다 — ${url}\n` +
+      `  스택을 먼저 띄운다: docker compose up -d  (db 서비스, 호스트 포트 5433)\n` +
+      `  그다음 데이터를 적재한다: npm run companyx:load  또는  npm run gen:bench\n` +
+      `  원본 오류: ${raw}`,
+  );
+}
+
 function explainConnection(e: unknown, endpoint?: string): Error {
   // AggregateError 는 message 가 비어 있고 원인이 errors[] 안에 있다 —
   // 2026-08-18 에 fault:inject 가 정확히 그 모양으로 새어 나갔다.
@@ -87,25 +121,14 @@ function explainConnection(e: unknown, endpoint?: string): Error {
   };
   walk(e);
   const msg = parts.join(" | ") || String(e);
-  // `does not exist` 는 **테이블/스키마 부재**이기도 하다 — 이 저장소는 그 상황을
-  // 일부러 만드는 장애 시나리오가 있다. 2026-08-18 리뷰 + 재현: 없는 테이블을 조회하면
-  // "붙지 못했다 ... docker compose up -d" 가 떴다. **연결은 성공했는데** 스택을
-  // 띄우라고 말하면 진짜 문제(테이블 부재)를 가린다.
-  // 데이터베이스 자체가 없는 경우(`database "x" does not exist`)만 연결 문제로 본다.
-  const connIssue = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|connection timeout|password authentication/i.test(msg)
-    || /database "[^"]*" does not exist/i.test(msg);
-  if (!connIssue) {
+  const said = connectionFailure(msg);
+  if (!said) {
     return e instanceof Error ? e : new Error(msg);
   }
-  // 실패한 **그 풀**의 주소를 보여 준다. 리뷰 지적: 읽기 전용 도구가 replica 에서
+  // 서버 로그에는 실패한 **그 풀**의 주소를 남긴다. 리뷰 지적: 읽기 전용 도구가 replica 에서
   // 실패해도 primary 주소를 찍으면 사람을 엉뚱한 곳으로 보낸다.
-  const url = safeEndpoint(endpoint ?? process.env.DATABASE_URL);
-  return new Error(
-    `PostgreSQL 에 붙지 못했다 — ${url}\n` +
-      `  스택을 먼저 띄운다: docker compose up -d  (db 5433 / postgres:postgres@mcpdata)\n` +
-      `  그다음 데이터를 적재한다: npm run companyx:load  또는  npm run gen:bench\n` +
-      `  원본 오류: ${msg}`,
-  );
+  logConnectionFailure(msg, endpoint);
+  return new Error(said);
 }
 
 /** 풀의 query·connect 를 감싸 연결 실패를 사람 말로 바꾼다.
