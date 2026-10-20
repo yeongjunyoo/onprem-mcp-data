@@ -31,7 +31,8 @@ export class McpStdioClient {
   private stderrTail = "";
   private exited: string | null = null;
 
-  constructor(command: string, args: string[], env: NodeJS.ProcessEnv) {
+  /** onExit: 서버가 끝나면 사유와 stderr 끝부분을 받는다(시연 화면은 그것을 터미널에만 찍는다). */
+  constructor(command: string, args: string[], env: NodeJS.ProcessEnv, onExit?: (reason: string, stderr: string) => void) {
     this.child = spawn(command, args, { env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (d: string) => this.onData(d));
@@ -41,6 +42,7 @@ export class McpStdioClient {
     });
     this.child.on("exit", (code, signal) => {
       this.exited = `서버 프로세스가 끝났다(코드 ${code ?? "없음"}${signal ? `, 신호 ${signal}` : ""})`;
+      onExit?.(this.exited, this.stderrTail);
       for (const [, p] of this.pending) {
         clearTimeout(p.timer);
         p.reject(new Error(`${this.exited}. 서버 stderr 끝부분:\n${this.stderrTail.slice(-1500)}`));

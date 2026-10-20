@@ -140,7 +140,8 @@ process.stdin.on("data", (d) => {
 });
 `;
 {
-  const c = new McpStdioClient(process.execPath, ["-e", FAKE], { ...process.env });
+  const exits: string[] = [];
+  const c = new McpStdioClient(process.execPath, ["-e", FAKE], { ...process.env }, (reason, stderr) => exits.push(`${reason}|${stderr}`));
   try {
     const init = await c.request("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } }, 10_000);
     eq((init.result as { protocolVersion?: string }).protocolVersion, "2025-11-25", "initialize 를 주고받는다");
@@ -160,6 +161,7 @@ process.stdin.on("data", (d) => {
     }
     ok(/서버 프로세스가 끝났다\(코드 1\)/.test(reason) && reason.includes("필요한 모델이 없다"), `서버가 죽으면 기다리지 않고 사유와 stderr 를 돌려준다 (got ${reason.slice(0, 120)})`);
     ok(c.exitReason() !== null, "끝난 뒤에는 끝났다고 말한다");
+    ok(exits.length === 1 && exits[0].includes("코드 1") && exits[0].includes("필요한 모델이 없다"), `끝나면 onExit 에 사유와 stderr 를 한 번 넘긴다 (got ${JSON.stringify(exits)})`);
     let after = "";
     try {
       await c.request("tools/list", {}, 10_000);

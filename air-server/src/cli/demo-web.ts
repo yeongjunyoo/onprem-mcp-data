@@ -18,7 +18,7 @@
 //   npm run demo:web          → http://127.0.0.1:3520 (DEMO_WEB_PORT 로 바꾼다)
 //
 // 서버(dist/index.js)를 MCP 클라이언트처럼 stdio 로 띄워 initialize, tools/list, tools/call(ask) 을 보낸다.
-// 화면은 그 응답을 펼칠 뿐 값을 만들지 않는다. 서버 기동 검사(Ollama 모델, DB)가 실패하면 그 사유를 화면에 그대로 보인다.
+// 화면은 그 응답을 펼칠 뿐 값을 만들지 않는다. 서버 기동 검사(Ollama 모델, DB)가 실패하면 화면에는 실패했다는 것만 보이고 사유는 이 터미널에 찍는다.
 // 같은 기기의 브라우저만 받는다(127.0.0.1 에만 붙고, Host 머리가 다르면 403).
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
@@ -37,7 +37,11 @@ const ASK_TIMEOUT_MS = Number(process.env.DEMO_WEB_ASK_TIMEOUT_MS ?? 180_000);
 const env: NodeJS.ProcessEnv = { ...process.env, DATASET };
 for (const k of ["MCP_TRANSPORT", "MCP_PORT", "MCP_HOST", "MCP_ALLOWED_ORIGINS"]) delete env[k];
 
-const client = new McpStdioClient(process.execPath, [resolve(here, "..", "index.js")], env);
+const FAILED = "MCP 서버를 띄우지 못했다. 사유는 demo:web 을 띄운 터미널에 찍었다.";
+const client = new McpStdioClient(process.execPath, [resolve(here, "..", "index.js")], env, (reason, stderr) =>
+  console.error(`${reason}. 서버 stderr 끝부분:
+${stderr.slice(-1500)}`),
+);
 const state: { ready: boolean; tools: number; error: string | null } = { ready: false, tools: 0, error: null };
 
 async function connect() {
@@ -53,10 +57,13 @@ async function connect() {
     Object.assign(state, { ready: true, tools });
     console.log(`MCP 서버 연결됨: 도구 ${tools}종`);
   } catch (e) {
-    state.error = e instanceof Error ? e.message : String(e);
-    console.error(`MCP 서버에 붙지 못했다:\n${state.error}`);
+    // 사유(서버 stderr 끝부분 포함)는 이 터미널에만 찍는다. 화면에는 고정 문구만 보낸다. DB 장애 답이 원인 코드까지만 싣고 고칠 단서는
+    // 서버 로그에 남기는 것과 같은 원칙이다(CodeQL js/stack-trace-exposure, PR #269).
+    state.error = FAILED;
+    console.error(`MCP 서버에 붙지 못했다:\n${e instanceof Error ? e.message : String(e)}`);
   }
 }
+
 
 function send(res: ServerResponse, code: number, body: string, type = "application/json; charset=utf-8") {
   res.writeHead(code, { "content-type": type, "cache-control": "no-store" });
@@ -80,8 +87,8 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
   if (req.method === "GET" && url.pathname === "/") return send(res, 200, renderPage({ dataset: DATASET, version: VERSION }), "text/html; charset=utf-8");
   if (req.method === "GET" && url.pathname === "/api/status") {
-    const error = state.error ?? client.exitReason();
-    return send(res, 200, JSON.stringify({ ready: state.ready && !error, tools: state.tools, error: error ? `${error}\n\n${client.stderr().slice(-1500)}` : null }));
+    const failed = state.error !== null || client.exitReason() !== null;
+    return send(res, 200, JSON.stringify({ ready: state.ready && !failed, tools: state.tools, error: failed ? FAILED : null }));
   }
   if (req.method === "POST" && url.pathname === "/api/ask") {
     // 다른 사이트의 폼이 보낼 수 있는 단순 요청(form, text/plain)은 받지 않는다. JSON 은 브라우저가 사전 요청을 거치게 한다.
@@ -108,7 +115,9 @@ const server = createServer(async (req, res) => {
       const view = { route: v.route, text, rows, summary: routeSummary(v.audit?.routing?.rationale ?? ""), audit: v.audit };
       return send(res, 200, JSON.stringify({ ok: true, ms, request, raw: reply, view }));
     } catch (e) {
-      return send(res, 200, JSON.stringify({ ok: false, ms: Date.now() - started, request, error: e instanceof Error ? e.message : String(e) }));
+      console.error(`ask 실패(${query}):\n${e instanceof Error ? e.message : String(e)}`);
+      const error = client.exitReason() ? FAILED : "MCP 서버가 정한 시간 안에 답하지 않았다. 사유는 demo:web 을 띄운 터미널에 찍었다.";
+      return send(res, 200, JSON.stringify({ ok: false, ms: Date.now() - started, request, error }));
     }
   }
   send(res, 404, JSON.stringify({ error: "없는 경로" }));
