@@ -117,7 +117,7 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | **Multi-step task completion** | **5/6 = 0.833**, 14/15 steps passed | six tasks chaining entity resolution -> relation walk -> aggregation | measured |  <!--metric:multistep-->
 | Median latency | **10934 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end, canonical run 2026-10-02; earlier repeated runs varied 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **685 ms** (`qwen2.5-coder:7b`; the older `qwen2.5:7b` measured 864 ms on the same host — different model and session, so this is not an improvement or a regression claim) (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms--> <!--metric-ok-->
 | Median latency (host GPU) | **685 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
-| Tests | **2922 assertions passing** | 2770 offline + 152 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 2734, since 36 offline checks read the dataset files (11 ontology coverage, 1 edge-type anchor, 24 sealed-holdout scorer checks). CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
+| Tests | **3002 assertions passing** | 2850 offline + 152 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 2814, since 36 offline checks read the dataset files (11 ontology coverage, 1 edge-type anchor, 24 sealed-holdout scorer checks). CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
 | Fault injection — partial context | **4/4** | killing the vector branch still returns graph context |  <!--metric:faults_partial-->
 | Fault injection — error visible | **4/4** | failed branches are recorded in `branch_errors` |  <!--metric:faults_errvis-->
@@ -142,6 +142,7 @@ Vector evaluation now uses **74 questions** covering all 40 documents, 30 of whi
 
 - [Engineering report (Korean)](docs/report.md) with the evidence manifest
 - [Architecture](docs/architecture.md), [model cards](docs/model-cards/), [SBOM](docs/sbom.md), [AI model spec](docs/ai-model-spec.md)
+- [Attaching another PostgreSQL database without code changes (Korean)](docs/connect-your-db.md)
 - [Contributing](CONTRIBUTING.md), [Security policy](SECURITY.md), [Code of conduct](CODE_OF_CONDUCT.md)
 
 ## Licence

@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**85/98 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**88/101 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -19,6 +19,9 @@
 | `answer-diagnosis-2026-10-11-rescored.json` | 368,863 | `04eb00ed53fad1d1` | 2026-10-11T16:19:14 |
 | `answer-diagnosis-2026-10-11.json` | 128,747 | `b505af801090aada` | 2026-10-11T15:37:53 |
 | `answer-diagnosis-2026-10-11.md` | 24,195 | `330160b267b58f36` | — |
+| `catalog-chinook-comments.json` | 26,319 | `96dfac9c931ce73e` | 2026-10-20T05:37:16 |
+| `catalog-chinook-plain-first.json` | 25,578 | `db35b969cda7c3ea` | 2026-10-20T05:38:01 |
+| `catalog-chinook-plain.json` | 25,686 | `adaff61f631dd26c` | 2026-10-20T05:42:10 |
 | `companyx-anchor-paraphrase.json` | 277,464 | `1a134246ee2f3e9c` | 2026-10-11T15:04:20 |
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
@@ -113,7 +116,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 3,918 | `164be779011be6c0` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 3,973 | `fa27b89d2248f063` | 2026-09-30T00:00:00 |
 
 ## 재생성
 

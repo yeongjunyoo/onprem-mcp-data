@@ -90,12 +90,16 @@ console.log(
     `CONTRIBUTING ${contrib ? "있음" : "없음"}`,
 );
 
-// ── 「내 데이터에 붙이기」가 인용하는 소스 식별자.
+// ── 「내 데이터에 붙이기」가 가리키는 길.
 //
 // 2026-08-18 에 그 절을 쓰면서 식별자를 손으로 확인했다. **손으로 확인한 것은 다음에
 // 누가 이름을 바꾸면 조용히 낡는다** — 활용성 15점이 걸린 자리라 특히 그렇다.
 //
-// 심사자가 그 절을 따라 하다 없는 필드를 만나면 거기서 끝난다.
+// 심사자가 그 절을 따라 하다 없는 변수나 스크립트를 만나면 거기서 끝난다.
+//
+// 2026-10-20: 붙이는 길이 profile.ts 에 항목을 더하는 코드 수정에서 환경 변수(DATASET=catalog, CATALOG_*)로 바뀌었다.
+// 종전 검사는 CONTRIBUTING 의 프로파일 예제(```ts)가 DatasetProfile 의 필수 필드를 다 갖췄는지 봤다. 이제 그 절은
+// docs/connect-your-db.md 를 가리키므로, 두 문서를 합친 안내가 profile.ts 가 실제로 읽는 변수와 맞는지 양쪽으로 본다.
 {
   const guide = contrib.includes("## 내 데이터에 붙이기");
   if (!guide) {
@@ -103,49 +107,35 @@ console.log(
   } else {
     const section = contrib.slice(contrib.indexOf("## 내 데이터에 붙이기"));
     const body = section.slice(0, section.indexOf("\n## ", 10) + 1 || undefined);
+    const DOC = "docs/connect-your-db.md";
+    if (!body.includes(DOC)) fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${DOC} 를 가리키지 않는다`);
+    const doc = existsSync(resolve(ROOT, DOC)) ? readFileSync(resolve(ROOT, DOC), "utf8") : "";
+    if (!doc) fails.push(`${DOC} 가 없다 — CONTRIBUTING 이 가리키는 절차가 끊긴다`);
+    const text = body + "\n" + doc;
     const profileSrc = readFileSync(resolve(ROOT, "air-server/src/profile.ts"), "utf8");
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "air-server/package.json"), "utf8"));
 
-    // 토큰 경계로 본다. 2026-08-18 리뷰 지적: `includes` 면 이름을 **늘려** 바꿔도
-    // (kgSchema → kgSchemaName) 통과한다. 그리고 안내가 의존하는 `nl2sql` 이 빠져 있었다.
-    // 목록이 아니라 **추출**이다. 2026-08-18 위조 시험: 안내의 `kgSchema:` 를
-    // `kgSchemaName:` 으로 바꾸면 고정 목록 검사가 **그 식별자를 아예 안 본다** —
-    // 목록이 곧 지켜지는 범위이고, 안내가 목록 밖 이름을 쓰면 사각이 된다.
-    //
-    // 안내의 프로파일 예제에서 `필드:` 를 전부 뽑아 소스와 대조한다.
-    const example = body.match(/```ts\n([\s\S]*?)```/)?.[1] ?? "";
-    // 예제의 **바깥 키**(프로파일 이름 `mydata:`)는 필드가 아니라 예시 값이다 —
-    // 소스에 없는 게 정상이다. 들여쓰기가 있는 줄만 필드로 본다.
-    const fields = new Set(
-      [...example.matchAll(/^[ \t]+([A-Za-z_$][\w$]*)\s*:/gm)].map((m) => m[1]),
-    );
-    for (const id of [...fields, "DatasetName", "llmNL2SQL"]) {
-      const token = new RegExp(`(?<![\\w$])${id}(?![\\w$])`);
-      if (!token.test(body)) continue;
-      if (!token.test(profileSrc)) {
-        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 ${id} 를 인용하는데 profile.ts 에 없다`);
+    // 안내가 적은 CATALOG_* 는 profile.ts 가 읽어야 하고, profile.ts 가 읽는 CATALOG_* 는 안내에 있어야 한다.
+    // 한쪽만 보면 변수를 더하거나 이름을 바꾼 날 다른 쪽이 조용히 낡는다(2026-10-07 PR #256 의 필수 필드와 같은 꼴).
+    const said = new Set([...text.matchAll(/(?<![\w$])(CATALOG_[A-Z0-9_]+)(?![\w$])/g)].map((m) => m[1]));
+    const read = new Set([...profileSrc.matchAll(/process\.env\.(CATALOG_[A-Z0-9_]+)/g)].map((m) => m[1]));
+    if (!read.size) fails.push("profile.ts 에서 CATALOG_* 환경 변수를 못 읽었다 — 패턴을 확인하라");
+    for (const v of said) if (!read.has(v)) fails.push(`안내가 ${v} 를 적는데 profile.ts 는 그 변수를 읽지 않는다`);
+    for (const v of read) if (!said.has(v)) fails.push(`profile.ts 가 읽는 ${v} 가 안내에 없다 — 따라 하는 사람이 그 변수를 모른다`);
+    for (const m of text.matchAll(/DATASET=([A-Za-z_]+)/g)) {
+      if (!new RegExp(`PROFILE_NAMES = \\[[^\\]]*"${m[1]}"`).test(profileSrc)) {
+        fails.push(`안내가 DATASET=${m[1]} 을 쓰는데 profile.ts 의 PROFILE_NAMES 에 없다`);
       }
     }
-    // 반대 방향도 본다. 2026-10-07 PR #256 리뷰: 프로파일에 필수 필드(sqlSchema)를 더했는데 예제가
-    // 그대로라 안내대로 붙이면 tsc 가 깨졌다. 위 검사는 예제가 쓰는 이름이 소스에 있는지만 봤다.
-    // DatasetProfile 의 필수 필드(? 가 없는 것)가 예제에 다 있어야 한다.
-    const iface = profileSrc.match(/export interface DatasetProfile \{([\s\S]*?)\n\}/)?.[1] ?? "";
-    const required = [...iface.matchAll(/^[ \t]+([A-Za-z_$][\w$]*)\s*:/gm)].map((m) => m[1]);
-    if (!required.length) fails.push("profile.ts 에서 DatasetProfile 의 필드를 못 읽었다 — 패턴을 확인하라");
-    for (const id of required) {
-      if (!fields.has(id)) {
-        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」의 프로파일 예제에 필수 필드 ${id} 가 없다 — 따라 하면 컴파일이 깨진다`);
-      }
+    for (const m2 of text.matchAll(/npm run ([\w:.-]+)/g)) {
+      if (!pkg.scripts?.[m2[1]]) fails.push(`「내 데이터에 붙이기」 안내가 없는 스크립트를 가리킨다: ${m2[1]}`);
     }
-    for (const m2 of body.matchAll(/npm run ([\w:.-]+)/g)) {
-      if (!pkg.scripts?.[m2[1]]) {
-        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 없는 스크립트를 가리킨다: ${m2[1]}`);
-      }
+    for (const m3 of text.matchAll(/(scripts\/[\w.-]+\.mjs|air-server\/src\/[\w.-]+\.ts|docs\/[\w.-]+\.md)/g)) {
+      if (!existsSync(resolve(ROOT, m3[1]))) fails.push(`「내 데이터에 붙이기」 안내가 없는 파일을 가리킨다: ${m3[1]}`);
     }
-    for (const m3 of body.matchAll(/(scripts\/[\w.-]+\.mjs|air-server\/src\/[\w.-]+\.ts)/g)) {
-      if (!existsSync(resolve(ROOT, m3[1]))) {
-        fails.push(`CONTRIBUTING 「내 데이터에 붙이기」가 없는 파일을 가리킨다: ${m3[1]}`);
-      }
+    // 안내의 명령(`node dist/cli/x.js`)은 빌드 결과라 저장소에 없다. 소스(air-server/src/cli/x.ts)로 대조한다.
+    for (const m4 of text.matchAll(/node dist\/([\w/.-]+)\.js/g)) {
+      if (!existsSync(resolve(ROOT, "air-server/src", `${m4[1]}.ts`))) fails.push(`「내 데이터에 붙이기」 안내의 명령이 없는 소스를 가리킨다: dist/${m4[1]}.js`);
     }
   }
 }

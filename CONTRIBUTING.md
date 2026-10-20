@@ -8,37 +8,9 @@
 
 ## 내 데이터에 붙이기
 
-이 저장소는 코퍼스 세 개(`smoke` / `bench` / `companyx`)를 한 PostgreSQL 안에 두고
-`DATASET` 으로 고릅니다. **네 번째를 붙이는 데 필요한 것은 프로파일 항목 하나입니다.**
+다른 PostgreSQL DB 는 코드를 고치지 않고 환경 변수로 붙입니다(`DATASET=catalog`, `CATALOG_SCHEMA=<스키마>`). 정형 레인은 표만 있으면 바로 돕니다. 문서 레인과 그래프 레인은 각자의 표가 있을 때만 씁니다. 읽기 전용 역할의 권한, 열 주석 초안을 만들어 검수하는 법, 공개 예제 DB Chinook 으로 해 본 기록은 [docs/connect-your-db.md](docs/connect-your-db.md) 에 있습니다.
 
-```ts
-// air-server/src/profile.ts
-mydata: {
-  name: "mydata",
-  kgSchema: "bench",              // 그래프 레인을 안 쓰면 기존 스키마를 가리켜 둡니다
-  sqlSchema: "mydata",            // 정형 레인 테이블이 있는 스키마(생성 SQL 검사가 외래키를 여기서 읽습니다)
-  vectorTable: "mydata.documents",// id/title/body/embedding 을 가진 테이블
-  nl2sql: llmNL2SQL,              // 스키마 카드를 읽는 범용 전략
-  schemaCard: `CREATE TABLE mydata.tickets (...);`,  // 모델이 보는 유일한 스키마 설명
-  description: "사내 티켓 코퍼스(mydata 스키마)",
-},
-```
-
-`DatasetName` 유니온과 `profile()` 의 허용 목록에 이름을 더하면 끝입니다.
-
-**2026-08-18 에 실제로 해 봤습니다.** `mydata` 스키마에 티켓 3행·문서 2행을 넣고 위
-항목을 추가한 뒤 `DATASET=mydata` 로 돌리니 SQL 레인이 `{"status":"open","n":2}` 를
-돌려주고, 프로파일이 지정한 벡터 테이블이 조회되고, 스키마 카드가 도구 설명에 실리고,
-`node scripts/verify-stdio-tools.mjs` 가 **도구 8종 전부 통과**했습니다. 확인 뒤
-프로파일과 스키마는 되돌렸습니다 — 저장소는 세 코퍼스로 출하합니다.
-
-**의미검색까지 같은 방식으로 됩니다(2026-08-18 실측).** `<스키마>.documents` 에 `id/title/body/embedding` 을 두고 `DATASET=<이름> npm run embed:bench:ollama` 를 돌리면 프로파일이 가리키는 테이블이 채워집니다. 문서 2건을 넣고 돌리니 1024차원이 적재됐고, 어휘가 하나도 안 겹치는 질의(“장애가 나면 몇 분 안에 알려야 하나”)에 「장애 대응 절차」가 1위로 나왔습니다.
-
-**그래프 레인은 아직 안 해 봤습니다.** `<스키마>.entities / aliases / relations` 를 채우면 되지만, 그 적재를 하는 `npm run companyx:load` 는 그 데이터셋의 파일 구조를 읽습니다. 여러분의 데이터로 돌려 본 적이 없으므로 **명령만 가리키고 절차를 지어내지 않습니다.**
-
-`llmNL2SQL` 은 **활성 프로파일의 스키마 카드**를 프롬프트에 넣어 SQL 을 만듭니다(2026-08-18 실측: `DATASET=mydata` 로 "열려 있는 티켓이 몇 건인가" 를 물으면 `SELECT COUNT(*) FROM mydata.tickets WHERE status = 'open'` 이 나옵니다). `companyx`/`bench` 처럼
-전용 전략을 쓰지 않아도 되고, 카드가 곧 모델이 아는 전부입니다 — 컬럼 의미가
-애매하면 카드에 주석을 답니다.
+저장소의 세 코퍼스(`smoke` / `bench` / `companyx`)는 그대로 `DATASET` 으로 고릅니다.
 
 ## 먼저 알아야 할 세 가지
 
@@ -66,13 +38,13 @@ cd air-server && npm ci && npx tsc     # 의존성 설치와 빌드
 
 | 층 | 명령 | 필요한 것 | CI |
 | --- | --- | --- | --- |
-| 오프라인 단위 | `npm test` — `claims`, `normalize`, `auditrecord`, `surfaces`, `router`, `semroute`, `curator`, `rrf`, `graphcaps`, `evalmatch`, `errors`, `degraded`, `notfound`, `scorecard`, `evidence`, `fallback`, `schemacard`, `llmroute`, `demoweb` | 없음 | 돕니다 (2770 단언. 사업자 데이터셋이 없는 CI 와 갓 클론한 저장소에서는 2734. 데이터셋 파일을 읽는 단언 36건, 곧 온톨로지 커버리지 11건, 엣지 타입 앵커 1건, 봉인 홀드아웃 채점기 점검 24건이 `datasets/companyx-v1.0` 을 필요로 합니다) |
+| 오프라인 단위 | `npm test` — `claims`, `normalize`, `auditrecord`, `surfaces`, `router`, `semroute`, `curator`, `rrf`, `graphcaps`, `evalmatch`, `errors`, `degraded`, `notfound`, `scorecard`, `evidence`, `fallback`, `schemacard`, `catalog`, `llmroute`, `demoweb` | 없음 | 돕니다 (2850 단언. 사업자 데이터셋이 없는 CI 와 갓 클론한 저장소에서는 2814. 데이터셋 파일을 읽는 단언 36건, 곧 온톨로지 커버리지 11건, 엣지 타입 앵커 1건, 봉인 홀드아웃 채점기 점검 24건이 `datasets/companyx-v1.0` 을 필요로 합니다) |
 | DB 통합 | `npm run test:integration` — `db`, `server`, `pipeline`, `llm`, `graph`, `kgretrieve`, `auditcache`, `companyx`, `ontologyload` | PostgreSQL + pgvector, 시드 적재 | 안 돕니다 (152 단언) |
 | 모델 평가 | `npm run companyx:route`, `companyx:sql`, `companyx:kg`, `companyx:vector`, `companyx:ask`, `npm run bench:internal`, `fault:inject` | 위 + Ollama 모델 2종 | 안 돕니다 |
 
 **갓 클론한 저장소에서 아무 설정 없이 돌아갑니다.** `git clone` → `cd air-server && npm ci` → `npm test` 로 480단언이 통과합니다(2026-09-30 실측). Docker 도 모델도 필요 없습니다 — 데이터베이스가 필요한 계층은 `npm run test:integration` 으로 분리돼 있고, 각 스위트는 자기 데이터셋 프로파일에 고정돼 있어 셸에 남은 `DATASET` 값이 결과를 바꾸지 않습니다.
 
-전 스위트 기준 2922단언이 통과 상태입니다(오프라인 2770 + DB·모델 통합 152). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 데이터셋이 있는 곳에서는 데이터셋 없는 CI 의 수도 함께 셉니다(`TEST_AS_CI=1`). 테스트를 더하거나 뺐으면 `node scripts/verify-test-counts.mjs --write` 로 정본을 러너 값으로 다시 쓰고, 문서의 수만 손으로 맞춥니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
+전 스위트 기준 3002단언이 통과 상태입니다(오프라인 2850 + DB·모델 통합 152). 이 숫자는 손으로 적는 값이 아니라 러너 출력에서 집계하며, `node scripts/verify-test-counts.mjs` 가 정본 `eval/results/test-counts.json` 과 대조해 어긋나면 실패합니다. 데이터셋이 있는 곳에서는 데이터셋 없는 CI 의 수도 함께 셉니다(`TEST_AS_CI=1`). 테스트를 더하거나 뺐으면 `node scripts/verify-test-counts.mjs --write` 로 정본을 러너 값으로 다시 쓰고, 문서의 수만 손으로 맞춥니다. 각 평가의 원자료는 `eval/results/`에, 실행 커맨드와 해석은 `docs/report.md`에 있습니다.
 
 ## 변경 절차
 

@@ -1,0 +1,910 @@
+{
+  "generated_at": "2026-10-20T05:37:16.120Z",
+  "label": "검수한 주석(표 11, 열 38)",
+  "server_version": "0.3.0",
+  "dataset": "catalog",
+  "schema": "public",
+  "database": "localhost:5433/chinook",
+  "model": "qwen2.5-coder:7b",
+  "card": {
+    "kind": "comments",
+    "tables": 11,
+    "columns": 48,
+    "omitted": 16,
+    "reason": null
+  },
+  "set": {
+    "path": "../eval/catalog/chinook_check_v1.jsonl",
+    "sha256": "4af0a32bfd7d40a14623412732b47d1c45171590eb42f6d104b0b278ee9c8234",
+    "items": 24
+  },
+  "scoring": "catalogcheck.ts: answer_ok = 답 문장에 must 값이 모두 있다, rows_exact = 행이 정답과 같다, rows_cover = 행 수가 같고 정답 행의 값을 모두 담는다",
+  "summary": {
+    "n": 24,
+    "answer_ok": 16,
+    "rows_exact": 14,
+    "rows_cover": 17,
+    "by_difficulty": {
+      "simple": {
+        "n": 8,
+        "answer_ok": 6,
+        "rows_cover": 6
+      },
+      "medium": {
+        "n": 10,
+        "answer_ok": 8,
+        "rows_cover": 8
+      },
+      "hard": {
+        "n": 6,
+        "answer_ok": 2,
+        "rows_cover": 3
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "C01",
+      "difficulty": "simple",
+      "question": "고객이 전부 몇 명이에요?",
+      "ms": 492,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT COUNT(*) FROM public.customer",
+      "sql_error": null,
+      "answer": "고객이 전부 59명입니다.",
+      "columns": [
+        "count"
+      ],
+      "rows": [
+        [
+          "59"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "59"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C02",
+      "difficulty": "simple",
+      "question": "미국 고객은 몇 명이에요?",
+      "ms": 326,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT COUNT(*) FROM public.customer WHERE country = 'USA'",
+      "sql_error": null,
+      "answer": "미국 고객은 13명입니다.",
+      "columns": [
+        "count"
+      ],
+      "rows": [
+        [
+          "13"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "13"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C03",
+      "difficulty": "simple",
+      "question": "전체 매출 합계가 얼마예요?",
+      "ms": 345,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT SUM(total) FROM invoice",
+      "sql_error": null,
+      "answer": "전체 매출 합계는 2328.60입니다.",
+      "columns": [
+        "sum"
+      ],
+      "rows": [
+        [
+          "2328.60"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "2328.60"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C04",
+      "difficulty": "simple",
+      "question": "주문 한 건 금액 중에 제일 큰 게 얼마예요?",
+      "ms": 372,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT MAX(total) FROM invoice",
+      "sql_error": null,
+      "answer": "주문 한 건 금액 중에 제일 큰 게 25.86입니다.",
+      "columns": [
+        "max"
+      ],
+      "rows": [
+        [
+          "25.86"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "25.86"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C05",
+      "difficulty": "simple",
+      "question": "주문 한 건당 평균 금액이 얼마예요?",
+      "ms": 395,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT AVG(total) FROM invoice",
+      "sql_error": null,
+      "answer": "주문 한 건당 평균 금액은 약 5.65만 원입니다.",
+      "columns": [
+        "avg"
+      ],
+      "rows": [
+        [
+          "5.6519417475728155"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "5.65"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C06",
+      "difficulty": "simple",
+      "question": "등록된 아티스트는 모두 몇 팀이에요?",
+      "ms": 262,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT COUNT(*) FROM artist",
+      "sql_error": null,
+      "answer": "주어진 정보로는 알 수 없습니다.",
+      "columns": [
+        "count"
+      ],
+      "rows": [
+        [
+          "275"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "275"
+      ],
+      "must_missing": [
+        "275"
+      ],
+      "answer_ok": false,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C07",
+      "difficulty": "simple",
+      "question": "직원 중에 나이가 제일 많은 사람이 누구예요?",
+      "ms": 1,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": null,
+      "sql_error": null,
+      "answer": "질문에 나온 항목(나이)은 이 데이터에 없는 정보라 답할 수 없습니다. 다른 항목으로 바꿔 답하지 않았습니다.",
+      "columns": [],
+      "rows": [],
+      "row_count": 0,
+      "must": [
+        "Margaret Park"
+      ],
+      "must_missing": [
+        "Margaret Park"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C08",
+      "difficulty": "simple",
+      "question": "소속 회사가 입력돼 있는 고객은 몇 명이에요?",
+      "ms": 424,
+      "route": "structured",
+      "rationale": "relation verb BELONGS_TO -> graph traversal; lanes in this database: sql -> structured",
+      "sql": "SELECT COUNT(*) FROM public.customer WHERE company IS NOT NULL",
+      "sql_error": null,
+      "answer": "소속 회사가 입력돼 있는 고객은 10 명입니다.",
+      "columns": [
+        "count"
+      ],
+      "rows": [
+        [
+          "10"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "10"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C09",
+      "difficulty": "medium",
+      "question": "2023년 매출이 얼마예요?",
+      "ms": 489,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT SUM(total) FROM invoice WHERE EXTRACT(YEAR FROM invoice_date) = 2023",
+      "sql_error": null,
+      "answer": "2023년 매출은 469.58입니다.",
+      "columns": [
+        "sum"
+      ],
+      "rows": [
+        [
+          "469.58"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "469.58"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C10",
+      "difficulty": "medium",
+      "question": "2022년 1월 매출 얼마였어요?",
+      "ms": 865,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT SUM(total) FROM invoice WHERE invoice_date BETWEEN '2022-01-01 00:00:00' AND '2022-01-31 23:59:59'",
+      "sql_error": null,
+      "answer": "2022년 1월의 매출은 52.62입니다.",
+      "columns": [
+        "sum"
+      ],
+      "rows": [
+        [
+          "52.62"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "52.62"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C11",
+      "difficulty": "medium",
+      "question": "브라질 고객들 구매 금액 합계가 얼마예요?",
+      "ms": 469,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT SUM(total) FROM invoice WHERE billing_country = 'Brazil'",
+      "sql_error": null,
+      "answer": "브라질 고객들 구매 금액 합계는 190.10입니다.",
+      "columns": [
+        "sum"
+      ],
+      "rows": [
+        [
+          "190.10"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "190.10"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C12",
+      "difficulty": "medium",
+      "question": "매출이 제일 많은 나라 3곳이랑 나라별 매출 알려주세요.",
+      "ms": 1258,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT billing_country, SUM(total) AS total_sales\nFROM invoice\nGROUP BY billing_country\nORDER BY total_sales DESC\nLIMIT 3",
+      "sql_error": null,
+      "answer": "미국, 캐나다, 프랑스 순으로 매출이 높은 나라 3곳입니다. 각각의 매출은 다음과 같습니다:\n\n1. 미국: 523.06\n2. 캐나다: 303.96\n3. 프랑스: 195.10",
+      "columns": [
+        "billing_country",
+        "total_sales"
+      ],
+      "rows": [
+        [
+          "USA",
+          "523.06"
+        ],
+        [
+          "Canada",
+          "303.96"
+        ],
+        [
+          "France",
+          "195.10"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "USA",
+        "523.06",
+        "Canada",
+        "303.96",
+        "France",
+        "195.10"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C13",
+      "difficulty": "medium",
+      "question": "구매 금액이 제일 큰 고객 3명이 누구고 각각 얼마예요?",
+      "ms": 1411,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT c.first_name, c.last_name, SUM(il.unit_price * il.quantity) AS total_spent\nFROM customer c\nJOIN invoice i ON c.customer_id = i.customer_id\nJOIN invoice_line il ON i.invoice_id = il.invoice_id\nGROUP BY c.customer_id\nORDER BY total_spent DESC\nLIMIT 3",
+      "sql_error": null,
+      "answer": "구매 금액이 가장 큰 고객 3명은 다음과 같습니다:\n\n1. Helena Holý - 49.62\n2. Richard Cunningham - 47.62\n3. Luis Rojas - 46.62",
+      "columns": [
+        "first_name",
+        "last_name",
+        "total_spent"
+      ],
+      "rows": [
+        [
+          "Helena",
+          "Holý",
+          "49.62"
+        ],
+        [
+          "Richard",
+          "Cunningham",
+          "47.62"
+        ],
+        [
+          "Luis",
+          "Rojas",
+          "46.62"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "Helena Holý",
+        "49.62",
+        "Richard Cunningham",
+        "47.62",
+        "Luis Rojas",
+        "46.62"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": false,
+      "rows_cover": true
+    },
+    {
+      "id": "C14",
+      "difficulty": "medium",
+      "question": "직원별로 담당 고객이 몇 명씩이에요?",
+      "ms": 435,
+      "route": "structured",
+      "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal; lanes in this database: sql -> structured",
+      "sql": "SELECT employee_id, COUNT(customer_id) FROM customer GROUP BY employee_id",
+      "sql_error": "column \"employee_id\" does not exist (42703)",
+      "answer": "이 질문으로는 실행되는 조회를 만들지 못해 답하지 않았습니다(생성 SQL 오류: column \"employee_id\" does not exist (42703)). 데이터가 없다는 뜻은 아닙니다. 질문을 조금 바꿔 다시 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」",
+      "columns": [],
+      "rows": [],
+      "row_count": 0,
+      "must": [
+        "Jane Peacock",
+        "21",
+        "Margaret Park",
+        "20",
+        "Steve Johnson",
+        "18"
+      ],
+      "must_missing": [
+        "Jane Peacock",
+        "21",
+        "Margaret Park",
+        "20",
+        "Steve Johnson",
+        "18"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C15",
+      "difficulty": "medium",
+      "question": "Michael Mitchell 밑에서 일하는 직원은 누구예요?",
+      "ms": 654,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT first_name, last_name FROM employee WHERE reports_to = (SELECT employee_id FROM employee WHERE first_name = 'Michael' AND last_name = 'Mitchell')",
+      "sql_error": null,
+      "answer": "Michael Mitchell 밑에서 일하는 직원은 Robert King와 Laura Callahan입니다.",
+      "columns": [
+        "first_name",
+        "last_name"
+      ],
+      "rows": [
+        [
+          "Robert",
+          "King"
+        ],
+        [
+          "Laura",
+          "Callahan"
+        ]
+      ],
+      "row_count": 2,
+      "must": [
+        "Robert King",
+        "Laura Callahan"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": false,
+      "rows_cover": true
+    },
+    {
+      "id": "C16",
+      "difficulty": "medium",
+      "question": "곡이 제일 많은 장르 3개랑 장르별 곡 수 알려주세요.",
+      "ms": 1140,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT g.name AS genre_name, COUNT(t.track_id) AS track_count\nFROM genre g\nJOIN track t ON g.genre_id = t.genre_id\nGROUP BY g.name\nORDER BY track_count DESC\nLIMIT 3",
+      "sql_error": null,
+      "answer": "곡이 가장 많은 장르 3개는 다음과 같습니다:\n\n1. Rock - 1297 곡\n2. Latin - 579 곡\n3. Metal - 374 곡",
+      "columns": [
+        "genre_name",
+        "track_count"
+      ],
+      "rows": [
+        [
+          "Rock",
+          "1297"
+        ],
+        [
+          "Latin",
+          "579"
+        ],
+        [
+          "Metal",
+          "374"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "Rock",
+        "1297",
+        "Latin",
+        "579",
+        "Metal",
+        "374"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C17",
+      "difficulty": "medium",
+      "question": "앨범을 제일 많이 낸 아티스트는 누구고 몇 장이에요?",
+      "ms": 576,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT artist_id, COUNT(album_id) AS album_count FROM album GROUP BY artist_id ORDER BY album_count DESC FETCH FIRST 1 ROWS WITH TIES",
+      "sql_error": null,
+      "answer": "아티스트는 90번이고, 그는 21장을 제작했습니다.",
+      "columns": [
+        "artist_id",
+        "album_count"
+      ],
+      "rows": [
+        [
+          "90",
+          "21"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "Iron Maiden",
+        "21"
+      ],
+      "must_missing": [
+        "Iron Maiden"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C18",
+      "difficulty": "medium",
+      "question": "Rock 곡 중에 한 번도 안 팔린 곡은 몇 곡이에요?",
+      "ms": 523,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT COUNT(*) FROM track WHERE genre_id = (SELECT genre_id FROM genre WHERE name = 'Rock') AND track_id NOT IN (SELECT track_id FROM invoice_line)",
+      "sql_error": null,
+      "answer": "552 곡입니다.",
+      "columns": [
+        "count"
+      ],
+      "rows": [
+        [
+          "552"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "552"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C19",
+      "difficulty": "hard",
+      "question": "영업 담당자별로 담당 고객 매출이 전체 매출의 몇 %인지 소수점 첫째 자리까지 알려주세요.",
+      "ms": 2687,
+      "route": "structured",
+      "rationale": "only structured signals; 담당 not counted as MANAGES_ACCOUNT (table noun 매출)",
+      "sql": "SELECT e.first_name, e.last_name, ROUND(SUM(i.total)::numeric * 100 / (SELECT SUM(total) FROM invoice), 1) AS percentage\nFROM employee e\nJOIN customer c ON e.employee_id = c.support_rep_id\nJOIN invoice i ON c.customer_id = i.customer_id\nGROUP BY e.employee_id, e.first_name, e.last_name",
+      "sql_error": null,
+      "answer": "영업 담당자별로 담당 고객 매출이 전체 매출의 비율은 다음과 같습니다:\n\n1. 마리가트 파크: 33.3%\n2. 제인 피어코크: 35.8%\n3. 스타브 존슨: 30.9%",
+      "columns": [
+        "first_name",
+        "last_name",
+        "percentage"
+      ],
+      "rows": [
+        [
+          "Margaret",
+          "Park",
+          "33.3"
+        ],
+        [
+          "Jane",
+          "Peacock",
+          "35.8"
+        ],
+        [
+          "Steve",
+          "Johnson",
+          "30.9"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "Jane Peacock",
+        "35.8",
+        "Margaret Park",
+        "33.3",
+        "Steve Johnson",
+        "30.9"
+      ],
+      "must_missing": [
+        "Jane Peacock",
+        "Margaret Park",
+        "Steve Johnson"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": true
+    },
+    {
+      "id": "C20",
+      "difficulty": "hard",
+      "question": "매출이 제일 높은 아티스트 3팀이랑 각각 매출액 알려주세요.",
+      "ms": 1663,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT a.name, SUM(il.quantity * il.unit_price) AS total_sales\nFROM artist a\nJOIN album al ON a.artist_id = al.artist_id\nJOIN track t ON al.album_id = t.album_id\nJOIN invoice_line il ON t.track_id = il.track_id\nGROUP BY a.artist_id\nORDER BY total_sales DESC\nLIMIT 3",
+      "sql_error": null,
+      "answer": "매출이 가장 높은 아티스트 3팀은 다음과 같습니다:\n\n1. Iron Maiden - 매출액: 138.60\n2. U2 - 매출액: 105.93\n3. Metallica - 매출액: 90.09",
+      "columns": [
+        "name",
+        "total_sales"
+      ],
+      "rows": [
+        [
+          "Iron Maiden",
+          "138.60"
+        ],
+        [
+          "U2",
+          "105.93"
+        ],
+        [
+          "Metallica",
+          "90.09"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "Iron Maiden",
+        "138.60",
+        "U2",
+        "105.93",
+        "Metallica",
+        "90.09"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    },
+    {
+      "id": "C21",
+      "difficulty": "hard",
+      "question": "제일 많이 팔린 장르 3개에서 장르별 판매 수량 1위 아티스트랑 그 수량 알려주세요.",
+      "ms": 2062,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT g.name AS genre, a.name AS artist, SUM(il.quantity) AS total_quantity\nFROM invoice_line il\nJOIN track t ON il.track_id = t.track_id\nJOIN album al ON t.album_id = al.album_id\nJOIN artist a ON al.artist_id = a.artist_id\nJOIN genre g ON t.genre_id = g.genre_id\nGROUP BY g.name, a.name\nORDER BY g.name, total_quantity DESC\nLIMIT 3",
+      "sql_error": null,
+      "answer": "제일 많이 팔린 장르 3개는 Alternative, Rock, Metal입니다. 각 장르별 판매 수량 1위 아티스트와 그 수량은 다음과 같습니다:\n\n1. Alternative: Audioslave, 판매 수량 5\n2. Rock: Chris Cornell, 판매 수량 4\n3. Metal: Temple of the Dog, 판매 수량 4",
+      "columns": [
+        "genre",
+        "artist",
+        "total_quantity"
+      ],
+      "rows": [
+        [
+          "Alternative",
+          "Audioslave",
+          "5"
+        ],
+        [
+          "Alternative",
+          "Chris Cornell",
+          "4"
+        ],
+        [
+          "Alternative",
+          "Temple of the Dog",
+          "4"
+        ]
+      ],
+      "row_count": 3,
+      "must": [
+        "Rock",
+        "U2",
+        "91",
+        "Latin",
+        "Os Paralamas Do Sucesso",
+        "45",
+        "Metal",
+        "Metallica",
+        "91"
+      ],
+      "must_missing": [
+        "U2",
+        "91",
+        "Latin",
+        "Os Paralamas Do Sucesso",
+        "45",
+        "Metallica",
+        "91"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C22",
+      "difficulty": "hard",
+      "question": "고객이 제일 많은 나라 5곳에서 나라마다 구매 금액 1위 고객이 누구예요?",
+      "ms": 1836,
+      "route": "structured",
+      "rationale": "only structured signals",
+      "sql": "SELECT c.country, c.first_name, c.last_name, MAX(i.total) AS total_spent\nFROM customer c\nJOIN invoice i ON c.customer_id = i.customer_id\nGROUP BY c.country, c.first_name, c.last_name\nORDER BY total_spent DESC\nLIMIT 5",
+      "sql_error": null,
+      "answer": "Czech Republic의 구매 금액 1위 고객은 Helena Holý입니다.\nUSA의 구매 금액 1위 고객은 Richard Cunningham입니다.\nHungary의 구매 금액 1위 고객은 Ladislav Kovács입니다.\nIreland의 구매 금액 1위 고객은 Hugh O'Reilly입니다.\nAustria의 구매 금액 1위 고객은 Astrid Gruber입니다.",
+      "columns": [
+        "country",
+        "first_name",
+        "last_name",
+        "total_spent"
+      ],
+      "rows": [
+        [
+          "Czech Republic",
+          "Helena",
+          "Holý",
+          "25.86"
+        ],
+        [
+          "USA",
+          "Richard",
+          "Cunningham",
+          "23.86"
+        ],
+        [
+          "Hungary",
+          "Ladislav",
+          "Kovács",
+          "21.86"
+        ],
+        [
+          "Ireland",
+          "Hugh",
+          "O'Reilly",
+          "21.86"
+        ],
+        [
+          "Austria",
+          "Astrid",
+          "Gruber",
+          "18.86"
+        ]
+      ],
+      "row_count": 5,
+      "must": [
+        "USA",
+        "Richard Cunningham",
+        "Canada",
+        "François Tremblay",
+        "Brazil",
+        "Luís Gonçalves",
+        "France",
+        "Isabelle Mercier",
+        "Germany",
+        "Fynn Zimmermann"
+      ],
+      "must_missing": [
+        "Canada",
+        "François Tremblay",
+        "Brazil",
+        "Luís Gonçalves",
+        "France",
+        "Isabelle Mercier",
+        "Germany",
+        "Fynn Zimmermann"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C23",
+      "difficulty": "hard",
+      "question": "연도별 매출 1위 영업 담당자가 누구고, 그해 담당 고객 매출이 얼마였어요?",
+      "ms": 2131,
+      "route": "structured",
+      "rationale": "only structured signals; 담당 not counted as MANAGES_ACCOUNT (table noun 매출)",
+      "sql": "SELECT e.first_name, e.last_name, SUM(i.total) AS total_sales\nFROM employee e\nJOIN customer c ON e.employee_id = c.support_rep_id\nJOIN invoice i ON c.customer_id = i.customer_id\nWHERE EXTRACT(YEAR FROM i.invoice_date) = (SELECT EXTRACT(YEAR FROM i.invoice_date) AS year\n                                           FROM invoice i\n                                           JOIN customer c ON i.customer_id = c.customer_id\n                                           JOIN employee e ON c.support_rep_id = e.employee_id\n                                           GROUP BY e.employee_id, year\n                                           ORDER BY SUM(i.total) DESC\n                                           LIMIT 1)\nGROUP BY e.employee_id, e.first_name, e.last_name\nORDER BY total_sales DESC\nFETCH FIRST 1 ROWS WITH TIES",
+      "sql_error": null,
+      "answer": "연도별 매출 1위 영업 담당자는 Jane Peacock이고, 그해 담당 고객 매출은 221.92입니다.",
+      "columns": [
+        "first_name",
+        "last_name",
+        "total_sales"
+      ],
+      "rows": [
+        [
+          "Jane",
+          "Peacock",
+          "221.92"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "2021",
+        "Steve Johnson",
+        "164.34",
+        "2022",
+        "Jane Peacock",
+        "221.92",
+        "2023",
+        "Jane Peacock",
+        "184.34",
+        "2024",
+        "Margaret Park",
+        "197.20",
+        "2025",
+        "Margaret Park",
+        "168.30"
+      ],
+      "must_missing": [
+        "2021",
+        "Steve Johnson",
+        "164.34",
+        "2022",
+        "2023",
+        "184.34",
+        "2024",
+        "Margaret Park",
+        "197.20",
+        "2025",
+        "Margaret Park",
+        "168.30"
+      ],
+      "answer_ok": false,
+      "rows_exact": false,
+      "rows_cover": false
+    },
+    {
+      "id": "C24",
+      "difficulty": "hard",
+      "question": "Grunge 재생목록에 곡이 제일 많이 들어간 아티스트는 누구고 몇 곡이에요?",
+      "ms": 1494,
+      "route": "structured",
+      "rationale": "no decisive signal; default fan-out; lanes in this database: sql -> structured",
+      "sql": "SELECT a.name, COUNT(pt.track_id) AS track_count\nFROM artist a\nJOIN album al ON a.artist_id = al.artist_id\nJOIN track t ON al.album_id = t.album_id\nJOIN playlist_track pt ON t.track_id = pt.track_id\nJOIN playlist p ON pt.playlist_id = p.playlist_id\nWHERE p.name = 'Grunge'\nGROUP BY a.name\nORDER BY track_count DESC\nFETCH FIRST 1 ROWS WITH TIES",
+      "sql_error": null,
+      "answer": "Grunge 재생목록에 곡이 제일 많이 들어간 아티스트는 Nirvana이고, 그 아티스트의 곡 수는 6곡입니다.",
+      "columns": [
+        "name",
+        "track_count"
+      ],
+      "rows": [
+        [
+          "Nirvana",
+          "6"
+        ]
+      ],
+      "row_count": 1,
+      "must": [
+        "Nirvana",
+        "6"
+      ],
+      "must_missing": [],
+      "answer_ok": true,
+      "rows_exact": true,
+      "rows_cover": true
+    }
+  ]
+}
