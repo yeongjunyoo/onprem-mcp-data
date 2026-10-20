@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**77/90 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**85/98 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -31,6 +31,7 @@
 | `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
 | `companyx-holdout3-route.json` | 28,226 | `3eef7bb632a4911f` | 2026-09-30T08:47:21 |
 | `companyx-holdout4-route.json` | 28,134 | `d44d053b6d4d4164` | 2026-09-30T08:48:12 |
+| `companyx-holdout5-route.json` | 27,865 | `dd00b3dc60df3be2` | 2026-10-20T03:39:22 |
 | `companyx-hybrid.json` | 113,071 | `93af25bfe935cc98` | 2026-07-29T14:13:17 |
 | `companyx-kg.json` | 7,420 | `a377ef577052314c` | 2026-10-01T17:03:16 |
 | `companyx-language-lock.json` | 973 | `98bfe23d21c9e06d` | 2026-08-19T12:10:13 |
@@ -56,6 +57,9 @@
 | `companyx-scorecard-holdout3-b512.json` | 49,519 | `d891b338c5aa5533` | 2026-09-30T13:39:19 |
 | `companyx-scorecard-holdout4-rescored.json` | 68,415 | `65c3eec886e5148e` | 2026-10-11T16:19:07 |
 | `companyx-scorecard-holdout4.json` | 54,866 | `724ceae0cb880082` | 2026-10-01T18:31:40 |
+| `companyx-scorecard-holdout5-rescored.json` | 65,031 | `d3bcc32ca0cd7901` | 2026-10-20T03:39:59 |
+| `companyx-scorecard-holdout5-sanity.json` | 29,446 | `e4c4d1fbb1fbd0a0` | 2026-10-20T03:39:21 |
+| `companyx-scorecard-holdout5.json` | 49,753 | `7572908439101dea` | 2026-10-20T03:39:58 |
 | `companyx-scorecard-rescored.json` | 35,177 | `960de8a94bfe0376` | 2026-10-11T16:19:06 |
 | `companyx-scorecard.json` | 28,669 | `9283689ac3a7b391` | 2026-10-01T17:32:57 |
 | `companyx-sql-answerfix-gpu-card-base.json` | 12,953 | `294014ff00e41cba` | 2026-10-01T02:15:29 |
@@ -65,11 +69,13 @@
 | `companyx-sql-answerfix2-gpu-card-ticketlines.json` | 13,234 | `80b33954be768fa0` | 2026-10-01T04:52:32 |
 | `companyx-sql-answerfix2-gpu-card-v1-rule.json` | 12,738 | `823e064c235b62ed` | 2026-10-01T04:57:21 |
 | `companyx-sql-answerfix2-gpu-card-v2-rule-noexample.json` | 12,807 | `9c7cab633a971aeb` | 2026-10-01T04:57:44 |
+| `companyx-sql-llm-comments-holdout5.json` | 12,738 | `276a12f20dd4f8c7` | 2026-10-20T03:42:05 |
 | `companyx-sql-llm-compact-holdout3.json` | 13,394 | `b7e0ffb532d287e2` | 2026-09-30T12:57:56 |
 | `companyx-sql-llm-compact-holdout4.json` | 12,469 | `66e32cca681d27db` | 2026-09-30T13:00:04 |
 | `companyx-sql-llm-emptyrepair-holdout3.json` | 12,908 | `c2c9d212885b1f0c` | 2026-09-30T13:06:03 |
 | `companyx-sql-llm-gemma4_e4b-holdout3.json` | 11,658 | `1bc67ef305206a3f` | 2026-09-30T13:11:25 |
 | `companyx-sql-llm-holdout4.json` | 11,583 | `f9855aada58647b9` | 2026-09-30T12:59:25 |
+| `companyx-sql-llm-holdout5.json` | 12,503 | `0fccc360b570720e` | 2026-10-20T03:41:47 |
 | `companyx-sql-llm-norepair.json` | 5,050 | `eb8b0a74c4f73835` | 2026-10-01T08:02:07 |
 | `companyx-sql-llm-qwen3.5_9b-holdout3.json` | 12,940 | `4387070500ffed75` | 2026-09-30T13:08:58 |
 | `companyx-sql-llm.json` | 5,047 | `4a9f6b3ac3a56eff` | 2026-10-01T07:52:21 |
@@ -88,6 +94,8 @@
 | `companyx-toolselect-dev-v4.json` | 79,210 | `252ecea096530656` | 2026-10-11T13:59:28 |
 | `companyx-toolselect-dev-v5.json` | 79,092 | `23912b38a1f09ac5` | 2026-10-11T14:03:01 |
 | `companyx-toolselect-holdout4.json` | 26,316 | `bca6a7e1d83aef45` | 2026-09-30T13:14:08 |
+| `companyx-toolselect-holdout5-router3.json` | 40,103 | `31eb448ef5d76a61` | 2026-10-20T03:41:24 |
+| `companyx-toolselect-holdout5.json` | 39,935 | `25c0d70a7c41294f` | 2026-10-20T03:40:39 |
 | `companyx-toolselect.json` | 54,850 | `919867ee84bdfb85` | 2026-09-30T13:13:31 |
 | `companyx-vector.json` | 170,890 | `c2ccb8012dd8e74f` | 2026-10-01T17:08:12 |
 | `external-bird-raw.json` | 173,506 | `adfb5244c4d6462e` | — |

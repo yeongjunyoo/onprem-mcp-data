@@ -134,6 +134,7 @@ const SUBJECTS = [
   // 봉인 홀드아웃(docs/report.md §0.15). 3차는 봉인 채점 당시 값이 정본이다.
   { re: /홀드아웃3|holdout 3/i, key: "holdout3_sealed_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
   { re: /홀드아웃4|holdout 4/i, key: "holdout4_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
+  { re: /홀드아웃5|holdout 5/i, key: "holdout5_strict", val: /\b[01]\.\d{3}\b/g, window: 60 },
   { re: /라우팅 도구 일치|routing tool match/i, key: "route_insample", val: /\b\d{1,2}\/30\b/g },
   { re: /단언 통과|assertions pass/i, key: "test_total", val: /(?<!\d)\d{3,4}(?!\d)/g },
   // 분모를 /19 로 못 박으면 **분모까지 바꾼 위조가 건너뛰어진다** — 값이 하나도
