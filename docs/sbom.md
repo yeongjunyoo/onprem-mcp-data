@@ -1,7 +1,7 @@
 # 붙임1 SBOM (소프트웨어 자재명세서)
 
 > 생성 = `node scripts/sbom.mjs`. 근거 = `air-server/node_modules`에 **실제 설치된** 매니페스트(선언이 아니라 설치 상태).
-> 생성 시각 2026-10-11T18:07:08.604Z
+> 생성 시각 2026-10-20T03:59:00.550Z
 > npm 패키지 20개(직접 6 / 전이 14) + 런타임 구성요소 6개.
 > 라이선스 분포: MIT 16 · Apache-2.0 2 · ISC 2.
 > `@airmcp-dev/core` 0.5.2-patched.1 = npm 배포본 0.5.2(`sha512-QFQr8kPg6Q79xwo2xVBcZ42nqdWTdvzhkmOtbyPdtZNMceWZr77y+MGdLqwmc6olL5q+F26KtWBVo9uh8pxzeA==`)에 패치 3개(001-air-prs-3-5-7-9-11, 002-ping-from-air-main-42cf9e0, 003-sse-origin)를 얹은 `air-server/vendor/airmcp-dev-core-0.5.2-patched.1.tgz`(`sha512-X/5s8kYLmiJqQNwNTRY7+dv0ORdL5Nyrc+X+7D02gKueqILpaNQ10SorKkv33QUKm7vpLvSmeLwyy8vFhG+LYw==`). 만드는 법과 지우는 때는 `docs/air-patch.md`.
@@ -12,7 +12,7 @@
 | 번호 | 라이브러리명 | 버전 | 라이선스 | 공식 저장소 URL | 사용 목적 및 주요 기능 |
 | --- | --- | --- | --- | --- | --- |
 | 1 | @airmcp-dev/core | 0.5.2-patched.1 | Apache-2.0 | https://github.com/airmcp-dev/air | MCP 서버 프레임워크(air). 프로토콜 엔진, 도구 등록, 입력 검증, stdio/SSE/HTTP 전송, 라이프사이클 관리. npm 배포본 0.5.2 에 상류 수정 패치를 얹은 air-server/vendor 의 tarball 이다(docs/air-patch.md) |
-| 2 | @types/node | 26.6.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
+| 2 | @types/node | 26.6.5 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 3 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped | 타입 정의(개발 전용) |
 | 4 | pg | 8.23.1 | MIT | https://github.com/brianc/node-postgres | PostgreSQL 클라이언트. 관계형 조회, pgvector 유사도 검색, 읽기 엔드포인트 풀링 |
 | 5 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript | 빌드 도구(개발 전용). 타입 검사 및 dist 트랜스파일 |

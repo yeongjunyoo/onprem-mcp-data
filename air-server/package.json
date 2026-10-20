@@ -1,6 +1,6 @@
 {
   "name": "air-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "온프렘 MCP 데이터 플랫폼. 자연어 질문을 벡터 검색, NL2SQL, 지식그래프 세 레인으로 규칙 기반 분기해 병렬 조회하고 RRF로 융합한 뒤 로컬 LLM이 근거 기반으로 답한다. 외부 API 호출 없음.",
   "keywords": [
     "mcp",
@@ -87,7 +87,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/pg": "^8.21.0",
     "typescript": "^5.5.0"
   }

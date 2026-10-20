@@ -141,6 +141,11 @@ const SUBJECTS = [
   // 안 잡히면 검사는 그 줄을 넘긴다. 어떤 비율이든 잡아서 정본과 대조한다.
   { re: /근거 포함|evidence in context/i, key: "ask_evidence", val: /\b\d{1,2}\/\d{1,2}\b/g },
   { re: /KG 재현율|지식그래프 검색 재현율|knowledge-graph recall/i, key: "kg_recall", val: /\b\d\.\d{3}\b/g },
+  // 의존성 수. 정본은 SBOM 머리말이 설치 트리에서 센 값(metrics-check 의 dep_packages)인데 README 두 줄만 대조했다.
+  // 2026-10-20: air 0.5.2 로 112개가 20개가 된 뒤 기여 안내, 붙임2, 보고서 둘이 「110개」로 남아 있었다.
+  // **등록과 소비는 다르다**(PR #195 와 같은 지적).
+  { re: /패키지\s*\d{2,3}\s*개|의존성\s*\d{2,3}\s*개|\d{2,3}\s*(?:npm\s*)?(?:packages|dependencies)\b/i,
+    key: "dep_packages", val: /(?<!\d)\d{2,3}(?=\s*(?:개|npm\b|packages|dependencies))/g },
 ];
 
 // 분수와 그 퍼센트가 한 자리에 같이 적히면 **사본이 둘**이다.
