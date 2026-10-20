@@ -117,7 +117,7 @@ Chinook 에 `public.documents` 를 만들고 짧은 안내문 3건(환불 정책
 
 ## Chinook 으로 해 본 기록 (2026-10-20)
 
-**대상.** 공개 예제 DB Chinook(음반 판매점, 표 11개, 송장 412건, 곡 3,503곡. Luis Rocha, MIT License). 저장소에는 넣지 않는다. [lerocha/chinook-database](https://github.com/lerocha/chinook-database) 커밋 `9ad881311025c290a911a0461dd9919317b09021` 의 `ChinookDatabase/DataSources/Chinook_PostgreSql.sql`(sha256 `e3fde5c1a5b51a2a91429a702c9ca6e69ba56e6c7f5e112724d70c3d03db695e`)을 받아 `psql -U postgres -f Chinook_PostgreSql.sql` 로 적재했다. 파일 맨 앞이 `DROP DATABASE IF EXISTS chinook; CREATE DATABASE chinook;` 이라 같은 서버에 별도 DB 가 생긴다. 사업자 데이터셋이 든 DB 는 건드리지 않았다.
+**대상.** 공개 예제 DB Chinook(음반 판매점, 표 11개, 송장 412건, 곡 3,503곡. Luis Rocha, MIT License). 저장소에는 넣지 않는다. lerocha/chinook-database 커밋 `9ad881311025c290a911a0461dd9919317b09021` 의 [ChinookDatabase/DataSources/Chinook_PostgreSql.sql](https://github.com/lerocha/chinook-database/blob/9ad881311025c290a911a0461dd9919317b09021/ChinookDatabase/DataSources/Chinook_PostgreSql.sql)(sha256 `e3fde5c1a5b51a2a91429a702c9ca6e69ba56e6c7f5e112724d70c3d03db695e`)을 받아 `psql -U postgres -f Chinook_PostgreSql.sql` 로 적재했다. 파일 맨 앞이 `DROP DATABASE IF EXISTS chinook; CREATE DATABASE chinook;` 이라 같은 서버에 별도 DB 가 생긴다. 사업자 데이터셋이 든 DB 는 건드리지 않았다.
 
 **한 일.** 위 세 단계 그대로이고 코드는 고치지 않았다.
 
