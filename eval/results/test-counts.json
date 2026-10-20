@@ -24,7 +24,8 @@
       "scorecard",
       "evidence",
       "fallback",
-      "schemacard"
+      "schemacard",
+      "llmroute"
     ],
     "integration": [
       "db",

@@ -52,6 +52,7 @@ const server = spawn(process.execPath, ["air-server/dist/index.js"], {
   cwd: ROOT,
   env: { ...process.env, MCP_TRANSPORT: "sse", MCP_PORT: String(PORT) },
   stdio: ["ignore", "pipe", "pipe"],
+  windowsHide: true, // Windows 에서 서버 콘솔 창을 띄우지 않는다
 });
 let serverLog = "";
 server.stdout.on("data", (d) => (serverLog += d));

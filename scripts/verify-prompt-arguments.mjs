@@ -49,6 +49,7 @@ console.log(`소스가 정의한 프롬프트 ${defined.size}종`);
 const child = spawn("node", [resolve(ROOT, "air-server/dist/index.js")], {
   cwd: ROOT,
   stdio: ["pipe", "pipe", "ignore"],
+  windowsHide: true, // Windows 에서 서버 콘솔 창을 띄우지 않는다
 });
 const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);
 send({
