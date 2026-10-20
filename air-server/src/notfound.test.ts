@@ -388,6 +388,12 @@ const fakePool = {
   ok(absentAttribute("남자 직원은 몇 명이야?", card) === "성별", "남자 → 성별");
   ok(absentAttribute("Client-A의 직원 수는 몇 명이야?", card) === "고객사의 직원 수", "고객사의 직원 수");
   ok(absentAttribute("직원들 주소 알려줘", card) === "주소", "주소");
+  // 다른 회사 DB 의 카드는 열 이름이 영문이다. 그 값을 담는 열이 있으면 막지 않는다(Chinook 점검 세트 C07, 2026-10-20).
+  const english = "CREATE TABLE public.employee (\n  employee_id int PRIMARY KEY,\n  last_name text,\n  birth_date timestamp,\n  address text\n);";
+  ok(absentAttribute("직원 중에 나이가 제일 많은 사람이 누구예요?", english) === null, "birth_date 가 있으면 나이를 막지 않는다");
+  ok(absentAttribute("직원들 주소 알려줘", english) === null, "address 가 있으면 주소를 막지 않는다");
+  ok(absentAttribute("남자 직원은 몇 명이야?", english) === "성별", "영문 카드에도 없는 항목은 그대로 막는다");
+  ok(absentAttribute("직원들의 평균 나이는?", "CREATE TABLE s.t (\n  manager_id int,\n  page_no int\n);") === "나이", "manager_id 의 age 같은 부분 문자열은 열로 보지 않는다");
   for (const q of [
     "클라우드사업부 직원 수는 몇 명이야?",
     "Client-A 담당 직원 수는?",
