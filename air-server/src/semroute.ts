@@ -28,6 +28,7 @@
 // 쓴 사내 메신저 말투의 구어 변형(유형당 6~9개)이다. dev 문항을 거의 베낀 앵커(기존 30, 구어 변형 5)는 뺐다
 // (cli/companyx-anchor-audit.ts). 결정은 최근접 앵커의 도구이고, 임베딩 모델이 같으면 같은 질문에 같은 결정이 나온다.
 import type { Embedder } from "./embedder.js";
+import { embedAnchors, type AnchorCacheState } from "./anchorcache.js";
 import { profile } from "./profile.js";
 import { mentionTerms } from "./graph.js";
 import { llmStageEnabled, llmLaneToolsReady, llmLaneVerdict } from "./llmroute.js";
@@ -118,6 +119,14 @@ interface AnchorVec {
   vec: number[];
 }
 
+/** cache 는 앵커 벡터를 파일에서 읽었는지(anchorcache.ts), note 는 캐시를 쓰지 못한 이유다. */
+export interface SemanticInstall {
+  anchors: number;
+  cache?: AnchorCacheState;
+  note?: string;
+  error?: string;
+}
+
 let ANCHORS: AnchorVec[] = [];
 let EMBEDDER_NAME = "";
 
@@ -134,14 +143,18 @@ export function semanticState(): { anchors: number; embedder: string } {
 export async function installSemanticRouter(
   embedder: Embedder,
   anchors: Record<Lane, Record<string, string[]>> = INSTALLED_ANCHORS,
-): Promise<{ anchors: number; error?: string }> {
-  const out: AnchorVec[] = [];
-  try {
-    for (const lane of LANES) {
-      for (const [type, texts] of Object.entries(anchors[lane])) {
-        for (const text of texts) out.push({ lane, type, text, vec: await embedder.embed(text) });
-      }
+): Promise<SemanticInstall> {
+  const items: Omit<AnchorVec, "vec">[] = [];
+  for (const lane of LANES) {
+    for (const [type, texts] of Object.entries(anchors[lane])) {
+      for (const text of texts) items.push({ lane, type, text });
     }
+  }
+  try {
+    const { vecs, cache, note } = await embedAnchors(embedder, items.map((a) => a.text));
+    ANCHORS = items.map((a, i) => ({ ...a, vec: vecs[i] }));
+    EMBEDDER_NAME = embedder.name;
+    return { anchors: ANCHORS.length, cache, ...(note ? { note } : {}) };
   } catch (e) {
     // 실패는 error 필드로 돌려준다. 기동 경로(index.ts)가 그것을 경고로 찍고, route
     // 도구 응답의 semantic_anchors 가 0으로 남아 시연 중에도 보인다.
@@ -149,9 +162,6 @@ export async function installSemanticRouter(
     EMBEDDER_NAME = "";
     return { anchors: 0, error: String(e).slice(0, 200) };
   }
-  ANCHORS = out;
-  EMBEDDER_NAME = embedder.name;
-  return { anchors: ANCHORS.length };
 }
 
 /** 테스트용. 설치 상태를 비운다. */

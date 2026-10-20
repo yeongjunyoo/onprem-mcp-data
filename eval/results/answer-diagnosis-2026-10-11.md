@@ -86,7 +86,7 @@ Document-level retrieval is effectively perfect when routed right. The vector mi
 | Gold projects columns the question does not ask | h3-03, h4-02, h4-07, h4-10 | 「얼마나 더 붙어?」 answered 220 (gold also wants both prices); names in hire order (gold also wants the dates); 「베타 남아 있나?」 (gold also wants version, release date, status); client and amount (gold also wants the product) |
 | Gold value stated in the question | h4-06 | 부산 and IT/SW required; the question states both. The vector scorer already drops such keywords, the SQL scorer does not |
 | Sort-key rule only for `LIMIT` golds | h4-13 | scorecard.ts says top-N and maximum questions drop the sort-key number; `isLimited` only sees a trailing `LIMIT`, the gold uses `= (SELECT MAX(...))`, so the sum stays required |
-| Wrong gold | h4-59 | `graph/edges.json` has 13 REPORTED_ISSUE sources into Product-T2; the gold `basis` says the same relation but lists 10 (omits Client-R, Client-W, Client-M). The answer names all 13 |
+| Wrong gold | h4-59 | The dataset's graph/edges.json has 13 REPORTED_ISSUE sources into Product-T2; the gold `basis` says the same relation but lists 10 (omits Client-R, Client-W, Client-M). The answer names all 13 |
 
 Separate measurement defect (not the answer scorecard): `evalmatch.ts` `normToken` turns interval values into `"[object Object]"`, so any two interval results compare equal in `companyx:sql`. h4-18 (3일 18시간 15분 40초 against gold 3일 19시간 56분 31초) is counted as an execution match: h4 EX 13/20 with the repo matcher, 12/20 by value.
 

@@ -256,5 +256,53 @@ const marker = new MarkerEmbedder();
   }
 }
 
+// ── 앵커 벡터 캐시(anchorcache.ts) ──────────────────────────────────────
+// 423문장을 기동마다 다시 임베딩하지 않는다. 캐시가 모델 교체를 놓치거나 지난 앵커를 읽으면 라우팅이 조용히 틀어지므로 그 둘을 본다.
+{
+  const { embedAnchors } = await import("./anchorcache.js");
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(resolve(tmpdir(), "anchorcache-"));
+  let calls = 0;
+  let shift = 0;
+  const fake: Embedder = {
+    name: "ollama:fake",
+    dim: 3,
+    async embed(t: string) {
+      calls++;
+      const h = [...t].reduce((n, c) => n + c.charCodeAt(0), 0) + shift;
+      const v = [Math.cos(h), Math.sin(h), 0.5];
+      const n = Math.hypot(...v);
+      return v.map((x) => x / n);
+    },
+  };
+  const texts = ["매출 합계", "설치 절차", "담당 엔지니어"];
+  try {
+    const a = await embedAnchors(fake, texts, dir);
+    eq([a.cache, calls], ["miss", 3], "처음에는 전부 임베딩하고 캐시에 쓴다");
+    calls = 0;
+    const b = await embedAnchors(fake, texts, dir);
+    eq([b.cache, calls], ["hit", 1], "같은 임베더와 앵커면 첫 앵커 하나만 새로 재고 나머지는 파일에서 읽는다");
+    eq(b.vecs, a.vecs, "파일에서 읽은 벡터는 임베딩한 벡터와 같다");
+    calls = 0;
+    shift = 0.5; // 같은 이름으로 가중치가 바뀐 모델
+    const c = await embedAnchors(fake, texts, dir);
+    eq([c.cache, calls], ["stale", 4], "첫 앵커 벡터가 달라지면 전부 다시 임베딩한다");
+    calls = 0;
+    const d = await embedAnchors(fake, [...texts, "새 앵커"], dir);
+    eq([d.cache, calls], ["miss", 4], "앵커 목록이 바뀌면 새로 임베딩한다");
+    eq(readdirSync(dir).filter((f) => f.endsWith(".bin")).length, 1, "지난 앵커의 캐시는 지운다");
+    calls = 0;
+    const e = await embedAnchors({ ...fake, name: "hash" }, texts, dir);
+    eq([e.cache, calls], ["off", 3], "ollama 가 아닌 임베더는 캐시를 쓰지 않는다");
+    const blocked = resolve(dir, "file");
+    writeFileSync(blocked, "");
+    const f = await embedAnchors(fake, texts, blocked);
+    ok(f.vecs.length === 3 && f.cache === "miss" && /앵커 캐시를 쓰지 못했다/.test(f.note ?? ""), `캐시를 쓰지 못해도 벡터는 쓰고 이유를 남긴다 (got ${f.cache} ${f.note})`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log(`semroute.test: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

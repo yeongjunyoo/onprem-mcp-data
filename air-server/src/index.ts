@@ -97,8 +97,9 @@ async function main(): Promise<void> {
   console.error(
     sem.error
       ? `[router] 시맨틱 폴백 없음(${sem.error})`
-      : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 임베딩 완료`,
+      : `[router] 시맨틱 폴백 앵커 ${sem.anchors}개 ${sem.cache === "hit" ? "캐시에서 읽음" : "임베딩 완료"}`,
   );
+  if (sem.note) console.error(`[router] ${sem.note}`);
 
   // SQL_CARD=comments 면 카탈로그 주석으로 NL2SQL 스키마 카드를 만들어 둔다(한 번 읽고 캐시, 결과는 stderr 에 한 줄).
   // 다른 카드면 아무것도 읽지 않는다.

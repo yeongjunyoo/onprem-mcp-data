@@ -14,6 +14,8 @@ eval/external/
 # Node / build output
 node_modules/
 air-server/dist/
+# 시맨틱 앵커 벡터 캐시(anchorcache.ts). 지우면 다음 기동이 다시 임베딩한다
+air-server/.cache/
 dist/
 
 # Agent runtime state (build provenance lives in docs/report.md)
