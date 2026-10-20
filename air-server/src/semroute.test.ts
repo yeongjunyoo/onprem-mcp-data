@@ -30,8 +30,10 @@ import {
   uninstallSemanticRouter,
   semanticReady,
   ROUTE_ANCHORS,
+  INSTALLED_ANCHORS,
   SEMANTIC_MIN_MARGIN,
 } from "./semroute.js";
+import { PARAPHRASE_ANCHORS } from "./semparaphrase.js";
 import type { Embedder } from "./embedder.js";
 import { z } from "zod";
 import { ROUTE_OUTPUT_SCHEMA, routeToolOutput } from "./routeschema.js";
@@ -75,17 +77,19 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
 
 // ── 앵커 표 불변식 ────────────────────────────────────────────────────
 {
-  eq(Object.keys(ROUTE_ANCHORS).sort(), [...LANES].sort(), "앵커는 세 도구 전부에 있다");
+  // 구어 변형은 ROUTE_ANCHORS 의 유형에만 붙는다. 없는 유형에 쓰면 INSTALLED_ANCHORS 에서 조용히 빠진다.
+  const typesOf = (t: typeof ROUTE_ANCHORS) => LANES.map((l) => Object.keys(t[l] ?? {}).sort().join(","));
+  eq([Object.keys(ROUTE_ANCHORS).sort(), typesOf(PARAPHRASE_ANCHORS)], [[...LANES].sort(), typesOf(ROUTE_ANCHORS)], "앵커는 세 도구 전부에 있고 구어 변형은 같은 유형에 붙는다");
   const PH = ["{고객사}", "{제품}", "{직원}", "{부서}", "{프로젝트}", "{날짜}"];
   const sizeOff: string[] = [], dup: string[] = [], badPh: string[] = [];
   for (const lane of LANES) {
-    for (const [type, texts] of Object.entries(ROUTE_ANCHORS[lane])) {
-      if (texts.length < 3 || texts.length > 5) sizeOff.push(`${lane}/${type}:${texts.length}`);
+    for (const [type, texts] of Object.entries(INSTALLED_ANCHORS[lane])) {
+      if (texts.length < 10 || texts.length > 14) sizeOff.push(`${lane}/${type}:${texts.length}`);
       if (new Set(texts).size !== texts.length) dup.push(`${lane}/${type}`);
       for (const t of texts) if ((t.match(/\{[^}]+\}/g) ?? []).some((ph) => !PH.includes(ph))) badPh.push(t);
     }
   }
-  eq(sizeOff, [], "유형당 표현 3~5개");
+  eq(sizeOff, [], "설치하는 앵커는 유형당 10~14개(기존 2~5, 구어 변형 6~9)");
   eq(dup, [], "유형 안에 중복 표현 없음");
   eq(badPh, [], "자리표시는 maskEntities 표기만");
   // 그래프 앵커의 유형 이름은 엣지 타입이다(routeQuery 가 탐색 계획에 그대로 쓴다).
@@ -94,7 +98,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   const edgesPath = resolve(here, "../../datasets/companyx-v1.0/graph/edges.json");
   if (!TEST_AS_CI && existsSync(edgesPath)) {
     const edges = JSON.parse(readFileSync(edgesPath, "utf8")) as { relation: string }[];
-    const missing = [...new Set(edges.map((e) => e.relation))].filter((r) => !(r in ROUTE_ANCHORS.knowledge_graph));
+    const missing = [...new Set(edges.map((e) => e.relation))].filter((r) => !(r in INSTALLED_ANCHORS.knowledge_graph));
     eq(missing, [], "모든 엣지 타입에 그래프 앵커");
   } else {
     console.log("  SKIP: 엣지 타입 앵커 커버리지 (데이터셋 없음)");
@@ -122,7 +126,7 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
 // 앵커의 도구를 표에서 직접 읽으므로 앵커 문구를 고쳐도 이 테스트는 깨지지 않는다.
 const LANE_OF_ANCHOR = new Map<string, number>();
 LANES.forEach((lane, i) => {
-  for (const texts of Object.values(ROUTE_ANCHORS[lane])) for (const t of texts) LANE_OF_ANCHOR.set(t, i);
+  for (const texts of Object.values(INSTALLED_ANCHORS[lane])) for (const t of texts) LANE_OF_ANCHOR.set(t, i);
 });
 class MarkerEmbedder implements Embedder {
   readonly name = "marker";
@@ -140,7 +144,7 @@ const marker = new MarkerEmbedder();
   eq(JSON.stringify(await routeQuery(q, marker)), JSON.stringify(route(q)), "폴백 미설치면 규칙 결정 그대로");
 
   const inst = await installSemanticRouter(marker);
-  const total = Object.values(ROUTE_ANCHORS).reduce((n, t) => n + Object.values(t).reduce((m, x) => m + x.length, 0), 0);
+  const total = Object.values(INSTALLED_ANCHORS).reduce((n, t) => n + Object.values(t).reduce((m, x) => m + x.length, 0), 0);
   eq(inst.anchors, total, "앵커 전부 임베딩");
 
   // 규칙은 판단을 포기하는데(개체만 있음) 시맨틱은 그래프라고 본다.
