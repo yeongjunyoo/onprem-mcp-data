@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**61/73 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**69/81 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -70,6 +70,14 @@
 | `companyx-sql-repeat-llm.json` | 1,295 | `de9123e0ba53c507` | 2026-10-01T07:52:21 |
 | `companyx-sql-repeat-naive-norepair.json` | 2,152 | `4faa8a810b2fb490` | 2026-10-01T18:48:50 |
 | `companyx-sql-repeat-naive.json` | 1,663 | `a431bd2f65fb5324` | 2026-10-01T18:44:02 |
+| `companyx-toolselect-dev-base-rerun.json` | 76,162 | `b3ed0d2078d33c09` | 2026-10-11T13:23:19 |
+| `companyx-toolselect-dev-base.json` | 76,162 | `3d1730fa03914bf4` | 2026-10-11T13:21:39 |
+| `companyx-toolselect-dev-v1.json` | 78,784 | `657849905273a193` | 2026-10-11T13:30:02 |
+| `companyx-toolselect-dev-v2.json` | 79,356 | `646792ed29c4f46a` | 2026-10-11T13:33:12 |
+| `companyx-toolselect-dev-v3.json` | 78,797 | `dfc22edc32614bad` | 2026-10-11T13:57:33 |
+| `companyx-toolselect-dev-v4-router3.json` | 84,060 | `a94c76af733e0779` | 2026-10-11T14:30:42 |
+| `companyx-toolselect-dev-v4.json` | 79,210 | `252ecea096530656` | 2026-10-11T13:59:28 |
+| `companyx-toolselect-dev-v5.json` | 79,092 | `23912b38a1f09ac5` | 2026-10-11T14:03:01 |
 | `companyx-toolselect-holdout4.json` | 26,316 | `bca6a7e1d83aef45` | 2026-09-30T13:14:08 |
 | `companyx-toolselect.json` | 54,850 | `919867ee84bdfb85` | 2026-09-30T13:13:31 |
 | `companyx-vector.json` | 170,890 | `c2ccb8012dd8e74f` | 2026-10-01T17:08:12 |

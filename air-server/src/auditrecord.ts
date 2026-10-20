@@ -61,7 +61,8 @@ export interface AuditRecord {
     tools: string[];
     signals: { structured: string[]; semantic: string[]; graph: string[] };
     rationale: string;
-    deterministic: true;
+    /** 규칙과 임베딩만으로 정했으면 true. 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)가 생성 모델을 불렀으면 false. */
+    deterministic: boolean;
     /** 확신 없이 고른 레인이 빈손이라 다음 순위 레인을 돌렸을 때만(fallback.ts). used 가 아니면 답은 처음 레인의 결과이고 rejected 가 그 이유다. */
     fallback?: { from: string; to: string; reason: string; used: boolean; rejected?: string };
   };
@@ -296,7 +297,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         graph: (routeAudit.graph_signals as string[]) ?? [],
       },
       rationale: String(routeAudit.rationale ?? ""),
-      deterministic: true,
+      deterministic: routeAudit.deterministic !== false,
       ...(a.route_fallback ? { fallback: a.route_fallback } : {}),
     },
     retrieval: {

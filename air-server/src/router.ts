@@ -217,6 +217,9 @@ export interface RouteDecision {
     nearest: { lane: Lane; type: string; text: string; score: number };
     applied: boolean;
   };
+  /** 규칙과 시맨틱이 둘 다 확신하지 못해 셋째 단계(생성 모델, ROUTER_LLM_STAGE=1)를 불렀을 때만 붙는다(llmroute.ts).
+   * applied 가 false 면 단계가 실패했거나 가드가 막아 규칙의 결정을 그대로 뒀다는 뜻이다. */
+  llm?: { applied: boolean; lane?: Lane; tool?: string; via?: string; ms: number; error?: string };
 }
 
 // ── 신호 가중치 합산 ────────────────────────────────────────────────
@@ -1129,6 +1132,7 @@ export function audit(d: RouteDecision) {
           nearest_anchor: d.semantic.nearest.text,
         }
       : null,
-    deterministic: true,
+    // 셋째 단계가 생성 모델을 불렀으면 false 다(기본 꺼짐). 규칙과 임베딩만으로 정했으면 true.
+    deterministic: d.llm === undefined,
   };
 }
