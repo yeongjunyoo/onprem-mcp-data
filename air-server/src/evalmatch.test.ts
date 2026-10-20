@@ -14,6 +14,7 @@
 // limitations under the License.
 
 // Unit tests for the execution-match comparator (the eval's objectivity hinge).
+import pg from "pg";
 import { resultsMatch, canonicalize } from "./evalmatch.js";
 
 let pass = 0, fail = 0;
@@ -83,6 +84,25 @@ ok(resultsMatch([{ a: 2, z: 0 }, { a: 1, z: 0 }], [{ a: 2 }, { a: 1 }], { subset
   "subsetColumns honours row order when ordered");
 ok(!resultsMatch([{ a: 1, z: 0 }, { a: 2, z: 0 }], [{ a: 2 }, { a: 1 }], { subsetColumns: true, ordered: true }),
   "subsetColumns rejects wrong order when ordered");
+
+// intervals (rules v2). node-postgres parses interval columns into objects; v1 turned every one into
+// "[object Object]", so any two interval results matched. The values below are the real holdout4 h4-18
+// results from the companyx data, parsed by node-postgres's own interval parser (OID 1186):
+// gold AVG over resolved_at IS NOT NULL, the generated SQL's AVG over status = 'resolved'.
+{
+  const interval = pg.types.getTypeParser(1186) as (s: string) => object;
+  const gold = [{ avg_resolution_time: interval("3 days 19:56:31.172414") }];
+  const pred = [{ avg_resolution_time: interval("3 days 18:15:40.085106") }];
+  ok(!resultsMatch(pred, gold), "h4-18: a different average interval does not match (v2)");
+  ok(resultsMatch(pred, gold, { rules: "v1" }), "h4-18: v1 still reproduces the old interval-blind match");
+  ok(!resultsMatch(pred, gold, { subsetColumns: true }), "h4-18: subsetColumns does not match a different interval either");
+  ok(resultsMatch([{ t: interval("3 days 19:56:31.172414") }], gold), "the same interval matches");
+  ok(resultsMatch([{ t: interval("1 day") }], [{ t: interval("24:00:00") }]), "'1 day' = '24:00:00', as PostgreSQL's = says");
+  ok(!resultsMatch([{ t: interval("1 day") }], [{ t: interval("1 day 00:00:01") }]), "one second apart does not match");
+  ok(!resultsMatch([{ t: 331_591.172414 }], gold), "an interval does not match its length written as a plain number");
+  ok(resultsMatch([{ t: interval("00:00:00") }], [{ t: interval("0 days") }]), "zero intervals match");
+  ok(!resultsMatch([{ o: { a: 1 } }], [{ o: { a: 2 } }]), "other objects compare by content, not as [object Object]");
+}
 
 console.log(`\nevalmatch.test: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
