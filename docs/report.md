@@ -971,7 +971,7 @@ node scripts/evidence-manifest.mjs             # 이 절과 실제 파일의 드
 | 활용성 (15) | 온프렘 적용 가능 도메인, CPU 7B 기준 실측, MCP 클라이언트 호환 — **주장이 아니라 실측**이다: stdio 로 도구 8종 실호출·프롬프트 4종 `get`·리소스 6종 `read`, sse 로 핸드셰이크 완주(`scripts/verify-stdio-tools.mjs`, `verify-sse-transport.mjs`) | 있음 |
 | 작품 데모 완성도 (10) | `npm run demo` 오프라인 종단 시연. (아래 지연 수치는 데모가 아니라 Company-X 종단 30문항 평가의 값이다) | 있음 |
 | 커뮤니티 확장 가능성 (5) | 품질관리 체계(테스트·평가 재현), 개발 로드맵, `CONTRIBUTING`·`CODE_OF_CONDUCT`·이슈/PR 템플릿·Discussions, good first issue 보존(#7), 비공개 취약점 신고 활성. **문은 열려 있으나 외부 참여(star·fork·외부 PR)는 아직 0** | 부분 |
-| 오픈소스SW 적절성 (15) | 의존성 110개 전부 허용형, 카피레프트 0건, air/pgvector/Ollama 적재적소 사용. `docs/sbom.md`가 버전·라이선스·용도를 자동 생성하고 `scripts/sbom.mjs`가 드리프트를 CI 에서 막는다 | 있음 |
+| 오픈소스SW 적절성 (15) | 의존성 20개 전부 허용형, 카피레프트 0건, air/pgvector/Ollama 적재적소 사용. `docs/sbom.md`가 버전·라이선스·용도를 자동 생성하고 `scripts/sbom.mjs`가 드리프트를 CI 에서 막는다 | 있음 |
 | 기능테스트 (10) | 장애주입 무중단 4/4, 부분응답 4/4, 오류가시성 4/4, replica kill drill 로그 | 있음(외부기관 재검증 대상) |
 | 라이선스 검증 (5) | SBOM 자동생성, 충돌 0건. **NIPA 오픈업 사전 컨설팅으로 채점 전 확인 가능** | 있음(사전 컨설팅 미신청) |
 

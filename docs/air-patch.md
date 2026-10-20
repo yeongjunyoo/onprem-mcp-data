@@ -1,6 +1,6 @@
 # air 패치와 전송 설정
 
-이 서버는 MCP 프레임워크 air(`@airmcp-dev/core`) 0.5.2 의 자체 엔진과 전송(stdio, SSE, Streamable HTTP)으로 돈다. 0.5.2 에서 우리가 찾은 결함 다섯은 air 저장소에 수정 PR 로 올렸고(SSE 의 Origin 검사는 올릴 준비 중), 릴리스에 들어오기 전까지는 npm 배포본 0.5.2 에 같은 수정을 얹은 tarball 을 저장소에 두고 쓴다(`air-server/vendor/`). 우리 쪽 우회 코드는 두지 않는다.
+이 서버는 MCP 프레임워크 air(`@airmcp-dev/core`) 0.5.2 의 자체 엔진과 전송(stdio, SSE, Streamable HTTP)으로 돈다. 0.5.2 에서 우리가 찾은 결함 여섯은 air 저장소에 수정 PR 로 올렸고, 릴리스에 들어오기 전까지는 npm 배포본 0.5.2 에 같은 수정을 얹은 tarball 을 저장소에 두고 쓴다(`air-server/vendor/`). 우리 쪽 우회 코드는 두지 않는다.
 
 ## tarball 에 든 것
 
@@ -14,7 +14,7 @@
 |---|---|
 | `001-air-prs-3-5-7-9-11.patch` | airmcp-dev/air PR 다섯 개. [#3](https://github.com/airmcp-dev/air/pull/3) stdio 줄 단위 프레이밍, [#5](https://github.com/airmcp-dev/air/pull/5) 도구 결과의 `isError` 전달, [#7](https://github.com/airmcp-dev/air/pull/7) Zod 에서 JSON Schema 로의 변환(refine 안쪽의 형과 설명, 배열 `items`, nullable 은 `anyOf: [형, {"type": "null"}]`), [#9](https://github.com/airmcp-dev/air/pull/9) `prompts/get` 필수 인자 검사(-32602), [#11](https://github.com/airmcp-dev/air/pull/11) Streamable HTTP(`GET /mcp` 405, Origin 검사, 기본 바인딩 127.0.0.1, 지원하지 않는 `MCP-Protocol-Version` 400) |
 | `002-ping-from-air-main-42cf9e0.patch` | air main 의 [42cf9e0](https://github.com/airmcp-dev/air/commit/42cf9e0) 가운데 `ping` 한 줄. 0.5.2 는 `ping` 에 `{"resultType":"complete"}` 를 돌려주는데, 빈 결과만 받는 MCP SDK 클라이언트의 `ping()` 이 이를 거부한다. 42cf9e0 은 0.5.2 배포 뒤의 커밋이라 아직 릴리스에 없다 |
-| `003-sse-origin.patch` | 이전 HTTP+SSE 전송(`GET /sse`, `POST /message`)의 Origin 검사. #11 의 규칙(Origin 없음, 루프백 출처, `allowedOrigins` 만 받는다)을 두 전송이 같이 쓰는 함수(`dist/protocol/origin.js`)로 꺼내 SSE 의 모든 경로에 건다. MCP 스펙 2024-11-05 transports 의 HTTP with SSE 절이 요구하는 검사다. air 저장소에 올릴 수정이고 아직 올리지 않았다(#11 위에 쌓은 커밋) |
+| `003-sse-origin.patch` | 이전 HTTP+SSE 전송(`GET /sse`, `POST /message`)의 Origin 검사. #11 의 규칙(Origin 없음, 루프백 출처, `allowedOrigins` 만 받는다)을 두 전송이 같이 쓰는 함수(`dist/protocol/origin.js`)로 꺼내 SSE 의 모든 경로에 건다. MCP 스펙 2024-11-05 transports 의 HTTP with SSE 절이 요구하는 검사다. air 저장소 PR #13 으로 올렸다(#11 위에 쌓은 커밋) |
 
 패치는 air 소스에서 만든다. 0.5.2 와 빌드 결과가 같은 커밋 `ddab0b4` 에 PR 커밋을 쌓아 TypeScript 5.9.3 으로 빌드한 `dist` 와 배포본의 차이가 001 이고, 그 위에 SSE 커밋을 더 쌓은 빌드와의 차이가 003 이다(`.js`, `.d.ts`). `.map` 은 넣지 않았다. 그래서 고친 파일의 source map 은 배포본 그대로라 고친 줄과 맞지 않고, 새 파일 `origin.js` 에는 map 이 없다. 각 수정의 이유와 재현은 PR 본문에 있다.
 
@@ -43,7 +43,7 @@ cd .. && node scripts/build-air-vendor.mjs --check   # 커밋된 tarball 이 다
 
 ## tarball 을 지우는 때
 
-air 새 릴리스가 PR #3, #5, #7, #9, #11, 42cf9e0, SSE Origin 수정을 모두 담으면 지운다. `file:` 의존성은 Dependabot 이 판을 올려 주지 않으므로 air 의 릴리스와 이 PR 들의 상태를 직접 본다.
+air 새 릴리스가 PR #3, #5, #7, #9, #11, #13 과 42cf9e0 을 모두 담으면 지운다. `file:` 의존성은 Dependabot 이 판을 올려 주지 않으므로 air 의 릴리스와 이 PR 들의 상태를 직접 본다.
 
 1. 새 판의 변경 기록에서 수정이 들어갔는지 본다. 일부만 들어갔으면 `build-air-vendor.mjs` 의 `BASE` 를 그 판으로 바꾸고 남은 수정만 패치로 다시 만든다.
 2. 모두 들어갔으면 `@airmcp-dev/core` 를 그 판으로 정확히 고정하고 `air-server/vendor/`, `scripts/build-air-vendor.mjs`, `scripts/air-vendor-lib.mjs`, `scripts/verify-air-patch.mjs`, CI 의 두 단계, Dockerfile 의 `COPY vendor`, NOTICE 와 `scripts/sbom.mjs` 의 해당 문장, 이 문서를 지운다. README 의 검사 표와 검사 수도 고친다.
