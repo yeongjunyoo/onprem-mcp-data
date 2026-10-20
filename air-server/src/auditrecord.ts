@@ -351,9 +351,12 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
 }
 
 /** 사람이 읽는 요약. 감사 레코드를 열 줄 안쪽으로 줄인다. */
-export function renderAudit(rec: AuditRecord): string {
+export function renderAudit(rec: AuditRecord & { executed_at?: string; caller?: { transport: string; os_user: string | null } }): string {
   const lines = [
     `질의: ${rec.query}`,
+    ...(rec.caller
+      ? [`호출: ${rec.executed_at ?? "시각 없음"}, ${rec.caller.transport}${rec.caller.os_user ? ` (OS 계정 ${rec.caller.os_user})` : ""}`]
+      : []),
     `지문: 규칙 ${rec.routing_fingerprint} / 파이프라인 ${rec.pipeline_fingerprint}`,
     `라우팅: ${rec.routing.lane} -> ${rec.routing.tools.join(", ") || "없음"} (${rec.routing.rationale})`,
     ...(rec.routing.fallback

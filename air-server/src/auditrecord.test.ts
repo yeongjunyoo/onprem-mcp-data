@@ -215,6 +215,10 @@ function main() {
   const text = renderAudit(denied);
   ok(text.includes("정책 sql-read-only: deny"), "요약에 정책 판정이 나온다");
   ok(text.split("\n").length <= 12, "요약은 열 줄 안쪽");
+  ok(!/^호출:/m.test(text), "호출 주체가 없는 레코드(파이프라인이 만든 것)는 호출 줄을 쓰지 않는다");
+  const called = renderAudit({ ...denied, executed_at: "2026-10-20T03:00:00.000Z", caller: { transport: "stdio", os_user: "alice" } });
+  ok(called.split("\n")[1] === "호출: 2026-10-20T03:00:00.000Z, stdio (OS 계정 alice)", `audit.explain 레코드면 언제, 누가 (got ${called.split("\n")[1]})`);
+  ok(renderAudit({ ...denied, executed_at: "t", caller: { transport: "http", os_user: null } }).includes("호출: t, http\n"), "계정이 없으면 전송만");
 
   // --- 9. 실행하지 않은 생성 문장(G17 ②④) ---
   // 쓰기 문장은 실행되지 않았지만 종전 레코드에는 흔적이 없었다(sql.text null, policies []).

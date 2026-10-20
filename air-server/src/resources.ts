@@ -192,6 +192,10 @@ export function buildResources() {
               generated_at: "레코드 생성 시각(ISO 8601)",
               executed_at:
                 "질의를 실제로 실행한 시각(ISO 8601). generated_at 과 다를 수 있다 — 캐시된 레코드를 돌려주면 생성은 지금이고 실행은 과거다",
+              caller:
+                "호출 주체(Who). {transport, os_user}. stdio 면 MCP 클라이언트가 서버를 자식 프로세스로 띄우므로 서버의 OS 계정이 부른 사람의 계정이다. "
+                + "sse, http 는 연결마다 부른 쪽이 다른데 이 서버는 인증을 두지 않아(127.0.0.1 바인딩, Origin 검사) os_user 가 null 이다. "
+                + "MCP 클라이언트 이름(clientInfo)은 air 0.5.2 가 도구 핸들러에 넘기지 않아 담지 않는다",
               cache_policy:
                 "이 도구의 캐시 정책 선언(cached | excluded). **관측값이 아니라 선언**이다 — 실제 적중 여부가 아니라 이 도구를 캐시에 넣기로 했는지를 말한다",
             },

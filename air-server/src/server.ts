@@ -43,6 +43,7 @@ import { ontologySearch, graphExpand, kgSchema } from "./graph.js";
 import { clampK, entityIdError } from "./sqltrust.js";
 import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
+import { userInfo } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -122,6 +123,20 @@ export function resolveTransport() {
   const host = resolveHost();
   const type = raw === "sse" ? "sse" : "http";
   return { type, port, host, allowedOrigins: resolveAllowedOrigins() } satisfies TransportConfig;
+}
+
+/** 감사 레코드의 호출 주체(Who). stdio 는 MCP 클라이언트가 서버를 자식 프로세스로 띄우므로 서버의 OS 계정이 곧 부른
+ * 사람의 계정이다. sse, http 는 연결마다 부른 쪽이 다른데 이 서버는 인증을 두지 않으므로(127.0.0.1 바인딩, Origin 검사)
+ * 계정을 적지 않는다. MCP 클라이언트 이름(initialize 의 clientInfo)은 air 0.5.2 가 도구 핸들러에 넘기지 않아 아직 적지 못한다. */
+export function auditCaller(): { transport: string; os_user: string | null } {
+  const transport = resolveTransport().type;
+  if (transport !== "stdio") return { transport, os_user: null };
+  try {
+    return { transport, os_user: userInfo().username };
+  } catch {
+    // 폴백: passwd 에 없는 uid 로 도는 컨테이너는 계정 이름이 없다. 모른다는 값(null)을 그대로 적는다.
+    return { transport, os_user: null };
+  }
 }
 
 /** MCP_HOST: 바인딩 주소. 비우면 루프백(127.0.0.1). 주소나 호스트 이름이 아니면(포트나 스킴을 붙인 값) 기동을 멈춘다. */
@@ -400,6 +415,7 @@ export function buildServer(): AirServer {
           const record = {
             ...buildAuditRecord(r),
             executed_at,
+            caller: auditCaller(),
             cache_policy: CACHE_EXCLUDED.includes("audit.explain") ? ("excluded" as const) : ("cached" as const),
           };
           return format === "text" ? { text: renderAudit(record) } : record;
