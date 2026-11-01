@@ -76,6 +76,16 @@ export function nameSimilarity(a: string, b: string): number {
   return 1 - levenshtein(x, y) / longer;
 }
 
+/** 부서를 줄여 부른 이름인가. 부서 접미사를 뗀 어간(두 글자 이상)으로 시작하는 부서면 맞다(「보안팀」과 「보안솔루션팀」, 「클라우드팀」과
+ * 「클라우드사업부」). 편집 거리로는 멀어 「비슷한 개체도 없습니다」라고 말하게 되는데, 줄여 부른 이름을 없다고 잘라 말하면 틀린 문장이다.
+ * 후보로 알리기만 하고 해소하지 않는 것은 다른 비슷한 이름과 같다. */
+const DEPT_SUFFIX = /(?:팀|사업부|본부)$/;
+function shortenedDept(term: string, name: string): boolean {
+  if (!DEPT_SUFFIX.test(term) || !DEPT_SUFFIX.test(name)) return false;
+  const stem = term.replace(DEPT_SUFFIX, "");
+  return [...stem].length >= 2 && name.startsWith(stem);
+}
+
 /** 질의어 하나와 비슷한 이름의 개체들. 편집거리는 길이 차 이상이므로, 길이 비율이
  * 임계값에 못 미치는 이름은 거리를 재지 않고 건너뛴다. */
 export function similarNames(
@@ -90,6 +100,10 @@ export function similarNames(
     const key = `${e.type}\u0000${e.name}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    if (shortenedDept(term, e.name)) {
+      out.push({ name: e.name, type: e.type, raw: nameSimilarity(term, e.name) });
+      continue;
+    }
     const el = [...norm(e.name)].length;
     if (Math.min(tl, el) / Math.max(tl, el) < NOT_FOUND_SIMILARITY) continue;
     const raw = nameSimilarity(term, e.name);
@@ -109,11 +123,31 @@ export function similarNames(
  * 이름으로 본다. 「등록된」, 「이전」 같은 일반 낱말은 해소되지 않아도 개체가 아니다 — 그 낱말을
  * 개체로 읽어 「찾지 못했습니다」라고 답한 오라우팅이 실측에 있었다(근거표 「넣지 않은 것」). */
 const NAME_ID = /^[A-Z][A-Za-z]*-[A-Z]{1,3}\d*$/;
+/** 고객사와 제품 식별자는 대소문자를 가리지 않는다(「client-zz」). 그 밖의 대문자 하이픈 낱말(CI-CD, Company-X)은 어느 갈래에서든 막을 만큼
+ * 이름이 분명하지 않다(absentNameTerm). */
+const TYPED_ID = /^(?:client|product)-(?!id$)[a-z0-9]{1,3}$/i;
 const ORG_NAME =
-  /^([가-힣A-Za-z0-9]+?(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소))(?:이랑|랑|하고|이나|이며|이고|께서|한테)?$/;
+  /^([가-힣A-Za-z0-9]+?(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소))(?:이랑|랑|하고|이나|이며|이고|께서|한테|쪽|측|에서|에게|에|으로|로|보다|처럼|만큼|마다|부터|까지|이라는|라는|이란|란)?$/;
+/** 조직 접미사로 끝나도 이름이 아닌 말(「우리팀」, 「같은팀」, 「직속상사」). 어간이 이 말이면 어느 팀, 어느 상사인지 말한 것이 아니다. */
+const ORG_NOT_NAME = /^(?:우리|저희|같은|다른|어느|무슨|어떤|각|해당|전체|모든|상대|담당|소속|타|본|직속)(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소)$/;
+function orgName(term: string): string | null {
+  const name = term.match(ORG_NAME)?.[1] ?? null;
+  return name && !ORG_NOT_NAME.test(name) ? name : null;
+}
 export function entityLikeName(term: string): string | null {
-  if (NAME_ID.test(term)) return term;
-  return term.match(ORG_NAME)?.[1] ?? null;
+  if (NAME_ID.test(term) || TYPED_ID.test(term)) return term;
+  return orgName(term);
+}
+
+/** 어느 갈래로 가든 데이터에서 못 찾으면 막는 이름: 고객사와 제품 식별자 꼴, 조직 접미사로 끝나는 낱말. 맞으면 이름 부분, 아니면 null. */
+export function absentNameTerm(term: string): string | null {
+  return TYPED_ID.test(term) ? term : orgName(term);
+}
+
+/** 질문 앞의 자기소개 문장(「저는 … 재무팀 담당자입니다」). 그 안의 이름은 묻는 사람의 소속이지 찾을 대상이 아니다. */
+const SELF_INTRO = /(?:^|[\s.,!?])(?:저는|제가|저희는)\s[^.?!]*?(?:입니다|이에요|예요|인데요|인데|이고요|이고)(?=[\s.,!?]|$)/g;
+export function withoutSelfIntro(query: string): string {
+  return query.replace(SELF_INTRO, " ");
 }
 
 /** 못 찾은 개체로 이름을 댈 질의어. 이름처럼 생긴 낱말(조직 접미사, 대문자, 하이픈, 숫자)을 먼저 고르고

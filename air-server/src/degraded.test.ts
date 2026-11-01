@@ -35,7 +35,7 @@ import type { Pool } from "pg";
 import type { Embedder } from "./embedder.js";
 import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX, writeRefusal, NO_TABLE_ANSWER } from "./pipeline.js";
 import { pickSql, readsTable, writeStatement, NO_TABLE, type Nl2SqlReport } from "./nl2sql.js";
-import { describeAbsentAttribute } from "./notfound.js";
+import { describeAbsentAttribute, describeNotFound } from "./notfound.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
 import { assertCorpusEmbedder } from "./companyx.js";
@@ -887,6 +887,7 @@ const deadEmbedder: Embedder = {
       ({
         connect: async () => ({ query: async () => ({ rows: [{ name: "고객 1" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }),
         query: async (sql: string, params?: unknown[]) => {
+          if (sql.includes("WITH t AS")) return { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] };
           if (!/pg_constraint/.test(sql)) return { rows: [], rowCount: 0 };
           asked.push(String(params?.[0]));
           return params?.[0] === "bench" ? { rows: benchFks, rowCount: benchFks.length } : { rows: [], rowCount: 0 };
@@ -1941,7 +1942,11 @@ const deadEmbedder: Embedder = {
   );
   ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
   const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });
-  ok(other.answer.startsWith("120입니다."), `생성 SQL 이 그 이름을 찾지 않았으면 사유를 붙이지 않는다(답과 어긋남) (got ${other.answer})`);
+  // 생성 SQL 이 지목한 이름을 뺐다. 다른 조건의 행(「서울물산 담당자」 → region = '서울')을 답으로 쓰지 않는다.
+  ok(
+    other.answer === describeNotFound(other.not_found!) && other.not_found?.query_entity === "서울물산" && other.sql.text === null && other.sql.refused?.text === sumSql("Client-A") && !other.answer.includes("120"),
+    `생성 SQL 이 그 이름을 찾지 않았으면 실행하지 않고 찾지 못했다고 답한다 (got ${other.answer})`,
+  );
   for (const q of ["Client-A의 2025년 3분기 총 매출액은 얼마야?", "기술지원팀 직원들의 평균 연봉은?", "Product-C1 매출 합계는?", "김준혁이 담당한 계약의 총 금액은 얼마야?", "2019년에 등록된 고객사는 몇 개야?"]) {
     const ex = await ask(q, { pool: ontoPool([{ n: 1 }]), embedder: deadEmbedder, repair: false, llm: async () => "답", nl2sql: async () => "SELECT 1 AS n FROM companyx.clients" });
     ok(ex.sql.missing === undefined && ex.answer.startsWith("답"), `있는 이름, 이름이 아닌 말에는 붙지 않는다: ${q} (got ${ex.answer})`);
@@ -3273,7 +3278,10 @@ const deadEmbedder: Embedder = {
           : { rows: [], rowCount: 0 },
       release: () => {},
     }),
-    query: async () => ({ rows: [], rowCount: 0 }),
+    query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: "영업팀", properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
   } as unknown as Pool;
   const jsonSql =
     "SELECT d.name AS department, array_agg(e.email) AS emails FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀' GROUP BY d.name";

@@ -54,12 +54,14 @@ function nullAggregate(r: RetrieveResult): boolean {
  * 레인이 실패했으면(branch_errors) 빈손이 아니라 장애라 그대로 알린다. */
 export function emptyLane(r: RetrieveResult): string | undefined {
   if (r.audit.branch_errors.length) return undefined;
+  // 질문이 지목한 이름을 데이터에서 못 찾은 것은 빈손이 아니라 그 자체로 답이다. 다음 순위 레인으로 넘기면 이름을 뺀 답이 돌아올 수 있다.
+  if (r.not_found && r.route !== "graph") return undefined;
   if (r.route === "structured") {
     const s = r.sql;
     // 생성 모델이 쓰기 문장이나 테이블을 읽지 않는 SELECT(「오늘 서울 날씨 어때?」)를 냈으면 그것이 답이다(쓰기 거절, 데이터에 없는 질문).
     if (s.refused) return undefined;
     if (s.absent || s.gate?.vague) return undefined;
-    if ((s.missing ?? []).some((nf) => s.text?.includes(nf.query_entity))) return undefined;
+    if (s.missing?.length) return undefined;
     if (s.gate?.outcome === "refused") return "the pre-execution check refused the generated SQL";
     if (!s.result) return s.text === null ? "no SQL was generated" : undefined;
     if (!s.result.ok) return GENERATED_SQL_ERROR.test(s.result.error ?? "") ? `the generated SQL failed: ${s.result.error}` : undefined;
@@ -73,7 +75,7 @@ export function emptyLane(r: RetrieveResult): string | undefined {
     if (g.strategy === "unresolved") {
       const nf = g.not_found;
       // 이름처럼 생긴 낱말(Client-ZZ, 서울물산)이나 비슷한 이름이 있는 낱말을 못 찾은 것은 「없는 개체」라는 답이다.
-      if (nf && (nf.reason === "similar_name_mismatch" || entityLikeName(nf.query_entity) !== null)) return undefined;
+      if (g.named_absent || (nf && (nf.reason === "similar_name_mismatch" || entityLikeName(nf.query_entity) !== null))) return undefined;
       return `no entity resolved${nf ? ` (${nf.query_entity})` : ""}`;
     }
     if (g.edgeCount === 0 && !g.ranking?.length) return "no edge from the resolved entities";

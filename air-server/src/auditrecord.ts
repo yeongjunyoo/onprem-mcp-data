@@ -32,7 +32,7 @@ import type { GraphTruncation } from "./graph.js";
 import type { EvidenceUnit } from "./evidence.js";
 import type { NotFound } from "./notfound.js";
 import { sqlGatePolicy } from "./sqltrust.js";
-import { NO_TABLE } from "./nl2sql.js";
+import { NO_TABLE, UNRESOLVED_NAME } from "./nl2sql.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
@@ -184,7 +184,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         detail: `엔진 또는 가드가 거부: ${r.sql.result?.error ?? "사유 미기록"}`,
       });
     }
-  } else if (r.sql.refused) {
+  } else if (r.sql.refused && r.sql.refused.kind !== UNRESOLVED_NAME) {
     // 실행하지 않은 생성 문장도 거부 판정으로 남긴다. 종전에는 조용히 버려 감사 레코드에 흔적이 없었다.
     policies.push({
       policy: "sql-read-only",
@@ -226,6 +226,16 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       policy: "graph-unresolved-gate",
       verdict: "deny",
       detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 근거를 비우고, 찾지 못한 사유 한 줄만 컨텍스트에 남겼다(환각 차단)${why}`,
+    });
+  } else if (r.not_found) {
+    // 정형이나 문서 레인으로 간 질문이 없는 이름을 지목했다. 생성 모델을 답에 쓰지 않았다.
+    const names = (r.missing?.length ? r.missing : [r.not_found]).map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
+    policies.push({
+      policy: "graph-unresolved-gate",
+      verdict: "deny",
+      detail:
+        `질의가 지목한 개체를 온톨로지에서 해소하지 못해(${names}) 조회 결과로 답하지 않고 찾지 못한 사유로 답했다(환각 차단)` +
+        (r.sql.refused?.kind === UNRESOLVED_NAME ? ". 생성 SQL 이 그 이름을 쓰지 않아 실행하지 않았다" : ""),
     });
   } else if (r.missing?.length) {
     // 섞인 질문: 찾은 개체로는 답하되, 없는 개체는 사유를 컨텍스트와 답 앞에 싣는다.
