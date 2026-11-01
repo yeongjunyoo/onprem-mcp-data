@@ -204,7 +204,7 @@ export function failedToolResult(result: unknown): boolean {
 /** 실패한 결과를 캐시에 넣지 않게 한다. use 에서 cachePlugin 앞에 둔다: after 는 그 순서로 돌고, cachePlugin 의 after 는 이 칸이 비면 넣지 않는다. */
 function noFailureCachePlugin(): AirPlugin {
   return {
-    meta: { name: "onprem:no-failure-cache", version: "1.0.0" },
+    meta: { name: "onprem:no-failure-cache" },
     middleware: [
       {
         name: "onprem:no-failure-cache",

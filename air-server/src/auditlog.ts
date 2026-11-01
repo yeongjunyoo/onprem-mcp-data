@@ -70,6 +70,7 @@ function plainResult(result: unknown): Record<string, unknown> {
       const parsed: unknown = JSON.parse(text);
       return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
     } catch {
+      // 입력 검증 거절처럼 JSON 이 아닌 응답 글이다. 실패 표식으로 머리 글만 error 칸에 옮긴다.
       return { _text: text };
     }
   }
@@ -154,7 +155,7 @@ export function auditLogPlugin(path: string, caller: () => { transport: string; 
   const entry = (ctx: { tool: { name: string }; params: Record<string, unknown>; requestId?: string; meta?: Record<string, unknown>; duration?: number; result?: unknown }, error?: string) =>
     auditLogEntry({ tool: ctx.tool.name, params: ctx.params, result: ctx.result, requestId: ctx.requestId, durationMs: ctx.duration, cached: Boolean(ctx.meta?._cached || ctx.meta?._deduped), error }, caller());
   return {
-    meta: { name: "onprem:audit-log", version: "1.0.0" },
+    meta: { name: "onprem:audit-log" },
     middleware: [
       {
         name: "onprem:audit-log",

@@ -52,6 +52,7 @@ import {
   mentionTerms,
   namedTermsOutsideData,
   inDocuments,
+  wordInDocuments,
   joinSpacedIds,
   likeLiteral,
   graphExpand,
@@ -476,12 +477,37 @@ export async function absentNames(pool: Pool, query: string, schema = kgSchema()
   return out;
 }
 
+const SQL_NAME_VALUE = /(?<![\w])name\s*(?:=|i?like)\s*'((?:[^']|'')*)'/gi;
+const SQL_NAME_LIST = /(?<![\w])name\s+in\s*\(([^)]*)\)/gi;
+
+/** 생성 SQL 이 이름 열에서 찾는 값. c.name 은 맞고 client_name, contact_name 같은 다른 열은 아니다. 부정 조건(!=, NOT LIKE)도 아니다. */
+export function sqlNameValues(sql: string): string[] {
+  const values = [...sql.matchAll(SQL_NAME_VALUE)].map((m) => m[1]);
+  for (const m of sql.matchAll(SQL_NAME_LIST)) values.push(...[...m[1].matchAll(/'((?:[^']|'')*)'/g)].map((v) => v[1]));
+  return [...new Set(values.map((v) => v.replace(/''/g, "'").replace(/^%+|%+$/g, "").trim()).filter(Boolean))];
+}
+
+/** 생성 SQL 이 이름 열에서 찾는 값이 질문에 그대로 있는데 온톨로지에도 문서에도 없으면 없는 이름이다. 생성 모델이 이름으로 읽은 말이라 꼴로는 이름인지 모르는 말(「카카오」, 「홍길동」)도
+ * 잡힌다. 이름 열이 있는 표(고객사, 제품, 직원, 부서, 프로젝트)는 모두 온톨로지 노드라 여기서 못 찾으면 그 조건에 맞는 행이 없다. */
+async function absentSqlNames(pool: Pool, sql: string, query: string, schema = kgSchema()): Promise<NotFound[]> {
+  const out: NotFound[] = [];
+  const asked = withoutSelfIntro(query).toLowerCase();
+  for (const value of sqlNameValues(sql)) {
+    if (!asked.includes(value.toLowerCase()) || profile().schemaCard.includes(value)) continue;
+    const o = await ontologySearch(pool, value, 1, schema);
+    if (!o.ok || o.hits.length || !o.not_found || o.not_found.reason === "no_entity_term") continue;
+    if ((await inDocuments(pool, value)) || (await describesData(pool, value, schema))) continue;
+    out.push(o.not_found);
+  }
+  return out;
+}
+
 /** 조직 접미사로 끝나도 데이터를 가리키는 말이다. 「제조산업」, 「금융그룹」은 고객사 업종 값(제조업, 금융)에 일반 명사가 붙은 말이고, 「SSL통신」의 SSL 은 문서에 있는 기술
  * 용어다. 「부산은행」, 「서울건설」의 부산, 서울은 업종이 아니라 지역이라 그대로 이름이다. */
 const GENERAL_ORG_SUFFIX = /(?:산업|그룹|통신|화학|보험|은행|증권|카드|건설)$/;
 async function describesData(pool: Pool, name: string, schema: string): Promise<boolean> {
   const head = name.replace(/^([A-Za-z][A-Za-z0-9]*)[가-힣]+$/, "$1");
-  if (head !== name && (await inDocuments(pool, head))) return true;
+  if (head !== name && (await wordInDocuments(pool, head))) return true;
   if (!GENERAL_ORG_SUFFIX.test(name)) return false;
   const stem = name.replace(GENERAL_ORG_SUFFIX, "");
   if (stem.length < 2) return false;
@@ -491,6 +517,11 @@ async function describesData(pool: Pool, name: string, schema: string): Promise<
   } catch {
     return false;
   }
+}
+
+/** 0, null, false 가 아닌 값이 든 행인가. */
+function holdsValue(row: Record<string, unknown>): boolean {
+  return Object.values(row).some((v) => v !== null && v !== false && Number(v) !== 0);
 }
 
 /** 없는 이름을 가린 질문에 찾은 다른 개체가 있는가. 「서울물산과 Client-A 매출」은 Client-A 로 답할 수 있지만 「서울물산 담당자」는 답할 대상이 없다. */
@@ -894,24 +925,30 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
     }
     const report: Nl2SqlReport = {};
     // 지목한 이름이 없고 찾은 다른 개체도 없으면 그 이름을 찾는 SQL 만 답이 될 수 있다. 이름을 뺀 SQL 은 다른 조건의 행을 돌려준다(「서울물산 담당자」 → region = '서울').
-    const alone = unfound.length > 0 && !namesOtherEntity(query, unfound);
-    const missing = unfound.length ? { missing: unfound } : {};
-    const unresolved = { ...missing, unresolved: true as const };
+    const alone = () => unfound.length > 0 && !namesOtherEntity(query, unfound);
+    const missing = () => (unfound.length ? { missing: unfound } : {});
+    const unresolved = () => ({ ...missing(), unresolved: true as const });
+    // 생성 SQL 이 이름 열에서 찾는 값도 같은 판정을 받는다(absentSqlNames).
+    const noteSqlNames = async (sql: string | null) => {
+      if (!sql || profile().name !== "companyx" || decision.route === "graph") return;
+      for (const nf of await absentSqlNames(pool, sql, query)) if (!unfound.some((u) => u.query_entity === nf.query_entity)) unfound.push(nf);
+    };
     let generated: string | null;
     try {
       generated = await nl2sql(query, report);
     } catch (err) {
       // 모델 서버가 죽어도 없는 이름은 이미 안다. 조회 실패가 아니라 없다고 답한다.
-      if (alone) return { text: null, ...unresolved };
+      if (alone()) return { text: null, ...unresolved() };
       throw modelServerError(err) ?? err;
     }
     const text = generated ? alignQualifiedTables(generated, query) : generated;
     if (!text) {
-      if (!report.refused) return { text: null, ...missing };
-      return { text: null, refused: report.refused, ...(alone && report.refused.kind === NO_TABLE ? unresolved : missing) };
+      if (!report.refused) return { text: null, ...missing() };
+      return { text: null, refused: report.refused, ...(alone() && report.refused.kind === NO_TABLE ? unresolved() : missing()) };
     }
-    const dropped = (sql: string) => ({ text: null, refused: { kind: UNRESOLVED_NAME, text: sql }, ...unresolved });
-    if (alone && !unfound.some((nf) => sqlNames(text, nf.query_entity))) return dropped(text);
+    await noteSqlNames(text);
+    const dropped = (sql: string) => ({ text: null, refused: { kind: UNRESOLVED_NAME, text: sql }, ...unresolved() });
+    if (alone() && !unfound.some((nf) => sqlNames(text, nf.query_entity))) return dropped(text);
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
     // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다. 외래키와 컬럼은 프로파일의 테이블이 있는
     // 스키마에서 읽는다. 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다(#255).
@@ -921,16 +958,19 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       schema: profile().sqlSchema,
       ...(unfound.length ? { emptyRepair: false } : {}),
     });
-    if (alone && ex.text !== null && !unfound.some((nf) => sqlNames(ex.text, nf.query_entity))) return dropped(ex.text);
+    if (ex.text !== text) await noteSqlNames(ex.text);
+    if (alone() && ex.text !== null && !unfound.some((nf) => sqlNames(ex.text, nf.query_entity))) return dropped(ex.text);
+    // 없는 개체만 지목한 조회가 돌려준 0, null 아닌 값은 그 개체의 것이 아니다. 빈 집합 위의 rank() 는 1 이라 「Client-ZZ의 매출 순위는 1위입니다」가 됐다.
+    if (alone() && ex.text !== null && ex.result?.ok && ex.result.rows.some(holdsValue)) return dropped(ex.text);
     return {
       text: ex.text,
       result: ex.result,
       repaired: ex.repaired || undefined,
       ...(ex.gate ? { gate: ex.gate } : {}),
       ...(ex.rank ? { rank: ex.rank } : {}),
-      ...missing,
+      ...missing(),
       // 이름을 찾는 SQL 이 실행되지 못했으면(거부, 오류) 「실행되는 조회를 못 만들었다」가 아니라 그 이름이 없다는 것이 답이다.
-      ...(alone && (ex.gate?.outcome === "refused" || !ex.result?.ok) ? { unresolved: true as const } : {}),
+      ...(alone() && (ex.gate?.outcome === "refused" || !ex.result?.ok) ? { unresolved: true as const } : {}),
     };
   })();
   // 문서 레인만 도는 질문이 문서 하나를 가리키면(evidence.ts namedDocument) 상위 k 조각 대신 그 문서의 절을 문서 순서대로 싣는다(unitHits).
@@ -1157,7 +1197,7 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
       ...(graphResult?.missing?.length ? { missing_entities: graphResult.missing } : {}),
       ...(unfoundAlone ? { not_found: unfound[0] } : {}),
-      ...(unfoundAlone || unfoundOther ? { missing_entities: unfound } : {}),
+      ...(unfound.length ? { missing_entities: unfound } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
       ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
       ...(sql.gate ? { sql_gate: sql.gate } : {}),
@@ -2133,45 +2173,45 @@ async function answerQuery(
   // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
   // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
   // 정형 레인 질문이 데이터에 없는 개체를 이름으로 지목했고 생성 SQL 이 그 이름을 그대로 찾았으면 그 사유를 답 앞에 붙인다(absentNames).
-  // SQL 이 그 이름을 뺐으면 위에서 찾지 못했다고 끝났거나(찾은 다른 개체가 없음) 아래 r.missing 의 사유가 앞에 붙는다(찾은 다른 개체로 답함).
-  const sqlMissing = r.missing?.length ? [] : (r.sql.missing ?? []);
-  const missingSqlHead = sqlMissing.length ? `${sqlMissing.map(describeNotFound).join(" ")}\n\n` : "";
+  // SQL 이 그 이름을 뺐으면 위에서 찾지 못했다고 끝났거나(찾은 다른 개체가 없음) r.missing 의 사유가 앞에 붙는다(찾은 다른 개체로 답함). 어느 길로 답하든 사유가 먼저다.
+  const absentHere = r.missing?.length ? r.missing : (r.sql.missing ?? []);
+  const head = absentHere.length ? `${absentHere.map(describeNotFound).join(" ")}\n\n` : "";
   // 조회는 했는데 0건이고 다른 근거도 없다. 7B 를 부르지 않고 0건이라고 말한다(ZERO_ROWS_ANSWER).
   if (r.sql.result?.ok && r.sql.result.rows.length === 0 && r.context.length === 0) {
-    return { ...r, answer: missingSqlHead + ZERO_ROWS_ANSWER };
+    return { ...r, answer: head + ZERO_ROWS_ANSWER };
   }
   // 정형 레인의 합계, 평균, 최댓값, 최솟값 집계가 값이 모두 null 인 한 행이면 7B 없이 값이 없다고 말한다(NULL_ROW_ANSWER).
   // 못 찾은 개체 사유를 앞에 붙이는 답은 7B 문장을 그대로 둔다. 제출한 명세 TC-143 의 비고가 그 문장(「서울물산의 2025년 3분기 총
   // 매출액은 없습니다.」)을 인용해, 결정론 문장으로 바꾸면 인용한 값이 화면에서 사라졌다(10-08 네 번째 릴리스 리허설, G13).
   const onlyRow = r.route === "structured" && r.sql.result?.ok && r.sql.result.rows.length === 1 ? r.sql.result.rows[0] : undefined;
   const aggregate = /\b(?:sum|avg|min|max)\s*\(/i.test(r.sql.text ?? "");
-  if (onlyRow && aggregate && !missingSqlHead && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
-    return { ...r, answer: missingSqlHead + withSqlRows(r, NULL_ROW_ANSWER) };
+  const sqlFoundNoName = !r.missing?.length && Boolean(r.sql.missing?.length);
+  if (onlyRow && aggregate && !sqlFoundNoName && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
+    return { ...r, answer: head + withSqlRows(r, NULL_ROW_ANSWER) };
   }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
-  if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
+  if (tie) return { ...r, answer: head + withSqlRows(r, tie) };
   // 묶음마다 1위를 결정론으로 바꾼 SQL 은 묶음마다 1위 행을 모두 적는 결정론 문장으로 답한다(groupTopAnswer).
   const groupTop = (r.missing ?? []).length ? undefined : groupTopAnswer(r, query);
-  if (groupTop) return { ...r, answer: missingSqlHead + withSqlRows(r, groupTop) };
+  if (groupTop) return { ...r, answer: head + withSqlRows(r, groupTop) };
   // 글 값만 든 목록은 행을 그대로 적는다(textListAnswer).
   const textList = (r.missing ?? []).length ? undefined : textListAnswer(r, query);
-  if (textList) return { ...r, answer: missingSqlHead + withSqlRows(r, textList) };
+  if (textList) return { ...r, answer: head + withSqlRows(r, textList) };
   // 그래프 집계의 「가장 적은」, 「가장 많은」이 공동이면 같은 방식으로 이름을 모두 적는다. 묶음마다 센 집계는 묶음과 수를 모두 적는다.
   const few = fewestAnswer(r) ?? topTieAnswer(r, query) ?? groupCountAnswer(r, query);
-  if (few) return { ...r, answer: few };
+  if (few) return { ...r, answer: head + few };
   // 상태 조건을 건 관계 목록은 조건과 이름을 결정론으로 적는다. 부정 조건과 세 단계 관계는 계산하거나 계산하지 않는다고 말한다.
   const listed = filteredListAnswer(r, query);
-  if (listed) return { ...r, answer: listed };
+  if (listed) return { ...r, answer: head + listed };
   // 「상사」 경로(소속 부서 다음 부서장)는 경로 끝의 부서장을 모두 적는다(bossAnswer).
   const boss = bossAnswer(r);
-  if (boss) return { ...r, answer: boss };
+  if (boss) return { ...r, answer: head + boss };
   const limit = await graphLimitAnswer(deps.pool, r, query);
-  if (limit) return { ...r, answer: limit };
+  if (limit) return { ...r, answer: head + limit };
 
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
   const missingLines = new Set((r.missing ?? []).map((nf) => `[그래프] ${describeNotFound(nf)}`));
-  const head = (missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "") + missingSqlHead;
   const answerContext = missingLines.size
     ? r.context.split("\n").filter((l) => !missingLines.has(l)).join("\n")
     : r.context;

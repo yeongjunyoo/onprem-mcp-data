@@ -344,6 +344,17 @@ export async function inDocuments(pool: Pool, term: string, table = profile().ve
   }
 }
 
+/** 영문 낱말이 문서에 낱말로 있는가. 「128KB」의 KB 는 「KB증권」의 머리가 아니고, 「SSL 인증서」의 SSL 은 「SSL통신」의 머리다. 읽지 못하면 있다고 본다. */
+export async function wordInDocuments(pool: Pool, word: string, table = profile().vectorTable): Promise<boolean> {
+  if (!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/.test(table) || !/^[A-Za-z][A-Za-z0-9]*$/.test(word)) return true;
+  try {
+    const res = await pool.query(`SELECT 1 FROM ${table} WHERE title ~* $1 OR body ~* $1 LIMIT 1`, [`(^|[^a-z0-9])${word}([^a-z0-9]|$)`]);
+    return (res.rowCount ?? res.rows.length) > 0;
+  } catch {
+    return true;
+  }
+}
+
 /** LIKE, ILIKE 패턴에 넣을 낱말. 역슬래시, %, _ 를 글자 그대로 찾게 앞에 역슬래시를 붙인다(PostgreSQL 의 기본 이스케이프 문자). */
 export function likeLiteral(term: string): string {
   return term.replace(/[\\%_]/g, (c) => `\\${c}`);

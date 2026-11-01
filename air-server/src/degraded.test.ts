@@ -3477,12 +3477,15 @@ const deadEmbedder: Embedder = {
         /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows: [{ diff: "652.3000000000000000" }], rowCount: 1, fields: [{ name: "diff" }] } : { rows: [], rowCount: 0 },
       release: () => {},
     }),
-    query: async () => ({ rows: [], rowCount: 0 }),
+    query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
   } as unknown as Pool;
   const xc08r = await ask(xc08q, { pool: xc08Pool, embedder: deadEmbedder, repair: false, nl2sql: async () => xc08sql, llm: async () => "클라우드사업부 평균 연봉은 영업팀보다 652.3元 높아요." });
   ok(
     // 시험용 pool 은 온톨로지 행이 없어 부서 이름이 못 찾은 개체로 앞에 붙는다. 답 문장과 조회 블록만 본다.
-    xc08r.answer.endsWith("\n\n클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요.\n\n[조회 결과 1건]\n- diff: 652.3") && JSON.stringify(xc08r.grounding_fix?.units) === '[{"from":"652.3元","to":"652.3만원"}]',
+    xc08r.answer === "클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요.\n\n[조회 결과 1건]\n- diff: 652.3" && JSON.stringify(xc08r.grounding_fix?.units) === '[{"from":"652.3元","to":"652.3만원"}]',
     `ask 의 XC08 과 grounding_fix (got ${JSON.stringify(xc08r.answer)} ${JSON.stringify(xc08r.grounding_fix)})`,
   );
 
@@ -3583,10 +3586,12 @@ const deadEmbedder: Embedder = {
         },
         release: () => {},
       }),
-      query: async (sql: string) =>
+      query: async (sql: string, params?: unknown[]) =>
         /contype = 'f'/.test(sql)
           ? { rows: [{ table_name: "sales", column_name: "client_id", ref_table: "clients", ref_column: "id" }], rowCount: 1 }
-          : { rows: [], rowCount: 0 },
+          : sql.includes("WITH t AS")
+            ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+            : { rows: [], rowCount: 0 },
     }) as unknown as Pool;
   let called = 0;
   const llm = async () => ((called++), "1. 광주: Client-W (36,760)");
@@ -3622,7 +3627,10 @@ const deadEmbedder: Embedder = {
           /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? {}).map((name) => ({ name })) } : { rows: [], rowCount: 0 },
         release: () => {},
       }),
-      query: async () => ({ rows: [], rowCount: 0 }),
+      query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
     }) as unknown as Pool;
 
   // P7: 생성 SQL 이 금액 열에 10000 을 곱했으면 값이 이미 원이다. 맞게 쓴 「60006000원」을 「60006000만원」으로 바꿨다(AN10, 3/3).

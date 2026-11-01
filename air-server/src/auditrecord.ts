@@ -237,7 +237,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       verdict: "deny",
       detail:
         `질의가 지목한 개체를 온톨로지에서 해소하지 못해(${names}) 조회 결과로 답하지 않고 찾지 못한 사유로 답했다(환각 차단)` +
-        (r.sql.refused?.kind === UNRESOLVED_NAME ? ". 생성 SQL 이 그 이름을 쓰지 않아 실행하지 않았다" : ""),
+        (r.sql.refused?.kind === UNRESOLVED_NAME ? ". 생성 SQL 의 결과로 답하지 않았다" : ""),
     });
   } else if (r.missing?.length) {
     // 섞인 질문: 찾은 개체로는 답하되, 없는 개체는 사유를 컨텍스트와 답 앞에 싣는다.
@@ -248,6 +248,14 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       detail:
         `질의가 지목한 개체 일부를 온톨로지에서 해소하지 못했다(${names}). 그 사유를 컨텍스트와 답 앞에 싣고, ` +
         `찾은 개체의 근거로만 「${r.answer_query ?? r.query}」에 답했다(없는 개체에 찾은 개체의 사실을 붙이지 않음)`,
+    });
+  } else if (r.sql.missing?.length) {
+    // 생성 SQL 이 없는 이름을 그대로 찾아 값 없는 결과를 돌려줬다. 그 결과 앞에 찾지 못한 사유를 붙였다.
+    const names = r.sql.missing.map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
+    policies.push({
+      policy: "graph-unresolved-gate",
+      verdict: "degrade",
+      detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못했다(${names}). 생성 SQL 이 그 이름을 찾은 값 없는 결과 앞에 찾지 못한 사유를 붙여 답했다`,
     });
   }
 
@@ -358,6 +366,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
 
   if (r.not_found) record.not_found = r.not_found;
   if (r.missing?.length) record.missing_entities = r.missing;
+  else if (!r.not_found && r.sql.missing?.length) record.missing_entities = r.sql.missing;
 
   if (answer !== undefined) {
     const fixed = "grounding_fix" in r ? r.grounding_fix : undefined;
