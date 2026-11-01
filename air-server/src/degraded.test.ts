@@ -35,7 +35,7 @@ import type { Pool } from "pg";
 import type { Embedder } from "./embedder.js";
 import { ask, retrieve, renderValue, sqlRowsBlock, SQL_ROWS_MAX, writeRefusal, NO_TABLE_ANSWER } from "./pipeline.js";
 import { pickSql, readsTable, writeStatement, NO_TABLE, type Nl2SqlReport } from "./nl2sql.js";
-import { describeAbsentAttribute } from "./notfound.js";
+import { describeAbsentAttribute, describeNotFound } from "./notfound.js";
 import { postJson } from "./ollamahttp.js";
 import { describeError } from "./errors.js";
 import { assertCorpusEmbedder } from "./companyx.js";
@@ -887,6 +887,7 @@ const deadEmbedder: Embedder = {
       ({
         connect: async () => ({ query: async () => ({ rows: [{ name: "고객 1" }], rowCount: 1, fields: [{ name: "name" }] }), release: () => {} }),
         query: async (sql: string, params?: unknown[]) => {
+          if (sql.includes("WITH t AS")) return { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] };
           if (!/pg_constraint/.test(sql)) return { rows: [], rowCount: 0 };
           asked.push(String(params?.[0]));
           return params?.[0] === "bench" ? { rows: benchFks, rowCount: benchFks.length } : { rows: [], rowCount: 0 };
@@ -1941,7 +1942,11 @@ const deadEmbedder: Embedder = {
   );
   ok(r.sql.missing?.[0]?.query_entity === "서울물산" && r.route === "structured", "정형 레인 결과에 못 찾은 개체가 남는다");
   const other = await ask(tc143, { pool: ontoPool([{ total_sales: 120 }]), embedder: deadEmbedder, repair: false, llm: async () => "120입니다.", nl2sql: async () => sumSql("Client-A") });
-  ok(other.answer.startsWith("120입니다."), `생성 SQL 이 그 이름을 찾지 않았으면 사유를 붙이지 않는다(답과 어긋남) (got ${other.answer})`);
+  // 생성 SQL 이 지목한 이름을 뺐다. 다른 조건의 행(「서울물산 담당자」 → region = '서울')을 답으로 쓰지 않는다.
+  ok(
+    other.answer === describeNotFound(other.not_found!) && other.not_found?.query_entity === "서울물산" && other.sql.text === null && other.sql.refused?.text === sumSql("Client-A") && !other.answer.includes("120"),
+    `생성 SQL 이 그 이름을 찾지 않았으면 실행하지 않고 찾지 못했다고 답한다 (got ${other.answer})`,
+  );
   for (const q of ["Client-A의 2025년 3분기 총 매출액은 얼마야?", "기술지원팀 직원들의 평균 연봉은?", "Product-C1 매출 합계는?", "김준혁이 담당한 계약의 총 금액은 얼마야?", "2019년에 등록된 고객사는 몇 개야?"]) {
     const ex = await ask(q, { pool: ontoPool([{ n: 1 }]), embedder: deadEmbedder, repair: false, llm: async () => "답", nl2sql: async () => "SELECT 1 AS n FROM companyx.clients" });
     ok(ex.sql.missing === undefined && ex.answer.startsWith("답"), `있는 이름, 이름이 아닌 말에는 붙지 않는다: ${q} (got ${ex.answer})`);
@@ -3273,7 +3278,10 @@ const deadEmbedder: Embedder = {
           : { rows: [], rowCount: 0 },
       release: () => {},
     }),
-    query: async () => ({ rows: [], rowCount: 0 }),
+    query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: "영업팀", properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
   } as unknown as Pool;
   const jsonSql =
     "SELECT d.name AS department, array_agg(e.email) AS emails FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '영업팀' GROUP BY d.name";
@@ -3469,12 +3477,15 @@ const deadEmbedder: Embedder = {
         /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows: [{ diff: "652.3000000000000000" }], rowCount: 1, fields: [{ name: "diff" }] } : { rows: [], rowCount: 0 },
       release: () => {},
     }),
-    query: async () => ({ rows: [], rowCount: 0 }),
+    query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
   } as unknown as Pool;
   const xc08r = await ask(xc08q, { pool: xc08Pool, embedder: deadEmbedder, repair: false, nl2sql: async () => xc08sql, llm: async () => "클라우드사업부 평균 연봉은 영업팀보다 652.3元 높아요." });
   ok(
     // 시험용 pool 은 온톨로지 행이 없어 부서 이름이 못 찾은 개체로 앞에 붙는다. 답 문장과 조회 블록만 본다.
-    xc08r.answer.endsWith("\n\n클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요.\n\n[조회 결과 1건]\n- diff: 652.3") && JSON.stringify(xc08r.grounding_fix?.units) === '[{"from":"652.3元","to":"652.3만원"}]',
+    xc08r.answer === "클라우드사업부 평균 연봉은 영업팀보다 652.3만원 높아요.\n\n[조회 결과 1건]\n- diff: 652.3" && JSON.stringify(xc08r.grounding_fix?.units) === '[{"from":"652.3元","to":"652.3만원"}]',
     `ask 의 XC08 과 grounding_fix (got ${JSON.stringify(xc08r.answer)} ${JSON.stringify(xc08r.grounding_fix)})`,
   );
 
@@ -3575,10 +3586,12 @@ const deadEmbedder: Embedder = {
         },
         release: () => {},
       }),
-      query: async (sql: string) =>
+      query: async (sql: string, params?: unknown[]) =>
         /contype = 'f'/.test(sql)
           ? { rows: [{ table_name: "sales", column_name: "client_id", ref_table: "clients", ref_column: "id" }], rowCount: 1 }
-          : { rows: [], rowCount: 0 },
+          : sql.includes("WITH t AS")
+            ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+            : { rows: [], rowCount: 0 },
     }) as unknown as Pool;
   let called = 0;
   const llm = async () => ((called++), "1. 광주: Client-W (36,760)");
@@ -3614,7 +3627,10 @@ const deadEmbedder: Embedder = {
           /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? { rows, rowCount: rows.length, fields: Object.keys(rows[0] ?? {}).map((name) => ({ name })) } : { rows: [], rowCount: 0 },
         release: () => {},
       }),
-      query: async () => ({ rows: [], rowCount: 0 }),
+      query: async (sql: string, params?: unknown[]) =>
+      sql.includes("WITH t AS")
+        ? { rowCount: 1, rows: [{ id: 1, type: "department", canonical_name: String((params?.[0] as string[])[0]), properties: null, via: "canonical", matched: String((params?.[0] as string[])[0]), score: 4 }] }
+        : { rows: [], rowCount: 0 },
     }) as unknown as Pool;
 
   // P7: 생성 SQL 이 금액 열에 10000 을 곱했으면 값이 이미 원이다. 맞게 쓴 「60006000원」을 「60006000만원」으로 바꿨다(AN10, 3/3).
@@ -4219,6 +4235,103 @@ const deadEmbedder: Embedder = {
     "SELECT 'created_at <= ''2025-12-31''' AS x",
   ]) ok(q6.checkTimestampEnd(sql, "companyx").length === 0, `P16 날짜 열, 날짜로 바꾼 열, 시각이 붙은 값은 받는다: ${sql}`);
   ok(q6.checkTimestampEnd(mr11, "bench").length === 0, "P16 시각 열은 스키마마다");
+}
+
+// ── 모델 서버가 죽었을 때: 데이터베이스 탓으로 말하지 않고, 라우팅 예외로 끝나지 않는다 ─────────────
+// 임베딩이 실패하면 규칙이 확신하지 못한 질문에서 ask 가 예외로 끝났고(semroute.ts), Ollama 가 끊기면 DB 가 멀쩡한데 「데이터베이스에 연결하지
+// 못했습니다(ECONNREFUSED)」라고 답했다(db.ts connectionFailure 가 코드만 봤다).
+{
+  const { routeQuery, installSemanticRouter, uninstallSemanticRouter } = await import("./semroute.js");
+  const { connectionFailure } = await import("./db.js");
+  const { MODEL_SERVER_FAILURE, modelServerError, modelServerReason } = await import("./errors.js");
+  const { failedToolResult } = await import("./server.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+
+  // 문장
+  const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:11434"), { code: "ECONNREFUSED" });
+  ok(modelServerError(refused)?.message === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, "모델 서버 연결 실패 문장");
+  ok(modelServerError(new AggregateError([refused], ""))?.message === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, "AggregateError 안의 원인 코드");
+  ok(!modelServerError(refused)?.message.includes("127.0.0.1"), "주소는 내보내지 않는다");
+  ok(modelServerError(new Error("생성 모델이 60초 안에 응답하지 않았다(시간 초과)")) === null, "연결 실패가 아니면 null");
+  ok(connectionFailure(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`) === null, "모델 서버 실패를 데이터베이스 실패로 읽지 않는다");
+  ok(connectionFailure("connect ECONNREFUSED 127.0.0.1:5433") === "데이터베이스에 연결하지 못했습니다(ECONNREFUSED)", "DB 실패는 종전 그대로");
+  ok(modelServerReason(`Error: ${MODEL_SERVER_FAILURE}(ETIMEDOUT) 뒤에 붙은 글`) === `${MODEL_SERVER_FAILURE}(ETIMEDOUT)`, "실패 글에서 사유만");
+  ok(modelServerReason('ollama generate 500: {"error":"C:/internal/path/model"}') === "모델 서버가 오류로 응답했습니다(HTTP 500)", "HTTP 오류는 상태 코드까지(본문의 경로를 내보내지 않는다)");
+  ok(modelServerReason("다른 실패") === null, "그 밖에는 null");
+
+  // 실제 HTTP 호출: 죽은 포트에 postJson 을 부르면 답에 쓸 문장으로 거절한다
+  const savedErr2 = console.error;
+  console.error = () => undefined;
+  try {
+    let msg = "";
+    await postJson("http://127.0.0.1:1/api/generate", {}, AbortSignal.timeout(5000)).catch((e: Error) => (msg = e.message));
+    ok(msg === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, `죽은 포트의 postJson (got ${msg})`);
+  } finally {
+    console.error = savedErr2;
+  }
+
+  // 라우팅: 임베딩이 실패하면 규칙 결정으로 물러나고 그 사실을 근거와 감사에 남긴다
+  const liveEmbedder: Embedder = { name: "test:live", dim: 4, embed: async () => [1, 0, 0, 0] };
+  await installSemanticRouter(liveEmbedder, { nl2sql: { a: ["매출"] }, vector_search: { b: ["문서"] }, knowledge_graph: { USES: ["쓰는"] } });
+  const brokenEmbedder: Embedder = { name: "test:broken", dim: 4, embed: async () => { throw new Error(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`); } };
+  const savedErr3 = console.error;
+  console.error = () => undefined;
+  try {
+    const d = await routeQuery("2025년 3분기 총 매출액은 얼마야?", brokenEmbedder);
+    ok(d.route === "structured" && d.semanticError === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)` && /semantic fallback failed/.test(d.rationale) && /rule decision kept/.test(d.rationale), `규칙 결정으로 물러난다 (got ${d.route} ${d.rationale})`);
+    const blind = await routeQuery("2025년 3분기 총 매출액은 얼마야?", { ...brokenEmbedder, embed: async () => { throw new Error("이상한 실패 C:/secret/path"); } });
+    ok(blind.semanticError === "임베딩 실패" && !blind.rationale.includes("C:/secret"), "원인 코드가 없는 실패는 경로를 내보내지 않는다");
+
+    const stubPool = {
+      connect: async () => ({ query: async (sql: string) => { const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? [{ total: 23859 }] : []; return { rows: r, rowCount: r.length, fields: [{ name: "total" }] }; }, release: () => {} }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    } as unknown as Pool;
+    // 임베딩만 죽었다: 표 질문은 생성 모델로 답한다
+    const a = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => "23,859입니다." });
+    ok(a.answer.startsWith("23,859입니다."), `임베딩이 죽어도 규칙 결정으로 답한다 (got ${a.answer})`);
+    const rec = buildAuditRecord(a);
+    ok(rec.routing.semantic_error === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)` && rec.policies.some((p) => p.policy === "branch-isolation" && p.verdict === "degrade" && p.detail.includes("규칙의 결정으로")), "감사에 그 사실이 남는다");
+    ok(a.audit.branch_errors.length === 0, "레인 실패로 세지 않는다(답은 멀쩡하다)");
+
+    // 모델 서버가 죽었다: SQL 생성 실패. DB 탓으로 말하지 않고 데이터가 없다고도 하지 않는다.
+    const dead = async () => { throw new Error(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`); };
+    const down = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: dead, llm: dead });
+    ok(down.answer === "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.", `모델 서버 실패 답 (got ${down.answer})`);
+    ok(!down.answer.includes("데이터베이스") && down.audit.branch_errors[0] === `sql: ${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, `감사의 사유 (got ${down.audit.branch_errors[0]})`);
+    ok(failedToolResult({ answer: down.answer, audit: buildAuditRecord(down) }), "실패한 답은 캐시하지 않는다");
+    // 날것의 네트워크 오류로 던지는 nl2sql 도 모델 서버 쪽 실패다
+    const rawDead = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => { throw refused; }, llm: dead });
+    ok(rawDead.answer.startsWith("모델 서버에 연결하지 못해") && !rawDead.answer.includes("127.0.0.1"), `날것의 오류 (got ${rawDead.answer})`);
+    // 문서 레인: 임베딩 실패
+    const docDown = await ask("Product-C1 설치 방법이 궁금해", { pool: stubPool, embedder: brokenEmbedder, llm: dead, nl2sql: dead });
+    ok(docDown.route === "semantic" && docDown.answer.startsWith("모델 서버에 연결하지 못해"), `문서 질문 (got ${docDown.route} ${docDown.answer})`);
+    // 답 쓰는 단계만 실패: 근거는 있다. 주소와 본문을 내보내지 않는다
+    const genDown = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => { throw refused; } });
+    ok(genDown.answer.includes("답변 생성에 실패했습니다: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)") && genDown.answer.includes("total: 23859") && !genDown.answer.includes("127.0.0.1"), `생성 실패 (got ${genDown.answer})`);
+    const http = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => { throw new Error('ollama generate 500: {"error":"C:/models/x"}'); } });
+    ok(http.answer.includes("모델 서버가 오류로 응답했습니다(HTTP 500)") && !http.answer.includes("C:/models"), `HTTP 오류 본문을 내보내지 않는다 (got ${http.answer})`);
+
+    // 레인 밖의 예외: 서버로 던지지 않고 구조화된 실패 답. 라우팅 앞에서 터지는 경우와 답 단계에서 터지는 경우.
+    const boom = () => {
+      throw new TypeError("이상한 실패 C:/secret/path");
+    };
+    let thrown: unknown;
+    let failedAnswer: Awaited<ReturnType<typeof ask>> | undefined;
+    let lateFailure: Awaited<ReturnType<typeof ask>> | undefined;
+    try {
+      failedAnswer = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, repair: false, nl2sql: dead, llm: dead, get embedder(): Embedder { return boom() as never; } } as never);
+      lateFailure = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", get llm() { return boom() as never; } } as never);
+    } catch (e) {
+      thrown = e;
+    }
+    ok(thrown === undefined && failedAnswer !== undefined && lateFailure !== undefined, `ask 는 던지지 않는다 (got ${String(thrown)})`);
+    ok(failedAnswer?.audit.branch_errors[0] === "pipeline: 내부 오류(TypeError)" && failedAnswer.answer.includes("내부 오류(TypeError)") && !failedAnswer.answer.includes("C:/secret"), `오류 원문을 답에 내보내지 않는다 (got ${failedAnswer?.answer})`);
+    ok(lateFailure?.audit.branch_errors[0] === "pipeline: 내부 오류(TypeError)" && lateFailure.answer.includes("처리하다 실패해 답하지 못했습니다") && !lateFailure.answer.includes("C:/secret"), `답 단계의 예외도 (got ${lateFailure?.answer})`);
+    ok(buildAuditRecord(failedAnswer!).branch_errors.length === 1, "실패 답도 감사 레코드를 만든다");
+  } finally {
+    console.error = savedErr3;
+    uninstallSemanticRouter();
+  }
 }
 
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);

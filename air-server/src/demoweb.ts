@@ -349,7 +349,7 @@ details pre{max-height:420px;overflow:auto;background:#f7f8fa;border:1px solid v
   <div id="status">서버 기동 중</div>
 </header>
 <main>
-  <aside>${presetHtml || '<p class="src">이 데이터셋에는 준비된 질문이 없다. 오른쪽 칸에 직접 묻는다.</p>'}</aside>
+  <aside>${presetHtml || '<p class="src">이 데이터셋에는 준비된 질문이 없습니다. 오른쪽 칸에 직접 물어보세요.</p>'}</aside>
   <section>
     <form id="ask"><input id="query" autocomplete="off" placeholder="질문을 입력하세요" autofocus><button id="go">묻기</button></form>
     <div id="out"><div class="empty">왼쪽 질문을 누르거나 직접 물어보세요. 이 화면은 MCP 서버를 stdio 로 띄워 ask 도구를 부르고, 돌아온 답과 감사 레코드를 그대로 보여 줍니다.</div></div>
@@ -399,9 +399,9 @@ function render(card,q,res){
   card.append(chips);
   if(ro.rationale)card.append(el("div","rationale","라우팅 근거(감사 레코드 원문): "+ro.rationale));
   card.append(el("h4",null,"답"));card.append(answerBlock(v.text));
-  [a.not_found].concat(a.missing_entities||[]).filter(Boolean).forEach(nf=>card.append(el("div","notice",nfText(nf))));
+  [a.not_found].concat(a.missing_entities||[]).filter(Boolean).filter((nf,i,all)=>all.findIndex(o=>o.query_entity===nf.query_entity)===i).forEach(nf=>card.append(el("div","notice",nfText(nf))));
   const sql=(a.retrieval||{}).sql||{};
-  if(sql.refused){card.append(el("h4",null,"실행하지 않은 문장"));const p=el("pre","sql");p.textContent=sql.refused.text;card.append(p);}
+  if(sql.refused){card.append(el("h4",null,sql.refused.ran?"실행했지만 답에 쓰지 않은 문장":"실행하지 않은 문장"));const p=el("pre","sql");p.textContent=sql.refused.text;card.append(p);}
   if(sql.text){card.append(el("h4",null,"실행한 SQL (읽기 전용 트랜잭션)"));const p=el("pre","sql");p.textContent=sql.text;card.append(p);}
   if(v.rows){card.append(el("h4",null,"조회한 행 "+v.rows.count+"건"));card.append(rowsTable(v.rows));}
   const fusion=(a.fusion||[]).filter(f=>!String(f.key).startsWith("sql#"));

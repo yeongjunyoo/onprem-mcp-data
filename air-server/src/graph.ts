@@ -29,7 +29,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
-import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
+import { classifyNotFound, entityLikeName, nameSimilarity, similarNames, type NotFound } from "./notfound.js";
 import { entitiesIn, identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -106,7 +106,7 @@ export interface OntologyHit {
 /** Seed tokens for entity resolution.
  * Keeps hyphenated sponsor ids intact ("Product-C1" must not become product + c1)
  * and drops the relation/type vocabulary, which names EDGES and TYPES, not nodes. */
-const SEED_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*|[가-힣]{2,}/g;
+const SEED_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소)|[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*|[가-힣]{2,}/g;
 const SEED_STOP = new Set([
   "사용", "사용중", "사용하는", "소속", "담당", "담당자", "이끄는", "맡은", "팀장", "부서장",
   "제품", "고객", "고객사", "직원", "부서", "프로젝트", "계약", "이슈", "목록", "현황", "관련",
@@ -179,7 +179,14 @@ export function joinSpacedIds(query: string): string {
     if (sep === "" && (client ? !/^[A-Z]{1,2}$/.test(id) || type === "CLIENT" : !/^[A-Za-z]\d{1,2}$/.test(id))) return m;
     return isEntityName(name) ? name : m;
   });
-  return joinLooseNames(ids);
+  return joinSpacedOrg(joinLooseNames(ids));
+}
+
+/** 띄어 쓴 회사 이름(「서울 물산」, 「삼성 전자」)을 한 낱말로. 갈라 두면 「서울」이 지역 별칭으로 시드가 되어 서울 고객사들의 담당자를 답하고,
+ * 「물산」은 이름으로 보이지 않는다. 일반 명사와 잘 어울리지 않는 접미사만 본다. 「전자 결재」, 「전자 서명」의 전자는 회사가 아니다. */
+const SPACED_ORG = /([가-힣A-Za-z0-9]{2,})\s+(물산|중공업|전자)(?!\s*(?:결재|서명|문서|우편|메일|세금|계산서|상거래|결제|공시))/g;
+function joinSpacedOrg(q: string): string {
+  return q.replace(SPACED_ORG, (m, first: string, suffix: string) => (isEntityName(first) ? m : `${first}${suffix}`));
 }
 
 const NAME_PARTICLE = /(은|는|이|가|을|를|에|의|와|과|도|로|으로|에서|에게|까지|부터|만)$/;
@@ -255,9 +262,14 @@ const PREDICATE_END = /^[가-힣]+(?:니|냐|까|지|죠|요|래|어|아|야|해
  * 개체」로 댈 때(ontologySearch)와, 그래프 레인이 출발할 개체가 질문에 있는지 볼 때(semroute.ts routeQuery) 쓴다. 사전에 있는
  * 이름과 이름처럼 생긴 낱말(entityLikeName: 사업자 식별자, 물산, 팀 같은 조직 접미사)은 늘 이름이다. */
 export function mentionTerms(query: string): string[] {
+  return [...new Set(mentionTokens(query).map((t) => t.term))];
+}
+
+/** mentionTerms 의 낱말과 그 낱말이 문장에서 놓인 자리. raw 는 조사를 떼기 전 꼴, next 는 바로 뒤 낱말(사이가 공백뿐일 때만), before 는 낱말 앞까지, after 는 낱말 뒤의 글. */
+function mentionTokens(query: string): { term: string; raw: string; next?: string; before: string; after: string }[] {
   const text = joinSpacedIds(query);
   const toks = [...text.matchAll(SEED_TOKEN)];
-  const out = new Set<string>();
+  const out: { term: string; raw: string; next?: string; before: string; after: string }[] = [];
   toks.forEach((m, i) => {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
@@ -268,9 +280,79 @@ export function mentionTerms(query: string): string[] {
       const afterDeterminer = prev !== undefined && DETERMINERS.has(prev[0]) && /^\s+$/.test(text.slice(prev.index! + prev[0].length, m.index));
       if (TIME_WORDS.has(w) || ADVERBS.has(w) || VERB_FORM.test(raw) || (i === toks.length - 1 && PREDICATE_END.test(raw)) || afterDeterminer) return;
     }
-    out.add(w);
+    const after = toks[i + 1];
+    const next = after && /^\s+$/.test(text.slice(m.index! + raw.length, after.index)) ? after[0] : undefined;
+    out.push({ term: w, raw, ...(next ? { next } : {}), before: text.slice(0, m.index), after: text.slice(m.index! + raw.length) });
   });
-  return [...out];
+  return out;
+}
+
+/** 관계를 통째로 세거나 거르는 질문에 흔한 일반 명사와 수식어. 이름 자리에 놓여도 개체를 지목한 말이 아니다. 「사람이」, 「이름을」처럼 조사가 붙어도 대상의 이름이
+ * 아니다. 문서와 스키마 카드에 있는 말은 namedTermsOutsideData 가 대조로 거르므로 여기 없어도 된다. */
+const GENERIC_NOUN =
+  /^(?:사람|직원|사원|팀원|인원|인원수|멤버|매니저|리더|리드|책임자|담당자|PM|PL|고객|고객사|거래처|회사|기업|업체|제품|상품|솔루션|서비스|프로젝트|과제|업무|부서|조직|이름|성함|명단|리스트|규모|지역|업종|직급|직책|직위|상태|순위|상위|하위|건수|개수|숫자|횟수|수량|분기|상반기|하반기|연도|기간|우리|저희|여기|거기|누가|누군지|뭐가|어디가|정도|얼마나|인기|실적|성과|경력|평균|합계|총합|최대|최소|건|것|곳|분|대기업|중소기업|중견기업|스타트업|대형|중형|소형|신규|기존|주요|핵심|전체|해외|국내|사내|외부|내부|유료|무료|장기|단기|이번달|지난달|다음달|이번주|지난주|다음주|재작년|내년|금월|전월|당월|연말|연초)(?:들)?$/i;
+/** 묻는 대상을 가리키는 말. 한 글자 틀린 꼴(「고갱사」)도 이름이 아니다. */
+const TYPE_WORDS = ["고객사", "고객", "거래처", "담당자", "직원", "프로젝트", "제품", "부서", "사람"];
+const typoOfTypeWord = (term: string) => TYPE_WORDS.some((w) => nameSimilarity(term, w) >= 0.6);
+/** 그 낱말 뒤에 오면 낱말이 재는 잣대라는 말(「인기가 가장 많은 제품」, 「경력이 제일 높은 사람」). 「카카오가 가장 많이 쓰는」의 「많이」는 동사를 꾸며 그 낱말이 주어다. */
+const MEASURE_AFTER = /^[가-힣]?\s*(?:가장|제일)\s*(?:많은|큰|높은|적은|낮은|작은|좋은|나쁜|긴|짧은|비싼|싼)(?![가-힣])/;
+/** 관계나 상태를 말하는 낱말. 이것보다 뒤에서 조사만 붙은 낱말은 묻는 항목이다(「진행 중인 프로젝트를 이끄는 직원의 직책은?」). */
+const RELATION_WORD = /진행\s*중|완료|보류|계획|가장|제일|담당|이끄|이끈|맡|쓰는|쓰고|사용|소속|속한|도입|이용/;
+/** 이름 뒤에 바로 오면 그 이름을 대상으로 지목한 말(「네이버 담당자」, 「쿠팡 프로젝트」). */
+const AFTER_NAME = /^(?:담당|담당자|프로젝트|제품|고객|계약|매출|이슈|직원|쪽|측)/;
+/** 구어 조사와 「쪽」, 「측」(「네이버쪽」, 「카카오랑」). */
+const COLLOQUIAL_TAIL = /(?:한테서|한테|이랑|랑|하고|께서|께|쪽|측)$/;
+
+/** 이름 꼴(조직 접미사, 식별자)은 아니지만 이름 자리에 놓였고(조사가 붙었거나 담당, 프로젝트 같은 말 바로 앞) 어느 데이터에도 없는 낱말.
+ * 관계를 통째로 세거나 거르는 길과, 일반 낱말에 부분 일치한 약한 시드만 있는 질문에서 대상을 지목한 말로 본다. 「카카오가 진행 중인 프로젝트를
+ * 이끄는 직원은?」에 전체 11명을 답했다. 개체 사전에 있거나(시드, skip), 스키마 카드나 문서에 그대로 있는 낱말은 이름이 아니다. 문서를 읽지 못하면 막지
+ * 않는다(이름인지 모르는 낱말로 답을 막지 않는다). 이름 꼴이 아닌 낱말을 판단하므로 다른 갈래(표, 문서)에는 쓰지 않는다. 일반 명사가 질문마다 달라 오탐이 크다. */
+export async function namedTermsOutsideData(pool: Pool, query: string, skip: readonly string[], schema = kgSchema()): Promise<string[]> {
+  const hit = (next: string) => skip.some((s) => next.toLowerCase().startsWith(s.toLowerCase()));
+  const seen = new Set(skip.map((s) => s.toLowerCase()));
+  const named: string[] = [];
+  for (const t of mentionTokens(query)) {
+    if (seen.has(t.term.toLowerCase())) continue;
+    seen.add(t.term.toLowerCase());
+    if (isEntityName(t.term)) continue;
+    const like = entityLikeName(t.term);
+    if (like) {
+      named.push(like);
+      continue;
+    }
+    const term = t.term.replace(COLLOQUIAL_TAIL, "");
+    // 담당, 프로젝트 같은 말이나 약한 시드 낱말 바로 앞이거나(「쿠팡 프로젝트」, 「네이버 보안 담당자」), 조사가 붙었고(「카카오가」, 「Samsung을」, 「쿠팡쪽」)
+    // 관계를 말하기 전이며 잣대가 아니다.
+    const particle = term !== t.term || t.raw !== t.term || /^[가-힣]/.test(t.after);
+    const placed = Boolean(t.next && (AFTER_NAME.test(t.next) || hit(t.next))) || (particle && !RELATION_WORD.test(t.before) && !MEASURE_AFTER.test(t.after));
+    if (!placed || term.length < 2 || GENERIC_NOUN.test(term) || typoOfTypeWord(term)) continue;
+    if (profile().schemaCard.includes(term) || (await inDocuments(pool, term))) continue;
+    const found = await ontologySearch(pool, term, 1, schema);
+    if (found.ok && !found.hits.length) named.push(term);
+  }
+  return named;
+}
+
+/** 문서의 제목이나 본문에 이 낱말이 그대로 있는가. 읽지 못하면 있다고 본다(호출부가 그 낱말로 답을 막지 않게). */
+export async function inDocuments(pool: Pool, term: string, table = profile().vectorTable): Promise<boolean> {
+  if (!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/.test(table)) return true;
+  try {
+    const res = await pool.query(`SELECT 1 FROM ${table} WHERE title ILIKE $1 OR body ILIKE $1 LIMIT 1`, [`%${likeLiteral(term)}%`]);
+    return (res.rowCount ?? res.rows.length) > 0;
+  } catch {
+    return true;
+  }
+}
+
+/** 영문 낱말이 문서에 낱말로 있는가. 「128KB」의 KB 는 「KB증권」의 머리가 아니고, 「SSL 인증서」의 SSL 은 「SSL통신」의 머리다. 읽지 못하면 있다고 본다. */
+export async function wordInDocuments(pool: Pool, word: string, table = profile().vectorTable): Promise<boolean> {
+  if (!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/.test(table) || !/^[A-Za-z][A-Za-z0-9]*$/.test(word)) return true;
+  try {
+    const res = await pool.query(`SELECT 1 FROM ${table} WHERE title ~* $1 OR body ~* $1 LIMIT 1`, [`(^|[^a-z0-9])${word}([^a-z0-9]|$)`]);
+    return (res.rowCount ?? res.rows.length) > 0;
+  } catch {
+    return true;
+  }
 }
 
 /** LIKE, ILIKE 패턴에 넣을 낱말. 역슬래시, %, _ 를 글자 그대로 찾게 앞에 역슬래시를 붙인다(PostgreSQL 의 기본 이스케이프 문자). */

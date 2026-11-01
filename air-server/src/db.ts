@@ -22,6 +22,7 @@
 // defaults to the published port 5433.
 
 import pg from "pg";
+import { MODEL_SERVER_FAILURE } from "./errors.js";
 
 const { Pool } = pg;
 export type Pool = pg.Pool;
@@ -80,6 +81,8 @@ function safeEndpoint(raw: string | undefined): string {
  * 띄우라고 말하면 진짜 문제(테이블 부재)를 가린다.
  * 데이터베이스 자체가 없는 경우(`database "x" does not exist`)만 연결 문제로 본다. */
 export function connectionFailure(msg: string): string | null {
+  // 모델 서버의 연결 실패도 같은 코드(ECONNREFUSED)를 쓴다. 데이터베이스 탓으로 말하지 않는다.
+  if (msg.includes(MODEL_SERVER_FAILURE)) return null;
   const code =
     /\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT)\b/.exec(msg)?.[1] ??
     (/connection timeout/i.test(msg) ? "연결 시간 초과"
@@ -144,6 +147,8 @@ function explainConnection(e: unknown, endpoint?: string): Error {
  * **감싼 것과 덮은 것은 다르다.**
  */
 function explainOn(pool: pg.Pool, endpoint: string | undefined): void {
+  // 쉬고 있는 연결이 끊기면(DB 재시작, 네트워크) 풀이 error 이벤트를 낸다. 듣는 곳이 없으면 프로세스가 죽는다. 다음 호출은 새 연결을 맺거나 실패를 돌려준다.
+  pool.on("error", (e) => console.error(`[db] 쉬고 있던 연결이 끊겼다: ${e.message}`));
   const q = pool.query.bind(pool) as (...a: unknown[]) => Promise<unknown>;
   pool.query = ((...args: unknown[]) =>
     q(...args).catch((e: unknown) => { throw explainConnection(e, endpoint); })) as typeof pool.query;

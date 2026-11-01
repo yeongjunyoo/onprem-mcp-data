@@ -50,6 +50,7 @@ import {
   type RouteDecision,
 } from "./router.js";
 import { maskRoute } from "./catalog.js";
+import { describeError, modelServerError, modelServerReason } from "./errors.js";
 
 /** 도구 → 질문 유형 → 표현들. 고유명은 타입 자리표시로 쓴다(maskEntities 와 같은 표기).
  * knowledge_graph 의 유형 이름은 엣지 타입이라 그래프 탐색 계획에 그대로 쓰인다. */
@@ -109,8 +110,8 @@ export const INSTALLED_ANCHORS: Record<Lane, Record<string, string[]>> = Object.
 ) as Record<Lane, Record<string, string[]>>;
 
 /** 1위 도구와 2위 도구의 최근접 유사도 차가 이 값 미만이면 시맨틱도 확신이 없는
- * 것으로 보고, 규칙의 넓은 fan-out 을 그대로 둔다. 값의 근거는 RULE_MIN_MARGIN 과
- * 같은 경계 실측이다. */
+ * 것으로 보고, 규칙이 처음 낸 결정을 그대로 둔다. 갈래를 넓히지 않는다. 여러 갈래가 같이 도는 것은
+ * 규칙이 갈래를 못 고른(hybrid) 경우뿐이다. 값의 근거는 RULE_MIN_MARGIN 과 같은 경계 실측이다. */
 export const SEMANTIC_MIN_MARGIN = 0.02;
 
 interface AnchorVec {
@@ -254,7 +255,16 @@ async function decideRoute(query: string, embedder?: Embedder): Promise<RouteDec
     };
   }
   if (d.gate.confident || !embedder || !semanticReady()) return d;
-  const v = await semanticVerdict(query, embedder);
+  // 임베딩이 실패해도 라우팅은 끝낸다. 규칙의 결정으로 물러나고 그 사실을 근거에 남긴다. 종전에는 규칙이 확신하지 못한 질문마다 ask 가 예외로 끝났다.
+  let v: Awaited<ReturnType<typeof semanticVerdict>>;
+  try {
+    v = await semanticVerdict(query, embedder);
+  } catch (e) {
+    const raw = describeError(e);
+    const why = modelServerError(e)?.message ?? modelServerReason(raw) ?? "임베딩 실패";
+    console.error(`[router] 시맨틱 폴백 임베딩 실패, 규칙 결정 유지: ${raw}`);
+    return { ...d, semanticError: why, rationale: `${d.rationale}; semantic fallback failed (${why}), rule decision kept` };
+  }
   if (!v) return d;
   if (v.margin < SEMANTIC_MIN_MARGIN) {
     // 셋째 단계(기본 꺼짐). 규칙도 시맨틱도 격차가 문턱 밑일 때만 생성 모델이 레인 도구 설명을 보고 고른다.

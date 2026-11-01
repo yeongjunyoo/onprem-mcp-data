@@ -41,7 +41,7 @@ import { keywordIndexReady, keywordSearch, type KeywordSearchResult } from "./ke
 import { vectorSearch, type VectorResult } from "./vector.js";
 import { rrfMerge, type Ranked, type Fused } from "./rrf.js";
 import { curate, render, curateAudit, type ContextItem, type Curated } from "./curator.js";
-import { type NL2SQL, type Nl2SqlReport, NO_TABLE } from "./nl2sql.js";
+import { type NL2SQL, type Nl2SqlReport, NO_TABLE, UNRESOLVED_NAME } from "./nl2sql.js";
 import { executeWithRepair } from "./sqlrepair.js";
 import { alignQualifiedTables, moneyColumns, tieAnswer, untrustedAnswer, vagueMeasure, type SqlGate } from "./sqltrust.js";
 import { profile } from "./profile.js";
@@ -50,7 +50,11 @@ import {
   ontologySearch,
   seedTerms,
   mentionTerms,
-  entityLikeName,
+  namedTermsOutsideData,
+  inDocuments,
+  wordInDocuments,
+  joinSpacedIds,
+  likeLiteral,
   graphExpand,
   graphWalk,
   relationScan,
@@ -72,8 +76,8 @@ import {
   type PathCandidate,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
-import { describeError } from "./errors.js";
-import { absentAttribute, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, type NotFound } from "./notfound.js";
+import { describeError, MODEL_SERVER_FAILURE, modelServerError, modelServerReason } from "./errors.js";
+import { absentAttribute, absentNameTerm, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, withoutSelfIntro, type NotFound } from "./notfound.js";
 import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
 import { runnerUpRejection, withRunnerUp } from "./fallback.js";
@@ -100,11 +104,13 @@ export interface RetrieveResult {
     result?: SqlResult;
     repaired?: boolean;
     gate?: SqlGate;
-    refused?: { kind: string; text: string };
+    refused?: { kind: string; text: string; ran?: true };
     absent?: string;
     rank?: number;
-    /** 질문이 이름처럼 생긴 낱말로 지목했는데 데이터에 없는 개체(sqlMissingNames). 있을 때만. */
+    /** 질문이 이름처럼 생긴 낱말로 지목했는데 데이터에 없는 개체(absentNames). 있을 때만. */
     missing?: NotFound[];
+    /** 지목한 이름이 데이터에 없고 찾은 다른 개체도 없는데 생성 SQL 이 그 이름을 쓰지 않았거나 실행되지 않았다. 이 레인의 결과로 답하지 않는다. */
+    unresolved?: true;
   };
   vector?: VectorResult;
   graph?: GraphLaneResult;
@@ -170,6 +176,8 @@ export interface GraphLaneResult {
   items: Candidate[];
   /** strategy 가 unresolved 일 때 왜 못 찾았는지. */
   not_found?: NotFound;
+  /** 이름 자리에 놓였지만 이름 꼴이 아닌 낱말을 못 찾아 막았다(namedTermsOutsideData). 빈손이 아니라 「없다」는 답이다(fallback.ts). */
+  named_absent?: true;
   /** 시드 확장 중 하나라도 탐색 상한에 걸렸으면 처음 걸린 것. */
   truncated?: GraphTruncation;
   /** 계획을 시드 타입에 맞게 고친 내용(router.ts fitPlanToSeed). */
@@ -266,18 +274,28 @@ export async function graphLane(
   // dataset; the honest output is "없음", not the 63 MANAGES_ACCOUNT edges).
   // The line names WHY (onto.not_found): absent vs. a similarly-named entity that
   // does not match. A similar name is reported, never expanded.
-  if (onto.hits.length === 0 && !(p?.aggregate || p?.filter)) {
+  //
+  // 관계를 통째로 세거나 거르는 계획(집계, 상태 조건)도 질문이 대상을 이름으로 지목했으면 같은 게이트다. 시드 없이 관계 스캔으로 넘어가면 그 이름을 버린
+  // 전체 순위가 답이 됐다: 「서울물산이 진행 중인 프로젝트를 이끄는 직원은?」에 진행 중 프로젝트의 리드 11명, 「서울물산을 가장 많이 담당한 직원은?」에
+  // 공동 1위 둘. 「서울물산 보안 담당자」처럼 찾은 시드가 일반 낱말의 부분 일치(점수 2 이하)뿐인 질문도 그 낱말로 찾은 직원을 답하지 않는다.
+  const scanPlan = Boolean(p?.aggregate || p?.filter);
+  // Company-X 는 이름을 가진 표가 모두 온톨로지 노드라 이 판정을 그 프로파일에서만 한다(absentNames 와 같다).
+  const gated = profile().name === "companyx" && !onto.hits.some((h) => h.score >= 3);
+  const named = gated && (scanPlan || onto.hits.length > 0) ? await namedTermsOutsideData(pool, query, onto.hits.map((h) => h.matched), schema) : [];
+  const blockedByName = named.length ? (missing[0] ?? (await notFoundFor(pool, named, schema))) : gated && onto.hits.length ? missing[0] : undefined;
+  if ((onto.hits.length === 0 && !scanPlan) || blockedByName) {
     const terms = seedTerms(query);
     // 찾지 못한 대상으로는 이름을 지목한 낱말만 댄다(graph.ts mentionTerms). 「등록된」, 「어떤 데이터베이스」만 있으면 개체를
     // 지목하지 않은 질문이라 「개체 이름으로 볼 낱말을 찾지 못해」 문장이다. 그 사유(no_entity_term)는 ontology.search 의 답에만
     // 싣고 여기서는 종전처럼 사유 없이 그 줄만 남긴다(ask 는 7B 에게 넘긴다).
-    const nf = onto.not_found?.reason === "no_entity_term" ? undefined : onto.not_found;
+    const nf = blockedByName ?? (onto.not_found?.reason === "no_entity_term" ? undefined : onto.not_found);
     const mentions = mentionTerms(query);
     return {
       seeds: [],
       edgeCount: 0,
       strategy: "unresolved",
       not_found: nf,
+      ...(blockedByName ? { named_absent: true as const } : {}),
       items: [
         {
           canonicalKey: `unresolved#${terms.join("+")}`,
@@ -435,19 +453,95 @@ export async function graphLane(
   };
 }
 
-/** 정형 레인 질문이 이름처럼 생긴 낱말(Client-ZZ 꼴, 물산, 팀 같은 조직 접미사, graph.ts mentionTerms)로 지목했는데 온톨로지에서
- * 찾지 못한 개체마다의 사유. 정형 레인에는 개체 게이트가 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」에 「서울물산의 … 매출액은
- * 없습니다.」라고 서울물산이 있는 고객사처럼 답했다. 「등록된」, 「어떤」, 「이전」 같은 말은 이름이 아니라 보지 않는다. Company-X 는
- * 이름을 가진 표(고객사, 제품, 직원, 부서, 프로젝트)가 모두 온톨로지 노드라 그 프로파일에서만 쓴다. */
-export async function sqlMissingNames(pool: Pool, query: string, schema = kgSchema()): Promise<NotFound[]> {
+/** 이름 낱말들의 사유 하나. 낱말을 그대로 온톨로지에 찾게 해 사유와 비슷한 이름을 같은 함수로 만든다. */
+async function notFoundFor(pool: Pool, names: string[], schema: string): Promise<NotFound> {
+  const o = await ontologySearch(pool, names.join(" "), 1, schema);
+  return o.not_found && o.not_found.reason !== "no_entity_term" ? o.not_found : { reason: "not_in_database", query_entity: names[0], candidates: [] };
+}
+
+/** 질문이 이름으로 지목했는데(graph.ts mentionTerms 가운데 notfound.ts absentNameTerm: Client-ZZ 꼴, 물산, 팀 같은 조직 접미사) 온톨로지에서 찾지 못한 개체마다의
+ * 사유. 그래프 레인은 게이트가 따로 있지만 정형과 문서 레인은 없어 「서울물산의 2025년 3분기 총 매출액은 얼마야?」에 서울물산이 있는 고객사처럼 답했고,
+ * 「서울물산 담당자 중에 계약이 가장 많은 사람은?」은 7B 가 조건을 region = '서울' 로 바꿔 「조현우」라고 답했다. 「등록된」, 「어떤」, 「이전」 같은 말은
+ * 이름이 아니라 보지 않고, 자기소개 문장의 소속(「저는 재무팀 담당자입니다」)은 찾을 대상이 아니라 보지 않는다. Company-X 는 이름을 가진 표(고객사, 제품, 직원,
+ * 부서, 프로젝트)가 모두 온톨로지 노드라 그 프로파일에서만 쓴다. */
+export async function absentNames(pool: Pool, query: string, schema = kgSchema()): Promise<NotFound[]> {
   const out: NotFound[] = [];
-  for (const term of mentionTerms(query)) {
-    const name = entityLikeName(term);
+  for (const term of mentionTerms(withoutSelfIntro(query))) {
+    const name = absentNameTerm(term);
     if (!name) continue;
     const o = await ontologySearch(pool, name, 1, schema);
-    if (o.ok && !o.hits.length && o.not_found && o.not_found.reason !== "no_entity_term") out.push(o.not_found);
+    if (!o.ok || o.hits.length || !o.not_found || o.not_found.reason === "no_entity_term") continue;
+    if (await describesData(pool, name, schema)) continue;
+    out.push(o.not_found);
   }
   return out;
+}
+
+const SQL_NAME_VALUE = /(?<![\w])name\s*(?:=|i?like)\s*'((?:[^']|'')*)'/gi;
+const SQL_NAME_LIST = /(?<![\w])name\s+in\s*\(([^)]*)\)/gi;
+
+/** 생성 SQL 이 이름 열에서 찾는 값. c.name 은 맞고 client_name, contact_name 같은 다른 열은 아니다. 부정 조건(!=, NOT LIKE)도 아니다. */
+export function sqlNameValues(sql: string): string[] {
+  const values = [...sql.matchAll(SQL_NAME_VALUE)].map((m) => m[1]);
+  for (const m of sql.matchAll(SQL_NAME_LIST)) values.push(...[...m[1].matchAll(/'((?:[^']|'')*)'/g)].map((v) => v[1]));
+  return [...new Set(values.map((v) => v.replace(/''/g, "'").replace(/^%+|%+$/g, "").trim()).filter(Boolean))];
+}
+
+/** 생성 SQL 이 이름 열에서 찾는 값이 질문에 그대로 있는데 온톨로지에도 문서에도 없으면 없는 이름이다. 생성 모델이 이름으로 읽은 말이라 꼴로는 이름인지 모르는 말(「카카오」, 「홍길동」)도
+ * 잡힌다. 이름 열이 있는 표(고객사, 제품, 직원, 부서, 프로젝트)는 모두 온톨로지 노드라 여기서 못 찾으면 그 조건에 맞는 행이 없다. */
+async function absentSqlNames(pool: Pool, sql: string, query: string, schema = kgSchema()): Promise<NotFound[]> {
+  const out: NotFound[] = [];
+  const asked = withoutSelfIntro(query).toLowerCase();
+  for (const value of sqlNameValues(sql)) {
+    if (!asked.includes(value.toLowerCase()) || profile().schemaCard.includes(value)) continue;
+    const o = await ontologySearch(pool, value, 1, schema);
+    if (!o.ok || o.hits.length || !o.not_found || o.not_found.reason === "no_entity_term") continue;
+    if ((await inDocuments(pool, value)) || (await describesData(pool, value, schema))) continue;
+    out.push(o.not_found);
+  }
+  return out;
+}
+
+/** 조직 접미사로 끝나도 데이터를 가리키는 말이다. 「제조산업」, 「금융그룹」은 고객사 업종 값(제조업, 금융)에 일반 명사가 붙은 말이고, 「SSL통신」의 SSL 은 문서에 있는 기술
+ * 용어다. 「부산은행」, 「서울건설」의 부산, 서울은 업종이 아니라 지역이라 그대로 이름이다. */
+const GENERAL_ORG_SUFFIX = /(?:산업|그룹|통신|화학|보험|은행|증권|카드|건설)$/;
+async function describesData(pool: Pool, name: string, schema: string): Promise<boolean> {
+  const head = name.replace(/^([A-Za-z][A-Za-z0-9]*)[가-힣]+$/, "$1");
+  if (head !== name && (await wordInDocuments(pool, head))) return true;
+  if (!GENERAL_ORG_SUFFIX.test(name)) return false;
+  const stem = name.replace(GENERAL_ORG_SUFFIX, "");
+  if (stem.length < 2) return false;
+  try {
+    const res = await pool.query(`SELECT 1 FROM ${schema}.clients WHERE industry ILIKE $1 LIMIT 1`, [`%${likeLiteral(stem)}%`]);
+    return (res.rowCount ?? res.rows.length) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** 0, null, false 가 아닌 값이 든 행인가. */
+function holdsValue(row: Record<string, unknown>): boolean {
+  return Object.values(row).some((v) => v !== null && v !== false && Number(v) !== 0);
+}
+
+/** 없는 이름을 가린 질문에 찾은 다른 개체가 있는가. 「서울물산과 Client-A 매출」은 Client-A 로 답할 수 있지만 「서울물산 담당자」는 답할 대상이 없다. */
+function namesOtherEntity(query: string, absent: NotFound[]): boolean {
+  let q = joinSpacedIds(query);
+  for (const nf of absent) q = q.split(nf.query_entity).join(" ");
+  return entitiesIn(q).length > 0;
+}
+
+/** 없는 이름을 든 문장을 뺀 답. 찾은 쪽으로만 답하게 질문에서 그 이름을 뺐는데도 7B 가 SQL 의 그 이름을 답으로 쓴 적이 있다(「Client-A와 삼성전자 중 매출이 더 큰 곳은?」에
+ * 조회 행은 Client-A 한 곳인데 「삼성전자」). 남는 문장이 없으면 찾은 쪽의 근거로 답한다는 말만 둔다(정형 레인은 아래에 조회 행이 붙는다). */
+export function withoutMissingSentences(text: string, names: string[]): string {
+  if (!names.some((n) => text.includes(n))) return text;
+  const kept = text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim() && !names.some((n) => s.includes(n)));
+  return kept.join(" ").trim() || "찾은 개체의 조회 결과만 답합니다.";
+}
+
+/** 생성 SQL 이 이 이름을 그대로 찾는가(띄어 쓴 「서울 물산」도). */
+function sqlNames(sql: string | null | undefined, name: string): boolean {
+  return Boolean(sql) && sql!.replace(/\s+/g, "").includes(name.replace(/\s+/g, ""));
 }
 
 export interface DocCountResult {
@@ -751,15 +845,44 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const backRef = backReferenceOnly(query);
   if (backRef) return backReferenceResult(query, backRef, deps.budget ?? DEFAULT_BUDGET);
 
-  // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
-  // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
-  const decision = await routeQuery(query, deps.embedder);
-  return withRunnerUp(
+  try {
+    // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
+    // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
+    const decision = await routeQuery(query, deps.embedder);
+    return await withRunnerUp(
+      query,
+      decision,
+      (d) => runLanes(query, d, deps),
+      (r) => runnerUpRejection(deps.pool, query, r),
+    );
+  } catch (err) {
+    return failedResult(query, err, deps.budget ?? DEFAULT_BUDGET);
+  }
+}
+
+/** 어느 갈래에서 예기치 않은 예외가 났을 때의 결과. 서버는 끝나지 않고 실패를 구조화해 돌려준다. 사유는 연결 실패면 원인 코드까지, 그 밖에는 오류 종류만 답과 감사에
+ * 남기고 원문은 서버 로그에 남긴다(오류 원문에는 서버 안의 경로가 들 수 있다). */
+function failedResult(query: string, err: unknown, budget: number): RetrieveResult {
+  const raw = describeError(err);
+  console.error(`[pipeline] 예기치 않은 실패: ${err instanceof Error && err.stack ? err.stack : raw}`);
+  const why = connectionFailure(raw) ?? modelServerReason(raw) ?? `내부 오류(${err instanceof Error ? err.name : "알 수 없음"})`;
+  const d = route(query);
+  const curated = curate(query, [], budget);
+  return {
     query,
-    decision,
-    (d) => runLanes(query, d, deps),
-    (r) => runnerUpRejection(deps.pool, query, r),
-  );
+    route: d.route,
+    sql: { text: null },
+    fused: [],
+    fusion_lanes: [],
+    curated,
+    context: "",
+    audit: {
+      route: routeAudit({ ...d, tools: [], rationale: `failed before answering: ${why}` }),
+      candidates: { sql: 0, vector: 0, graph: 0, fused: 0 },
+      branch_errors: [`pipeline: ${why}`],
+      curate: curateAudit(curated),
+    },
+  };
 }
 
 /** 라우팅 결정 하나로 레인을 돌리고 융합, 큐레이션까지 한 결과. */
@@ -775,6 +898,12 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   const wantSql = !docCount && !pair && lanes.sql;
   const wantVec = !docCount && !pair && lanes.vector;
   const wantGraph = !docCount && !pair && lanes.graph;
+  // 질문이 이름으로 지목했는데 데이터에 없는 개체. 그래프로 간 질문은 그래프 레인의 게이트가 본다. 문서 레인이 도는 질문은 문서에 그대로 나오는 이름(「운영팀」)을 빼고 본다.
+  const named = profile().name === "companyx" && decision.route !== "graph" && !docCount && !pair ? await absentNames(pool, query) : [];
+  const unfound: NotFound[] = [];
+  for (const nf of named) if (!wantVec || !(await inDocuments(pool, nf.query_entity))) unfound.push(nf);
+  // 「서울물산이 쓰는 단종된 제품 있어?」는 제품 상태 표로 답할 질문이 아니다.
+  const productState = unfound.length ? undefined : decision.productState;
 
   // --- parallel fan-out (MCP Parallel): the vector branch starts immediately and
   // runs CONCURRENTLY with NL2SQL+SQL; allSettled isolates branches so a failure
@@ -790,29 +919,58 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
     const vague = vagueMeasure(query, profile().sqlSchema);
     if (vague) return { text: null, gate: { outcome: "refused", rejected: [], vague } };
     // 제품 상태 열에 없는 상태(「단종된 제품 있어?」)는 생성 모델 대신 제품 상태별 개수를 읽는다(productStateAnswer).
-    if (decision.productState) {
+    if (productState) {
       const text = productStateSql(profile().sqlSchema);
       return { text, result: await sqlQuery(pool, text) };
     }
     const report: Nl2SqlReport = {};
-    const missing = profile().name === "companyx" ? await sqlMissingNames(pool, query) : [];
-    const generated = await nl2sql(query, report);
+    // 지목한 이름이 없고 찾은 다른 개체도 없으면 그 이름을 찾는 SQL 만 답이 될 수 있다. 이름을 뺀 SQL 은 다른 조건의 행을 돌려준다(「서울물산 담당자」 → region = '서울').
+    const alone = () => unfound.length > 0 && !namesOtherEntity(query, unfound);
+    const missing = () => (unfound.length ? { missing: unfound } : {});
+    const unresolved = () => ({ ...missing(), unresolved: true as const });
+    // 생성 SQL 이 이름 열에서 찾는 값도 같은 판정을 받는다(absentSqlNames).
+    const noteSqlNames = async (sql: string | null) => {
+      if (!sql || profile().name !== "companyx" || decision.route === "graph") return;
+      for (const nf of await absentSqlNames(pool, sql, query)) if (!unfound.some((u) => u.query_entity === nf.query_entity)) unfound.push(nf);
+    };
+    let generated: string | null;
+    try {
+      generated = await nl2sql(query, report);
+    } catch (err) {
+      // 모델 서버가 죽어도 없는 이름은 이미 안다. 조회 실패가 아니라 없다고 답한다.
+      if (alone()) return { text: null, ...unresolved() };
+      throw modelServerError(err) ?? err;
+    }
     const text = generated ? alignQualifiedTables(generated, query) : generated;
-    if (!text) return report.refused ? { text: null, refused: report.refused } : { text: null };
+    if (!text) {
+      if (!report.refused) return { text: null, ...missing() };
+      return { text: null, refused: report.refused, ...(alone() && report.refused.kind === NO_TABLE ? unresolved() : missing()) };
+    }
+    await noteSqlNames(text);
+    const dropped = (sql: string, ran?: true) => ({ text: null, refused: { kind: UNRESOLVED_NAME, text: sql, ...(ran ? { ran } : {}) }, ...unresolved() });
+    if (alone() && !unfound.some((nf) => sqlNames(text, nf.query_entity))) return dropped(text);
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
     // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다. 외래키와 컬럼은 프로파일의 테이블이 있는
     // 스키마에서 읽는다. 종전에는 companyx 가 아니면 public 을 넘겨 bench 의 조인 검사가 꺼져 있었다(#255).
+    // 없는 이름을 찾은 0행은 맞는 결과라 0행 수리를 하지 않는다. 수리가 이름을 빼면 다른 조건의 행이 나온다.
     const ex = await executeWithRepair(pool, query, text, {
       repair: deps.repair !== false,
       schema: profile().sqlSchema,
+      ...(unfound.length ? { emptyRepair: false } : {}),
     });
+    if (ex.text !== text) await noteSqlNames(ex.text);
+    if (alone() && ex.text !== null && !unfound.some((nf) => sqlNames(ex.text, nf.query_entity))) return dropped(ex.text, true);
+    // 없는 개체만 지목한 조회가 돌려준 0, null 아닌 값은 그 개체의 것이 아니다. 빈 집합 위의 rank() 는 1 이라 「Client-ZZ의 매출 순위는 1위입니다」가 됐다.
+    if (alone() && ex.text !== null && ex.result?.ok && ex.result.rows.some(holdsValue)) return dropped(ex.text, true);
     return {
       text: ex.text,
       result: ex.result,
       repaired: ex.repaired || undefined,
       ...(ex.gate ? { gate: ex.gate } : {}),
       ...(ex.rank ? { rank: ex.rank } : {}),
-      ...(missing.length ? { missing } : {}),
+      ...missing(),
+      // 이름을 찾는 SQL 이 실행되지 못했으면(거부, 오류) 「실행되는 조회를 못 만들었다」가 아니라 그 이름이 없다는 것이 답이다.
+      ...(alone() && (ex.gate?.outcome === "refused" || !ex.result?.ok) ? { unresolved: true as const } : {}),
     };
   })();
   // 문서 레인만 도는 질문이 문서 하나를 가리키면(evidence.ts namedDocument) 상위 k 조각 대신 그 문서의 절을 문서 순서대로 싣는다(unitHits).
@@ -904,12 +1062,14 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   if (pairOut && !pairOut.ok) branchErrors.push(`graph: ${pairOut.error ?? "unknown"}`);
   // 연결 실패는 주소와 원시 오류 대신 짧은 문장으로 답과 감사에 남긴다(db.ts connectionFailure). 고칠 단서는 서버 로그에 있다.
   // 서버의 풀은 db.ts 가 이미 바꿔 주지만, 따로 만든 풀(fault:demo, 테스트)의 오류는 여기서 바꾼다.
+  // 모델 서버 실패는 데이터베이스 탓으로 말하지 않는다(errors.ts modelServerReason, 주소는 서버 로그에).
   for (let i = 0; i < branchErrors.length; i++) {
     const m = /^([a-z]+): ([\s\S]*)$/.exec(branchErrors[i]);
-    const said = m ? connectionFailure(m[2]) : null;
-    if (!m || !said) continue;
-    if (!m[2].includes(said)) logConnectionFailure(m[2], null);
-    branchErrors[i] = `${m[1]}: ${said}`;
+    if (!m) continue;
+    const said = connectionFailure(m[2]);
+    if (said && !m[2].includes(said)) logConnectionFailure(m[2], null);
+    const reason = said ?? modelServerReason(m[2]);
+    if (reason) branchErrors[i] = `${m[1]}: ${reason}`;
   }
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
@@ -992,6 +1152,11 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   const fused = rrfMerge(lists);
   const curated = curate(query, fused.map((f) => f.value), budget);
   const evidenceUnit: EvidenceUnit | undefined = vec?.unit ?? graphResult?.evidence;
+  // 정형과 문서 레인의 없는 이름(absentNames). 찾은 다른 개체가 있으면 그 개체로 답하고 없는 이름을 먼저 밝힌다. 없으면 답할 대상이 없다.
+  // 정형 레인의 생성 SQL 이 그 이름을 그대로 찾아 값 없는 행을 돌려준 답은 그대로 둔다(TC-143, 사유를 앞에 붙인다).
+  const unfoundOther = unfound.length > 0 && namesOtherEntity(query, unfound);
+  const unfoundAlone = unfound.length > 0 && !unfoundOther && (sql.unresolved || decision.route !== "structured");
+  const partial = unfoundOther ? { missing: unfound, answer_query: withoutMissing(query, unfound.map((nf) => nf.query_entity)) } : {};
 
   return {
     query,
@@ -1010,13 +1175,14 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
     graph: graphResult ?? (pairResult ? { seeds: [], edgeCount: pairResult.edges.length, strategy: "pair", items: [] } : undefined),
     ...(docResult ? { documents: docResult } : {}),
     ...(pairResult ? { pair: pairResult } : {}),
-    ...(decision.productState ? { product_state: decision.productState } : {}),
+    ...(productState ? { product_state: productState } : {}),
     fused,
     fusion_lanes: listLanes,
     curated,
     context: render(curated),
     ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
     ...(graphResult?.missing?.length ? { missing: graphResult.missing, answer_query: graphResult.answer_query } : {}),
+    ...(unfoundAlone ? { not_found: unfound[0], ...(unfound.length > 1 ? { missing: unfound } : {}) } : partial),
     audit: {
       route: routeAudit(decision),
       candidates: {
@@ -1030,6 +1196,8 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       ...(evidenceUnit ? { evidence_unit: evidenceUnit } : {}),
       ...(graphResult?.not_found ? { not_found: graphResult.not_found } : {}),
       ...(graphResult?.missing?.length ? { missing_entities: graphResult.missing } : {}),
+      ...(unfoundAlone ? { not_found: unfound[0] } : {}),
+      ...(unfound.length ? { missing_entities: unfound } : {}),
       ...(graphResult?.truncated ? { graph_truncated: graphResult.truncated } : {}),
       ...(graphResult?.fitted ? { graph_fitted: graphResult.fitted } : {}),
       ...(sql.gate ? { sql_gate: sql.gate } : {}),
@@ -1910,8 +2078,21 @@ export function sqlCutNote(r: RetrieveResult, answer: string): string | undefine
 }
 
 /** Full pipeline: deterministic retrieval spine + the on-prem 7B answer step.
- * `llm` is injectable so the eval / tests can substitute a stub. */
+ * `llm` is injectable so the eval / tests can substitute a stub.
+ * 어느 단계의 예외든 서버로 던지지 않고 실패한 답으로 돌려준다. */
 export async function ask(
+  query: string,
+  deps: RetrieveDeps & { llm?: AnswerFn },
+): Promise<AskResult> {
+  try {
+    return await answerQuery(query, deps);
+  } catch (err) {
+    const r = failedResult(query, err, deps.budget ?? DEFAULT_BUDGET);
+    return { ...r, answer: `이 질문을 처리하다 실패해 답하지 못했습니다: ${r.audit.branch_errors.join(" / ")}` };
+  }
+}
+
+async function answerQuery(
   query: string,
   deps: RetrieveDeps & { llm?: AnswerFn },
 ): Promise<AskResult> {
@@ -1924,12 +2105,17 @@ export async function ask(
   // 바꾸지 않으므로 그렇게 말한다. 종전에는 빈 컨텍스트로 7B 를 불러 「주어진 정보로는 알 수 없습니다」라고
   // 답했다 — 데이터가 없다는 뜻으로 읽힌다(G17 ②).
   const refused = r.sql.refused;
-  if (refused && refused.kind !== NO_TABLE) {
+  if (refused && refused.kind !== NO_TABLE && refused.kind !== UNRESOLVED_NAME) {
     return { ...r, answer: writeRefusal(refused.kind) };
   }
   // 묻는 항목이 데이터에 없고 다른 레인의 근거도 없다. 7B 없이 그렇게 답한다.
   if (r.sql.absent && r.context.length === 0) {
     return { ...r, answer: describeAbsentAttribute(r.sql.absent) };
+  }
+  // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
+  // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다. 어느 레인으로 갔든 같고, 모델 서버가 죽어도 이 답은 나온다.
+  if (r.not_found) {
+    return { ...r, answer: (r.missing?.length ? r.missing : [r.not_found]).map(describeNotFound).join(" ") };
   }
   // 실행 전 검사가 생성 SQL 을 모두 거부했다. 모델에게 쓰게 하지 않고 그 사실과 다시 물을 방법을 말한다.
   if (r.sql.gate?.outcome === "refused") return { ...r, answer: untrustedAnswer(r.sql.gate) };
@@ -1957,6 +2143,11 @@ export async function ask(
         "질문을 조금 바꿔 다시 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」",
     };
   }
+  // 근거를 모으는 단계가 모델 서버 때문에 모두 실패했다(정형 레인의 SQL 생성, 문서 레인의 임베딩). 데이터베이스 탓이 아니고 데이터가 없는 것도 아니다.
+  if (r.context.length === 0 && branchErrors.length > 0 && branchErrors.every((e) => e.includes(MODEL_SERVER_FAILURE))) {
+    const code = /\(([^)]*)\)/.exec(branchErrors[0].slice(branchErrors[0].indexOf(MODEL_SERVER_FAILURE)))?.[1];
+    return { ...r, answer: `모델 서버에 연결하지 못해 답하지 못했습니다${code ? `(${code})` : ""}. 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.` };
+  }
   if (r.context.length === 0 && branchErrors.length > 0) {
     return {
       ...r,
@@ -1974,12 +2165,6 @@ export async function ask(
   const stateAnswer = productStateAnswer(r);
   if (stateAnswer) return { ...r, answer: withSqlRows(r, stateAnswer) };
 
-  // 게이트가 개체를 못 찾았으면 답할 내용은 이미 정해져 있다. 7B 에게 다시 쓰게 하면
-  // 사유가 빠진다 — 실측 답은 「주어진 정보로는 알 수 없습니다」 한 줄이었다.
-  if (r.not_found) {
-    return { ...r, answer: describeNotFound(r.not_found) };
-  }
-
   // 테이블을 읽지 않는 SELECT 만 나왔고 다른 근거도 없다. 데이터에 답이 없는 질문이다.
   if (refused && r.context.length === 0) {
     return { ...r, answer: NO_TABLE_ANSWER };
@@ -1987,53 +2172,54 @@ export async function ask(
 
   // 공동 1위(WITH TIES 로 2행 이상)와 순위 질문의 공동 순위(rankRewrite 로 2행 이상)는 이름을 모두 적는 결정론 문장으로
   // 답한다(sqltrust.ts tieAnswer). 질문에 없는 개체가 섞였으면 그 사유를 먼저 말해야 하므로 아래 길로 간다.
-  // 정형 레인 질문이 데이터에 없는 개체를 이름으로 지목했고 생성 SQL 이 그 이름을 그대로 찾았으면 그 사유를 답 앞에 붙인다
-  // (sqlMissingNames). SQL 이 그 이름을 찾지 않았으면(모델이 다른 이름으로 찾았으면) 사유와 답이 어긋나 붙이지 않는다.
-  const sqlMissing = (r.sql.missing ?? []).filter((nf) => r.sql.text?.includes(nf.query_entity));
-  const missingSqlHead = sqlMissing.length ? `${sqlMissing.map(describeNotFound).join(" ")}\n\n` : "";
+  // 정형 레인 질문이 데이터에 없는 개체를 이름으로 지목했고 생성 SQL 이 그 이름을 그대로 찾았으면 그 사유를 답 앞에 붙인다(absentNames).
+  // SQL 이 그 이름을 뺐으면 위에서 찾지 못했다고 끝났거나(찾은 다른 개체가 없음) r.missing 의 사유가 앞에 붙는다(찾은 다른 개체로 답함). 어느 길로 답하든 사유가 먼저다.
+  const absentHere = r.missing?.length ? r.missing : (r.sql.missing ?? []);
+  const head = absentHere.length ? `${absentHere.map(describeNotFound).join(" ")}\n\n` : "";
   // 조회는 했는데 0건이고 다른 근거도 없다. 7B 를 부르지 않고 0건이라고 말한다(ZERO_ROWS_ANSWER).
   if (r.sql.result?.ok && r.sql.result.rows.length === 0 && r.context.length === 0) {
-    return { ...r, answer: missingSqlHead + ZERO_ROWS_ANSWER };
+    return { ...r, answer: head + ZERO_ROWS_ANSWER };
   }
   // 정형 레인의 합계, 평균, 최댓값, 최솟값 집계가 값이 모두 null 인 한 행이면 7B 없이 값이 없다고 말한다(NULL_ROW_ANSWER).
   // 못 찾은 개체 사유를 앞에 붙이는 답은 7B 문장을 그대로 둔다. 제출한 명세 TC-143 의 비고가 그 문장(「서울물산의 2025년 3분기 총
   // 매출액은 없습니다.」)을 인용해, 결정론 문장으로 바꾸면 인용한 값이 화면에서 사라졌다(10-08 네 번째 릴리스 리허설, G13).
   const onlyRow = r.route === "structured" && r.sql.result?.ok && r.sql.result.rows.length === 1 ? r.sql.result.rows[0] : undefined;
   const aggregate = /\b(?:sum|avg|min|max)\s*\(/i.test(r.sql.text ?? "");
-  if (onlyRow && aggregate && !missingSqlHead && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
-    return { ...r, answer: missingSqlHead + withSqlRows(r, NULL_ROW_ANSWER) };
+  const sqlFoundNoName = !r.missing?.length && Boolean(r.sql.missing?.length);
+  if (onlyRow && aggregate && !sqlFoundNoName && Object.keys(onlyRow).length && Object.values(onlyRow).every((v) => v === null)) {
+    return { ...r, answer: head + withSqlRows(r, NULL_ROW_ANSWER) };
   }
   const tie = (r.missing ?? []).length ? null : tieAnswer(r, renderValue);
-  if (tie) return { ...r, answer: missingSqlHead + withSqlRows(r, tie) };
+  if (tie) return { ...r, answer: head + withSqlRows(r, tie) };
   // 묶음마다 1위를 결정론으로 바꾼 SQL 은 묶음마다 1위 행을 모두 적는 결정론 문장으로 답한다(groupTopAnswer).
   const groupTop = (r.missing ?? []).length ? undefined : groupTopAnswer(r, query);
-  if (groupTop) return { ...r, answer: missingSqlHead + withSqlRows(r, groupTop) };
+  if (groupTop) return { ...r, answer: head + withSqlRows(r, groupTop) };
   // 글 값만 든 목록은 행을 그대로 적는다(textListAnswer).
   const textList = (r.missing ?? []).length ? undefined : textListAnswer(r, query);
-  if (textList) return { ...r, answer: missingSqlHead + withSqlRows(r, textList) };
+  if (textList) return { ...r, answer: head + withSqlRows(r, textList) };
   // 그래프 집계의 「가장 적은」, 「가장 많은」이 공동이면 같은 방식으로 이름을 모두 적는다. 묶음마다 센 집계는 묶음과 수를 모두 적는다.
   const few = fewestAnswer(r) ?? topTieAnswer(r, query) ?? groupCountAnswer(r, query);
-  if (few) return { ...r, answer: few };
+  if (few) return { ...r, answer: head + few };
   // 상태 조건을 건 관계 목록은 조건과 이름을 결정론으로 적는다. 부정 조건과 세 단계 관계는 계산하거나 계산하지 않는다고 말한다.
   const listed = filteredListAnswer(r, query);
-  if (listed) return { ...r, answer: listed };
+  if (listed) return { ...r, answer: head + listed };
   // 「상사」 경로(소속 부서 다음 부서장)는 경로 끝의 부서장을 모두 적는다(bossAnswer).
   const boss = bossAnswer(r);
-  if (boss) return { ...r, answer: boss };
+  if (boss) return { ...r, answer: head + boss };
   const limit = await graphLimitAnswer(deps.pool, r, query);
-  if (limit) return { ...r, answer: limit };
+  if (limit) return { ...r, answer: head + limit };
 
   // 섞인 질문에서 없는 개체는 결정론 문장으로 먼저 말하고, 7B 는 그 개체가 든 마디를 뺀 질문에
   // 찾은 개체의 근거로만 답한다. 사유 줄은 7B 컨텍스트에서 뺀다(같은 말을 두 번 하지 않게).
   const missingLines = new Set((r.missing ?? []).map((nf) => `[그래프] ${describeNotFound(nf)}`));
-  const head = (missingLines.size ? `${(r.missing ?? []).map(describeNotFound).join(" ")}\n\n` : "") + missingSqlHead;
   const answerContext = missingLines.size
     ? r.context.split("\n").filter((l) => !missingLines.has(l)).join("\n")
     : r.context;
 
   const gen = deps.llm ?? llmAnswer;
   try {
-    const generated = await gen(r.answer_query ?? query, answerContext);
+    const said = await gen(r.answer_query ?? query, answerContext);
+    const generated = r.missing?.length ? withoutMissingSentences(said, r.missing.map((nf) => nf.query_entity)) : said;
     // 그래프 경로가 있는데 모른다고만 답했으면 묻는 타입에서 끝나는 경로의 이름을 적는다(pathAnswer).
     const viaPath = pathAnswer(r, r.answer_query ?? query, generated);
     if (viaPath) return { ...r, answer: head + viaPath };
@@ -2080,7 +2266,8 @@ export async function ask(
     //
     // 조회는 성공했다. "조회 실패" 로 뭉뚱그리지 않고 생성만 실패했다고 말한다 —
     // 근거는 있으니 사용자가 컨텍스트를 직접 볼 수도 있다.
-    const why = describeError(e);
+    const raw = describeError(e);
+    const why = modelServerError(e)?.message ?? modelServerReason(raw) ?? raw;
     return {
       ...r,
       // 정형 레인이면 조회 결과는 생성 없이도 보여줄 수 있다.

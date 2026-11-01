@@ -27,6 +27,7 @@ import {
   queuePlugin,
   sanitizerPlugin,
   jsonLoggerPlugin,
+  type AirPlugin,
   type AirServer,
   type TransportConfig,
 } from "@airmcp-dev/core";
@@ -50,6 +51,7 @@ import { fileURLToPath } from "node:url";
 import { budgetParam, formatParam, queryParam, sqlParam, normalizeQuery } from "./queryinput.js";
 
 import { buildAuditRecord, renderAudit } from "./auditrecord.js";
+import { auditLogPath, auditLogPlugin, noteAudit } from "./auditlog.js";
 import { buildPrompts } from "./prompts.js";
 import { buildResources } from "./resources.js";
 import { profile } from "./profile.js";
@@ -193,6 +195,27 @@ const PACKAGE_VERSION: string = JSON.parse(
  * 사전 점검 3차 G20, G24). 길이는 입력 검증이 같은 상한으로 거절한다(queryinput.ts MAX_INPUT_CHARS). */
 export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POSITIVE_INFINITY } as const;
 
+/** 실패가 담긴 결과인가(레인 실패, 조회 실패). 캐시하면 복구된 뒤에도 60초 동안 같은 실패를 답한다. */
+export function failedToolResult(result: unknown): boolean {
+  const r = result as { ok?: unknown; audit?: { branch_errors?: unknown[] }; branch_errors?: unknown[] } | null | undefined;
+  return r?.ok === false || Boolean(r?.audit?.branch_errors?.length) || Boolean(r?.branch_errors?.length);
+}
+
+/** 실패한 결과를 캐시에 넣지 않게 한다. use 에서 cachePlugin 앞에 둔다: after 는 그 순서로 돌고, cachePlugin 의 after 는 이 칸이 비면 넣지 않는다. */
+function noFailureCachePlugin(): AirPlugin {
+  return {
+    meta: { name: "onprem:no-failure-cache" },
+    middleware: [
+      {
+        name: "onprem:no-failure-cache",
+        after: async (ctx) => {
+          if (failedToolResult(ctx.result)) delete ctx.meta._cacheKey;
+        },
+      },
+    ],
+  };
+}
+
 export function buildServer(): AirServer {
   const ds = profile();
   // 레인 도구 설명에 적은 표·문서·관계 목록은 Company-X 데이터셋의 것이다. 다른 프로파일(smoke, bench)에서는 빼서
@@ -200,6 +223,9 @@ export function buildServer(): AirServer {
   const cx = (text: string) => (ds.name === "companyx" ? text : "");
   // 라우터 셋째 단계(ROUTER_LLM_STAGE=1, 기본 꺼짐)를 켜면 라우팅이 생성 모델을 부를 수 있다. 켰을 때만 설명이 그렇게 말한다.
   const llmStage = llmStageEnabled();
+  // AUDIT_LOG_FILE 을 주면 도구 호출마다 감사 줄을 그 파일에 덧붙인다(auditlog.ts). 기본은 끔.
+  const auditFile = auditLogPath();
+  if (auditFile) console.error(`[audit] 호출마다 감사 기록을 ${auditFile} 에 덧붙인다(조회 행은 적지 않는다)`);
   return defineServer({
     name: "onprem-mcp-data",
     version: PACKAGE_VERSION,
@@ -221,10 +247,12 @@ export function buildServer(): AirServer {
     // transform/i18n은 우리 응답 계약을 흐린다. dryrun은 개발 전용이다.
     use: [
       jsonLoggerPlugin(),
+      ...(auditFile ? [auditLogPlugin(auditFile, auditCaller)] : []),
       sanitizerPlugin(SANITIZER_OPTIONS),
       timeoutPlugin(120_000),
       queuePlugin({ concurrency: { "*": 8, ask: 2, retrieve: 2 } }), // 7B 경로만 좁게
       dedupPlugin(),
+      noFailureCachePlugin(),
       // audit.explain은 캐시에서 제외한다. 감사의 목적은 "지금 이 순간
       // 파이프라인이 무엇을 하는가"인데, 캐시된 레코드는 60초 전의 실행 기록이다.
       // 그것은 감사가 아니라 과거 기록의 재생이다. (이슈 #12)
@@ -351,7 +379,7 @@ export function buildServer(): AirServer {
             embedder: getEmbedder(),
             budget: budget as number | undefined,
           });
-          return { route: r.route, context: r.context, audit: r.audit };
+          return noteAudit({ route: r.route, context: r.context, audit: r.audit }, buildAuditRecord(r), r.sql.gate?.rejected);
         },
       }),
 
@@ -382,7 +410,8 @@ export function buildServer(): AirServer {
             budget: budget as number | undefined,
           });
           // 감사 레코드를 함께 낸다. 답만 주면 "왜 그 답인가"를 확인할 방법이 없다.
-          return { answer: r.answer, route: r.route, context: r.context, audit: buildAuditRecord(r) };
+          const record = buildAuditRecord(r);
+          return noteAudit({ answer: r.answer, route: r.route, context: r.context, audit: record }, record, r.sql.gate?.rejected);
         },
       }),
 
@@ -418,7 +447,7 @@ export function buildServer(): AirServer {
             caller: auditCaller(),
             cache_policy: CACHE_EXCLUDED.includes("audit.explain") ? ("excluded" as const) : ("cached" as const),
           };
-          return format === "text" ? { text: renderAudit(record) } : record;
+          return noteAudit(format === "text" ? { text: renderAudit(record) } : record, record, r.sql.gate?.rejected);
         },
       }),
 

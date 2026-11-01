@@ -32,7 +32,7 @@ import type { GraphTruncation } from "./graph.js";
 import type { EvidenceUnit } from "./evidence.js";
 import type { NotFound } from "./notfound.js";
 import { sqlGatePolicy } from "./sqltrust.js";
-import { NO_TABLE } from "./nl2sql.js";
+import { NO_TABLE, UNRESOLVED_NAME } from "./nl2sql.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
@@ -65,6 +65,8 @@ export interface AuditRecord {
     deterministic: boolean;
     /** 확신 없이 고른 레인이 빈손이라 다음 순위 레인을 돌렸을 때만(fallback.ts). used 가 아니면 답은 처음 레인의 결과이고 rejected 가 그 이유다. */
     fallback?: { from: string; to: string; reason: string; used: boolean; rejected?: string };
+    /** 규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해 규칙의 결정으로 물러났을 때만. 사유는 원인 코드까지. */
+    semantic_error?: string;
   };
   retrieval: {
     sql: {
@@ -74,7 +76,7 @@ export interface AuditRecord {
       error: string | null;
       repaired: boolean;
       /** 생성 모델이 만들었지만 실행하지 않은 문장. 그때만 붙고 text 는 null 이다. */
-      refused?: { kind: string; text: string };
+      refused?: { kind: string; text: string; ran?: true };
       /** 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목. 그때만 붙는다. */
       absent?: string;
     };
@@ -184,7 +186,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
         detail: `엔진 또는 가드가 거부: ${r.sql.result?.error ?? "사유 미기록"}`,
       });
     }
-  } else if (r.sql.refused) {
+  } else if (r.sql.refused && r.sql.refused.kind !== UNRESOLVED_NAME) {
     // 실행하지 않은 생성 문장도 거부 판정으로 남긴다. 종전에는 조용히 버려 감사 레코드에 흔적이 없었다.
     policies.push({
       policy: "sql-read-only",
@@ -227,6 +229,16 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       verdict: "deny",
       detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못해 근거를 비우고, 찾지 못한 사유 한 줄만 컨텍스트에 남겼다(환각 차단)${why}`,
     });
+  } else if (r.not_found) {
+    // 정형이나 문서 레인으로 간 질문이 없는 이름을 지목했다. 생성 모델을 답에 쓰지 않았다.
+    const names = (r.missing?.length ? r.missing : [r.not_found]).map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
+    policies.push({
+      policy: "graph-unresolved-gate",
+      verdict: "deny",
+      detail:
+        `질의가 지목한 개체를 온톨로지에서 해소하지 못해(${names}) 조회 결과로 답하지 않고 찾지 못한 사유로 답했다(환각 차단)` +
+        (r.sql.refused?.kind === UNRESOLVED_NAME ? ". 생성 SQL 의 결과로 답하지 않았다" : ""),
+    });
   } else if (r.missing?.length) {
     // 섞인 질문: 찾은 개체로는 답하되, 없는 개체는 사유를 컨텍스트와 답 앞에 싣는다.
     const names = r.missing.map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
@@ -236,6 +248,14 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       detail:
         `질의가 지목한 개체 일부를 온톨로지에서 해소하지 못했다(${names}). 그 사유를 컨텍스트와 답 앞에 싣고, ` +
         `찾은 개체의 근거로만 「${r.answer_query ?? r.query}」에 답했다(없는 개체에 찾은 개체의 사실을 붙이지 않음)`,
+    });
+  } else if (r.sql.missing?.length) {
+    // 생성 SQL 이 없는 이름을 그대로 찾아 값 없는 결과를 돌려줬다. 그 결과 앞에 찾지 못한 사유를 붙였다.
+    const names = r.sql.missing.map((nf) => `${nf.query_entity}: ${nf.reason}`).join(", ");
+    policies.push({
+      policy: "graph-unresolved-gate",
+      verdict: "degrade",
+      detail: `질의가 지목한 개체를 온톨로지에서 해소하지 못했다(${names}). 생성 SQL 이 그 이름을 찾은 값 없는 결과 앞에 찾지 못한 사유를 붙여 답했다`,
     });
   }
 
@@ -247,6 +267,15 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       policy: "context-budget",
       verdict: "degrade",
       detail: `토큰 예산으로 후보 ${dropped}건을 잘랐다`,
+    });
+  }
+
+  // 4-1) 시맨틱 폴백 실패: 규칙의 결정으로 물러났다.
+  if (typeof routeAudit.semantic_error === "string") {
+    policies.push({
+      policy: "branch-isolation",
+      verdict: "degrade",
+      detail: `규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해(${routeAudit.semantic_error}) 규칙의 결정으로 라우팅했다`,
     });
   }
 
@@ -299,6 +328,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       rationale: String(routeAudit.rationale ?? ""),
       deterministic: routeAudit.deterministic !== false,
       ...(a.route_fallback ? { fallback: a.route_fallback } : {}),
+      ...(typeof routeAudit.semantic_error === "string" ? { semantic_error: routeAudit.semantic_error } : {}),
     },
     retrieval: {
       sql: {
@@ -336,6 +366,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
 
   if (r.not_found) record.not_found = r.not_found;
   if (r.missing?.length) record.missing_entities = r.missing;
+  else if (!r.not_found && r.sql.missing?.length) record.missing_entities = r.sql.missing;
 
   if (answer !== undefined) {
     const fixed = "grounding_fix" in r ? r.grounding_fix : undefined;

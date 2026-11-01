@@ -45,7 +45,7 @@
        전 도구    ▼             ▼
        read-only)┌────────┐   ┌──────────────────────────┐
                  │ Primary│   │ Read endpoint            │
-                 │  PG17  │──▶│ READ_DATABASE_URL 설정 시  │
+                 │  PG16  │──▶│ READ_DATABASE_URL 설정 시  │
                  │+pgvec  │   │   → 별도 풀(읽기 오프로드)  │
                  └────────┘   │ 미설정 시                  │
                               │   → Primary로 폴백(동일)    │

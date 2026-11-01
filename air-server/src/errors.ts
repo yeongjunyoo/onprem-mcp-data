@@ -38,3 +38,22 @@ export function describeError(err: unknown): string {
   const s = String(err);
   return s && s !== "[object Object]" ? s : "알 수 없는 오류";
 }
+
+/** 모델 서버(Ollama) 연결 실패의 문장. 데이터베이스 연결 실패(db.ts connectionFailure)와 가른다. 사용자 답과 감사 레코드에는 원인 코드까지만 적고 주소는 적지
+ * 않는다(고칠 단서는 서버 로그). Ollama 가 죽었는데 「데이터베이스에 연결하지 못했습니다(ECONNREFUSED)」라고 답해 멀쩡한 DB 를 보게 했다(2026-11-02 실측). */
+export const MODEL_SERVER_FAILURE = "모델 서버에 연결하지 못했습니다";
+const NET_CODE = /\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|EPIPE|EAI_AGAIN)\b/;
+
+/** 모델 서버 호출이 네트워크에서 실패했으면 원인 코드만 남긴 오류. 그 밖의 실패면 null. */
+export function modelServerError(err: unknown): Error | null {
+  const code = NET_CODE.exec(describeError(err))?.[1];
+  return code ? new Error(`${MODEL_SERVER_FAILURE}(${code})`) : null;
+}
+
+/** 실패 문장에서 모델 서버 쪽 사유를 사용자에게 보일 꼴로. 연결 실패는 그 문장, HTTP 오류는 상태 코드까지(본문에는 서버 안의 경로가 들 수 있다). 아니면 null. */
+export function modelServerReason(text: string): string | null {
+  const at = text.indexOf(MODEL_SERVER_FAILURE);
+  if (at >= 0) return /^[^)]*\)/.exec(text.slice(at))?.[0] ?? MODEL_SERVER_FAILURE;
+  const http = /\bollama (?:generate|embeddings) (\d{3})\b/.exec(text);
+  return http ? `모델 서버가 오류로 응답했습니다(HTTP ${http[1]})` : null;
+}

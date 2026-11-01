@@ -166,11 +166,12 @@ export function buildResources() {
                 "모델이 만든 SQL과 융합 결과까지 덮는 해시. 로컬 7B 가 흔들리면 이 값은 달라질 수 있다",
               routing:
                 "선택된 레인과 근거가 된 어휘, 결정론 여부. fallback 은 규칙이 확신하지 못한 채 고른 레인이 빈손(0건, null 집계, 실행 전 검사 거부, 이름이 아닌 낱말을 못 찾음)이라 "
-                + "다음 순위 레인을 돌렸을 때만 붙는다: {from, to, reason, used, rejected}. used 가 false 면 다음 순위 레인의 결과를 쓰지 않은 이유가 rejected 이고 답은 from 레인의 결과다",
+                + "다음 순위 레인을 돌렸을 때만 붙는다: {from, to, reason, used, rejected}. used 가 false 면 다음 순위 레인의 결과를 쓰지 않은 이유가 rejected 이고 답은 from 레인의 결과다. "
+                + "semantic_error 는 규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해 규칙의 결정으로 물러났을 때만 붙는다(사유는 원인 코드까지)",
               retrieval:
                 "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null. "
-                + "sql.refused 는 생성 모델이 만들었지만 실행하지 않은 문장이 있을 때만 붙는다. {kind, text}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
-                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT)이고, 이때 sql.text 는 null 이다(실행한 SQL 없음). "
+                + "sql.refused 는 생성 모델이 만들었지만 답에 쓰지 않은 문장이 있을 때만 붙는다. {kind, text, ran}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
+                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT), UNRESOLVED_NAME(질문이 지목한 이름이 데이터에 없어 답에 쓰지 않은 SQL: 그 이름을 쓰지 않았거나 그 개체의 것일 수 없는 값을 돌려줬다. 읽기 전용으로 실행한 뒤 버렸으면 ran 이 true 다)이고, 이때 sql.text 는 null 이다(답에 쓴 SQL 없음). "
                 + "sql.absent 는 질문이 묻는 항목(나이, 성별, 고객사의 직원 수 등)이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목 이름이다",
               fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
               context:
@@ -181,13 +182,14 @@ export function buildResources() {
               grounding:
                 "답변이 컨텍스트 밖 개체를 만들었는지. **ask 처럼 답변을 만드는 경로에서만 붙는다** — retrieve 감사에는 없다",
               not_found:
-                "미해소 개체 게이트가 발동했을 때만 붙는다. {reason, query_entity, candidates[{name, type, score}]}. "
+                "미해소 개체 게이트가 발동했을 때만 붙는다(어느 레인으로 간 질문이든). {reason, query_entity, candidates[{name, type, score}]}. "
                 + "reason 은 not_in_database(비슷한 이름도 없음) 또는 similar_name_mismatch(비슷한 이름의 다른 개체만 있음 — 후보로만 알리고 해소하지 않는다)",
               missing_entities:
-                "질문의 개체 중 일부만 해소됐을 때만 붙는다. 해소되지 않은 이름(사업자 식별자 꼴, 조직 접미사, 비슷한 이름이 있는 낱말)마다 "
+                "질문의 개체 중 일부만 해소됐거나 없는 이름을 둘 이상 지목했을 때만 붙는다. 해소되지 않은 이름(사업자 식별자 꼴, 조직 접미사, 비슷한 이름이 있는 낱말)마다 "
                 + "not_found 와 같은 {reason, query_entity, candidates}. 찾은 개체로는 답하고 이 사유를 컨텍스트와 답 앞에 싣는다",
               branch_errors:
-                "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword), 문서 개수 질문의 제목 세기(documents)이거나 답변 생성(answer)이다. "
+                "실패한 것들. `<출처>: <이유>` 형태다. 출처는 조회 레인(sql · vector · graph · keyword), 문서 개수 질문의 제목 세기(documents), 답변 생성(answer)이거나 레인 밖의 예외(pipeline)다. "
+                + "이유는 연결 실패면 데이터베이스와 모델 서버를 가르고 원인 코드까지만 적는다. "
                 + "일부가 죽어도 나머지로 답했다는 근거가 되고, 전부 죽으면 왜 답할 수 없었는지가 된다",
               generated_at: "레코드 생성 시각(ISO 8601)",
               executed_at:
@@ -206,7 +208,7 @@ export function buildResources() {
               "sql-trust-gate":
                 "생성 SQL 을 실행 전에 검사: 조인 열 쌍이 선언된 외래키가 아니거나 질문에 없는 번호로 id 를 걸면 실행하지 않고 1회 수리. 수리도 거부되면 답하지 않음(deny)",
               "graph-unresolved-gate":
-                "질의가 지목한 개체를 해소하지 못하면 근거를 비우고 찾지 못한 사유 한 줄만 남김(환각 차단, deny). "
+                "질의가 지목한 개체를 해소하지 못하면 답을 만들지 않고 찾지 못한 사유로 답함(환각 차단, deny). 그래프 레인은 근거를 비우고 사유 한 줄만 남기고, 문서 레인은 검색한 조각을 쓰지 않으며, 정형 레인은 그 이름을 쓰지 않은 생성 SQL 을 실행하지 않는다. "
                 + "일부만 해소되면 찾은 개체로 답하되 없는 개체의 사유를 컨텍스트와 답 앞에 싣는다(degrade)",
               "context-budget": "토큰 예산으로 후보를 자름",
               "branch-isolation": "레인 하나가 실패해도 나머지로 응답",

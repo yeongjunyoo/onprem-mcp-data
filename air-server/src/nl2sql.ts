@@ -35,6 +35,8 @@ export interface Nl2SqlReport {
 
 /** 테이블을 읽지 않는 SELECT 의 kind. */
 export const NO_TABLE = "NO_TABLE";
+/** 질문이 지목한 이름이 데이터에 없고 찾은 다른 개체도 없는데 생성 SQL 이 그 이름을 쓰지 않았다(pipeline.ts runLanes). 다른 조건의 행을 돌려줄 문장이라 실행하지 않는다. */
+export const UNRESOLVED_NAME = "UNRESOLVED_NAME";
 
 import {
   DOT_MONTH_RE,

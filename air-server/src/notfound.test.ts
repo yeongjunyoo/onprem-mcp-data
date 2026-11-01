@@ -27,14 +27,18 @@ import { entityLikeName, joinSpacedIds, likeLiteral, mentionTerms, ontologySearc
 import {
   NOT_FOUND_SIMILARITY,
   absentAttribute,
+  absentNameTerm,
   classifyNotFound,
   describeAbsentAttribute,
   describeNotFound,
   nameSimilarity,
   similarNames,
+  withoutSelfIntro,
 } from "./notfound.js";
-import { companyxSchemaCard } from "./nl2sql.js";
-import { ask, graphLane, withoutMissing } from "./pipeline.js";
+import { NO_TABLE, UNRESOLVED_NAME, companyxSchemaCard, type Nl2SqlReport } from "./nl2sql.js";
+import { buildAuditRecord } from "./auditrecord.js";
+import { emptyLane } from "./fallback.js";
+import { ask, graphLane, sqlNameValues, withoutMissing, withoutMissingSentences } from "./pipeline.js";
 import { installOntology } from "./router.js";
 
 let passed = 0;
@@ -289,6 +293,257 @@ const fakePool = {
   ok(lane.strategy === "unresolved" && lane.not_found === undefined && lane.items[0].text.includes("개체 이름으로 볼 낱말을 찾지 못해"), `개체(데이터베이스)라고 하지 않는다 (got ${lane.items[0]?.text})`);
   const kept = await graphLane(fakePool, "대한민국 대통령은 누구야?", 5, 2, "companyx");
   ok(kept.not_found?.reason === "not_in_database" && kept.not_found.query_entity === "대한민국", "TC-145 는 종전처럼 개체(대한민국)");
+}
+
+// ── 6b-2) 없는 이름은 어느 갈래로 가든 답을 만들지 않는다 ─────────────
+// 집계와 상태 조건은 그래프 게이트를 건너뛰었고(「서울물산이 진행 중인 프로젝트를 이끄는 직원은?」에 전체 11명), 표 갈래는 7B 가 이름을 다른 조건으로 바꾸면
+// 없는 이름 안내까지 사라졌다(「서울물산 담당자 중에 계약이 가장 많은 사람은?」 → region = '서울', 「조현우」). 문서 갈래는 다른 고객사의 문서로 답할 수 있었다.
+{
+  // 이름 꼴
+  for (const [term, want] of [
+    ["서울물산", "서울물산"],
+    ["서울물산쪽", "서울물산"],
+    ["삼성전자에서", "삼성전자"],
+    ["LG전자", "LG전자"],
+    ["마케팅팀", "마케팅팀"],
+    ["Client-ZZ", "Client-ZZ"],
+    ["client-zz", "client-zz"],
+    ["Product-Z9", "Product-Z9"],
+    ["CI-CD", null],
+    ["Company-X", null],
+    ["client-id", null],
+    ["우리팀", null],
+    ["같은팀", null],
+    ["직속상사", null],
+    ["대한민국", null],
+    ["매출", null],
+  ] as const) {
+    ok(absentNameTerm(term) === want, `absentNameTerm(${term}) (got ${absentNameTerm(term)})`);
+  }
+  ok(withoutSelfIntro("안녕하세요, 저는 경영 보고를 준비하는 재무팀 담당자입니다. 2024년 매출은?").includes("재무팀") === false, "자기소개의 소속은 찾을 대상이 아니다");
+  ok(withoutSelfIntro("재무팀 직원은 몇 명이야?").includes("재무팀"), "자기소개가 아니면 그대로");
+  // 부서를 줄여 부른 이름은 후보로 알린다(해소하지는 않는다). 「비슷한 개체도 없습니다」는 틀린 문장이다.
+  const depts = [{ name: "보안솔루션팀", type: "department" }, { name: "데이터플랫폼팀", type: "department" }, { name: "클라우드사업부", type: "department" }, { name: "영업팀", type: "department" }];
+  ok(similarNames("보안팀", depts)[0]?.name === "보안솔루션팀", "보안팀 → 보안솔루션팀");
+  ok(similarNames("데이터팀", depts)[0]?.name === "데이터플랫폼팀", "데이터팀 → 데이터플랫폼팀");
+  ok(similarNames("클라우드팀", depts)[0]?.name === "클라우드사업부", "클라우드팀 → 클라우드사업부");
+  ok(similarNames("인사팀", depts).length === 0, "인사팀은 비슷한 부서가 없다");
+  ok(similarNames("서울물산", [{ name: "서울", type: "client" }]).length === 0, "회사 접미사에는 이 규칙을 쓰지 않는다");
+
+  // 이름 판정은 질문 어휘가 아니라 데이터를 본다. 사전, 별칭, 문서 본문을 흉내 내는 풀.
+  const KNOWN = ["Client-A", "Client-B", "Product-C1", "영업팀", "보안솔루션팀", "김준혁", "박소연"];
+  const ALIASES = ["서울", "보안솔루션팀", "제조업"];
+  const DOC_WORDS = ["운영팀", "신규", "전자"];
+  const DOC_LATIN = ["SSL"];
+  const ran: string[] = [];
+  const gatePool = (rows: Record<string, unknown>[] = [{ n: 1 }]) =>
+    ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (/^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql)) ran.push(sql);
+          const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? rows : [];
+          return { rows: r, rowCount: r.length, fields: Object.keys(r[0] ?? {}).map((name) => ({ name })) };
+        },
+        release: () => {},
+      }),
+      query: async (sql: string, params?: unknown[]) => {
+        if (sql.includes("information_schema.columns")) return { rowCount: 1, rows: [{}] };
+        if (sql.includes("canonical_name AS name")) return { rowCount: KNOWN.length, rows: KNOWN.map((name) => ({ name, type: /팀$/.test(name) ? "department" : "client" })) };
+        if (sql.includes("industry ILIKE")) {
+          const hit = ["제조업", "금융"].some((w) => w.includes(String(params?.[0]).replace(/%/g, "")));
+          return { rowCount: hit ? 1 : 0, rows: hit ? [{}] : [] };
+        }
+        if (sql.includes("title ~*")) {
+          const hit = DOC_LATIN.some((w) => String(params?.[0]).includes(`)${w}(`));
+          return { rowCount: hit ? 1 : 0, rows: hit ? [{}] : [] };
+        }
+        if (sql.includes("title ILIKE")) {
+          const needle = String(params?.[0]).replace(/%/g, "");
+          const hit = DOC_WORDS.some((w) => w.includes(needle) || needle.includes(w));
+          return { rowCount: hit ? 1 : 0, rows: hit ? [{}] : [] };
+        }
+        if (sql.includes("WITH t AS")) {
+          const terms = (params?.[0] ?? []) as string[];
+          const found = new Map<string, { score: number; matched: string }>();
+          for (const t of terms) {
+            for (const name of KNOWN) {
+              if (name.toLowerCase() === t.toLowerCase()) found.set(name, { score: 4, matched: t });
+              else if (name.toLowerCase().startsWith(t.toLowerCase()) && !found.has(name)) found.set(name, { score: 2, matched: t });
+              else if (name.toLowerCase().includes(t.toLowerCase()) && !found.has(name)) found.set(name, { score: 1, matched: t });
+            }
+            for (const a of ALIASES) if (a === t && !found.has(a)) found.set(a, { score: 3, matched: t });
+          }
+          const rows = [...found.entries()].map(([name, v], id) => ({ id, type: "client", canonical_name: name, properties: null, via: "canonical", matched: v.matched, score: v.score }));
+          return { rowCount: rows.length, rows };
+        }
+        return { rowCount: 0, rows: [] };
+      },
+    }) as unknown as Pool;
+  const saved = process.env.DATASET;
+  process.env.DATASET = "companyx";
+  installOntology(KNOWN.map((name) => ({ name, type: /팀$/.test(name) ? "department" : name.startsWith("Product") ? "product" : name.startsWith("Client") ? "client" : "employee" })), []);
+  const embedder: Embedder = { name: "test:unused", dim: 8, embed: async () => new Array(8).fill(0) };
+  const never = async () => {
+    throw new Error("생성 모델을 부르면 안 된다");
+  };
+  const deps = (over: Record<string, unknown> = {}) => ({ pool: gatePool(), embedder, llm: never, nl2sql: never, repair: false, ...over });
+  const named = (a: { answer: string }, name: string) => a.answer.startsWith(`질문에 나온 개체(${name})를 데이터베이스에서 찾지 못했습니다.`);
+
+  // 그래프: 집계, 상태 조건
+  for (const [q, name] of [
+    ["서울물산이 진행 중인 프로젝트를 이끄는 직원은?", "서울물산"],
+    ["삼성전자에서 진행 중인 프로젝트를 맡은 사람은?", "삼성전자"],
+    ["서울물산을 가장 많이 담당한 직원은?", "서울물산"],
+    ["서울물산이 쓰는 제품 중 가장 많이 쓰이는 건?", "서울물산"],
+    ["서울물산이 사용 중인 제품 중 이슈가 가장 많은 건?", "서울물산"],
+    ["서울 물산이 진행 중인 프로젝트를 이끄는 직원은?", "서울물산"],
+    ["카카오가 진행 중인 프로젝트를 이끄는 직원은?", "카카오"],
+    ["네이버를 가장 많이 담당한 직원은?", "네이버"],
+    ["쿠팡이 사용 중인 제품 중 이슈가 가장 많은 건?", "쿠팡"],
+    ["홍길동이 이끄는 진행 중인 프로젝트는?", "홍길동"],
+    ["쿠팡쪽 진행 중인 프로젝트를 이끄는 직원은?", "쿠팡"],
+    ["Samsung을 가장 많이 담당한 직원은?", "Samsung"],
+    ["LG전자가 진행 중인 프로젝트를 이끄는 직원은?", "LG전자"],
+    ["진행 중인 카카오 프로젝트를 이끄는 사람은?", "카카오"],
+    ["카카오가 가장 많이 쓰는 제품은 뭐야?", "카카오"],
+  ] as const) {
+    const a = await ask(q, deps());
+    ok(a.route === "graph" && a.graph?.strategy === "unresolved" && named(a, name), `그래프 스캔 앞에서 막는다: ${q} (got ${a.route} ${a.graph?.strategy} ${a.answer})`);
+    ok(a.graph?.items.length === 1 && a.graph.edgeCount === 0, `근거는 사유 한 줄: ${q}`);
+  }
+  // 그래프: 이름을 지목하지 않은 집계와 상태 조건은 막지 않는다
+  for (const q of [
+    "가장 많은 고객을 담당하는 직원은?",
+    "진행 중인 프로젝트를 이끄는 직원은?",
+    "진행 중인 프로젝트를 이끄는 직원 목록",
+    "고객사를 제일 많이 끼고 있는 사람이 누구지?",
+    "가장 많은 프로젝트를 이끄는 사람의 이름은?",
+    "신규 고객을 가장 많이 담당한 직원은?",
+    "대기업 고객을 가장 많이 담당하는 사람은?",
+    "진행 중인 프로젝트를 이끄는 직원의 직무는?",
+    "이슈가 가장 많은 제품의 가격은?",
+    "평판이 가장 좋은 고객사를 담당한 직원은?",
+    "고갱사를 가장 많이 담당한 직원은?",
+    "이번달에 완료된 프로젝트를 이끈 직원은?",
+    "완료된 대형 프로젝트를 가장 많이 이끈 직원은?",
+  ]) {
+    // 「끼고 있는」은 규칙에 관계 동사가 없어 시맨틱 폴백이 계획을 준다. 그 계획을 그대로 넘긴다.
+    const lane = await graphLane(gatePool(), q, 5, 2, "companyx", { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source" });
+    ok(lane.strategy !== "unresolved" && !lane.not_found, `이름 없는 질문은 막지 않는다: ${q} (got ${lane.strategy} ${JSON.stringify(lane.not_found)})`);
+  }
+  // 그래프: 일반 낱말의 약한 시드만 있는데 없는 이름을 지목했다. 있는 이름의 시드는 그대로다.
+  const weak = await ask("서울물산 보안 담당자는 누구야?", deps());
+  ok(named(weak, "서울물산") && weak.graph?.strategy === "unresolved", `약한 시드로 답하지 않는다 (got ${weak.answer})`);
+  const strong = await graphLane(gatePool(), "Client-A 담당자는 누구야?", 5, 2, "companyx");
+  ok(strong.strategy === "seeded" && !strong.not_found, "있는 이름은 그대로");
+  // 그래프: 막은 결과는 빈손이 아니다(다음 순위 레인이 이름을 뺀 답을 돌려줄 수 있다)
+  const plain = await graphLane(gatePool(), "네이버를 가장 많이 담당한 직원은?", 5, 2, "companyx");
+  ok(plain.named_absent === true, "이름 꼴이 아닌 낱말로 막으면 표시를 남긴다");
+
+  // 표: 생성 SQL 이 이름을 빼면 실행하지 않고 답하지 않는다. 생성 SQL 이 이름을 찾으면 그 결과에 사유를 붙인다(TC-143).
+  const regionSql = "SELECT e.name FROM companyx.employees e JOIN companyx.contracts c ON e.id = c.manager_id JOIN companyx.clients cl ON c.client_id = cl.id WHERE cl.region = '서울' GROUP BY e.name";
+  ran.length = 0;
+  const dropped = await ask("서울물산 담당자 중에 계약이 가장 많은 사람은?", deps({ pool: gatePool([{ name: "조현우" }]), nl2sql: async () => regionSql }));
+  ok(dropped.route === "structured" && named(dropped, "서울물산") && !dropped.answer.includes("조현우"), `SQL 이 이름을 빼면 찾지 못했다고 답한다 (got ${dropped.answer})`);
+  ok(dropped.sql.text === null && dropped.sql.refused?.kind === UNRESOLVED_NAME && dropped.sql.refused.text === regionSql && dropped.context === "", "실행하지 않고 거절한 SQL 을 남긴다");
+  ok(!ran.some((sql) => sql.includes("region")), "그 SQL 을 DB 에 보내지 않았다");
+  const droppedRec = buildAuditRecord(dropped);
+  ok(droppedRec.policies.some((p) => p.policy === "graph-unresolved-gate" && p.verdict === "deny"), "감사에 게이트 판정");
+  ok(!droppedRec.policies.some((p) => p.policy === "sql-read-only" && /쓰기 문장/.test(p.detail)), "쓰기 문장이라고 적지 않는다");
+  ok(droppedRec.policies.some((p) => p.policy === "graph-unresolved-gate" && p.detail.includes("생성 SQL 의 결과로 답하지 않았다")), "거절한 SQL 의 판정 문구");
+  ok(droppedRec.retrieval.sql.refused?.text === regionSql && droppedRec.missing_entities === undefined && droppedRec.not_found?.query_entity === "서울물산", "감사에 거절한 SQL 과 못 찾은 이름");
+  const seoulSql = "SELECT SUM(amount) AS s FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = '서울물산'";
+  const kept = await ask("서울물산의 매출 합계는 얼마야?", deps({ pool: gatePool([{ s: null }]), nl2sql: async () => seoulSql, llm: async () => "서울물산의 매출 합계는 없습니다." }));
+  ok(named(kept, "서울물산") && kept.answer.includes("서울물산의 매출 합계는 없습니다.") && !kept.not_found && kept.sql.text === seoulSql, `SQL 이 이름을 찾으면 사유와 7B 문장 (got ${kept.answer})`);
+  ok(kept.audit.missing_entities?.[0]?.query_entity === "서울물산", "값 없는 결과로 답해도 retrieve 의 audit 에 못 찾은 이름");
+  const keptRec = buildAuditRecord(kept);
+  ok(keptRec.missing_entities?.[0]?.query_entity === "서울물산" && keptRec.policies.some((p) => p.policy === "graph-unresolved-gate" && p.verdict === "degrade"), "값 없는 결과로 답해도 감사 기록에 못 찾은 이름과 판정");
+  const zero = await ask("서울물산의 매출 합계는 얼마야?", deps({ pool: gatePool([]), nl2sql: async () => seoulSql, repair: undefined, }));
+  ok(named(zero, "서울물산") && zero.answer.includes("0건"), `없는 이름을 찾은 0건 (got ${zero.answer})`);
+  const noModel = await ask("서울물산의 매출 합계는 얼마야?", deps());
+  ok(named(noModel, "서울물산") && noModel.audit.branch_errors.length === 0, `모델 서버가 죽어도 없는 이름은 안다 (got ${noModel.answer})`);
+  const noTable = await ask("서울물산의 매출 합계는 얼마야?", deps({ nl2sql: async (_q: string, report: Nl2SqlReport) => ((report.refused = { kind: NO_TABLE, text: "SELECT 1" }), null) }));
+  ok(named(noTable, "서울물산"), `테이블을 읽지 않는 SELECT 도 없는 이름이 먼저다 (got ${noTable.answer})`);
+  const write = await ask("서울물산 매출 합계를 전부 지워줘", deps({ nl2sql: async (_q: string, report: Nl2SqlReport) => ((report.refused = { kind: "DELETE", text: "DELETE FROM sales" }), null) }));
+  ok(write.answer.includes("데이터를 바꾸는 요청은 처리하지 않습니다"), `쓰기 요청은 쓰기 거절이 먼저다 (got ${write.answer})`);
+  ok((await ask("부산은행 매출 합계는 얼마야?", deps({ nl2sql: async () => "SELECT 1 AS n FROM companyx.sales" }))).not_found?.query_entity === "부산은행", "지역 이름에 붙은 은행은 업종 말이 아니라 이름이다");
+  // 표: 없는 개체의 것일 수 없는 값은 답에 쓰지 않는다(빈 집합 위의 rank() 는 1 이다)
+  const rankSql = "SELECT rank() OVER (ORDER BY SUM(amount) DESC) AS rank FROM companyx.sales WHERE client_id = (SELECT id FROM companyx.clients WHERE name = 'Client-ZZ')";
+  const rank = await ask("Client-ZZ 매출 순위는 몇 위야?", deps({ pool: gatePool([{ rank: 1 }]), nl2sql: async () => rankSql }));
+  ok(named(rank, "Client-ZZ") && !rank.answer.includes("1위") && rank.not_found?.query_entity === "Client-ZZ" && rank.sql.text === null && rank.sql.refused?.text === rankSql, `없는 개체의 순위를 지어내지 않는다 (got ${rank.answer})`);
+  ok(rank.sql.refused?.ran === true && dropped.sql.refused?.ran === undefined, "실행한 뒤 버린 문장과 실행하지 않은 문장을 가른다");
+  const zeroCount = await ask("서울물산의 활성 계약은 몇 건이야?", deps({ pool: gatePool([{ count: "0" }]), nl2sql: async () => "SELECT COUNT(*) AS count FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id WHERE cl.name = '서울물산'", llm: async () => "서울물산의 활성 계약은 0건입니다." }));
+  ok(named(zeroCount, "서울물산") && zeroCount.answer.includes("0건입니다") && !zeroCount.not_found, `0 은 그 개체의 값일 수 있다 (got ${zeroCount.answer})`);
+  // 표: 머리 영문이 문서에 낱말로 없으면 이름이다(128KB 의 KB). 낱말로 있으면 이름이 아니다.
+  const kbSql = "SELECT COUNT(*) AS count FROM companyx.contracts WHERE client_id = (SELECT id FROM companyx.clients WHERE name = 'KB증권')";
+  const kb = await ask("KB증권 계약 건수 알려줘", deps({ pool: gatePool([{ count: 0 }]), nl2sql: async () => kbSql, llm: async () => "KB증권의 계약 건수는 0입니다." }));
+  ok(named(kb, "KB증권"), `KB증권은 이름이다 (got ${kb.answer})`);
+  const ssl = await ask("SSL통신 관련 매출 합계는 얼마야?", deps({ pool: gatePool([{ n: 1 }]), nl2sql: async () => "SELECT 1 AS n FROM companyx.sales", llm: async () => "답" }));
+  ok(!ssl.not_found && !ssl.sql.missing && ssl.answer.startsWith("답"), `문서에 낱말로 있는 머리는 이름이 아니다 (got ${ssl.answer})`);
+  // 표: 생성 SQL 이 이름 열에서 찾는 값이 질문에 있고 데이터에 없으면 없는 이름이다(꼴로는 이름인지 모르는 말)
+  ok(JSON.stringify(sqlNameValues("SELECT 1 FROM t c WHERE c.name = 'A' OR name ILIKE '%B%' OR e.name LIKE '%C' OR x.name IN ('D', 'E''F')")) === JSON.stringify(["A", "B", "C", "D", "E'F"]), "이름 열의 값을 모은다");
+  ok(sqlNameValues("SELECT 1 FROM t WHERE client_name = 'A' AND contact_name LIKE '%B%' AND name != 'C' AND name NOT LIKE '%D%' AND region = 'E'").length === 0, "다른 열과 부정 조건은 아니다");
+  const kakaoSql = "SELECT s.amount FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = '카카오'";
+  let repairs = 0;
+  const kakao = await ask("카카오 매출 알려줘", deps({ pool: gatePool([]), repair: undefined, nl2sql: async () => (repairs++, kakaoSql) }));
+  ok(named(kakao, "카카오") && kakao.answer.includes("0건") && kakao.sql.text === kakaoSql && repairs === 1, `꼴로 모르는 이름도 SQL 이 찾으면 밝힌다, 0행 수리를 하지 않는다 (got ${kakao.answer}, 생성 ${repairs}회)`);
+  ok(kakao.audit.missing_entities?.[0]?.query_entity === "카카오" && buildAuditRecord(kakao).missing_entities?.[0]?.query_entity === "카카오", "감사에 못 찾은 이름");
+  const kakaoRank = await ask("카카오 매출 순위는 몇 위야?", deps({ pool: gatePool([{ rank: 1 }]), nl2sql: async () => "SELECT rank() OVER (ORDER BY SUM(s.amount) DESC) AS rank FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = '카카오'" }));
+  ok(named(kakaoRank, "카카오") && !kakaoRank.answer.includes("1위") && kakaoRank.not_found?.query_entity === "카카오", `꼴로 모르는 이름의 순위 (got ${kakaoRank.answer})`);
+  const hongSeen: string[] = [];
+  const hongMixed = await ask("카카오와 Client-A의 매출 합계를 알려줘", deps({ pool: gatePool([{ s: 120 }]), nl2sql: async () => "SELECT SUM(s.amount) AS s FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name IN ('카카오', 'Client-A')", llm: async (q: string) => (hongSeen.push(q), "Client-A 는 120입니다.") }));
+  ok(named(hongMixed, "카카오") && hongMixed.answer.includes("Client-A 는 120입니다.") && !hongMixed.not_found && hongSeen[0] !== undefined && !hongSeen[0].includes("카카오"), `꼴로 모르는 이름이 섞이면 찾은 쪽으로 답한다 (got ${hongMixed.answer})`);
+  // 찾은 쪽이 있어도 값이 없으면 어느 길로 답하든 없는 이름이 먼저다
+  const nullMixed = await ask("쿠팡이랑 Product-C1 매출 합계 알려줘", deps({ pool: gatePool([{ s: null }]), nl2sql: async () => "SELECT SUM(s.amount) AS s FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id JOIN companyx.products p ON s.product_id = p.id WHERE c.name = '쿠팡' AND p.name = 'Product-C1'" }));
+  ok(named(nullMixed, "쿠팡") && nullMixed.answer.includes("집계한 값이 없습니다"), `섞인 질문의 값 없는 집계 (got ${nullMixed.answer})`);
+  const zeroMixed = await ask("홍길동과 김준혁 연봉 비교해줘", deps({ pool: gatePool([]), nl2sql: async () => "SELECT e1.salary AS a, e2.salary AS b FROM companyx.employees e1 JOIN companyx.employees e2 ON e1.name = '홍길동' AND e2.name = '김준혁'" }));
+  ok(named(zeroMixed, "홍길동") && zeroMixed.answer.includes("0건"), `섞인 질문의 0건 (got ${zeroMixed.answer})`);
+  for (const [q, sql, label] of [
+    ["김준혁 연봉 알려줘", "SELECT salary FROM companyx.employees WHERE name = '김준혁'", "있는 이름"],
+    ["보안 쪽 직원 몇 명이야?", "SELECT COUNT(*) AS n FROM companyx.employees e JOIN companyx.departments d ON e.dept_id = d.id WHERE d.name = '보안솔루션팀'", "질문에 없는 값"],
+    ["권은지가 연락처인 고객사는?", "SELECT name FROM companyx.clients WHERE contact_name = '권은지'", "이름 열이 아닌 값"],
+    ["안녕하세요, 저는 재무팀 담당자입니다. 매출 합계 알려주세요.", "SELECT SUM(s.amount) AS n FROM companyx.sales s JOIN companyx.employees e ON e.id = s.employee_id JOIN companyx.departments d ON d.id = e.dept_id WHERE d.name = '재무팀'", "자기소개"],
+    ["운영팀 프로젝트 목록 알려줘", "SELECT name FROM companyx.projects WHERE name LIKE '%운영팀%'", "문서에 있는 말"],
+  ] as const) {
+    const a = await ask(q, deps({ pool: gatePool([{ n: 1 }]), nl2sql: async () => sql, llm: async () => "답" }));
+    ok(!a.not_found && !a.sql.missing?.length && !a.missing && a.answer.startsWith("답"), `SQL 의 값으로 막지 않는다(${label}): ${q} (got ${a.answer})`);
+  }
+  // 표: 찾은 다른 개체가 있으면 그 개체로 답하고 없는 이름을 먼저 밝힌다
+  const clientASql = "SELECT SUM(amount) AS s FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = 'Client-A'";
+  const seen: string[] = [];
+  const mixed = await ask("서울물산과 Client-A의 매출 합계를 알려줘", deps({ pool: gatePool([{ s: 120 }]), nl2sql: async () => clientASql, llm: async (q: string) => (seen.push(q), "Client-A 는 120입니다.") }));
+  ok(named(mixed, "서울물산") && mixed.answer.includes("Client-A 는 120입니다.") && !mixed.not_found && mixed.missing?.length === 1, `섞인 표 질문은 없는 이름을 먼저 밝힌다 (got ${mixed.answer})`);
+  ok(seen[0] !== undefined && !seen[0].includes("서울물산"), `7B 에게는 없는 이름을 뺀 질문 (got ${seen[0]})`);
+  ok(mixed.audit.missing_entities?.[0]?.query_entity === "서울물산", "retrieve 의 audit 에도 missing_entities");
+  // 7B 가 없는 이름을 답으로 써도 그 문장은 남기지 않는다
+  const wrote = await ask("서울물산과 Client-A의 매출 합계를 알려줘", deps({ pool: gatePool([{ s: 120 }]), nl2sql: async () => clientASql, llm: async () => "서울물산" }));
+  ok(wrote.answer.includes("찾은 개체의 조회 결과만 답합니다.") && wrote.answer.includes("s: 120") && wrote.answer.indexOf("서울물산", 20) < 0, `없는 이름을 답으로 쓴 문장을 뺀다 (got ${wrote.answer})`);
+  ok(withoutMissingSentences("서울물산은 없습니다. Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "그 문장만 뺀다");
+  ok(withoutMissingSentences("Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "없는 이름이 없으면 그대로");
+  // 표: 일부러 이름을 안 부른 질문, 있는 이름, 자기소개, 업종 값에 일반 명사가 붙은 말, 문서에 있는 기술 용어가 머리인 말
+  for (const q of ["Client-A의 매출 합계는 얼마야?", "제조산업 고객사 수는 몇 곳이야?", "영업팀 평균 연봉은 얼마야?", "서울 지역 매출 합계는 얼마야?", "제조업 고객사 수는 몇 곳이야?", "2025년 3분기 총 매출액은 얼마야?", "안녕하세요, 저는 재무팀 담당자입니다. 2024년 전체 매출 총액이 얼마였는지 알려주세요."]) {
+    const a = await ask(q, deps({ pool: gatePool([{ n: 1 }]), nl2sql: async () => "SELECT 1 AS n FROM companyx.sales", llm: async () => "답" }));
+    ok(!a.not_found && !a.sql.missing && !a.missing && a.answer.startsWith("답"), `막지 않는다: ${q} (got ${a.answer})`);
+  }
+
+  // 문서: 없는 이름의 문서 질문은 다른 고객사의 문서로 답하지 않는다. 문서에 그대로 나오는 이름은 막지 않는다.
+  const docEmbedder: Embedder = embedder;
+  const docPool = gatePool([]);
+  const doc = await ask("서울물산 장애 보고서 있어?", { pool: docPool, embedder: docEmbedder, llm: never, nl2sql: never });
+  ok(doc.route === "semantic" && named(doc, "서울물산") && doc.not_found?.query_entity === "서울물산" && doc.audit.not_found?.query_entity === "서울물산", `문서 갈래 (got ${doc.route} ${doc.answer})`);
+  const inDoc = await ask("운영팀 장애 대응 절차가 뭐야?", { pool: docPool, embedder: docEmbedder, llm: async () => "답", nl2sql: never });
+  ok(!inDoc.not_found && !inDoc.missing && inDoc.answer.startsWith("답"), `문서에 있는 이름은 막지 않는다 (got ${inDoc.answer})`);
+  const docMixed = await ask("서울물산과 Client-A 장애 보고서 내용 알려줘", { pool: docPool, embedder: docEmbedder, llm: async () => "Client-A 장애는 …", nl2sql: never });
+  ok(docMixed.route === "semantic" && named(docMixed, "서울물산") && docMixed.answer.includes("Client-A 장애는") && !docMixed.not_found, `문서 갈래의 섞인 질문 (got ${docMixed.answer})`);
+  // 전용 길: 제품 상태
+  const state = await ask("서울물산이 쓰는 단종된 제품 있어?", deps());
+  ok(!state.product_state && named(state, "서울물산"), `제품 상태 표로 답하지 않는다 (got ${state.answer})`);
+  // 다음 순위 레인: 없는 이름은 빈손이 아니다
+  ok(emptyLane(dropped) === undefined && emptyLane(doc) === undefined && emptyLane({ ...kept }) === undefined, "다음 순위 레인으로 넘기지 않는다");
+
+  installOntology([], []);
+  if (saved === undefined) delete process.env.DATASET;
+  else process.env.DATASET = saved;
 }
 
 // ── 6c) 유형 낱말뿐인 ontology.search(랜덤 테스트 사전 점검 3차 Q13) ─────────────
