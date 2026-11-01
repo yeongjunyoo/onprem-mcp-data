@@ -110,8 +110,8 @@ export const INSTALLED_ANCHORS: Record<Lane, Record<string, string[]>> = Object.
 ) as Record<Lane, Record<string, string[]>>;
 
 /** 1위 도구와 2위 도구의 최근접 유사도 차가 이 값 미만이면 시맨틱도 확신이 없는
- * 것으로 보고, 규칙의 넓은 fan-out 을 그대로 둔다. 값의 근거는 RULE_MIN_MARGIN 과
- * 같은 경계 실측이다. */
+ * 것으로 보고, 규칙이 처음 낸 결정을 그대로 둔다. 갈래를 넓히지 않는다. 여러 갈래가 같이 도는 것은
+ * 규칙이 갈래를 못 고른(hybrid) 경우뿐이다. 값의 근거는 RULE_MIN_MARGIN 과 같은 경계 실측이다. */
 export const SEMANTIC_MIN_MARGIN = 0.02;
 
 interface AnchorVec {

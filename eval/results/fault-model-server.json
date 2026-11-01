@@ -1,0 +1,459 @@
+{
+  "generated_at": "2026-11-01T17:41:34.274Z",
+  "note": "실서버(dist/index.js, stdio)로 잰 값. 호스트 Ollama 는 그대로 두고, 프록시를 끊어 모델 서버가 죽은 상황을 만들었다. 답 문장만 남기고 조회 행은 답 안의 것 말고 따로 싣지 않는다.",
+  "phases": {
+    "alive": [
+      {
+        "tool": "ask",
+        "query": "평균 연봉이 가장 높은 부서는 어디야?",
+        "ms": 713,
+        "is_error": false,
+        "route": "structured",
+        "answer": "기술지원팀\n\n[조회 결과 1건]\n- name: 기술지원팀, avg_salary: 6752.25",
+        "rationale": "only structured signals",
+        "semantic_error": null,
+        "branch_errors": [],
+        "policies": [
+          [
+            "sql-read-only",
+            "allow"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      }
+    ],
+    "model_server_dead": [
+      {
+        "tool": "ask",
+        "query": "2025년 3분기 총 매출액은 얼마야?",
+        "ms": 8,
+        "is_error": false,
+        "route": "structured",
+        "answer": "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.",
+        "rationale": "only structured signals; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [
+          "sql: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "서울 지역 매출 상위 5개 고객사를 알려줘",
+        "ms": 3,
+        "is_error": false,
+        "route": "structured",
+        "answer": "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.",
+        "rationale": "only structured signals; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [
+          "sql: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "Product-C1 설치 방법이 궁금해",
+        "ms": 9,
+        "is_error": false,
+        "route": "semantic",
+        "answer": "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.",
+        "rationale": "document signals doc_artifact; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [
+          "vector: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "SSL 인증서 관련 장애가 있었어?",
+        "ms": 2,
+        "is_error": false,
+        "route": "semantic",
+        "answer": "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.",
+        "rationale": "document signals ops_topic",
+        "semantic_error": null,
+        "branch_errors": [
+          "vector: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "Product-C1을 사용하는 고객사는 어디야?",
+        "ms": 9,
+        "is_error": false,
+        "route": "graph",
+        "answer": "근거는 7건 찾았지만 답변 생성에 실패했습니다: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)\n로컬 LLM(Ollama)이 떠 있는지 확인하세요. 근거 자체는 audit 의 context 에 있습니다.",
+        "rationale": "relation verb USES -> graph traversal",
+        "semantic_error": null,
+        "branch_errors": [
+          "answer: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "가장 많은 고객을 담당하는 직원은?",
+        "ms": 5,
+        "is_error": false,
+        "route": "graph",
+        "answer": "공동 1위가 3명입니다(담당 고객사 4곳): 안소연, 조현우, 김준혁.",
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "진행 중인 프로젝트를 이끄는 직원은?",
+        "ms": 3,
+        "is_error": false,
+        "route": "graph",
+        "answer": "상태가 진행 중(in_progress)인 프로젝트를 이끄는 직원은 11명입니다: 강현우, 조동현, 한태호, 장미라, 김준혁, 서재원, 안진우, 류서연, 권소연, 박성민, 조재원.",
+        "rationale": "relation verb LEADS -> graph traversal",
+        "semantic_error": null,
+        "branch_errors": [],
+        "policies": [],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "서울물산 담당 엔지니어는 누구야?",
+        "ms": 5,
+        "is_error": false,
+        "route": "graph",
+        "answer": "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+        "rationale": "relation verb MANAGES_ACCOUNT -> graph traversal",
+        "semantic_error": null,
+        "branch_errors": [],
+        "policies": [
+          [
+            "graph-unresolved-gate",
+            "deny"
+          ]
+        ],
+        "not_found": "서울물산",
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "서울물산의 2025년 3분기 총 매출액은 얼마야?",
+        "ms": 5,
+        "is_error": false,
+        "route": "structured",
+        "answer": "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+        "rationale": "only structured signals; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [],
+        "policies": [
+          [
+            "graph-unresolved-gate",
+            "deny"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": "서울물산",
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "서울물산이 진행 중인 프로젝트를 이끄는 직원은?",
+        "ms": 5,
+        "is_error": false,
+        "route": "graph",
+        "answer": "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+        "rationale": "relation verb LEADS -> graph traversal",
+        "semantic_error": null,
+        "branch_errors": [],
+        "policies": [
+          [
+            "graph-unresolved-gate",
+            "deny"
+          ]
+        ],
+        "not_found": "서울물산",
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "서울물산 장애 보고서 있어?",
+        "ms": 6,
+        "is_error": false,
+        "route": "semantic",
+        "answer": "질문에 나온 개체(서울물산)를 데이터베이스에서 찾지 못했습니다. 이름이 비슷한 개체도 없습니다. 해당 개체는 데이터셋에 존재하지 않습니다.",
+        "rationale": "document signals doc_artifact,ops_topic",
+        "semantic_error": null,
+        "branch_errors": [
+          "vector: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "graph-unresolved-gate",
+            "deny"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": "서울물산",
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "sales 테이블의 데이터를 전부 삭제해줘",
+        "ms": 3,
+        "is_error": false,
+        "route": "structured",
+        "answer": "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.",
+        "rationale": "only structured signals; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept",
+        "semantic_error": "모델 서버에 연결하지 못했습니다(ECONNREFUSED)",
+        "branch_errors": [
+          "sql: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      }
+    ],
+    "model_server_dead_route_tool": {
+      "tool": "route",
+      "query": "2025년 3분기 총 매출액은 얼마야?",
+      "is_error": false,
+      "route": "structured",
+      "rationale": "only structured signals; semantic fallback failed (모델 서버에 연결하지 못했습니다(ECONNREFUSED)), rule decision kept"
+    },
+    "model_server_dead_tools_list": 8,
+    "model_server_dead_server_alive": true,
+    "recovered": [
+      {
+        "tool": "ask",
+        "query": "2025년 3분기 총 매출액은 얼마야?",
+        "ms": 719,
+        "is_error": false,
+        "route": "structured",
+        "answer": "2025년 3분기 총 매출액은 23859입니다.\n\n[조회 결과 1건]\n- total_revenue: 23859",
+        "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"상반기 매출 총합 얼마예요?\", margin 0.201)",
+        "semantic_error": null,
+        "branch_errors": [],
+        "policies": [
+          [
+            "sql-read-only",
+            "allow"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      }
+    ],
+    "recovered_server_alive": true,
+    "dead_at_start": {
+      "exit_code": 1,
+      "stdout_bytes": 0,
+      "stderr_head": "[환경] Ollama에 붙지 못했다: http://(죽은 포트) (TypeError: fetch failed) /   docker compose up -d ollama  # 컨테이너는 host 11435에 게시된다 /   OLLAMA_HOST=http://localhost:11435 으로 실행하거나, 호스트 Ollama를 켠다"
+    },
+    "db_dead": [
+      {
+        "tool": "ask",
+        "query": "2025년 3분기 총 매출액은 얼마야?",
+        "ms": 730,
+        "is_error": false,
+        "route": "structured",
+        "answer": "조회에 실패해 답할 근거를 가져오지 못했습니다. 데이터가 없는 것이 아니라 조회 자체가 실패했습니다: sql: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)",
+        "rationale": "rule margin 2 < gate; semantic nl2sql (anchor \"상반기 매출 총합 얼마예요?\", margin 0.201)",
+        "semantic_error": null,
+        "branch_errors": [
+          "sql: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "sql-read-only",
+            "deny"
+          ],
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "Product-C1 설치 방법이 궁금해",
+        "ms": 43,
+        "is_error": false,
+        "route": "semantic",
+        "answer": "조회에 실패해 답할 근거를 가져오지 못했습니다. 데이터가 없는 것이 아니라 조회 자체가 실패했습니다: vector: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)",
+        "rationale": "rule margin 2 < gate; semantic vector_search (anchor \"{제품} 설치 어떻게 해\", margin 0.171)",
+        "semantic_error": null,
+        "branch_errors": [
+          "vector: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      },
+      {
+        "tool": "ask",
+        "query": "Product-C1을 사용하는 고객사는 어디야?",
+        "ms": 3,
+        "is_error": false,
+        "route": "graph",
+        "answer": "조회에 실패해 답할 근거를 가져오지 못했습니다. 데이터가 없는 것이 아니라 조회 자체가 실패했습니다: graph: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)",
+        "rationale": "relation verb USES -> graph traversal",
+        "semantic_error": null,
+        "branch_errors": [
+          "graph: 데이터베이스에 연결하지 못했습니다(ECONNREFUSED)"
+        ],
+        "policies": [
+          [
+            "branch-isolation",
+            "degrade"
+          ]
+        ],
+        "not_found": null,
+        "answer_leaks_internals": false
+      }
+    ],
+    "db_dead_server_alive": true
+  },
+  "tools": 8,
+  "audit_log": {
+    "lines": 15,
+    "tools": [
+      "ask",
+      "route"
+    ],
+    "fields": [
+      "ts",
+      "tool",
+      "request_id",
+      "caller",
+      "query",
+      "route",
+      "tools",
+      "sql",
+      "sql_ok",
+      "sql_rows",
+      "sql_error",
+      "sql_refused",
+      "policies",
+      "not_found",
+      "branch_errors",
+      "duration_ms",
+      "cached",
+      "error"
+    ],
+    "sample": {
+      "ts": "2026-11-01T17:41:40.412Z",
+      "tool": "ask",
+      "request_id": "(가림)",
+      "caller": {
+        "transport": "stdio",
+        "os_user": "(가림)"
+      },
+      "query": "서울물산이 진행 중인 프로젝트를 이끄는 직원은?",
+      "route": "graph",
+      "tools": [
+        "ontology.search",
+        "graph.expand"
+      ],
+      "sql": null,
+      "sql_ok": null,
+      "sql_rows": null,
+      "sql_error": null,
+      "sql_refused": [],
+      "policies": [
+        {
+          "policy": "graph-unresolved-gate",
+          "verdict": "deny",
+          "detail": "질의가 지목한 개체를 온톨로지에서 해소하지 못해 근거를 비우고, 찾지 못한 사유 한 줄만 컨텍스트에 남겼다(환각 차단) — 사유 not_in_database: 서울물산"
+        }
+      ],
+      "not_found": [
+        "서울물산"
+      ],
+      "branch_errors": [],
+      "duration_ms": 5,
+      "cached": false,
+      "error": null
+    },
+    "has_row_values": false
+  }
+}

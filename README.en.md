@@ -5,7 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP-8%20tools-informational)](docs/architecture.md)
 [![Model](https://img.shields.io/badge/LLM-qwen2.5--coder%3A7b%20(local)-success)](docs/model-cards/qwen2.5-coder-7b.md)
 
-**An on-premise MCP server that answers natural-language questions over your own database, with citations.** One question is routed into three lanes at once (vector search, NL2SQL, knowledge graph), the results are fused, and a local 7B model answers from the curated context only. **No external API calls.** Every model runs locally through Ollama.
+**An on-premise MCP server that answers natural-language questions over your own database, with citations.** One question is routed to the lane that fits (vector search, NL2SQL or knowledge graph; only questions the rules cannot place run several lanes and fuse the results), and a local 7B model answers from the curated context only. **No external API calls.** Every model runs locally through Ollama.
 
 Korean documentation, including the full engineering report, is the primary reference: [README.md](README.md).
 
@@ -47,6 +47,8 @@ npm run demo:ollama                                      # offline end-to-end de
 > model list on startup, and refuse to run when a required model is missing.
 
 The server exposes **8 MCP tools**: `route`, `sql.query`, `vector.search`, `retrieve`, `ask`, `audit.explain`, `ontology.search`, `graph.expand`. Three-way knowledge-graph retrieval (`kgRetrieve`) runs inside `retrieve` and `ask` rather than being exposed as its own tool.
+
+To keep audit records on the server, set `AUDIT_LOG_FILE=<path>`: each tool call appends one JSONL line, with no result rows (`SECURITY.md`).
 
 The MCP surface is **8 tools, 6 resources, 4 prompts**. Resources let a host read the schema
 card, dataset manifest, evaluation index, active profile, audit-record schema and evidence
@@ -92,7 +94,7 @@ resource over stdio, and `node scripts/verify-sse-transport.mjs` does the handsh
 2. **Parallel retrieval.** NL2SQL runs behind a read-only guard (privilege-downgraded role, statement and lock timeouts, no multi-statement); vector search uses pgvector cosine; the graph lane walks relations with bidirectional BFS, bounded by hop, node and edge caps that report `truncated` instead of cutting silently.
 3. **Reciprocal rank fusion**, with one credit per key per list, ranked among distinct keys, so that a repeated graph hub can neither outvote cross-source agreement nor push the rest of its list down.
 4. **Structure-preserving curation.** Tables stay tables, relations stay relation sentences.
-5. **Grounded generation.** The local model may only use the curated context. If the entity in the question cannot be resolved, the context is emptied and the answer says "not found" and why, without calling the model: `not_found.reason` is `not_in_database` or `similar_name_mismatch` (a similarly named entity exists but is not assumed to be the same one).
+5. **Grounded generation.** The local model may only use the curated context. If the question names an entity that cannot be resolved, whichever lane it went to, no answer is made up: the answer says "not found" and why, without the model writing it (a generated SQL that drops the name is not executed; if only some names resolve, the missing ones are stated first and the answer uses the found ones): `not_found.reason` is `not_in_database` or `similar_name_mismatch` (a similarly named entity exists but is not assumed to be the same one). If the model server dies while running, the server stays up: embedding failure falls back to the rule decision, model-server and database failures are told apart with the cause code only, and answers that need no model still work (`eval/results/fault-model-server.json`).
 
 ## Measured results
 
@@ -108,16 +110,16 @@ Raw outputs live in `eval/results/`. **No self-built LLM judge is used for scori
 | Routing (holdout 1, development) | **1.000 (30/30)**, rules only 0.900 | coverage 1.000. Used for diagnosis, so no longer held out |  <!--metric:holdout1_strict-->
 | Routing (holdout 2, colloquial, development) | **29/30 = 0.967** (rules only 0.633) | coverage 0.967, true misses 1. Used for diagnosis, so no longer held out |  <!--metric:holdout2_strict-->
 | NL2SQL execution match | **8/10** (1/10 without the schema card) | no retry, n=10; identical within a session, shifts by 1-2 questions across sessions |  <!--metric:nl2sql_norepair-->
-| **External calibration (BIRD Mini-Dev, full 500)** | official set equality **240/500 = 0.480**, operational multiset 216/500 = 0.432 (re-measured 2026-09-30) | all 11 DBs, difficulty 148/250/102 (official mix); zero sampling error. **A different, harder cross-domain dataset — not comparable with the internal rows above.** 2 gold queries exceed the 30s budget and are unscorable |
+| **External calibration (BIRD Mini-Dev, full 500)** | official set equality **240/500 = 0.480**, operational multiset 216/500 = 0.432 (re-measured 2026-09-30) | all 11 DBs, difficulty 148/250/102 (official mix); zero sampling error. **A different, harder cross-domain dataset — not comparable with the internal rows above.** 240 and 216 re-score the saved predictions without a time limit (0 gold failures); the first 30s-budget run could not score 2 gold queries and got 215/500 |
 | NL2SQL with one repair pass | **8/10** (5/10 without the schema card) | failed SQL fed back with the database catalogue; **0 vs 8 repairs** (`qwen2.5-coder:7b`, canonical run 2026-10-01 on the CPU container; 2026-08-19 gave 7/10 vs 5/10 with 0 vs 7; `qwen2.5:7b` gave 7-8/10 vs 7/10 with 2 vs 6 repairs) |  <!--metric:nl2sql_repair-->
 | Knowledge-graph recall | 1.000 (0.278 before four fixes) | 10 questions |  <!--metric:kg_recall-->
-| Vector hit@5 | **0.986 (73/74)** | 74 questions, including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
+| Vector hit@5 | **0.986 (70/71)** | measured on 71 of the 74 questions (3 are scored on document type only), including 3 sponsor questions restored to the gold set; hash fallback 0.775, English-only 768 model 0.380 |  <!--metric:vector_hit5-->
 | End-to-end evidence in context | **19/19 = 100%** | 19 scorable of 30, after restoring 3 sponsor vector questions to the gold set; canonical CPU-container run 2026-10-02 |  <!--metric:ask_evidence--> <!--metric:ask_evidence_pct-->
 | Grounding violations | **0** — 20/20 answers grounded (100%) | every dataset entity named in an answer also appears in the curated context | measured |  <!--metric:ask_grounded_pct-->
 | **Multi-step task completion** | **5/6 = 0.833**, 14/15 steps passed | six tasks chaining entity resolution -> relation walk -> aggregation | measured |  <!--metric:multistep-->
 | Median latency | **10934 ms** | `docker compose` Ollama (CPU, no GPU passthrough), 30 questions end to end, canonical run 2026-10-02; earlier repeated runs varied 9.8-18.5 s. On a GPU-backed host Ollama the same code runs at **685 ms** (`qwen2.5-coder:7b`; the older `qwen2.5:7b` measured 864 ms on the same host — different model and session, so this is not an improvement or a regression claim) (raw: `eval/results/companyx-ask-host-gpu.json`) |  <!--metric:ask_median_ms--> <!--metric-ok-->
 | Median latency (host GPU) | **685 ms** | same 30 questions against a GPU-backed host Ollama. Raw: `eval/results/companyx-ask-host-gpu.json` |  <!--metric:ask_median_ms_host-->
-| Tests | **3041 assertions passing** | 2889 offline + 152 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 2853, since 36 offline checks read the dataset files (11 ontology coverage, 1 edge-type anchor, 24 sealed-holdout scorer checks). CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
+| Tests | **3220 assertions passing** | 3068 offline + 152 requiring database and models. Without the sponsor dataset (as in CI) the offline count is 3032, since 36 offline checks read the dataset files (11 ontology coverage, 1 edge-type anchor, 24 sealed-holdout scorer checks). CI recounts from runner output. Raw tally in `eval/results/test-counts.json` |  <!--metric:test_total-->
 | Fault injection — no crash | **4/4** | DB stop, latency, partial failure. Raw: `eval/results/faults.json` |  <!--metric:faults_nocrash-->
 | Fault injection — partial context | **4/4** | killing the vector branch still returns graph context |  <!--metric:faults_partial-->
 | Fault injection — error visible | **4/4** | failed branches are recorded in `branch_errors` |  <!--metric:faults_errvis-->
