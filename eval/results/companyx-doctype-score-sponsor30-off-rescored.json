@@ -3,7 +3,7 @@
     "dataset": "companyx-dataset-v1.0 / questions.json (재채점)",
     "set": "sponsor30",
     "rescored_from": {
-      "file": "C:/Users/basqu/Projects/onprem-wt-doctype/eval/results/companyx-doctype-score-sponsor30-off.json",
+      "file": "eval/results/companyx-doctype-score-sponsor30-off.json",
       "sha16": "c0356a6cf5e8df8d",
       "rows": 30,
       "source_generated_at": "2026-10-11T14:13:01.802Z",

@@ -3,7 +3,7 @@
     "dataset": "eval/companyx/holdout4_route.json (재채점)",
     "set": "holdout4",
     "rescored_from": {
-      "file": "C:/Users/basqu/Projects/onprem-wt-doctype/eval/results/companyx-doctype-score-holdout4-off.json",
+      "file": "eval/results/companyx-doctype-score-holdout4-off.json",
       "sha16": "9c3cddb8117e3f73",
       "rows": 60,
       "source_generated_at": "2026-10-11T14:19:13.364Z",

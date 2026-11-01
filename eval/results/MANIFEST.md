@@ -18,7 +18,7 @@
 |---|---:|---|---|
 | `answer-diagnosis-2026-10-11-rescored.json` | 368,863 | `04eb00ed53fad1d1` | 2026-10-11T16:19:14 |
 | `answer-diagnosis-2026-10-11.json` | 128,747 | `b505af801090aada` | 2026-10-11T15:37:53 |
-| `answer-diagnosis-2026-10-11.md` | 24,195 | `330160b267b58f36` | — |
+| `answer-diagnosis-2026-10-11.md` | 24,154 | `d26bc08cd0a9e11d` | — |
 | `catalog-chinook-comments.json` | 26,319 | `96dfac9c931ce73e` | 2026-10-20T05:37:16 |
 | `catalog-chinook-plain-first.json` | 25,578 | `db35b969cda7c3ea` | 2026-10-20T05:38:01 |
 | `catalog-chinook-plain.json` | 25,686 | `adaff61f631dd26c` | 2026-10-20T05:42:10 |
@@ -26,9 +26,9 @@
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
 | `companyx-audit.json` | 80,374 | `7886754623b0598f` | 2026-10-01T17:18:46 |
-| `companyx-doctype-score-holdout3-off-rescored.json` | 78,176 | `291f41bf0c278e59` | 2026-10-11T16:19:08 |
-| `companyx-doctype-score-holdout4-off-rescored.json` | 68,647 | `0b7aee0a0836f2e0` | 2026-10-11T16:19:09 |
-| `companyx-doctype-score-sponsor30-off-rescored.json` | 35,567 | `587fc8aaad274381` | 2026-10-11T16:19:08 |
+| `companyx-doctype-score-holdout3-off-rescored.json` | 78,134 | `29f5bd843b3c5454` | 2026-10-11T16:19:08 |
+| `companyx-doctype-score-holdout4-off-rescored.json` | 68,605 | `738e0a0e926f42c0` | 2026-10-11T16:19:09 |
+| `companyx-doctype-score-sponsor30-off-rescored.json` | 35,525 | `230faed98bec61f3` | 2026-10-11T16:19:08 |
 | `companyx-holdout-route.json` | 12,996 | `af42f06c98cf6151` | 2026-10-01T17:08:44 |
 | `companyx-holdout2-route.json` | 13,496 | `56da66723060e44b` | 2026-10-01T17:09:19 |
 | `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
