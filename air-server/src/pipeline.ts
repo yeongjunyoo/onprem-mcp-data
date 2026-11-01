@@ -482,6 +482,14 @@ function namesOtherEntity(query: string, absent: NotFound[]): boolean {
   return entitiesIn(q).length > 0;
 }
 
+/** 없는 이름을 든 문장을 뺀 답. 찾은 쪽으로만 답하게 질문에서 그 이름을 뺐는데도 7B 가 SQL 의 그 이름을 답으로 쓴 적이 있다(「Client-A와 삼성전자 중 매출이 더 큰 곳은?」에
+ * 조회 행은 Client-A 한 곳인데 「삼성전자」). 남는 문장이 없으면 찾은 쪽의 근거로 답한다는 말만 둔다(정형 레인은 아래에 조회 행이 붙는다). */
+export function withoutMissingSentences(text: string, names: string[]): string {
+  if (!names.some((n) => text.includes(n))) return text;
+  const kept = text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim() && !names.some((n) => s.includes(n)));
+  return kept.join(" ").trim() || "찾은 개체의 조회 결과만 답합니다.";
+}
+
 /** 생성 SQL 이 이 이름을 그대로 찾는가(띄어 쓴 「서울 물산」도). */
 function sqlNames(sql: string | null | undefined, name: string): boolean {
   return Boolean(sql) && sql!.replace(/\s+/g, "").includes(name.replace(/\s+/g, ""));
@@ -2152,7 +2160,8 @@ async function answerQuery(
 
   const gen = deps.llm ?? llmAnswer;
   try {
-    const generated = await gen(r.answer_query ?? query, answerContext);
+    const said = await gen(r.answer_query ?? query, answerContext);
+    const generated = r.missing?.length ? withoutMissingSentences(said, r.missing.map((nf) => nf.query_entity)) : said;
     // 그래프 경로가 있는데 모른다고만 답했으면 묻는 타입에서 끝나는 경로의 이름을 적는다(pathAnswer).
     const viaPath = pathAnswer(r, r.answer_query ?? query, generated);
     if (viaPath) return { ...r, answer: head + viaPath };

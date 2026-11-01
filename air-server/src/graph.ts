@@ -106,7 +106,7 @@ export interface OntologyHit {
 /** Seed tokens for entity resolution.
  * Keeps hyphenated sponsor ids intact ("Product-C1" must not become product + c1)
  * and drops the relation/type vocabulary, which names EDGES and TYPES, not nodes. */
-const SEED_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*|[가-힣]{2,}/g;
+const SEED_TOKEN = /[A-Za-z][A-Za-z0-9]*(?:물산|전자|상사|산업|건설|은행|증권|보험|카드|그룹|제약|화학|중공업|통신|테크|팀|사업부|본부|연구소)|[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*|[가-힣]{2,}/g;
 const SEED_STOP = new Set([
   "사용", "사용중", "사용하는", "소속", "담당", "담당자", "이끄는", "맡은", "팀장", "부서장",
   "제품", "고객", "고객사", "직원", "부서", "프로젝트", "계약", "이슈", "목록", "현황", "관련",
@@ -265,11 +265,11 @@ export function mentionTerms(query: string): string[] {
   return [...new Set(mentionTokens(query).map((t) => t.term))];
 }
 
-/** mentionTerms 의 낱말과 그 낱말이 문장에서 놓인 자리. raw 는 조사를 떼기 전 꼴, next 는 바로 뒤 낱말(사이가 공백뿐일 때만). */
-function mentionTokens(query: string): { term: string; raw: string; next?: string }[] {
+/** mentionTerms 의 낱말과 그 낱말이 문장에서 놓인 자리. raw 는 조사를 떼기 전 꼴, next 는 바로 뒤 낱말(사이가 공백뿐일 때만), before 는 낱말 앞까지, after 는 낱말 뒤의 글. */
+function mentionTokens(query: string): { term: string; raw: string; next?: string; before: string; after: string }[] {
   const text = joinSpacedIds(query);
   const toks = [...text.matchAll(SEED_TOKEN)];
-  const out: { term: string; raw: string; next?: string }[] = [];
+  const out: { term: string; raw: string; next?: string; before: string; after: string }[] = [];
   toks.forEach((m, i) => {
     const raw = m[0];
     if (negatedVerb(raw, text.slice(m.index! + raw.length))) return;
@@ -282,15 +282,19 @@ function mentionTokens(query: string): { term: string; raw: string; next?: strin
     }
     const after = toks[i + 1];
     const next = after && /^\s+$/.test(text.slice(m.index! + raw.length, after.index)) ? after[0] : undefined;
-    out.push({ term: w, raw, ...(next ? { next } : {}) });
+    out.push({ term: w, raw, ...(next ? { next } : {}), before: text.slice(0, m.index), after: text.slice(m.index! + raw.length) });
   });
   return out;
 }
 
-/** 관계를 통째로 세거나 거르는 질문에 흔한 일반 명사. 이름 자리에 놓여도 개체를 지목한 말이 아니다. 문서와 스키마 카드에 없는 말만 여기 둔다
- * (있는 말은 namedTermsOutsideData 가 대조로 거른다). 「사람이」, 「이름을」처럼 조사가 붙어도 대상의 이름이 아니다. */
+/** 관계를 통째로 세거나 거르는 질문에 흔한 일반 명사와 수식어. 이름 자리에 놓여도 개체를 지목한 말이 아니다. 「사람이」, 「이름을」처럼 조사가 붙어도 대상의 이름이
+ * 아니다. 문서와 스키마 카드에 있는 말은 namedTermsOutsideData 가 대조로 거르므로 여기 없어도 된다. */
 const GENERIC_NOUN =
-  /^(?:사람|직원|사원|팀원|인원|인원수|멤버|매니저|리더|책임자|담당자|고객|고객사|거래처|회사|기업|업체|제품|상품|솔루션|서비스|프로젝트|과제|업무|부서|조직|이름|성함|명단|리스트|규모|지역|업종|직급|상태|순위|상위|하위|건수|개수|숫자|횟수|수량|분기|상반기|하반기|연도|기간|우리|저희|여기|거기|누가|누군지|뭐가|어디가|정도|얼마나|인기|실적|성과|평균|합계|총합|최대|최소|대기업|중소기업|스타트업)(?:들)?$/;
+  /^(?:사람|직원|사원|팀원|인원|인원수|멤버|매니저|리더|리드|책임자|담당자|PM|PL|고객|고객사|거래처|회사|기업|업체|제품|상품|솔루션|서비스|프로젝트|과제|업무|부서|조직|이름|성함|명단|리스트|규모|지역|업종|직급|직책|직위|상태|순위|상위|하위|건수|개수|숫자|횟수|수량|분기|상반기|하반기|연도|기간|우리|저희|여기|거기|누가|누군지|뭐가|어디가|정도|얼마나|인기|실적|성과|경력|평균|합계|총합|최대|최소|건|것|곳|분|대기업|중소기업|중견기업|스타트업|대형|중형|소형|신규|기존|주요|핵심|전체|해외|국내|사내|외부|내부|유료|무료|장기|단기)(?:들)?$/i;
+/** 그 낱말 뒤에 오면 낱말이 재는 잣대라는 말(「인기가 가장 많은 제품」, 「경력이 제일 높은 사람」). 「카카오가 가장 많이 쓰는」의 「많이」는 동사를 꾸며 그 낱말이 주어다. */
+const MEASURE_AFTER = /^[가-힣]?\s*(?:가장|제일)\s*(?:많은|큰|높은|적은|낮은|작은|좋은|나쁜|긴|짧은|비싼|싼)(?![가-힣])/;
+/** 관계나 상태를 말하는 낱말. 이것보다 뒤에서 조사만 붙은 낱말은 묻는 항목이다(「진행 중인 프로젝트를 이끄는 직원의 직책은?」). */
+const RELATION_WORD = /진행\s*중|완료|보류|계획|가장|제일|담당|이끄|이끈|맡|쓰는|쓰고|사용|소속|속한|도입|이용/;
 /** 이름 뒤에 바로 오면 그 이름을 대상으로 지목한 말(「네이버 담당자」, 「쿠팡 프로젝트」). */
 const AFTER_NAME = /^(?:담당|담당자|프로젝트|제품|고객|계약|매출|이슈|직원|쪽|측)/;
 /** 구어 조사와 「쪽」, 「측」(「네이버쪽」, 「카카오랑」). */
@@ -301,6 +305,7 @@ const COLLOQUIAL_TAIL = /(?:한테서|한테|이랑|랑|하고|께서|께|쪽|�
  * 이끄는 직원은?」에 전체 11명을 답했다. 개체 사전에 있거나(시드, skip), 스키마 카드나 문서에 그대로 있는 낱말은 이름이 아니다. 문서를 읽지 못하면 막지
  * 않는다(이름인지 모르는 낱말로 답을 막지 않는다). 이름 꼴이 아닌 낱말을 판단하므로 다른 갈래(표, 문서)에는 쓰지 않는다. 일반 명사가 질문마다 달라 오탐이 크다. */
 export async function namedTermsOutsideData(pool: Pool, query: string, skip: readonly string[], schema = kgSchema()): Promise<string[]> {
+  const hit = (next: string) => skip.some((s) => next.toLowerCase().startsWith(s.toLowerCase()));
   const seen = new Set(skip.map((s) => s.toLowerCase()));
   const named: string[] = [];
   for (const t of mentionTokens(query)) {
@@ -313,7 +318,10 @@ export async function namedTermsOutsideData(pool: Pool, query: string, skip: rea
       continue;
     }
     const term = t.term.replace(COLLOQUIAL_TAIL, "");
-    const placed = term !== t.term || t.raw !== t.term || Boolean(t.next && AFTER_NAME.test(t.next));
+    // 담당, 프로젝트 같은 말이나 약한 시드 낱말 바로 앞이거나(「쿠팡 프로젝트」, 「네이버 보안 담당자」), 조사가 붙었고(「카카오가」, 「Samsung을」, 「쿠팡쪽」)
+    // 관계를 말하기 전이며 잣대가 아니다.
+    const particle = term !== t.term || t.raw !== t.term || /^[가-힣]/.test(t.after);
+    const placed = Boolean(t.next && (AFTER_NAME.test(t.next) || hit(t.next))) || (particle && !RELATION_WORD.test(t.before) && !MEASURE_AFTER.test(t.after));
     if (!placed || term.length < 2 || GENERIC_NOUN.test(term)) continue;
     if (profile().schemaCard.includes(term) || (await inDocuments(pool, term))) continue;
     const found = await ontologySearch(pool, term, 1, schema);

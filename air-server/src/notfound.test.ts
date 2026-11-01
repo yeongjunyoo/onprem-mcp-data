@@ -38,7 +38,7 @@ import {
 import { NO_TABLE, UNRESOLVED_NAME, companyxSchemaCard, type Nl2SqlReport } from "./nl2sql.js";
 import { buildAuditRecord } from "./auditrecord.js";
 import { emptyLane } from "./fallback.js";
-import { ask, graphLane, withoutMissing } from "./pipeline.js";
+import { ask, graphLane, withoutMissing, withoutMissingSentences } from "./pipeline.js";
 import { installOntology } from "./router.js";
 
 let passed = 0;
@@ -393,6 +393,10 @@ const fakePool = {
     ["쿠팡이 사용 중인 제품 중 이슈가 가장 많은 건?", "쿠팡"],
     ["홍길동이 이끄는 진행 중인 프로젝트는?", "홍길동"],
     ["쿠팡쪽 진행 중인 프로젝트를 이끄는 직원은?", "쿠팡"],
+    ["Samsung을 가장 많이 담당한 직원은?", "Samsung"],
+    ["LG전자가 진행 중인 프로젝트를 이끄는 직원은?", "LG전자"],
+    ["진행 중인 카카오 프로젝트를 이끄는 사람은?", "카카오"],
+    ["카카오가 가장 많이 쓰는 제품은 뭐야?", "카카오"],
   ] as const) {
     const a = await ask(q, deps());
     ok(a.route === "graph" && a.graph?.strategy === "unresolved" && named(a, name), `그래프 스캔 앞에서 막는다: ${q} (got ${a.route} ${a.graph?.strategy} ${a.answer})`);
@@ -407,6 +411,10 @@ const fakePool = {
     "가장 많은 프로젝트를 이끄는 사람의 이름은?",
     "신규 고객을 가장 많이 담당한 직원은?",
     "대기업 고객을 가장 많이 담당하는 사람은?",
+    "진행 중인 프로젝트를 이끄는 직원의 직무는?",
+    "이슈가 가장 많은 제품의 가격은?",
+    "평판이 가장 좋은 고객사를 담당한 직원은?",
+    "완료된 대형 프로젝트를 가장 많이 이끈 직원은?",
   ]) {
     // 「끼고 있는」은 규칙에 관계 동사가 없어 시맨틱 폴백이 계획을 준다. 그 계획을 그대로 넘긴다.
     const lane = await graphLane(gatePool(), q, 5, 2, "companyx", { relTypes: ["MANAGES_ACCOUNT"], aggregate: "source" });
@@ -450,6 +458,11 @@ const fakePool = {
   ok(named(mixed, "서울물산") && mixed.answer.includes("Client-A 는 120입니다.") && !mixed.not_found && mixed.missing?.length === 1, `섞인 표 질문은 없는 이름을 먼저 밝힌다 (got ${mixed.answer})`);
   ok(seen[0] !== undefined && !seen[0].includes("서울물산"), `7B 에게는 없는 이름을 뺀 질문 (got ${seen[0]})`);
   ok(mixed.audit.missing_entities?.[0]?.query_entity === "서울물산", "retrieve 의 audit 에도 missing_entities");
+  // 7B 가 없는 이름을 답으로 써도 그 문장은 남기지 않는다
+  const wrote = await ask("서울물산과 Client-A의 매출 합계를 알려줘", deps({ pool: gatePool([{ s: 120 }]), nl2sql: async () => clientASql, llm: async () => "서울물산" }));
+  ok(wrote.answer.includes("찾은 개체의 조회 결과만 답합니다.") && wrote.answer.includes("s: 120") && wrote.answer.indexOf("서울물산", 20) < 0, `없는 이름을 답으로 쓴 문장을 뺀다 (got ${wrote.answer})`);
+  ok(withoutMissingSentences("서울물산은 없습니다. Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "그 문장만 뺀다");
+  ok(withoutMissingSentences("Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "없는 이름이 없으면 그대로");
   // 표: 일부러 이름을 안 부른 질문, 있는 이름, 자기소개
   for (const q of ["Client-A의 매출 합계는 얼마야?", "영업팀 평균 연봉은 얼마야?", "서울 지역 매출 합계는 얼마야?", "제조업 고객사 수는 몇 곳이야?", "2025년 3분기 총 매출액은 얼마야?", "안녕하세요, 저는 재무팀 담당자입니다. 2024년 전체 매출 총액이 얼마였는지 알려주세요."]) {
     const a = await ask(q, deps({ pool: gatePool([{ n: 1 }]), nl2sql: async () => "SELECT 1 AS n FROM companyx.sales", llm: async () => "답" }));
