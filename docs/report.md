@@ -681,7 +681,7 @@ h3-04 는 이름 열을 빼고 버전과 출시일만 골라 실행 일치에서
 
 임베딩 호출이 실패하면 예외(`semroute.ts`)로 끝나던 것을 규칙의 결정으로 물러나게 했고, 그 사실을 감사의 `routing.semantic_error` 와 `branch-isolation` 판정으로 남긴다. 모델 서버 연결 실패와 데이터베이스 연결 실패를 가려 답하고, 답에는 원인 코드까지만 쓴다(주소는 stderr 에 한 번). 어느 갈래가 예외를 던져도 구조화된 실패 답을 돌려주고, 실패한 답은 60초 캐시에 남기지 않는다.
 
-이 PC 의 Ollama 는 그대로 두고 프록시를 끊어 실서버(`dist/index.js`, stdio)로 쟀다(`eval/results/fault-model-server.json`).
+호스트의 Ollama 는 그대로 두고 그 앞의 프록시를 끊어 실서버(`dist/index.js`, stdio)로 쟀다(`eval/results/fault-model-server.json`).
 
 | 상황 | 답 |
 | --- | --- |
