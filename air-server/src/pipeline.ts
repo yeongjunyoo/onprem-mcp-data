@@ -74,7 +74,7 @@ import {
   type PathCandidate,
 } from "./graph.js";
 import type { Candidate } from "./candidate.js";
-import { describeError } from "./errors.js";
+import { describeError, MODEL_SERVER_FAILURE, modelServerError, modelServerReason } from "./errors.js";
 import { absentAttribute, absentNameTerm, describeAbsentAttribute, describeNotFound, NO_ENTITY_TERM, withoutSelfIntro, type NotFound } from "./notfound.js";
 import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
@@ -788,15 +788,44 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
   const backRef = backReferenceOnly(query);
   if (backRef) return backReferenceResult(query, backRef, deps.budget ?? DEFAULT_BUDGET);
 
-  // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
-  // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
-  const decision = await routeQuery(query, deps.embedder);
-  return withRunnerUp(
+  try {
+    // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
+    // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
+    const decision = await routeQuery(query, deps.embedder);
+    return await withRunnerUp(
+      query,
+      decision,
+      (d) => runLanes(query, d, deps),
+      (r) => runnerUpRejection(deps.pool, query, r),
+    );
+  } catch (err) {
+    return failedResult(query, err, deps.budget ?? DEFAULT_BUDGET);
+  }
+}
+
+/** 어느 갈래에서 예기치 않은 예외가 났을 때의 결과. 서버는 끝나지 않고 실패를 구조화해 돌려준다. 사유는 연결 실패면 원인 코드까지, 그 밖에는 오류 종류만 답과 감사에
+ * 남기고 원문은 서버 로그에 남긴다(오류 원문에는 서버 안의 경로가 들 수 있다). */
+function failedResult(query: string, err: unknown, budget: number): RetrieveResult {
+  const raw = describeError(err);
+  console.error(`[pipeline] 예기치 않은 실패: ${err instanceof Error && err.stack ? err.stack : raw}`);
+  const why = connectionFailure(raw) ?? modelServerReason(raw) ?? `내부 오류(${err instanceof Error ? err.name : "알 수 없음"})`;
+  const d = route(query);
+  const curated = curate(query, [], budget);
+  return {
     query,
-    decision,
-    (d) => runLanes(query, d, deps),
-    (r) => runnerUpRejection(deps.pool, query, r),
-  );
+    route: d.route,
+    sql: { text: null },
+    fused: [],
+    fusion_lanes: [],
+    curated,
+    context: "",
+    audit: {
+      route: routeAudit({ ...d, tools: [], rationale: `failed before answering: ${why}` }),
+      candidates: { sql: 0, vector: 0, graph: 0, fused: 0 },
+      branch_errors: [`pipeline: ${why}`],
+      curate: curateAudit(curated),
+    },
+  };
 }
 
 /** 라우팅 결정 하나로 레인을 돌리고 융합, 큐레이션까지 한 결과. */
@@ -848,7 +877,7 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
     } catch (err) {
       // 모델 서버가 죽어도 없는 이름은 이미 안다. 조회 실패가 아니라 없다고 답한다.
       if (alone) return { text: null, ...unresolved };
-      throw err;
+      throw modelServerError(err) ?? err;
     }
     const text = generated ? alignQualifiedTables(generated, query) : generated;
     if (!text) {
@@ -967,12 +996,14 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
   if (pairOut && !pairOut.ok) branchErrors.push(`graph: ${pairOut.error ?? "unknown"}`);
   // 연결 실패는 주소와 원시 오류 대신 짧은 문장으로 답과 감사에 남긴다(db.ts connectionFailure). 고칠 단서는 서버 로그에 있다.
   // 서버의 풀은 db.ts 가 이미 바꿔 주지만, 따로 만든 풀(fault:demo, 테스트)의 오류는 여기서 바꾼다.
+  // 모델 서버 실패는 데이터베이스 탓으로 말하지 않는다(errors.ts modelServerReason, 주소는 서버 로그에).
   for (let i = 0; i < branchErrors.length; i++) {
     const m = /^([a-z]+): ([\s\S]*)$/.exec(branchErrors[i]);
-    const said = m ? connectionFailure(m[2]) : null;
-    if (!m || !said) continue;
-    if (!m[2].includes(said)) logConnectionFailure(m[2], null);
-    branchErrors[i] = `${m[1]}: ${said}`;
+    if (!m) continue;
+    const said = connectionFailure(m[2]);
+    if (said && !m[2].includes(said)) logConnectionFailure(m[2], null);
+    const reason = said ?? modelServerReason(m[2]);
+    if (reason) branchErrors[i] = `${m[1]}: ${reason}`;
   }
 
   // --- normalize each path into a ranked candidate list of ContextItems ---
@@ -1981,8 +2012,21 @@ export function sqlCutNote(r: RetrieveResult, answer: string): string | undefine
 }
 
 /** Full pipeline: deterministic retrieval spine + the on-prem 7B answer step.
- * `llm` is injectable so the eval / tests can substitute a stub. */
+ * `llm` is injectable so the eval / tests can substitute a stub.
+ * 어느 단계의 예외든 서버로 던지지 않고 실패한 답으로 돌려준다. */
 export async function ask(
+  query: string,
+  deps: RetrieveDeps & { llm?: AnswerFn },
+): Promise<AskResult> {
+  try {
+    return await answerQuery(query, deps);
+  } catch (err) {
+    const r = failedResult(query, err, deps.budget ?? DEFAULT_BUDGET);
+    return { ...r, answer: `이 질문을 처리하다 실패해 답하지 못했습니다: ${r.audit.branch_errors.join(" / ")}` };
+  }
+}
+
+async function answerQuery(
   query: string,
   deps: RetrieveDeps & { llm?: AnswerFn },
 ): Promise<AskResult> {
@@ -2032,6 +2076,11 @@ export async function ask(
         `이 질문으로는 실행되는 조회를 만들지 못해 답하지 않았습니다(생성 SQL 오류: ${why}). 데이터가 없다는 뜻은 아닙니다. ` +
         "질문을 조금 바꿔 다시 물어봐 주세요. 예: 「2025년 3분기 총 매출액은 얼마야?」",
     };
+  }
+  // 근거를 모으는 단계가 모델 서버 때문에 모두 실패했다(정형 레인의 SQL 생성, 문서 레인의 임베딩). 데이터베이스 탓이 아니고 데이터가 없는 것도 아니다.
+  if (r.context.length === 0 && branchErrors.length > 0 && branchErrors.every((e) => e.includes(MODEL_SERVER_FAILURE))) {
+    const code = /\(([^)]*)\)/.exec(branchErrors[0].slice(branchErrors[0].indexOf(MODEL_SERVER_FAILURE)))?.[1];
+    return { ...r, answer: `모델 서버에 연결하지 못해 답하지 못했습니다${code ? `(${code})` : ""}. 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.` };
   }
   if (r.context.length === 0 && branchErrors.length > 0) {
     return {
@@ -2150,7 +2199,8 @@ export async function ask(
     //
     // 조회는 성공했다. "조회 실패" 로 뭉뚱그리지 않고 생성만 실패했다고 말한다 —
     // 근거는 있으니 사용자가 컨텍스트를 직접 볼 수도 있다.
-    const why = describeError(e);
+    const raw = describeError(e);
+    const why = modelServerError(e)?.message ?? modelServerReason(raw) ?? raw;
     return {
       ...r,
       // 정형 레인이면 조회 결과는 생성 없이도 보여줄 수 있다.

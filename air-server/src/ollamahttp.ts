@@ -23,10 +23,25 @@
 // SQL 생성 세 건이 그렇게 끝났다. node:http 에는 그런 기본 한도가 없다.
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { describeError, MODEL_SERVER_FAILURE, modelServerError } from "./errors.js";
 
 export interface JsonResponse {
   status: number;
   text: string;
+}
+
+const logged = new Set<string>();
+
+/** 모델 서버에 붙지 못했다. 답과 감사에는 원인 코드만 나가고(errors.ts modelServerError), 고칠 단서(주소, 원본 오류)는 서버 로그에 한 번 남긴다. */
+function explainFailure(e: unknown, origin: string): unknown {
+  const said = modelServerError(e);
+  if (!said) return e;
+  const key = `${origin} ${said.message}`;
+  if (!logged.has(key)) {
+    logged.add(key);
+    console.error(`[ollama] 모델 서버에 붙지 못했다 — ${origin}\n  Ollama 가 떠 있는지, OLLAMA_HOST 가 맞는지 확인한다\n  원본 오류: ${describeError(e)}`);
+  }
+  return said;
 }
 
 /** 마감에 걸리면 signal.reason(AbortSignal.timeout 이면 name 이 TimeoutError)으로 거절한다.
@@ -34,8 +49,8 @@ export interface JsonResponse {
 export function postJson(url: string, body: unknown, signal: AbortSignal): Promise<JsonResponse> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(signal.reason);
-    const fail = (e: unknown) => reject(signal.aborted ? signal.reason : e);
     const u = new URL(url);
+    const fail = (e: unknown) => reject(signal.aborted ? signal.reason : explainFailure(e, u.origin));
     const payload = JSON.stringify(body);
     const req = (u.protocol === "https:" ? httpsRequest : httpRequest)(
       u,
@@ -50,7 +65,7 @@ export function postJson(url: string, body: unknown, signal: AbortSignal): Promi
         res.on("end", () => resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }));
         res.on("error", fail);
         res.on("close", () => {
-          if (!res.complete) fail(new Error(`${u.pathname}: 응답이 끝나기 전에 연결이 끊겼다`));
+          if (!res.complete) reject(signal.aborted ? signal.reason : new Error(`${MODEL_SERVER_FAILURE}(응답이 끝나기 전에 끊김)`));
         });
       },
     );

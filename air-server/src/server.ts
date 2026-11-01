@@ -27,6 +27,7 @@ import {
   queuePlugin,
   sanitizerPlugin,
   jsonLoggerPlugin,
+  type AirPlugin,
   type AirServer,
   type TransportConfig,
 } from "@airmcp-dev/core";
@@ -193,6 +194,27 @@ const PACKAGE_VERSION: string = JSON.parse(
  * 사전 점검 3차 G20, G24). 길이는 입력 검증이 같은 상한으로 거절한다(queryinput.ts MAX_INPUT_CHARS). */
 export const SANITIZER_OPTIONS = { stripHtml: false, maxStringLength: Number.POSITIVE_INFINITY } as const;
 
+/** 실패가 담긴 결과인가(레인 실패, 조회 실패). 캐시하면 복구된 뒤에도 60초 동안 같은 실패를 답한다. */
+export function failedToolResult(result: unknown): boolean {
+  const r = result as { ok?: unknown; audit?: { branch_errors?: unknown[] }; branch_errors?: unknown[] } | null | undefined;
+  return r?.ok === false || Boolean(r?.audit?.branch_errors?.length) || Boolean(r?.branch_errors?.length);
+}
+
+/** 실패한 결과를 캐시에 넣지 않게 한다. use 에서 cachePlugin 앞에 둔다: after 는 그 순서로 돌고, cachePlugin 의 after 는 이 칸이 비면 넣지 않는다. */
+function noFailureCachePlugin(): AirPlugin {
+  return {
+    meta: { name: "onprem:no-failure-cache", version: "1.0.0" },
+    middleware: [
+      {
+        name: "onprem:no-failure-cache",
+        after: async (ctx) => {
+          if (failedToolResult(ctx.result)) delete ctx.meta._cacheKey;
+        },
+      },
+    ],
+  };
+}
+
 export function buildServer(): AirServer {
   const ds = profile();
   // 레인 도구 설명에 적은 표·문서·관계 목록은 Company-X 데이터셋의 것이다. 다른 프로파일(smoke, bench)에서는 빼서
@@ -225,6 +247,7 @@ export function buildServer(): AirServer {
       timeoutPlugin(120_000),
       queuePlugin({ concurrency: { "*": 8, ask: 2, retrieve: 2 } }), // 7B 경로만 좁게
       dedupPlugin(),
+      noFailureCachePlugin(),
       // audit.explain은 캐시에서 제외한다. 감사의 목적은 "지금 이 순간
       // 파이프라인이 무엇을 하는가"인데, 캐시된 레코드는 60초 전의 실행 기록이다.
       // 그것은 감사가 아니라 과거 기록의 재생이다. (이슈 #12)

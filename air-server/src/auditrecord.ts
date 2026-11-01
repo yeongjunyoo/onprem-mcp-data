@@ -65,6 +65,8 @@ export interface AuditRecord {
     deterministic: boolean;
     /** 확신 없이 고른 레인이 빈손이라 다음 순위 레인을 돌렸을 때만(fallback.ts). used 가 아니면 답은 처음 레인의 결과이고 rejected 가 그 이유다. */
     fallback?: { from: string; to: string; reason: string; used: boolean; rejected?: string };
+    /** 규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해 규칙의 결정으로 물러났을 때만. 사유는 원인 코드까지. */
+    semantic_error?: string;
   };
   retrieval: {
     sql: {
@@ -260,6 +262,15 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
     });
   }
 
+  // 4-1) 시맨틱 폴백 실패: 규칙의 결정으로 물러났다.
+  if (typeof routeAudit.semantic_error === "string") {
+    policies.push({
+      policy: "branch-isolation",
+      verdict: "degrade",
+      detail: `규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해(${routeAudit.semantic_error}) 규칙의 결정으로 라우팅했다`,
+    });
+  }
+
   // 5) 브랜치 격리
   if (a.branch_errors.length) {
     policies.push({
@@ -309,6 +320,7 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       rationale: String(routeAudit.rationale ?? ""),
       deterministic: routeAudit.deterministic !== false,
       ...(a.route_fallback ? { fallback: a.route_fallback } : {}),
+      ...(typeof routeAudit.semantic_error === "string" ? { semantic_error: routeAudit.semantic_error } : {}),
     },
     retrieval: {
       sql: {

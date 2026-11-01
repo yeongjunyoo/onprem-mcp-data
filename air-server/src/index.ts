@@ -147,6 +147,10 @@ async function main(): Promise<void> {
   if (resolveTransport().type === "stdio") process.stdin.once("end", () => void shutdown(0));
 }
 
+// 도구 호출 밖에서 잡히지 않은 예외(소켓 이벤트, 타이머)로 서버가 끝나지 않게 한다. stdout 은 MCP 프레이밍이라 stderr 에만 적는다.
+process.on("unhandledRejection", (e) => console.error(`[server] 잡히지 않은 거절: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`));
+process.on("uncaughtException", (e) => console.error(`[server] 잡히지 않은 예외: ${e.stack ?? e.message}`));
+
 main().catch(async (e) => {
   console.error(e instanceof Error ? `Error: ${e.message}` : e);
   // 자연 종료에 기대지 않는다. 기동 중 던지면 preflight 가 열어둔 소켓과 풀

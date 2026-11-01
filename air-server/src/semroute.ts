@@ -50,6 +50,7 @@ import {
   type RouteDecision,
 } from "./router.js";
 import { maskRoute } from "./catalog.js";
+import { describeError, modelServerError, modelServerReason } from "./errors.js";
 
 /** 도구 → 질문 유형 → 표현들. 고유명은 타입 자리표시로 쓴다(maskEntities 와 같은 표기).
  * knowledge_graph 의 유형 이름은 엣지 타입이라 그래프 탐색 계획에 그대로 쓰인다. */
@@ -254,7 +255,16 @@ async function decideRoute(query: string, embedder?: Embedder): Promise<RouteDec
     };
   }
   if (d.gate.confident || !embedder || !semanticReady()) return d;
-  const v = await semanticVerdict(query, embedder);
+  // 임베딩이 실패해도 라우팅은 끝낸다. 규칙의 결정으로 물러나고 그 사실을 근거에 남긴다. 종전에는 규칙이 확신하지 못한 질문마다 ask 가 예외로 끝났다.
+  let v: Awaited<ReturnType<typeof semanticVerdict>>;
+  try {
+    v = await semanticVerdict(query, embedder);
+  } catch (e) {
+    const raw = describeError(e);
+    const why = modelServerError(e)?.message ?? modelServerReason(raw) ?? "임베딩 실패";
+    console.error(`[router] 시맨틱 폴백 임베딩 실패, 규칙 결정 유지: ${raw}`);
+    return { ...d, semanticError: why, rationale: `${d.rationale}; semantic fallback failed (${why}), rule decision kept` };
+  }
   if (!v) return d;
   if (v.margin < SEMANTIC_MIN_MARGIN) {
     // 셋째 단계(기본 꺼짐). 규칙도 시맨틱도 격차가 문턱 밑일 때만 생성 모델이 레인 도구 설명을 보고 고른다.

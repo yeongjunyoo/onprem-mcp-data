@@ -4229,5 +4229,102 @@ const deadEmbedder: Embedder = {
   ok(q6.checkTimestampEnd(mr11, "bench").length === 0, "P16 시각 열은 스키마마다");
 }
 
+// ── 모델 서버가 죽었을 때: 데이터베이스 탓으로 말하지 않고, 라우팅 예외로 끝나지 않는다 ─────────────
+// 임베딩이 실패하면 규칙이 확신하지 못한 질문에서 ask 가 예외로 끝났고(semroute.ts), Ollama 가 끊기면 DB 가 멀쩡한데 「데이터베이스에 연결하지
+// 못했습니다(ECONNREFUSED)」라고 답했다(db.ts connectionFailure 가 코드만 봤다).
+{
+  const { routeQuery, installSemanticRouter, uninstallSemanticRouter } = await import("./semroute.js");
+  const { connectionFailure } = await import("./db.js");
+  const { MODEL_SERVER_FAILURE, modelServerError, modelServerReason } = await import("./errors.js");
+  const { failedToolResult } = await import("./server.js");
+  const { buildAuditRecord } = await import("./auditrecord.js");
+
+  // 문장
+  const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:11434"), { code: "ECONNREFUSED" });
+  ok(modelServerError(refused)?.message === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, "모델 서버 연결 실패 문장");
+  ok(modelServerError(new AggregateError([refused], ""))?.message === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, "AggregateError 안의 원인 코드");
+  ok(!modelServerError(refused)?.message.includes("127.0.0.1"), "주소는 내보내지 않는다");
+  ok(modelServerError(new Error("생성 모델이 60초 안에 응답하지 않았다(시간 초과)")) === null, "연결 실패가 아니면 null");
+  ok(connectionFailure(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`) === null, "모델 서버 실패를 데이터베이스 실패로 읽지 않는다");
+  ok(connectionFailure("connect ECONNREFUSED 127.0.0.1:5433") === "데이터베이스에 연결하지 못했습니다(ECONNREFUSED)", "DB 실패는 종전 그대로");
+  ok(modelServerReason(`Error: ${MODEL_SERVER_FAILURE}(ETIMEDOUT) 뒤에 붙은 글`) === `${MODEL_SERVER_FAILURE}(ETIMEDOUT)`, "실패 글에서 사유만");
+  ok(modelServerReason('ollama generate 500: {"error":"C:/internal/path/model"}') === "모델 서버가 오류로 응답했습니다(HTTP 500)", "HTTP 오류는 상태 코드까지(본문의 경로를 내보내지 않는다)");
+  ok(modelServerReason("다른 실패") === null, "그 밖에는 null");
+
+  // 실제 HTTP 호출: 죽은 포트에 postJson 을 부르면 답에 쓸 문장으로 거절한다
+  const savedErr2 = console.error;
+  console.error = () => undefined;
+  try {
+    let msg = "";
+    await postJson("http://127.0.0.1:1/api/generate", {}, AbortSignal.timeout(5000)).catch((e: Error) => (msg = e.message));
+    ok(msg === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, `죽은 포트의 postJson (got ${msg})`);
+  } finally {
+    console.error = savedErr2;
+  }
+
+  // 라우팅: 임베딩이 실패하면 규칙 결정으로 물러나고 그 사실을 근거와 감사에 남긴다
+  const liveEmbedder: Embedder = { name: "test:live", dim: 4, embed: async () => [1, 0, 0, 0] };
+  await installSemanticRouter(liveEmbedder, { nl2sql: { a: ["매출"] }, vector_search: { b: ["문서"] }, knowledge_graph: { USES: ["쓰는"] } });
+  const brokenEmbedder: Embedder = { name: "test:broken", dim: 4, embed: async () => { throw new Error(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`); } };
+  const savedErr3 = console.error;
+  console.error = () => undefined;
+  try {
+    const d = await routeQuery("2025년 3분기 총 매출액은 얼마야?", brokenEmbedder);
+    ok(d.route === "structured" && d.semanticError === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)` && /semantic fallback failed/.test(d.rationale) && /rule decision kept/.test(d.rationale), `규칙 결정으로 물러난다 (got ${d.route} ${d.rationale})`);
+    const blind = await routeQuery("2025년 3분기 총 매출액은 얼마야?", { ...brokenEmbedder, embed: async () => { throw new Error("이상한 실패 C:/secret/path"); } });
+    ok(blind.semanticError === "임베딩 실패" && !blind.rationale.includes("C:/secret"), "원인 코드가 없는 실패는 경로를 내보내지 않는다");
+
+    const stubPool = {
+      connect: async () => ({ query: async (sql: string) => { const r = /^\s*(select|with)\b/i.test(sql) && !/pg_roles/.test(sql) ? [{ total: 23859 }] : []; return { rows: r, rowCount: r.length, fields: [{ name: "total" }] }; }, release: () => {} }),
+      query: async () => ({ rows: [], rowCount: 0 }),
+    } as unknown as Pool;
+    // 임베딩만 죽었다: 표 질문은 생성 모델로 답한다
+    const a = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => "23,859입니다." });
+    ok(a.answer.startsWith("23,859입니다."), `임베딩이 죽어도 규칙 결정으로 답한다 (got ${a.answer})`);
+    const rec = buildAuditRecord(a);
+    ok(rec.routing.semantic_error === `${MODEL_SERVER_FAILURE}(ECONNREFUSED)` && rec.policies.some((p) => p.policy === "branch-isolation" && p.verdict === "degrade" && p.detail.includes("규칙의 결정으로")), "감사에 그 사실이 남는다");
+    ok(a.audit.branch_errors.length === 0, "레인 실패로 세지 않는다(답은 멀쩡하다)");
+
+    // 모델 서버가 죽었다: SQL 생성 실패. DB 탓으로 말하지 않고 데이터가 없다고도 하지 않는다.
+    const dead = async () => { throw new Error(`${MODEL_SERVER_FAILURE}(ECONNREFUSED)`); };
+    const down = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: dead, llm: dead });
+    ok(down.answer === "모델 서버에 연결하지 못해 답하지 못했습니다(ECONNREFUSED). 데이터가 없다는 뜻이 아닙니다. 모델 서버가 돌아오면 다시 물어봐 주세요.", `모델 서버 실패 답 (got ${down.answer})`);
+    ok(!down.answer.includes("데이터베이스") && down.audit.branch_errors[0] === `sql: ${MODEL_SERVER_FAILURE}(ECONNREFUSED)`, `감사의 사유 (got ${down.audit.branch_errors[0]})`);
+    ok(failedToolResult({ answer: down.answer, audit: buildAuditRecord(down) }), "실패한 답은 캐시하지 않는다");
+    // 날것의 네트워크 오류로 던지는 nl2sql 도 모델 서버 쪽 실패다
+    const rawDead = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => { throw refused; }, llm: dead });
+    ok(rawDead.answer.startsWith("모델 서버에 연결하지 못해") && !rawDead.answer.includes("127.0.0.1"), `날것의 오류 (got ${rawDead.answer})`);
+    // 문서 레인: 임베딩 실패
+    const docDown = await ask("Product-C1 설치 방법이 궁금해", { pool: stubPool, embedder: brokenEmbedder, llm: dead, nl2sql: dead });
+    ok(docDown.route === "semantic" && docDown.answer.startsWith("모델 서버에 연결하지 못해"), `문서 질문 (got ${docDown.route} ${docDown.answer})`);
+    // 답 쓰는 단계만 실패: 근거는 있다. 주소와 본문을 내보내지 않는다
+    const genDown = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => { throw refused; } });
+    ok(genDown.answer.includes("답변 생성에 실패했습니다: 모델 서버에 연결하지 못했습니다(ECONNREFUSED)") && genDown.answer.includes("total: 23859") && !genDown.answer.includes("127.0.0.1"), `생성 실패 (got ${genDown.answer})`);
+    const http = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", llm: async () => { throw new Error('ollama generate 500: {"error":"C:/models/x"}'); } });
+    ok(http.answer.includes("모델 서버가 오류로 응답했습니다(HTTP 500)") && !http.answer.includes("C:/models"), `HTTP 오류 본문을 내보내지 않는다 (got ${http.answer})`);
+
+    // 레인 밖의 예외: 서버로 던지지 않고 구조화된 실패 답. 라우팅 앞에서 터지는 경우와 답 단계에서 터지는 경우.
+    const boom = () => {
+      throw new TypeError("이상한 실패 C:/secret/path");
+    };
+    let thrown: unknown;
+    let failedAnswer: Awaited<ReturnType<typeof ask>> | undefined;
+    let lateFailure: Awaited<ReturnType<typeof ask>> | undefined;
+    try {
+      failedAnswer = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, repair: false, nl2sql: dead, llm: dead, get embedder(): Embedder { return boom() as never; } } as never);
+      lateFailure = await ask("2025년 3분기 총 매출액은 얼마야?", { pool: stubPool, embedder: brokenEmbedder, repair: false, nl2sql: async () => "SELECT SUM(amount) AS total FROM sales WHERE quarter = '2025-Q3'", get llm() { return boom() as never; } } as never);
+    } catch (e) {
+      thrown = e;
+    }
+    ok(thrown === undefined && failedAnswer !== undefined && lateFailure !== undefined, `ask 는 던지지 않는다 (got ${String(thrown)})`);
+    ok(failedAnswer?.audit.branch_errors[0] === "pipeline: 내부 오류(TypeError)" && failedAnswer.answer.includes("내부 오류(TypeError)") && !failedAnswer.answer.includes("C:/secret"), `오류 원문을 답에 내보내지 않는다 (got ${failedAnswer?.answer})`);
+    ok(lateFailure?.audit.branch_errors[0] === "pipeline: 내부 오류(TypeError)" && lateFailure.answer.includes("처리하다 실패해 답하지 못했습니다") && !lateFailure.answer.includes("C:/secret"), `답 단계의 예외도 (got ${lateFailure?.answer})`);
+    ok(buildAuditRecord(failedAnswer!).branch_errors.length === 1, "실패 답도 감사 레코드를 만든다");
+  } finally {
+    console.error = savedErr3;
+    uninstallSemanticRouter();
+  }
+}
+
 console.log(`degraded.test: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
