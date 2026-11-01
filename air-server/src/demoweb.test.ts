@@ -87,7 +87,9 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   ok(!/<(script|link|img)[^>]+(src|href)=/i.test(page), "src, href 로 무엇도 불러오지 않는다");
   ok(page.startsWith("<!doctype html>") && page.includes('<html lang="ko">'), "한국어 문서");
   ok(PRESETS.every((g) => g.questions.every((q) => page.includes(q))), "사업자 데이터셋이면 시연 질문을 싣는다");
+  ok(page.includes("실행하지 않은 문장") && page.includes("실행했지만 답에 쓰지 않은 문장"), "실행한 뒤 버린 문장과 실행하지 않은 문장의 제목을 가른다");
   const other = renderPage({ dataset: "mydata", version: "0.3.0" });
+  ok(other.includes("이 데이터셋에는 준비된 질문이 없습니다. 오른쪽 칸에 직접 물어보세요."), "준비된 질문이 없는 데이터셋의 안내는 발표 화면에 나가는 문장이다");
   ok(!PRESETS[0].questions.some((q) => other.includes(q)), "다른 데이터셋에는 사업자 질문을 싣지 않는다");
   ok(renderPage({ dataset: '<x">', version: "0.3.0" }).includes("&lt;x&quot;&gt;"), "머리글 값은 HTML 이스케이프");
   // 페이지 스크립트는 TS 템플릿 문자열 안에 있다. 거기 쓴 역슬래시는 한 겹 벗겨지고 역따옴표는 문자열을 끝낸다.

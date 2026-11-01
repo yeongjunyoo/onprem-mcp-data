@@ -93,7 +93,9 @@ const askResult = noteAudit({ answer: r.answer, route: r.route, context: r.conte
   };
   const e = auditLogEntry({ tool: "audit.explain", params: { query: "q" }, result: rec }, caller);
   ok(e.not_found.join() === "서울물산,삼성전자", `못 찾은 이름 (got ${e.not_found.join()})`);
-  ok(e.sql === null && e.sql_refused[0]?.kind === "UNRESOLVED_NAME" && e.sql_refused[0].text === "SELECT 2", "거절한 SQL 은 실행한 SQL 칸이 아니다");
+  ok(e.sql === null && e.sql_refused[0]?.kind === "UNRESOLVED_NAME" && e.sql_refused[0].text === "SELECT 2" && e.sql_refused[0].ran === undefined, "거절한 SQL 은 실행한 SQL 칸이 아니다");
+  const ranRec = { ...rec, retrieval: { ...rec.retrieval, sql: { ...rec.retrieval.sql, refused: { kind: "UNRESOLVED_NAME", text: "SELECT 3", ran: true as const } } } };
+  ok(auditLogEntry({ tool: "audit.explain", params: { query: "q" }, result: ranRec }, caller).sql_refused[0]?.ran === true, "실행한 뒤 답에 쓰지 않은 SQL 은 표시를 남긴다");
 }
 
 // 직접 도구
