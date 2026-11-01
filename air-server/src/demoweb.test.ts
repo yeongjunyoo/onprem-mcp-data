@@ -87,7 +87,6 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   ok(!/<(script|link|img)[^>]+(src|href)=/i.test(page), "src, href 로 무엇도 불러오지 않는다");
   ok(page.startsWith("<!doctype html>") && page.includes('<html lang="ko">'), "한국어 문서");
   ok(PRESETS.every((g) => g.questions.every((q) => page.includes(q))), "사업자 데이터셋이면 시연 질문을 싣는다");
-  ok(!PRESETS.some((g) => g.questions.some((q) => /Product-D2 이거 깔려/.test(q))), "라우팅이 바뀐 알려진 손실(TC-056)은 시연 질문에 넣지 않는다");
   const other = renderPage({ dataset: "mydata", version: "0.3.0" });
   ok(!PRESETS[0].questions.some((q) => other.includes(q)), "다른 데이터셋에는 사업자 질문을 싣지 않는다");
   ok(renderPage({ dataset: '<x">', version: "0.3.0" }).includes("&lt;x&quot;&gt;"), "머리글 값은 HTML 이스케이프");

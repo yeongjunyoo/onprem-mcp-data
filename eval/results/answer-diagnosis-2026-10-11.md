@@ -13,7 +13,7 @@ Diagnosis and recommendation only. No product code was changed. Per-question dat
 
 ## 1. Setup and reproduction
 
-- Clean worktree `C:/Users/basqu/Projects/onprem-wt-diag` at c7c1083 (detached), real `npm ci`, `tsc`. Dataset zip copied from the doctype worktree, SHA-256 `3008476738d9…` checked against `datasets/MANIFEST.md`.
+- Clean worktree at c7c1083 (detached), real `npm ci`, `tsc`. Dataset zip copied from the doctype worktree, SHA-256 `3008476738d9…` checked against `datasets/MANIFEST.md`.
 - Database `mcpdata_diag` only (every pool, `READ_DATABASE_URL` unset); host Ollama 0.40.2 on 11434 with `qwen2.5-coder:7b` and `bge-m3`. Container Ollama not used.
 - Misses of record: the 2026-10-11 scorecards `companyx-doctype-score-{sponsor30,holdout3,holdout4}-off.json` (DOC_TYPE_FILTER off, same behaviour as main): 27/30, 31/38, 29/59 = **87/127 scorable**, 63 rows wrong, abstained or unscorable.
 - Traces: `ask()` exactly as the MCP tool calls it, with four inert hooks in a patched copy of `dist/` (`eval/diag/patch-dist.mjs`) and the scorecard's own judge. Two full reruns gave 27/32/29 both times. The only verdict change against the record is h3-13 (the 10-11 run generated a join on a missing column, both reruns generated a correct query). Answer text was identical for 138 of 150 questions against the record and for 137 of 150 between my two reruns, and generated SQL differed in 2 sponsor questions between reruns (same verdicts). Temperature 0 and seed 42 are not bit-reproducible on this host: treat ±1 per set as noise, which matters for a +3 swap rule.
