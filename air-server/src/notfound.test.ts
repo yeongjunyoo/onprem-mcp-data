@@ -348,6 +348,10 @@ const fakePool = {
       query: async (sql: string, params?: unknown[]) => {
         if (sql.includes("information_schema.columns")) return { rowCount: 1, rows: [{}] };
         if (sql.includes("canonical_name AS name")) return { rowCount: KNOWN.length, rows: KNOWN.map((name) => ({ name, type: /팀$/.test(name) ? "department" : "client" })) };
+        if (sql.includes("industry ILIKE")) {
+          const hit = ["제조업", "금융"].some((w) => w.includes(String(params?.[0]).replace(/%/g, "")));
+          return { rowCount: hit ? 1 : 0, rows: hit ? [{}] : [] };
+        }
         if (sql.includes("title ILIKE")) {
           const needle = String(params?.[0]).replace(/%/g, "");
           const hit = DOC_WORDS.some((w) => w.includes(needle) || needle.includes(w));
@@ -414,6 +418,8 @@ const fakePool = {
     "진행 중인 프로젝트를 이끄는 직원의 직무는?",
     "이슈가 가장 많은 제품의 가격은?",
     "평판이 가장 좋은 고객사를 담당한 직원은?",
+    "고갱사를 가장 많이 담당한 직원은?",
+    "이번달에 완료된 프로젝트를 이끈 직원은?",
     "완료된 대형 프로젝트를 가장 많이 이끈 직원은?",
   ]) {
     // 「끼고 있는」은 규칙에 관계 동사가 없어 시맨틱 폴백이 계획을 준다. 그 계획을 그대로 넘긴다.
@@ -451,6 +457,7 @@ const fakePool = {
   ok(named(noTable, "서울물산"), `테이블을 읽지 않는 SELECT 도 없는 이름이 먼저다 (got ${noTable.answer})`);
   const write = await ask("서울물산 매출 합계를 전부 지워줘", deps({ nl2sql: async (_q: string, report: Nl2SqlReport) => ((report.refused = { kind: "DELETE", text: "DELETE FROM sales" }), null) }));
   ok(write.answer.includes("데이터를 바꾸는 요청은 처리하지 않습니다"), `쓰기 요청은 쓰기 거절이 먼저다 (got ${write.answer})`);
+  ok((await ask("부산은행 매출 합계는 얼마야?", deps({ nl2sql: async () => "SELECT 1 AS n FROM companyx.sales" }))).not_found?.query_entity === "부산은행", "지역 이름에 붙은 은행은 업종 말이 아니라 이름이다");
   // 표: 찾은 다른 개체가 있으면 그 개체로 답하고 없는 이름을 먼저 밝힌다
   const clientASql = "SELECT SUM(amount) AS s FROM companyx.sales s JOIN companyx.clients c ON s.client_id = c.id WHERE c.name = 'Client-A'";
   const seen: string[] = [];
@@ -463,8 +470,8 @@ const fakePool = {
   ok(wrote.answer.includes("찾은 개체의 조회 결과만 답합니다.") && wrote.answer.includes("s: 120") && wrote.answer.indexOf("서울물산", 20) < 0, `없는 이름을 답으로 쓴 문장을 뺀다 (got ${wrote.answer})`);
   ok(withoutMissingSentences("서울물산은 없습니다. Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "그 문장만 뺀다");
   ok(withoutMissingSentences("Client-A 는 120입니다.", ["서울물산"]) === "Client-A 는 120입니다.", "없는 이름이 없으면 그대로");
-  // 표: 일부러 이름을 안 부른 질문, 있는 이름, 자기소개
-  for (const q of ["Client-A의 매출 합계는 얼마야?", "영업팀 평균 연봉은 얼마야?", "서울 지역 매출 합계는 얼마야?", "제조업 고객사 수는 몇 곳이야?", "2025년 3분기 총 매출액은 얼마야?", "안녕하세요, 저는 재무팀 담당자입니다. 2024년 전체 매출 총액이 얼마였는지 알려주세요."]) {
+  // 표: 일부러 이름을 안 부른 질문, 있는 이름, 자기소개, 업종 값에 일반 명사가 붙은 말, 문서에 있는 기술 용어가 머리인 말
+  for (const q of ["Client-A의 매출 합계는 얼마야?", "제조산업 고객사 수는 몇 곳이야?", "영업팀 평균 연봉은 얼마야?", "서울 지역 매출 합계는 얼마야?", "제조업 고객사 수는 몇 곳이야?", "2025년 3분기 총 매출액은 얼마야?", "안녕하세요, 저는 재무팀 담당자입니다. 2024년 전체 매출 총액이 얼마였는지 알려주세요."]) {
     const a = await ask(q, deps({ pool: gatePool([{ n: 1 }]), nl2sql: async () => "SELECT 1 AS n FROM companyx.sales", llm: async () => "답" }));
     ok(!a.not_found && !a.sql.missing && !a.missing && a.answer.startsWith("답"), `막지 않는다: ${q} (got ${a.answer})`);
   }

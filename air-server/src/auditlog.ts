@@ -47,7 +47,7 @@ export interface AuditLogEntry {
   not_found: string[];
   branch_errors: string[];
   duration_ms: number | null;
-  /** 60초 캐시에서 돌려준 호출이면 true. 이때 적힌 SQL 은 앞선 호출의 것이다. */
+  /** 60초 캐시나 같은 호출 합치기(dedup)로 돌려준 호출이면 true. 이때 적힌 SQL 은 앞선 호출의 것이다. */
   cached: boolean;
   /** 도구가 실패로 끝났으면(입력 검증, 예외) 그 사유. 조회 행이 들 수 없는 머리 글만 적는다. */
   error: string | null;
@@ -152,7 +152,7 @@ export function auditLogWriter(path: string): (entry: AuditLogEntry) => void {
 export function auditLogPlugin(path: string, caller: () => { transport: string; os_user: string | null }): AirPlugin {
   const write = auditLogWriter(path);
   const entry = (ctx: { tool: { name: string }; params: Record<string, unknown>; requestId?: string; meta?: Record<string, unknown>; duration?: number; result?: unknown }, error?: string) =>
-    auditLogEntry({ tool: ctx.tool.name, params: ctx.params, result: ctx.result, requestId: ctx.requestId, durationMs: ctx.duration, cached: Boolean(ctx.meta?._cached), error }, caller());
+    auditLogEntry({ tool: ctx.tool.name, params: ctx.params, result: ctx.result, requestId: ctx.requestId, durationMs: ctx.duration, cached: Boolean(ctx.meta?._cached || ctx.meta?._deduped), error }, caller());
   return {
     meta: { name: "onprem:audit-log", version: "1.0.0" },
     middleware: [

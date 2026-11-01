@@ -29,7 +29,7 @@ import type { Pool } from "./db.js";
 import { type Candidate, entityKey } from "./candidate.js";
 import { profile } from "./profile.js";
 import { describeError } from "./errors.js";
-import { classifyNotFound, entityLikeName, similarNames, type NotFound } from "./notfound.js";
+import { classifyNotFound, entityLikeName, nameSimilarity, similarNames, type NotFound } from "./notfound.js";
 import { entitiesIn, identifyingAliases, isEntityName, looseEntityName } from "./router.js";
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
@@ -290,7 +290,10 @@ function mentionTokens(query: string): { term: string; raw: string; next?: strin
 /** 관계를 통째로 세거나 거르는 질문에 흔한 일반 명사와 수식어. 이름 자리에 놓여도 개체를 지목한 말이 아니다. 「사람이」, 「이름을」처럼 조사가 붙어도 대상의 이름이
  * 아니다. 문서와 스키마 카드에 있는 말은 namedTermsOutsideData 가 대조로 거르므로 여기 없어도 된다. */
 const GENERIC_NOUN =
-  /^(?:사람|직원|사원|팀원|인원|인원수|멤버|매니저|리더|리드|책임자|담당자|PM|PL|고객|고객사|거래처|회사|기업|업체|제품|상품|솔루션|서비스|프로젝트|과제|업무|부서|조직|이름|성함|명단|리스트|규모|지역|업종|직급|직책|직위|상태|순위|상위|하위|건수|개수|숫자|횟수|수량|분기|상반기|하반기|연도|기간|우리|저희|여기|거기|누가|누군지|뭐가|어디가|정도|얼마나|인기|실적|성과|경력|평균|합계|총합|최대|최소|건|것|곳|분|대기업|중소기업|중견기업|스타트업|대형|중형|소형|신규|기존|주요|핵심|전체|해외|국내|사내|외부|내부|유료|무료|장기|단기)(?:들)?$/i;
+  /^(?:사람|직원|사원|팀원|인원|인원수|멤버|매니저|리더|리드|책임자|담당자|PM|PL|고객|고객사|거래처|회사|기업|업체|제품|상품|솔루션|서비스|프로젝트|과제|업무|부서|조직|이름|성함|명단|리스트|규모|지역|업종|직급|직책|직위|상태|순위|상위|하위|건수|개수|숫자|횟수|수량|분기|상반기|하반기|연도|기간|우리|저희|여기|거기|누가|누군지|뭐가|어디가|정도|얼마나|인기|실적|성과|경력|평균|합계|총합|최대|최소|건|것|곳|분|대기업|중소기업|중견기업|스타트업|대형|중형|소형|신규|기존|주요|핵심|전체|해외|국내|사내|외부|내부|유료|무료|장기|단기|이번달|지난달|다음달|이번주|지난주|다음주|재작년|내년|금월|전월|당월|연말|연초)(?:들)?$/i;
+/** 묻는 대상을 가리키는 말. 한 글자 틀린 꼴(「고갱사」)도 이름이 아니다. */
+const TYPE_WORDS = ["고객사", "고객", "거래처", "담당자", "직원", "프로젝트", "제품", "부서", "사람"];
+const typoOfTypeWord = (term: string) => TYPE_WORDS.some((w) => nameSimilarity(term, w) >= 0.6);
 /** 그 낱말 뒤에 오면 낱말이 재는 잣대라는 말(「인기가 가장 많은 제품」, 「경력이 제일 높은 사람」). 「카카오가 가장 많이 쓰는」의 「많이」는 동사를 꾸며 그 낱말이 주어다. */
 const MEASURE_AFTER = /^[가-힣]?\s*(?:가장|제일)\s*(?:많은|큰|높은|적은|낮은|작은|좋은|나쁜|긴|짧은|비싼|싼)(?![가-힣])/;
 /** 관계나 상태를 말하는 낱말. 이것보다 뒤에서 조사만 붙은 낱말은 묻는 항목이다(「진행 중인 프로젝트를 이끄는 직원의 직책은?」). */
@@ -322,7 +325,7 @@ export async function namedTermsOutsideData(pool: Pool, query: string, skip: rea
     // 관계를 말하기 전이며 잣대가 아니다.
     const particle = term !== t.term || t.raw !== t.term || /^[가-힣]/.test(t.after);
     const placed = Boolean(t.next && (AFTER_NAME.test(t.next) || hit(t.next))) || (particle && !RELATION_WORD.test(t.before) && !MEASURE_AFTER.test(t.after));
-    if (!placed || term.length < 2 || GENERIC_NOUN.test(term)) continue;
+    if (!placed || term.length < 2 || GENERIC_NOUN.test(term) || typoOfTypeWord(term)) continue;
     if (profile().schemaCard.includes(term) || (await inDocuments(pool, term))) continue;
     const found = await ontologySearch(pool, term, 1, schema);
     if (found.ok && !found.hits.length) named.push(term);

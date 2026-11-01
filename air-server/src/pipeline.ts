@@ -53,6 +53,7 @@ import {
   namedTermsOutsideData,
   inDocuments,
   joinSpacedIds,
+  likeLiteral,
   graphExpand,
   graphWalk,
   relationScan,
@@ -277,12 +278,10 @@ export async function graphLane(
   // 전체 순위가 답이 됐다: 「서울물산이 진행 중인 프로젝트를 이끄는 직원은?」에 진행 중 프로젝트의 리드 11명, 「서울물산을 가장 많이 담당한 직원은?」에
   // 공동 1위 둘. 「서울물산 보안 담당자」처럼 찾은 시드가 일반 낱말의 부분 일치(점수 2 이하)뿐인 질문도 그 낱말로 찾은 직원을 답하지 않는다.
   const scanPlan = Boolean(p?.aggregate || p?.filter);
-  const strongSeed = onto.hits.some((h) => h.score >= 3);
-  const named =
-    !strongSeed && profile().name === "companyx" && (scanPlan || onto.hits.length > 0)
-      ? await namedTermsOutsideData(pool, query, onto.hits.map((h) => h.matched), schema)
-      : [];
-  const blockedByName = named.length ? (missing[0] ?? (await notFoundFor(pool, named, schema))) : !strongSeed && onto.hits.length ? missing[0] : undefined;
+  // Company-X 는 이름을 가진 표가 모두 온톨로지 노드라 이 판정을 그 프로파일에서만 한다(absentNames 와 같다).
+  const gated = profile().name === "companyx" && !onto.hits.some((h) => h.score >= 3);
+  const named = gated && (scanPlan || onto.hits.length > 0) ? await namedTermsOutsideData(pool, query, onto.hits.map((h) => h.matched), schema) : [];
+  const blockedByName = named.length ? (missing[0] ?? (await notFoundFor(pool, named, schema))) : gated && onto.hits.length ? missing[0] : undefined;
   if ((onto.hits.length === 0 && !scanPlan) || blockedByName) {
     const terms = seedTerms(query);
     // 찾지 못한 대상으로는 이름을 지목한 낱말만 댄다(graph.ts mentionTerms). 「등록된」, 「어떤 데이터베이스」만 있으면 개체를
@@ -470,9 +469,28 @@ export async function absentNames(pool: Pool, query: string, schema = kgSchema()
     const name = absentNameTerm(term);
     if (!name) continue;
     const o = await ontologySearch(pool, name, 1, schema);
-    if (o.ok && !o.hits.length && o.not_found && o.not_found.reason !== "no_entity_term") out.push(o.not_found);
+    if (!o.ok || o.hits.length || !o.not_found || o.not_found.reason === "no_entity_term") continue;
+    if (await describesData(pool, name, schema)) continue;
+    out.push(o.not_found);
   }
   return out;
+}
+
+/** 조직 접미사로 끝나도 데이터를 가리키는 말이다. 「제조산업」, 「금융그룹」은 고객사 업종 값(제조업, 금융)에 일반 명사가 붙은 말이고, 「SSL통신」의 SSL 은 문서에 있는 기술
+ * 용어다. 「부산은행」, 「서울건설」의 부산, 서울은 업종이 아니라 지역이라 그대로 이름이다. */
+const GENERAL_ORG_SUFFIX = /(?:산업|그룹|통신|화학|보험|은행|증권|카드|건설)$/;
+async function describesData(pool: Pool, name: string, schema: string): Promise<boolean> {
+  const head = name.replace(/^([A-Za-z][A-Za-z0-9]*)[가-힣]+$/, "$1");
+  if (head !== name && (await inDocuments(pool, head))) return true;
+  if (!GENERAL_ORG_SUFFIX.test(name)) return false;
+  const stem = name.replace(GENERAL_ORG_SUFFIX, "");
+  if (stem.length < 2) return false;
+  try {
+    const res = await pool.query(`SELECT 1 FROM ${schema}.clients WHERE industry ILIKE $1 LIMIT 1`, [`%${likeLiteral(stem)}%`]);
+    return (res.rowCount ?? res.rows.length) > 0;
+  } catch {
+    return false;
+  }
 }
 
 /** 없는 이름을 가린 질문에 찾은 다른 개체가 있는가. 「서울물산과 Client-A 매출」은 Client-A 로 답할 수 있지만 「서울물산 담당자」는 답할 대상이 없다. */
