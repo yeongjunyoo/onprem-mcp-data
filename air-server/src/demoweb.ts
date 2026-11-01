@@ -260,8 +260,7 @@ export function routeSummary(rationale: string): { by: "rule" | "semantic" | "ll
   return { by: "other" };
 }
 
-/** 시연 질문. 사업자 데이터셋(companyx)일 때만 보인다. 10-20 릴리스 리허설에서 돌려 본 질문만 넣고,
- * 라우팅이 바뀐 알려진 손실(시험항목 TC-056)은 넣지 않는다. */
+/** 시연 질문. 사업자 데이터셋(companyx)일 때만 보인다. 10-20 릴리스 리허설에서 돌려 본 질문만 넣는다. */
 export const PRESETS: { group: string; questions: string[] }[] = [
   { group: "정형 데이터(SQL)", questions: ["2025년 3분기 총 매출액은 얼마야?", "서울 지역 매출 상위 5개 고객사를 알려줘", "평균 연봉이 가장 높은 부서는 어디야?"] },
   { group: "문서", questions: ["Product-C1 설치 방법이 궁금해", "SSL 인증서 관련 장애가 있었어?", "API 인증 방식은 뭐야?"] },

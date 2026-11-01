@@ -274,6 +274,69 @@ ok(!route("기술지원팀 부서에 소속된 직원 전원을 보여줘").enti
   }
 }
 
+// ── 제품이 깔린 곳 (시험항목 TC-056) ──────────────────────────────────
+//
+// 「깔린」, 「깔려 있는」 뒤의 데, 곳, 고객, 고객사, 회사, 업체는 USES 다. 규칙이 확신하므로 시맨틱 폴백(최근접 「{제품} 어떻게 깔아」)을 부르지 않는다.
+{
+  installOntology(
+    [
+      { id: "client_1", name: "Client-A", type: "client" },
+      { id: "product_1", name: "Product-C1", type: "product" },
+      { id: "product_2", name: "Product-D2", type: "product" },
+      { id: "employee_1", name: "김지훈", type: "employee" },
+    ] as { id: string; name: string; type: string }[],
+    [
+      { source: "client_1", target: "product_1", relation: "USES" },
+      { source: "client_1", target: "product_1", relation: "REPORTED_ISSUE" },
+      { source: "employee_1", target: "client_1", relation: "MANAGES_ACCOUNT" },
+    ],
+  );
+  for (const q of [
+    "Product-D2 이거 깔려 있는 데가 어디어디야?",
+    "Product-C1 깔린 곳 알려줘",
+    "Product-D2 깔린 회사 어디어디야?",
+    "Product-C1 깔린 데 알려줘",
+    "Product-C1 깔린데가 어디야",
+    "Product-D2 깔려있는데 어디어디야?",
+    "Product-C1 깔려 있는 고객 누구야?",
+    "Product-C1 깔려 있는 고객사 어디야?",
+    "Product-C1 깔린 업체 좀 보여줘",
+  ]) {
+    const r = route(q);
+    eq([r.route, r.graphPlan?.relTypes, r.gate.confident], ["graph", ["USES"], true], `제품이 깔린 곳은 USES 이고 규칙이 확신한다: ${q}`);
+  }
+  eq(fitPlanToSeed(["USES"], "product", "Product-D2 깔린 회사 어디어디야?"), { hops: [["USES"]] }, "제품에서 USES 한 홉");
+
+  // 까는 법은 관계가 아니다. 「설치 방법」은 규칙도 문서를 고르고, 나머지는 시맨틱 폴백이 문서로 보낸다(semroute.test).
+  for (const q of ["Product-C1 어떻게 깔아", "Product-C1 까는 법 알려줘", "Product-C1 설치 방법이 궁금해"]) {
+    const r = route(q);
+    eq([r.graphHits, r.gate.scores.knowledge_graph], [[], 0], `까는 법에는 그래프 점수가 없다: ${q}`);
+  }
+  eq(route("Product-C1 설치 방법이 궁금해").route, "semantic", "설치 방법은 규칙도 문서");
+
+  // 곳을 묻지 않는 「데」와 부정.
+  for (const q of [
+    "Product-C1 깔려 있는데 왜 안 돼?", // 연결 어미
+    "Product-C1 깔려 있는데 어떻게 지워?",
+    "Product-C1 깔려 있는데도 실행이 안 돼",
+    "Product-C1 깔려 있는데 어디서 로그 봐?",
+    "Product-C1 깔려 있는데 어디가 문제야?",
+    "Product-C1 깔려 있는 데 왜 안 돼?", // 띄어 쓴 연결 어미
+    "Product-C1 깔린 데이터 어떻게 지워?", // 다른 낱말
+    "Product-C1 안 깔린 곳 알려줘", // USES 로 답할 수 없다
+  ]) eq(route(q).graphHits, [], `제품이 깔린 곳을 묻는 말이 아니다: ${q}`);
+
+  // 제품 개체가 없으면 세지 않는다.
+  for (const q of ["깔린 곳 알려줘", "Client-A 깔린 곳 알려줘", "김지훈 깔린 회사 어디야?"]) {
+    eq(route(q).graphHits, [], `제품 개체가 없다: ${q}`);
+  }
+  // 사전의 이름과 글자가 다른 표기나 사전이 없을 때는 제품 식별자 꼴로 본다.
+  eq(route("product d2 깔린 곳 알려줘").graphPlan?.relTypes, ["USES"], "띄어 쓴 식별자");
+  installOntology([], []);
+  eq(route("Product-D2 깔린 회사 어디어디야?").graphPlan?.relTypes, ["USES"], "사전이 없어도 제품 식별자 꼴이면 USES");
+  eq(route("Product 깔린 회사 어디어디야?").graphHits, [], "번호 없는 낱말 Product 는 개체가 아니다");
+}
+
 // ── 상태 조건은 거르라는 말일 때만 (랜덤 테스트 2차 R4) ──────────────────
 //
 // 조건은 시드의 엣지에도 걸린다. 「계획 중인 것도 빼지 마」를 조건으로 읽으면 계획 중인 프로젝트만 남는다.
