@@ -170,8 +170,8 @@ export function buildResources() {
                 + "semantic_error 는 규칙이 확신하지 못했는데 시맨틱 폴백의 임베딩이 실패해 규칙의 결정으로 물러났을 때만 붙는다(사유는 원인 코드까지)",
               retrieval:
                 "레인별 실행 결과와 후보 수. graph.truncated 는 그래프 탐색이 상한(홉·노드·엣지)에 걸렸을 때 {by, limit}, 아니면 null. "
-                + "sql.refused 는 생성 모델이 만들었지만 실행하지 않은 문장이 있을 때만 붙는다. {kind, text}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
-                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT), UNRESOLVED_NAME(질문이 지목한 이름이 데이터에 없어 답에 쓰지 않은 SQL: 그 이름을 쓰지 않았거나 그 개체의 것일 수 없는 값을 돌려줬다)이고, 이때 sql.text 는 null 이다(답에 쓴 SQL 없음). "
+                + "sql.refused 는 생성 모델이 만들었지만 답에 쓰지 않은 문장이 있을 때만 붙는다. {kind, text, ran}. kind 는 쓰기 문장의 종류(UPDATE, DELETE 등) "
+                + "또는 NO_TABLE(테이블을 읽지 않는 상수 SELECT), UNRESOLVED_NAME(질문이 지목한 이름이 데이터에 없어 답에 쓰지 않은 SQL: 그 이름을 쓰지 않았거나 그 개체의 것일 수 없는 값을 돌려줬다. 읽기 전용으로 실행한 뒤 버렸으면 ran 이 true 다)이고, 이때 sql.text 는 null 이다(답에 쓴 SQL 없음). "
                 + "sql.absent 는 질문이 묻는 항목(나이, 성별, 고객사의 직원 수 등)이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목 이름이다",
               fusion: "RRF 상위 항목과 그 항목을 찾은 레인(sql, vector, keyword, graph). 여러 레인이 찾으면 합의다",
               context:

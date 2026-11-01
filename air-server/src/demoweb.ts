@@ -401,7 +401,7 @@ function render(card,q,res){
   card.append(el("h4",null,"답"));card.append(answerBlock(v.text));
   [a.not_found].concat(a.missing_entities||[]).filter(Boolean).forEach(nf=>card.append(el("div","notice",nfText(nf))));
   const sql=(a.retrieval||{}).sql||{};
-  if(sql.refused){card.append(el("h4",null,"실행하지 않은 문장"));const p=el("pre","sql");p.textContent=sql.refused.text;card.append(p);}
+  if(sql.refused){card.append(el("h4",null,sql.refused.ran?"실행했지만 답에 쓰지 않은 문장":"실행하지 않은 문장"));const p=el("pre","sql");p.textContent=sql.refused.text;card.append(p);}
   if(sql.text){card.append(el("h4",null,"실행한 SQL (읽기 전용 트랜잭션)"));const p=el("pre","sql");p.textContent=sql.text;card.append(p);}
   if(v.rows){card.append(el("h4",null,"조회한 행 "+v.rows.count+"건"));card.append(rowsTable(v.rows));}
   const fusion=(a.fusion||[]).filter(f=>!String(f.key).startsWith("sql#"));

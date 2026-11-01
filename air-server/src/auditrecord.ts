@@ -76,7 +76,7 @@ export interface AuditRecord {
       error: string | null;
       repaired: boolean;
       /** 생성 모델이 만들었지만 실행하지 않은 문장. 그때만 붙고 text 는 null 이다. */
-      refused?: { kind: string; text: string };
+      refused?: { kind: string; text: string; ran?: true };
       /** 질문이 묻는 항목이 스키마에 없어 SQL 을 만들지 않았을 때 그 항목. 그때만 붙는다. */
       absent?: string;
     };

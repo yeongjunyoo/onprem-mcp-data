@@ -104,7 +104,7 @@ export interface RetrieveResult {
     result?: SqlResult;
     repaired?: boolean;
     gate?: SqlGate;
-    refused?: { kind: string; text: string };
+    refused?: { kind: string; text: string; ran?: true };
     absent?: string;
     rank?: number;
     /** 질문이 이름처럼 생긴 낱말로 지목했는데 데이터에 없는 개체(absentNames). 있을 때만. */
@@ -947,7 +947,7 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       return { text: null, refused: report.refused, ...(alone() && report.refused.kind === NO_TABLE ? unresolved() : missing()) };
     }
     await noteSqlNames(text);
-    const dropped = (sql: string) => ({ text: null, refused: { kind: UNRESOLVED_NAME, text: sql }, ...unresolved() });
+    const dropped = (sql: string, ran?: true) => ({ text: null, refused: { kind: UNRESOLVED_NAME, text: sql, ...(ran ? { ran } : {}) }, ...unresolved() });
     if (alone() && !unfound.some((nf) => sqlNames(text, nf.query_entity))) return dropped(text);
     // 엔진이 거부하면(없는 컬럼 등) 그 오류를 한 번 되먹여 고친다 — 빈 컨텍스트가 두 번째
     // 호출보다 나쁘다. 평가(companyx:sql)도 같은 함수를 부른다. 외래키와 컬럼은 프로파일의 테이블이 있는
@@ -959,9 +959,9 @@ async function runLanes(query: string, decision: RouteDecision, deps: RetrieveDe
       ...(unfound.length ? { emptyRepair: false } : {}),
     });
     if (ex.text !== text) await noteSqlNames(ex.text);
-    if (alone() && ex.text !== null && !unfound.some((nf) => sqlNames(ex.text, nf.query_entity))) return dropped(ex.text);
+    if (alone() && ex.text !== null && !unfound.some((nf) => sqlNames(ex.text, nf.query_entity))) return dropped(ex.text, true);
     // 없는 개체만 지목한 조회가 돌려준 0, null 아닌 값은 그 개체의 것이 아니다. 빈 집합 위의 rank() 는 1 이라 「Client-ZZ의 매출 순위는 1위입니다」가 됐다.
-    if (alone() && ex.text !== null && ex.result?.ok && ex.result.rows.some(holdsValue)) return dropped(ex.text);
+    if (alone() && ex.text !== null && ex.result?.ok && ex.result.rows.some(holdsValue)) return dropped(ex.text, true);
     return {
       text: ex.text,
       result: ex.result,

@@ -40,8 +40,9 @@ export interface AuditLogEntry {
   /** 돌아온 행 수. 행 자체는 적지 않는다. */
   sql_rows: number | null;
   sql_error: string | null;
-  /** 실행하지 않은 SQL: 생성 모델의 쓰기 문장, 지목한 이름을 뺀 문장(kind 는 sql.refused 의 종류), 실행 전 검사가 거부한 문장(kind 는 sql-trust-gate, reasons 는 사유). */
-  sql_refused: { kind: string; text: string; reasons?: string[] }[];
+  /** 답에 쓰지 않은 SQL: 생성 모델의 쓰기 문장, 지목한 이름을 뺀 문장(kind 는 sql.refused 의 종류), 실행 전 검사가 거부한 문장(kind 는 sql-trust-gate, reasons 는 사유).
+   * ran 은 읽기 전용으로 실행은 했지만 없는 개체의 값일 수 없어 답에 쓰지 않은 문장이다. */
+  sql_refused: { kind: string; text: string; ran?: true; reasons?: string[] }[];
   policies: { policy: string; verdict: string; detail: string }[];
   /** 질문이 지목했는데 데이터에서 못 찾은 이름. */
   not_found: string[];
@@ -110,7 +111,7 @@ export function auditLogEntry(
     sql_rows: sqlRec ? sqlRec.rows : direct !== null && typeof res.rowCount === "number" ? res.rowCount : null,
     sql_error: sqlRec?.error ?? (direct !== null && typeof res.error === "string" ? res.error : null),
     sql_refused: [
-      ...(sqlRec?.refused ? [{ kind: sqlRec.refused.kind, text: sqlRec.refused.text }] : []),
+      ...(sqlRec?.refused ? [{ kind: sqlRec.refused.kind, text: sqlRec.refused.text, ...(sqlRec.refused.ran ? { ran: sqlRec.refused.ran } : {}) }] : []),
       ...(noted?.rejected ?? []).map((r) => ({ kind: "sql-trust-gate", text: r.sql, reasons: r.reasons })),
     ],
     policies: (rec?.policies ?? []).map((p) => ({ policy: p.policy, verdict: p.verdict, detail: p.detail })),

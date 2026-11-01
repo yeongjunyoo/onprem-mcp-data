@@ -471,6 +471,7 @@ const fakePool = {
   const rankSql = "SELECT rank() OVER (ORDER BY SUM(amount) DESC) AS rank FROM companyx.sales WHERE client_id = (SELECT id FROM companyx.clients WHERE name = 'Client-ZZ')";
   const rank = await ask("Client-ZZ 매출 순위는 몇 위야?", deps({ pool: gatePool([{ rank: 1 }]), nl2sql: async () => rankSql }));
   ok(named(rank, "Client-ZZ") && !rank.answer.includes("1위") && rank.not_found?.query_entity === "Client-ZZ" && rank.sql.text === null && rank.sql.refused?.text === rankSql, `없는 개체의 순위를 지어내지 않는다 (got ${rank.answer})`);
+  ok(rank.sql.refused?.ran === true && dropped.sql.refused?.ran === undefined, "실행한 뒤 버린 문장과 실행하지 않은 문장을 가른다");
   const zeroCount = await ask("서울물산의 활성 계약은 몇 건이야?", deps({ pool: gatePool([{ count: "0" }]), nl2sql: async () => "SELECT COUNT(*) AS count FROM companyx.contracts c JOIN companyx.clients cl ON c.client_id = cl.id WHERE cl.name = '서울물산'", llm: async () => "서울물산의 활성 계약은 0건입니다." }));
   ok(named(zeroCount, "서울물산") && zeroCount.answer.includes("0건입니다") && !zeroCount.not_found, `0 은 그 개체의 값일 수 있다 (got ${zeroCount.answer})`);
   // 표: 머리 영문이 문서에 낱말로 없으면 이름이다(128KB 의 KB). 낱말로 있으면 이름이 아니다.
