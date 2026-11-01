@@ -221,7 +221,7 @@ if (existsSync(reportPath)) {
     aged.push([f, ts.slice(0, 10), days]);
   }
 
-  const STALE_DAYS = 30;
+  const STALE_DAYS = 45;
   const old = aged.filter(([, , d]) => d >= 7).sort((a, b) => b[2] - a[2]);
   if (old.length) {
     console.log(`\n정본 증거 나이 (7일 이상 ${old.length}개 / 전체 ${aged.length}개):`);
