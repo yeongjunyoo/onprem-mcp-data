@@ -39,7 +39,9 @@ function explainFailure(e: unknown, origin: string): unknown {
   const key = `${origin} ${said.message}`;
   if (!logged.has(key)) {
     logged.add(key);
-    console.error(`[ollama] 모델 서버에 붙지 못했다 — ${origin}\n  Ollama 가 떠 있는지, OLLAMA_HOST 가 맞는지 확인한다\n  원본 오류: ${describeError(e)}`);
+    // 값은 한 줄로 찍는다. 오류 글에 든 줄바꿈이 로그 줄을 지어내지 못하게 한다(CodeQL js/log-injection).
+    const oneLine = (text: string) => text.replace(/\r/g, "").replace(/\n/g, "");
+    console.error(`[ollama] 모델 서버에 붙지 못했다 — ${oneLine(origin)}\n  Ollama 가 떠 있는지, OLLAMA_HOST 가 맞는지 확인한다\n  원본 오류: ${oneLine(describeError(e))}`);
   }
   return said;
 }
