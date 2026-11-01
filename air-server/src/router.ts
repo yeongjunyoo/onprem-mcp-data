@@ -111,6 +111,18 @@ const RELATION_VERBS: [RegExp, string][] = [
   [/관여(하는|한|하고)|참여(하는|한|중인)|투입된|배정된/, "HAS_PROJECT"],
 ];
 
+/** 제품이 깔린 곳을 묻는 말: 「깔린」, 「깔려 있는」 뒤의 데, 곳, 고객, 고객사, 회사, 업체(「Product-C1 깔린 곳 알려줘」). 제품 개체가 있을 때만
+ * USES 로 센다(relationVerbs). 「어떻게 깔아」, 「까는 법」, 「설치 방법」에는 이 꼴이 없어 문서 질문 그대로다.
+ * 앵커 「{제품} 깔린 데가 어디야」를 dev 문항을 거의 베꼈다고 뺀 뒤(cli/companyx-anchor-audit.ts) 「Product-D2 이거 깔려 있는 데가 어디어디야?」의
+ * 최근접이 「{제품} 어떻게 깔아」가 되어 문서로 갔다(시험항목 TC-056). 앵커는 되돌리지 않고 규칙으로 읽는다.
+ * 「데」는 곳을 가리킬 때만 받는다. 「깔린 데이터」는 다른 낱말이고, 「깔려 있는데 왜 안 돼?」, 「깔려 있는데도」의 「데」는 연결 어미다. 붙여 쓴 꼴은
+ * 조사(「깔린데가」)가 붙거나 「어디」로 끝나야(「깔린데 어디야」) 곳으로 읽는다. 「안 깔린 곳」은 USES 로 답할 수 없어 세지 않는다. */
+const INSTALLED_AT =
+  /(?<!(?:안|못)\s*)(?:깔린|깔려\s*있는)(?:\s*(?:고객|회사|업체|곳)|\s*데(?:가|는|를|만|들)(?![가-힣])|\s+데(?![가-힣])(?!\s*(?:왜|어떻게|안|못))|데(?=\s*어디(?:어디)?(?:야|예요|에요|인가요|임|냐)?\s*[?？.!~]*\s*$))/;
+
+/** 제품 식별자 꼴. ENTITY_REFS 의 entity_id 와 같은 표기를 받는다(「product d2」처럼 사전의 이름과 글자가 다른 표기, 사전이 없을 때). */
+const PRODUCT_ID = /\bproduct[-_ ]?[a-z]?\d+\b/i;
+
 /** 그래프에 관계로 없는 표와 문서의 항목. 이 낱말이 든 질문의 「담당」은 계약 담당(contracts.manager_id), 티켓 처리
  * 담당(support_tickets.assignee_id), 장애 대응 담당(장애 보고서)이지 고객 담당 관계(MANAGES_ACCOUNT)가 아니다.
  *
@@ -757,6 +769,13 @@ function entityTypesIn(q: string): string[] {
   return [...out];
 }
 
+/** 질문이 말한 관계 동사(표의 순서). 제품이 깔린 곳을 묻는 말(INSTALLED_AT)도 USES 다. USES 는 표의 첫 행이라 앞에 둔다. */
+function relationVerbs(q: string): string[] {
+  const verbs = scan(q, RELATION_VERBS);
+  if (verbs.includes("USES") || !INSTALLED_AT.test(q)) return verbs;
+  return PRODUCT_ID.test(q) || entityTypesIn(q).includes("product") ? ["USES", ...verbs] : verbs;
+}
+
 /** 타입쌍 추론: 지목된 개체의 타입과, 질문이 가리키는 다른 타입 사이의 엣지.
  *
  * 그 타입쌍의 엣지가 여럿이면 질문의 관계 명사(「이슈」 → REPORTED_ISSUE)가 지목한 엣지를 쓰고,
@@ -851,7 +870,7 @@ const CO_OCCUR = /함께|같이|다른|그\s*밖의|외에/;
  *   추론과 같은 규칙). 어느 것도 안 되거나 온톨로지가 없으면 계획을 그대로 둔다. */
 export function fitPlanToSeed(relTypes: string[], seedType: string, query: string, otherSeedTypes: string[] = []): SeedWalk {
   const rels = relTypes.filter((r) => r !== "RELATED_TO");
-  const named = [...scan(query, RELATION_VERBS), ...scan(query, RELATION_NOUNS)];
+  const named = [...relationVerbs(query), ...scan(query, RELATION_NOUNS)];
   const pick = (cands: string[]) => cands.find((r) => named.includes(r)) ?? cands[0];
 
   // 0. 시드 자신의 엣지는 둘째 홉에서 다시 줍지 않는다(이미 본 엣지 id 는 빠진다).
@@ -986,7 +1005,7 @@ export function route(query: string): RouteDecision {
   const m = scan(q, SEMANTIC_SIGNALS);
   // 계약, 티켓, 장애 같은 그래프 밖 항목의 「담당」은 고객 담당 관계가 아니다(TABLE_ONLY_NOUN).
   const tableNoun = tableOnlyNoun(q);
-  const allVerbs = scan(q, RELATION_VERBS);
+  const allVerbs = relationVerbs(q);
   // 표 낱말과 함께 쓴 부서장(「각 부서장의 연봉을 알려줘」)도 그래프로 보내지 않는다. 그래프는 부서장 이름까지만 알고 연봉은
   // 정형(departments.head_id 조인)에 있다. 그래프로 가 「개체(연봉)를 찾지 못했습니다」라고 답했다(랜덤 테스트 사전 점검 5차 P7).
   const verbs = tableNoun ? allVerbs.filter((v) => v !== "MANAGES_ACCOUNT" && v !== "HEAD_IS") : allVerbs;

@@ -8,7 +8,7 @@ import json, sys, os, re
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
 
-REF_DIR = sys.argv[1] if len(sys.argv) > 1 else 'C:/Users/basqu/Projects/onprem-wt-doctype/eval/results'
+REF_DIR = sys.argv[1] if len(sys.argv) > 1 else 'eval/results'
 SCR = '.scratch/diag'
 OUT = 'eval/results/answer-diagnosis-2026-10-11.json'
 

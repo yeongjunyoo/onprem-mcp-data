@@ -179,6 +179,13 @@ const marker = new MarkerEmbedder();
   const sure = "Client-A가 사용 중인 제품 목록은?";
   eq(JSON.stringify(await routeQuery(sure, marker)), JSON.stringify(route(sure)), "확신 구간은 규칙 그대로");
 
+  // 제품이 깔린 곳은 규칙이 USES 로 확신해 폴백을 부르지 않는다(시험항목 TC-056). 까는 법은 규칙에 신호가 없어 폴백이 문서로 보낸다.
+  const installedAt = "Product-C3 이거 깔려 있는 데가 어디어디야?";
+  eq(JSON.stringify(await routeQuery(installedAt, marker)), JSON.stringify(route(installedAt)), "깔린 곳은 규칙 그대로");
+  eq(route(installedAt).graphPlan?.relTypes, ["USES"], "깔린 곳의 탐색은 USES");
+  const howTo = await routeQuery("Product-C3 어떻게 깔아", marker);
+  eq([howTo.route, howTo.semantic?.applied, howTo.semantic?.nearest.lane], ["semantic", true, "vector_search"], "까는 법은 폴백이 문서로 보낸다");
+
   // 시맨틱도 박빙이면(모든 도구 동점) 규칙의 fan-out 을 유지한다.
   class Flat implements Embedder { readonly name = "flat"; readonly dim = 3; async embed() { return [1, 0, 0]; } }
   await installSemanticRouter(new Flat());

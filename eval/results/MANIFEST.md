@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**88/101 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**90/103 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -18,7 +18,7 @@
 |---|---:|---|---|
 | `answer-diagnosis-2026-10-11-rescored.json` | 368,863 | `04eb00ed53fad1d1` | 2026-10-11T16:19:14 |
 | `answer-diagnosis-2026-10-11.json` | 128,747 | `b505af801090aada` | 2026-10-11T15:37:53 |
-| `answer-diagnosis-2026-10-11.md` | 24,195 | `330160b267b58f36` | — |
+| `answer-diagnosis-2026-10-11.md` | 24,154 | `d26bc08cd0a9e11d` | — |
 | `catalog-chinook-comments.json` | 26,319 | `96dfac9c931ce73e` | 2026-10-20T05:37:16 |
 | `catalog-chinook-plain-first.json` | 25,578 | `db35b969cda7c3ea` | 2026-10-20T05:38:01 |
 | `catalog-chinook-plain.json` | 25,686 | `adaff61f631dd26c` | 2026-10-20T05:42:10 |
@@ -26,9 +26,9 @@
 | `companyx-ask-host-gpu.json` | 28,174 | `fc6e69c1183594a5` | 2026-10-01T05:00:10 |
 | `companyx-ask.json` | 28,415 | `35ffb464897bf740` | 2026-10-01T17:25:47 |
 | `companyx-audit.json` | 80,374 | `7886754623b0598f` | 2026-10-01T17:18:46 |
-| `companyx-doctype-score-holdout3-off-rescored.json` | 78,176 | `291f41bf0c278e59` | 2026-10-11T16:19:08 |
-| `companyx-doctype-score-holdout4-off-rescored.json` | 68,647 | `0b7aee0a0836f2e0` | 2026-10-11T16:19:09 |
-| `companyx-doctype-score-sponsor30-off-rescored.json` | 35,567 | `587fc8aaad274381` | 2026-10-11T16:19:08 |
+| `companyx-doctype-score-holdout3-off-rescored.json` | 78,134 | `29f5bd843b3c5454` | 2026-10-11T16:19:08 |
+| `companyx-doctype-score-holdout4-off-rescored.json` | 68,605 | `738e0a0e926f42c0` | 2026-10-11T16:19:09 |
+| `companyx-doctype-score-sponsor30-off-rescored.json` | 35,525 | `230faed98bec61f3` | 2026-10-11T16:19:08 |
 | `companyx-holdout-route.json` | 12,996 | `af42f06c98cf6151` | 2026-10-01T17:08:44 |
 | `companyx-holdout2-route.json` | 13,496 | `56da66723060e44b` | 2026-10-01T17:09:19 |
 | `companyx-holdout3-route-sealed.json` | 25,801 | `983281d8daae9064` | 2026-09-30T08:11:14 |
@@ -40,6 +40,8 @@
 | `companyx-language-lock.json` | 973 | `98bfe23d21c9e06d` | 2026-08-19T12:10:13 |
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `db02b43d82dc25c7` | 2026-10-01T17:09:19 |
+| `companyx-route-boundary-after-installed-uses.json` | 50,232 | `2dcdbdbbdf661974` | 2026-11-01T15:04:48 |
+| `companyx-route-boundary-before-installed-uses.json` | 50,221 | `1f712709a6738118` | 2026-11-01T14:50:36 |
 | `companyx-route-boundary.json` | 50,244 | `e8af51147ca055c0` | 2026-09-30T08:18:40 |
 | `companyx-route.json` | 29,703 | `524998512fb424c3` | 2026-10-01T17:02:41 |
 | `companyx-scorecard-answerfix-gpu-base-holdout3.json` | 49,270 | `7757312a77029f79` | 2026-09-30T15:12:38 |
@@ -116,7 +118,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 3,973 | `6ed435549134af30` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 3,974 | `9921717b4c3af843` | 2026-09-30T00:00:00 |
 
 ## 재생성
 

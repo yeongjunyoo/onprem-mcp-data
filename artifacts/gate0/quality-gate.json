@@ -28,7 +28,7 @@
       {
         "id": "npm-test-report",
         "kind": "test-report",
-        "path": "/Users/cigro/projects/onprem-mcp-data/artifacts/gate0/npm-test-report.txt",
+        "path": "artifacts/gate0/npm-test-report.txt",
         "description": "npm test full output; 140/140 passed across router/curator/rrf/evalmatch/db/server/pipeline/llm"
       }
     ],
