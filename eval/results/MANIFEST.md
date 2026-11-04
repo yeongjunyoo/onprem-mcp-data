@@ -41,7 +41,7 @@
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `db02b43d82dc25c7` | 2026-10-01T17:09:19 |
 | `companyx-name-gate-probe.json` | 33,680 | `5b2a3c3f36002a48` | 2026-11-01T18:07:38 |
-| `companyx-question-gate.json` | 31,311 | `491146a2fc5fac48` | 2026-11-04T04:12:59 |
+| `companyx-question-gate.json` | 46,064 | `c65e74b2d6d5a785` | 2026-11-04T04:39:15 |
 | `companyx-route-boundary-after-installed-uses.json` | 50,232 | `2dcdbdbbdf661974` | 2026-11-01T15:04:48 |
 | `companyx-route-boundary-before-installed-uses.json` | 50,221 | `1f712709a6738118` | 2026-11-01T14:50:36 |
 | `companyx-route-boundary.json` | 50,244 | `e8af51147ca055c0` | 2026-09-30T08:18:40 |
