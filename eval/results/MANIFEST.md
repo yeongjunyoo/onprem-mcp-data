@@ -2,7 +2,7 @@
 
 문서가 인용하는 수치는 전부 이 디렉터리의 실행 결과에서 나온다.
 
-**92/105 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
+**93/106 개가 자기 생성 시각을 들고 있다.** 나머지는 파일 자체에 시각이 없어
 `git log` 로만 추적된다 — 옛 평가기가 그 필드를 안 쓰던 시절의 산출물이다.
 없는 시각을 지어내지 않고, 어느 것이 자기 시각을 갖고 어느 것이 안 갖는지 그대로 적는다.
 
@@ -41,6 +41,7 @@
 | `companyx-load.json` | 720 | `d77ab0d2521bde6a` | 2026-08-17T12:27:13 |
 | `companyx-multi-step.json` | 2,285 | `db02b43d82dc25c7` | 2026-10-01T17:09:19 |
 | `companyx-name-gate-probe.json` | 33,680 | `5b2a3c3f36002a48` | 2026-11-01T18:07:38 |
+| `companyx-question-gate.json` | 31,311 | `491146a2fc5fac48` | 2026-11-04T04:12:59 |
 | `companyx-route-boundary-after-installed-uses.json` | 50,232 | `2dcdbdbbdf661974` | 2026-11-01T15:04:48 |
 | `companyx-route-boundary-before-installed-uses.json` | 50,221 | `1f712709a6738118` | 2026-11-01T14:50:36 |
 | `companyx-route-boundary.json` | 50,244 | `e8af51147ca055c0` | 2026-09-30T08:18:40 |
@@ -120,7 +121,7 @@
 | `recall-compare.json` | 545 | `2b7b7e8f183203c2` | — |
 | `recall-hash.json` | 3,419 | `33f73840449ef4bc` | — |
 | `replica-spike.log` | 817 | `e0a2914cf9fb569f` | 2026-08-18T07:32:03 |
-| `test-counts.json` | 4,032 | `cac884ebd4ecbdf3` | 2026-09-30T00:00:00 |
+| `test-counts.json` | 4,032 | `f5d8a4b4ec186b41` | 2026-09-30T00:00:00 |
 
 ## 재생성
 
