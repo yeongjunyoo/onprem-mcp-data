@@ -237,6 +237,12 @@ export function splitAnswer(answer: string): { text: string; rows: RowTable | nu
   return { text: text || answer.trim(), rows: { count: Number(m[1]), columns, rows: rows.map((r) => columns.map((_, i) => r[i] ?? "")) } };
 }
 
+/** 감사 레코드의 레인 값을 화면 꼬리표 열쇠로. 여러 갈래는 감사 레코드에 `nl2sql+vector_search` 처럼 `+` 로 이어 적힌다(router.ts LANE_LABEL).
+ * 종전 화면은 그 값을 그대로 찍어 영어 꼬리표가 색 없이(흰 글씨, 연회색 바탕) 나왔다(랜덤 테스트 사전 점검 7차). 페이지 스크립트의 laneKey 와 같은 규칙이다. */
+export function laneKey(lane: string): string {
+  return lane === "hybrid" || lane.includes("+") ? "hybrid" : lane;
+}
+
 /** 라우팅 레인 이름을 화면 말로. */
 export function laneLabel(lane: string): string {
   return (
@@ -246,7 +252,7 @@ export function laneLabel(lane: string): string {
       knowledge_graph: "관계 그래프",
       hybrid: "여러 갈래",
     } as Record<string, string>
-  )[lane] ?? lane;
+  )[laneKey(lane)] ?? lane;
 }
 
 /** 감사 레코드의 rationale 한 줄을 「무엇이 정했나」로 줄인다. 원문은 화면에 그대로 함께 보인다. */
@@ -359,6 +365,7 @@ details pre{max-height:420px;overflow:auto;background:#f7f8fa;border:1px solid v
 const $=(s)=>document.querySelector(s);
 const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const LANE={nl2sql:"정형 데이터(SQL)",vector_search:"문서 검색",knowledge_graph:"관계 그래프",hybrid:"여러 갈래"};
+function laneKey(l){l=String(l||"");return l==="hybrid"||l.indexOf("+")>=0?"hybrid":l;}
 const REASON={not_in_database:"데이터베이스에 없음",similar_name_mismatch:"이름이 같은 개체는 없고 비슷한 이름만 있음",no_entity_term:"질문에서 개체 이름을 찾지 못함"};
 function nfText(nf){let s="찾지 못한 개체 「"+(nf.query_entity||"")+"」: "+(REASON[nf.reason]||nf.reason);if(nf.candidates&&nf.candidates.length)s+=". 후보 "+nf.candidates.map(c=>c.name+"("+Number(c.score).toFixed(3)+")").join(", ");return s;}
 function euText(eu){if(eu&&eu.kind==="relation")return "근거: 관계 "+(eu.relations||[]).join(", ")+", 시작 개체 "+(eu.seeds||[]).join(", ")+", 엣지 "+eu.edges+"개";if(eu&&eu.kind==="document")return "근거: 문서 「"+eu.title+"」의 절 "+eu.sections+"/"+eu.sections_total;return "근거 (융합 상위)";}
@@ -372,7 +379,7 @@ async function status(){
     else{st.className="";st.textContent="서버 기동 중";setTimeout(status,1500);}
   }catch(e){setTimeout(status,2000);}
 }
-const POLICY={"sql-read-only":"읽기 전용 SQL","sql-trust-gate":"생성 SQL 실행 전 검사","sql-repair":"SQL 자기 수정","graph-unresolved-gate":"미해소 개체 차단","context-budget":"컨텍스트 예산","branch-isolation":"갈래 격리"};
+const POLICY={"instruction-gate":"답 방식 지시 차단","data-scope-gate":"데이터 밖 질문","sql-read-only":"읽기 전용 SQL","sql-trust-gate":"생성 SQL 실행 전 검사","sql-repair":"SQL 자기 수정","graph-unresolved-gate":"미해소 개체 차단","context-budget":"컨텍스트 예산","branch-isolation":"갈래 격리"};
 const VERDICT={allow:"허용",deny:"거절",repair:"수정",degrade:"부분 응답"};
 // 답의 굵게(**)와 코드(역따옴표)만 그린다. 나머지는 글자 그대로 넣는다(textContent). 이 스크립트는 TS 템플릿 문자열 안이라 역슬래시와 역따옴표를 쓰지 않는다.
 var NL=String.fromCharCode(10),BT=String.fromCharCode(96);
@@ -389,7 +396,7 @@ function render(card,q,res){
   if(!res.ok){const n=el("div","notice bad",res.error||"실패");card.append(n);return;}
   const v=res.view;const a=v.audit||{};const ro=a.routing||{};
   const chips=el("div","chips");
-  chips.append(chip(LANE[ro.lane]||ro.lane||v.route,"lane lane-"+(ro.lane||"")));
+  const lk=laneKey(ro.lane);chips.append(chip(LANE[lk]||ro.lane||v.route,"lane lane-"+lk));
   (ro.tools||[]).forEach(t=>chips.append(chip("도구 "+t)));
   if(v.summary.by==="semantic")chips.append(chip("임베딩으로 결정: 가장 가까운 질문 유형 「"+v.summary.anchor+"」(격차 "+v.summary.margin+")"));
   else if(v.summary.by==="rule")chips.append(chip("규칙으로 결정"));

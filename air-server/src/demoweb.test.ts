@@ -18,7 +18,7 @@
 // 같은 기기의 Host 만 받는다, stdio 클라이언트가 가짜 MCP 서버와 주고받고 서버가 죽으면 사유를 돌려준다.
 import { readFileSync } from "node:fs";
 
-import { McpConnection, McpStdioClient, PRESETS, allowedHost, handshake, laneLabel, renderPage, routeSummary, splitAnswer, toolPayload } from "./demoweb.js";
+import { McpConnection, McpStdioClient, PRESETS, allowedHost, handshake, laneKey, laneLabel, renderPage, routeSummary, splitAnswer, toolPayload } from "./demoweb.js";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, msg: string) {
@@ -78,6 +78,8 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
   eq(routeSummary("only semantic signals; rule margin 1 < gate; llm sql.query not applied: table noun 직원 has no graph edge").by, "rule", "셋째 단계가 적용되지 않으면 규칙 결정");
   eq(routeSummary("").by, "other", "근거가 없으면 지어내지 않는다");
   eq([laneLabel("nl2sql"), laneLabel("vector_search"), laneLabel("knowledge_graph"), laneLabel("hybrid"), laneLabel("x")], ["정형 데이터(SQL)", "문서 검색", "관계 그래프", "여러 갈래", "x"], "레인 이름");
+  // 감사 레코드의 여러 갈래 값은 `+` 로 이어진 꼴이다(router.ts LANE_LABEL). 종전 화면은 그 영어를 색 없이 찍었다(랜덤 테스트 사전 점검 7차).
+  eq([laneLabel("nl2sql+vector_search"), laneKey("nl2sql+vector_search"), laneKey("hybrid"), laneKey("nl2sql")], ["여러 갈래", "hybrid", "hybrid", "nl2sql"], "여러 갈래 꼬리표");
 }
 
 // ── 페이지 ────────────────────────────────────────────────────────────
@@ -102,6 +104,17 @@ function eq<T>(a: T, b: T, msg: string) { ok(JSON.stringify(a) === JSON.stringif
     parses = false;
   }
   ok(parses, "페이지 스크립트가 문법 오류 없이 읽힌다");
+  // 페이지 스크립트의 꼬리표 열쇠와 정책 칩 이름. 스크립트에서 함수와 표를 꺼내 실제로 돌린다.
+  const fnAt = script.indexOf("function laneKey(");
+  const fnSrc = fnAt >= 0 ? script.slice(fnAt, script.indexOf("}", fnAt) + 1) : "";
+  const pageLaneKey = fnSrc ? (new Function(`${fnSrc}; return laneKey;`)() as (l: unknown) => string) : () => "";
+  eq(
+    ["nl2sql+vector_search", "hybrid", "nl2sql", "knowledge_graph", undefined].map((l) => pageLaneKey(l)),
+    ["hybrid", "hybrid", "nl2sql", "knowledge_graph", ""],
+    "화면의 꼬리표 열쇠: + 로 이어진 레인은 여러 갈래",
+  );
+  ok(page.includes('chip(LANE[lk]||ro.lane||v.route,"lane lane-"+lk)') && page.includes(".lane-hybrid{background:var(--multi)}"), "여러 갈래 꼬리표는 lane-hybrid 색");
+  ok(page.includes('"instruction-gate":"답 방식 지시 차단"') && page.includes('"data-scope-gate":"데이터 밖 질문"'), "새 정책 판정의 우리말 칩 이름");
   // 벗겨진 뒤에는 역슬래시가 남지 않으므로 출력이 아니라 원문을 본다(/\s+/ 는 출력에서 /s+/ 라 읽히기는 한다).
   const src = readFileSync(new URL("../src/demoweb.ts", import.meta.url), "utf8");
   const body = src.slice(src.indexOf("<script>"), src.indexOf("</script>"));
