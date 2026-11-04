@@ -36,7 +36,15 @@ import { NO_TABLE, UNRESOLVED_NAME } from "./nl2sql.js";
 
 export interface PolicyVerdict {
   /** 정책 이름. 코드에서 실제로 강제하는 것과 1:1 대응한다. */
-  policy: "sql-read-only" | "sql-repair" | "sql-trust-gate" | "graph-unresolved-gate" | "context-budget" | "branch-isolation";
+  policy:
+    | "instruction-gate"
+    | "data-scope-gate"
+    | "sql-read-only"
+    | "sql-repair"
+    | "sql-trust-gate"
+    | "graph-unresolved-gate"
+    | "context-budget"
+    | "branch-isolation";
   /** allow = 통과, deny = 차단, repair = 고쳐서 통과, degrade = 일부만 살림 */
   verdict: "allow" | "deny" | "repair" | "degrade";
   detail: string;
@@ -171,6 +179,28 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
 
   const policies: PolicyVerdict[] = [];
 
+  // 0) 데이터 질문이 아니라고 라우팅 전에 가른 입력(askgate.ts). 조회도 생성도 하지 않았다.
+  const qg = r.question_gate;
+  if (qg?.kind === "instruction") {
+    policies.push({
+      policy: "instruction-gate",
+      verdict: "deny",
+      detail: `질문 안에 답하는 방식을 바꾸라는 지시(「${qg.mark}」)가 있어 조회하지 않고 답하지 않았다(지시를 따르지 않음)`,
+    });
+  } else if (qg?.kind === "self_reference") {
+    policies.push({
+      policy: "data-scope-gate",
+      verdict: "deny",
+      detail: `질문이 데이터가 아니라 이 서버 자체를 가리켜(「${qg.mark}」) 조회하지 않고 정해진 문장으로 답했다`,
+    });
+  } else if (qg?.kind === "greeting") {
+    policies.push({
+      policy: "data-scope-gate",
+      verdict: "deny",
+      detail: `인사와 도움 요청만 있는 입력이라(「${qg.mark}」) 조회하지 않고 안내 문장으로 답했다`,
+    });
+  }
+
   // 1) 읽기 전용 SQL 가드
   if (r.sql.text) {
     if (r.sql.result?.ok) {
@@ -201,6 +231,15 @@ export function buildAuditRecord(r: RetrieveResult | AskResult): AuditRecord {
       policy: "sql-read-only",
       verdict: "deny",
       detail: `질문의 항목(${r.sql.absent})이 데이터 스키마에 없어 SQL 을 만들지 않았다(없는 열을 다른 열로 바꿔 답하지 않음)`,
+    });
+  }
+  // 1-0) 데이터를 바꾸라는 명령이 SQL 갈래가 아닌 곳으로 갔다(pipeline.ts retrieve). 생성 쓰기 문장을 거절한 판정이 위에 있으면 그것으로 갈음한다.
+  const writeRefused = Boolean(r.sql.refused && r.sql.refused.kind !== NO_TABLE && r.sql.refused.kind !== UNRESOLVED_NAME);
+  if (qg?.kind === "write_request" && !writeRefused) {
+    policies.push({
+      policy: "sql-read-only",
+      verdict: "deny",
+      detail: `질문이 데이터를 바꾸라는 명령이라(「${qg.mark}」) 처리하지 않고 읽기 전용이라고 답했다`,
     });
   }
 

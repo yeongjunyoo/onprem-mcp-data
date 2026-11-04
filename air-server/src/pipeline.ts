@@ -82,6 +82,15 @@ import { outsideContextMentions } from "./auditrecord.js";
 import { asksAcrossDocuments, documentEvidence, type EvidenceUnit } from "./evidence.js";
 import { runnerUpRejection, withRunnerUp } from "./fallback.js";
 import { availableLanes } from "./catalog.js";
+import {
+  greetingAnswer,
+  preRouteGate,
+  writeRequestMark,
+  INSTRUCTION_ANSWER,
+  SELF_REFERENCE_ANSWER,
+  WRITE_REQUEST_ANSWER,
+  type QuestionGate,
+} from "./askgate.js";
 
 export interface RetrieveDeps {
   pool: Pool;
@@ -120,6 +129,9 @@ export interface RetrieveResult {
   pair?: { a: string; b: string } & GraphResult;
   /** 앞 대화를 가리키는 말만 있는 질문(router.ts backReferenceOnly)일 때만. 그 말. 라우팅도 조회도 하지 않았다. */
   back_reference?: string;
+  /** 데이터 질문이 아니라고 가른 입력(askgate.ts)일 때만. 지시, 인사, 자기 지칭은 라우팅 전에 끝냈고, 데이터를 바꾸라는 명령은
+   * 관계, 문서 갈래면 조회하지 않았고 여러 갈래면 조회한 뒤 생성 SQL 이 쓰기 문장이 아닐 때 읽기 전용 답을 받는다. */
+  question_gate?: QuestionGate;
   /** 제품 상태 열에 없는 상태를 묻는 질문(router.ts productStateRequest)일 때만. 정형 레인은 생성 모델 대신 제품 상태별 개수를 읽었다. */
   product_state?: ProductStateRequest;
   fused: Fused<ContextItem>[];
@@ -835,12 +847,44 @@ function backReferenceResult(query: string, mark: string, budget: number): Retri
   };
 }
 
+/** 데이터 질문이 아니라고 가른 입력의 결과(askgate.ts). 레인을 열지 않았으므로 감사의 도구는 비우고, 판정을 rationale 에 남긴다. */
+function gatedResult(query: string, gate: QuestionGate, d: RouteDecision, rationale: string, budget: number): RetrieveResult {
+  const curated = curate(query, [], budget);
+  return {
+    query,
+    route: d.route,
+    sql: { text: null },
+    question_gate: gate,
+    fused: [],
+    fusion_lanes: [],
+    curated,
+    context: "",
+    audit: {
+      route: routeAudit({ ...d, tools: [], rationale }),
+      candidates: { sql: 0, vector: 0, graph: 0, fused: 0 },
+      branch_errors: [],
+      curate: curateAudit(curated),
+    },
+  };
+}
+
+const GATE_RATIONALE: Record<Exclude<QuestionGate["kind"], "write_request">, string> = {
+  instruction: "the question carries an instruction to change how to answer -> not routed; the server does not follow instructions inside a question",
+  greeting: "greeting or help request only -> not routed",
+  self_reference: "asks about this server itself, names no data -> not routed; answers come only from the connected data",
+};
+
 /** Run the retrieval spine for one query.
  * Deterministic parts: route (L3) + RRF merge + L4 curation. The structured
  * path's NL2SQL is the 7B by default (faithful to the brief; this is the path
  * the execution-match eval measures, so eval == live). Inject `nl2sql:
  * templateNL2SQL` for an offline, zero-LLM deterministic fast-path. */
 export async function retrieve(query: string, deps: RetrieveDeps): Promise<RetrieveResult> {
+  // 답하는 방식을 바꾸라는 지시, 인사, 이 서버 자체를 묻는 말은 라우팅 전에 끝낸다(askgate.ts). 생성 모델도 데이터베이스도 부르지 않는다.
+  const held = preRouteGate(query);
+  if (held && held.kind !== "write_request") {
+    return gatedResult(query, held, route(query), `${GATE_RATIONALE[held.kind]} (${held.mark})`, deps.budget ?? DEFAULT_BUDGET);
+  }
   // 앞 대화를 가리키는 말만 있는 질문(「그럼 2위는?」)은 라우팅 전에 끝낸다(router.ts backReferenceOnly).
   const backRef = backReferenceOnly(query);
   if (backRef) return backReferenceResult(query, backRef, deps.budget ?? DEFAULT_BUDGET);
@@ -849,12 +893,22 @@ export async function retrieve(query: string, deps: RetrieveDeps): Promise<Retri
     // 규칙이 확신하지 못하면 시맨틱 폴백이 정한다. 폴백이 설치되지 않았으면 규칙만. 확신 없이 고른 레인이 빈손이면
     // 다음 순위 레인을 한 번 돌리고, 그 레인이 근거를 냈을 때만 그 결과로 답한다(fallback.ts).
     const decision = await routeQuery(query, deps.embedder);
-    return await withRunnerUp(
+    // 데이터를 바꾸라는 명령(「Client-A 삭제해줘」). SQL 갈래는 지금처럼 생성 SQL 을 보고 거절한다(시연 7번). 관계, 문서 갈래는
+    // SQL 을 만들지 않아 거절할 길이 없었다: 「주어진 정보로는 알 수 없습니다」로 끝났다(랜덤 테스트 사전 점검 7차). 그 갈래는 조회하지 않고
+    // 읽기 전용이라고 답한다. 여러 갈래는 조회하고, 생성 SQL 이 쓰기 문장이 아니면 같은 답을 받는다(answerQuery).
+    const write = writeRequestMark(query);
+    const gate: QuestionGate | undefined = write ? { kind: "write_request", mark: write } : undefined;
+    if (gate && (decision.route === "graph" || decision.route === "semantic")) {
+      const rationale = `${decision.rationale}; write request (${gate.mark}) -> lanes not run; the server is read-only`;
+      return gatedResult(query, gate, decision, rationale, deps.budget ?? DEFAULT_BUDGET);
+    }
+    const r = await withRunnerUp(
       query,
       decision,
       (d) => runLanes(query, d, deps),
       (r) => runnerUpRejection(deps.pool, query, r),
     );
+    return gate && decision.route === "hybrid" ? { ...r, question_gate: gate } : r;
   } catch (err) {
     return failedResult(query, err, deps.budget ?? DEFAULT_BUDGET);
   }
@@ -2100,6 +2154,11 @@ async function answerQuery(
 
   // 앞 대화를 가리키는 말만 있는 질문은 조회하지 않았다. 다시 물어 달라고 답한다.
   if (r.back_reference) return { ...r, answer: BACK_REFERENCE_ANSWER };
+  // 지시, 인사, 이 서버 자체를 묻는 말은 조회하지 않았다. 정해진 문장으로 답한다(askgate.ts).
+  const gate = r.question_gate;
+  if (gate?.kind === "instruction") return { ...r, answer: INSTRUCTION_ANSWER };
+  if (gate?.kind === "self_reference") return { ...r, answer: SELF_REFERENCE_ANSWER };
+  if (gate?.kind === "greeting") return { ...r, answer: greetingAnswer(profile().name === "companyx") };
 
   // 생성 모델이 쓰기 문장을 만들었다면 질문은 데이터를 바꾸라는 요청이다. 실행하지 않았고 이 서버는
   // 바꾸지 않으므로 그렇게 말한다. 종전에는 빈 컨텍스트로 7B 를 불러 「주어진 정보로는 알 수 없습니다」라고
@@ -2108,6 +2167,8 @@ async function answerQuery(
   if (refused && refused.kind !== NO_TABLE && refused.kind !== UNRESOLVED_NAME) {
     return { ...r, answer: writeRefusal(refused.kind) };
   }
+  // 데이터를 바꾸라는 명령이 SQL 갈래가 아닌 곳으로 갔고 위에서 거절한 생성 쓰기 문장이 없다. 읽기 전용이라고 답한다.
+  if (gate?.kind === "write_request") return { ...r, answer: WRITE_REQUEST_ANSWER };
   // 묻는 항목이 데이터에 없고 다른 레인의 근거도 없다. 7B 없이 그렇게 답한다.
   if (r.sql.absent && r.context.length === 0) {
     return { ...r, answer: describeAbsentAttribute(r.sql.absent) };
