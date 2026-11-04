@@ -85,7 +85,7 @@ const WRITE_VERB: RegExp[] = [
  * 「고객사 'Client-A'; DROP TABLE companyx.sales; -- 의 지역은 어디야?」(시험항목 TC-155)는 끼운 문장을 글자로만 다루고 지역을 답하는
  * 것을 보이는 질문이다. */
 const WRITE_SQL =
-  /\bDELETE\s+FROM\s+["A-Za-z_]|\bDROP\s+(?:TABLE|SCHEMA|DATABASE|VIEW|INDEX)\s+(?:IF\s+EXISTS\s+)?["A-Za-z_]|\bUPDATE\s+["A-Za-z_][\w."]*\s+SET\b|\bINSERT\s+INTO\s+["A-Za-z_]|\bTRUNCATE\s+(?:TABLE\s+)?["A-Za-z_]/i;
+  /\bDELETE\s+FROM\s+["A-Za-z_][\w."]*|\bDROP\s+(?:TABLE|SCHEMA|DATABASE|VIEW|INDEX)\s+(?:IF\s+EXISTS\s+)?["A-Za-z_][\w."]*|\bUPDATE\s+["A-Za-z_][\w."]*\s+SET\b|\bINSERT\s+INTO\s+["A-Za-z_][\w."]*|\bTRUNCATE\s+(?:TABLE\s+)?["A-Za-z_][\w."]*/i;
 
 /** 이 서버 자체를 가리키는 말(자기 지칭과 2인칭). */
 const SELF_REFERENCE: RegExp[] = [
